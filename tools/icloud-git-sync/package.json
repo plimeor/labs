@@ -1,0 +1,21 @@
+{
+  "name": "icloud-git-sync",
+  "version": "1.0.0",
+  "description": "Sync iCloud with Git using worktree isolation (PM2 managed)",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "bun src/cli.ts start",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "chokidar": "^5.0.0",
+    "dotenv": "^17.2.3"
+  }
+}

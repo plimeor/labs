@@ -10,10 +10,9 @@ dist
 coverage
 *.lcov
 
-# logs
-logs
-_.log
-report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
+# logs (keep directory, ignore contents)
+logs/*
+!logs/.gitkeep
 
 # dotenv environment variable files
 .env
