@@ -1,0 +1,36 @@
+# Gitleaks configuration
+# https://github.com/gitleaks/gitleaks
+
+title = "Gitleaks Configuration"
+
+[extend]
+# Use gitleaks default rules (150+ rules for AWS, GitHub, JWT, etc.)
+useDefault = true
+
+# Custom rules
+[[rules]]
+id = "local-file-path"
+description = "Local file system path exposure"
+regex = '''(/Users/|/home/|C:\\Users\\)[a-zA-Z0-9_\-]+'''
+keywords = ["/Users/", "/home/", "C:\\Users\\"]
+
+# Allowlist for false positives
+[allowlist]
+description = "Global allowlist"
+
+# Ignore lock files (contain hashes, not secrets)
+paths = [
+    '''package-lock\.json$''',
+    '''bun\.lockb$''',
+    '''yarn\.lock$''',
+    '''pnpm-lock\.yaml$''',
+]
+
+# Add specific false positives here as needed:
+# [[allowlist.commits]]
+# description = "Ignore specific commit"
+# hash = "abc123..."
+
+# [[allowlist.paths]]
+# description = "Ignore specific file"
+# path = "path/to/file"
