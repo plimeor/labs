@@ -24,7 +24,9 @@ jobs:
       - run: bun install
 
       - name: Generate changelog
-        run: bun run changelog
+        run: |
+          rm -f CHANGELOG.md
+          bun run changelog
 
       - name: Check for changes
         id: check_changes
