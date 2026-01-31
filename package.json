@@ -1,10 +1,16 @@
 {
   "name": "labs",
   "private": true,
-  "workspaces": ["packages/*"],
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
+    "prepare": "husky",
     "dev": "bun run --filter '*' dev",
     "build": "bun run --filter '*' build",
     "test": "bun run --filter '*' test"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7"
   }
 }

@@ -1,0 +1,15 @@
+# Gitleaks secret detection
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks protect --staged --config .gitleaks.toml --verbose
+  if [ $? -ne 0 ]; then
+    echo ""
+    echo "========================================"
+    echo "  SECRET DETECTED - COMMIT BLOCKED"
+    echo "========================================"
+    echo ""
+    echo "Remove sensitive information and try again."
+    exit 1
+  fi
+else
+  echo "Warning: gitleaks not installed. Skipping secret detection."
+fi
