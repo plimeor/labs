@@ -21,8 +21,8 @@ const REPO_PATH = expandHome(process.env.REPO_PATH);
 module.exports = {
   apps: [{
     name: 'atlas-icloud-sync',
-    script: 'src/cli.ts',
-    args: `start --icloud "${ICLOUD_PATH}" --repo "${REPO_PATH}"`,
-    interpreter: 'bun',
+    script: '/opt/homebrew/bin/bun',
+    args: ['run', 'src/cli.ts', 'start', '--icloud', ICLOUD_PATH, '--repo', REPO_PATH],
+    cwd: __dirname,
   }]
 };
