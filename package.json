@@ -1,8 +1,11 @@
 {
   "name": "labs",
+  "type": "module",
   "private": true,
   "workspaces": [
-    "packages/*"
+    "apps/*",
+    "packages/*",
+    "tools/*"
   ],
   "scripts": {
     "prepare": "husky",
@@ -12,7 +15,9 @@
     "changelog": "conventional-changelog -p conventionalcommits -i CHANGELOG.md -s"
   },
   "devDependencies": {
+    "@types/bun": "latest",
     "conventional-changelog-cli": "^5.0.0",
-    "husky": "^9.1.7"
+    "husky": "^9.1.7",
+    "typescript": "^5"
   }
 }
