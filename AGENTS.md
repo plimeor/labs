@@ -83,7 +83,30 @@ chore(deps): upgrade typescript to v5.3
 
 ## Pull Request Requirements
 
-1. **Title**: Use conventional commit format
+### PR Title Naming Convention
+
+PR titles **must** follow [Conventional Commits](https://www.conventionalcommits.org/) format:
+
+```
+<type>(<scope>): <description>
+```
+
+- **type**: Use the same types as commit messages (feat, fix, docs, etc.)
+- **scope**: Optional, indicates the affected module or package
+- **description**: Brief summary in imperative mood, lowercase, no period
+
+**Examples:**
+
+```
+feat(auth): add OAuth2 login support
+fix(api): handle null response from external service
+docs: update installation instructions
+refactor(ui): simplify form validation logic
+```
+
+### Checklist
+
+1. **Title**: Must follow conventional commit format (see above)
 2. **Description**: Explain what and why (not how)
 3. **Tests**: Include tests for new functionality
 4. **Security**: Ensure no secrets are included
