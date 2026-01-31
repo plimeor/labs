@@ -1,8 +1,11 @@
 {
   "name": "labs",
+  "type": "module",
   "private": true,
   "workspaces": [
-    "packages/*"
+    "apps/*",
+    "packages/*",
+    "tools/*"
   ],
   "scripts": {
     "prepare": "husky",
@@ -11,6 +14,8 @@
     "test": "bun run --filter '*' test"
   },
   "devDependencies": {
-    "husky": "^9.1.7"
+    "@types/bun": "latest",
+    "husky": "^9.1.7",
+    "typescript": "^5"
   }
 }
