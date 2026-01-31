@@ -14,7 +14,9 @@ export interface StartOptions {
 
 function expandPath(p: string): string {
   if (p.startsWith("~")) {
-    return resolve(process.env.HOME!, p.slice(1));
+    const home = process.env.HOME!;
+    const remainder = p.slice(1).replace(/^\/+/, '');
+    return resolve(home, remainder);
   }
   return resolve(p);
 }
@@ -46,9 +48,16 @@ export async function start(options: StartOptions) {
 
   // Debounce: only execute once within 15 seconds for multiple triggers
   let syncTimeout: NodeJS.Timeout | null = null;
+  let inFlightSync = false;
+  let pendingSync = false;
   const DEBOUNCE_MS = 15000;
 
   const scheduleSync = (source: string) => {
+    if (inFlightSync) {
+      pendingSync = true;
+      log(name, `Sync in progress, marking as pending (source: ${source})`);
+      return;
+    }
     if (syncTimeout) {
       log(name, `Sync already scheduled, skipping (source: ${source})`);
       return;
@@ -56,7 +65,16 @@ export async function start(options: StartOptions) {
     log(name, `Scheduling sync in 15s (source: ${source})...`);
     syncTimeout = setTimeout(async () => {
       syncTimeout = null;
-      await runSync(name, config);
+      inFlightSync = true;
+      try {
+        await runSync(name, config);
+      } finally {
+        inFlightSync = false;
+        if (pendingSync) {
+          pendingSync = false;
+          scheduleSync('pending');
+        }
+      }
     }, DEBOUNCE_MS);
   };
 
@@ -66,11 +84,14 @@ export async function start(options: StartOptions) {
     scheduleSync('poll');
   }, POLL_INTERVAL_MS);
 
+  // Declare watcher before cleanup
+  let watcher: any = null;
+
   // Graceful shutdown
   const cleanup = () => {
     if (syncTimeout) clearTimeout(syncTimeout);
     clearInterval(pollInterval);
-    watcher.close();
+    watcher?.close();
     process.exit(0);
   };
   process.on("SIGTERM", cleanup);
@@ -81,7 +102,7 @@ export async function start(options: StartOptions) {
   log(name, `Watching: ${icloudPath}`);
   log(name, `Polling interval: 2 minutes (backup)`);
 
-  const watcher = watch(icloudPath, {
+  watcher = watch(icloudPath, {
     // Use polling mode, more reliable for iCloud Drive
     usePolling: true,
     // Polling interval: 60 seconds
@@ -106,19 +127,19 @@ export async function start(options: StartOptions) {
   });
 
   watcher
-    .on('add', (path) => {
+    .on('add', (path: string) => {
       log(name, `File added: ${path}`);
       scheduleSync('chokidar:add');
     })
-    .on('change', (path) => {
+    .on('change', (path: string) => {
       log(name, `File changed: ${path}`);
       scheduleSync('chokidar:change');
     })
-    .on('unlink', (path) => {
+    .on('unlink', (path: string) => {
       log(name, `File removed: ${path}`);
       scheduleSync('chokidar:unlink');
     })
-    .on('error', (error) => {
+    .on('error', (error: Error) => {
       log(name, `Watcher error: ${error.message}`);
     })
     .on('ready', () => {

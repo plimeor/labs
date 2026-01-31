@@ -23,10 +23,10 @@ Example:
 
 Process Management:
   Use PM2 to manage the process:
-    pm2 start ecosystem.config.js
-    pm2 stop icloud-git-sync-atlas
-    pm2 logs icloud-git-sync-atlas
-    pm2 restart icloud-git-sync-atlas
+    pm2 start ecosystem.config.cjs
+    pm2 stop atlas-icloud-sync
+    pm2 logs atlas-icloud-sync
+    pm2 restart atlas-icloud-sync
 `;
 
 async function main() {
@@ -45,6 +45,13 @@ async function main() {
   }
 
   const commandArgs = args.slice(1);
+
+  // Check for help flag in start command
+  if (commandArgs.includes("-h") || commandArgs.includes("--help")) {
+    console.log(HELP);
+    process.exit(0);
+  }
+
   const { values } = parseArgs({
     args: commandArgs,
     options: {

@@ -5,13 +5,14 @@ import { $ } from "bun";
 import { join } from "path";
 import { randomUUID } from "crypto";
 import { existsSync, readFileSync, writeFileSync } from "fs";
+import { homedir } from "os";
 
 export interface SyncConfig {
   icloudPath: string;
   repoPath: string;
 }
 
-const WORKTREE_BASE = join(process.env.HOME!, ".cache/icloud-git-sync");
+const WORKTREE_BASE = join(process.env.HOME ?? homedir(), ".cache/icloud-git-sync");
 const STATE_FILE_NAME = ".last_sync_commit";
 
 /**

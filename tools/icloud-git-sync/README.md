@@ -23,7 +23,7 @@ This tool (managed by PM2) monitors your iCloud directory and handles the heavy 
 All sync operations occur in a temporary Git worktree (`~/.cache/icloud-git-sync`). Your main working directory remains completely untouched and unlocked.
 
 ### 2. State-Aware Synchronization
-The tool tracks a `last_sync_commit` within your iCloud folder and acts based on three primary scenarios:
+The tool tracks a `.last_sync_commit` hidden file within your iCloud folder and acts based on three primary scenarios:
 
 - **Scenario A: No iCloud Changes**: If the physical iCloud content matches the last sync base, the tool simply ensures the latest Git `main` branch (which might contain new desktop edits) is mirrored back to iCloud. This ensures deletions made on desktop are propagated to mobile.
 - **Scenario B: Simple iCloud Push**: If only iCloud has changed (Git repo is at the same base), it commits the iCloud changes and pushes directly to `main`.
@@ -45,9 +45,10 @@ The tool shares a unified ignore list between the file watcher and the sync engi
 
 Monitor the sync process via PM2:
 ```bash
-pm2 status                  # Check health
-pm2 logs atlas-icloud-sync  # View real-time logs
+pm2 start ecosystem.config.cjs  # Start the sync daemon
+pm2 status                       # Check health
+pm2 logs atlas-icloud-sync       # View real-time logs
 ```
 
 ---
-*Part of the labs monorepo*
+Part of the labs monorepo.

@@ -41,6 +41,9 @@ beforeAll(async () => {
   await $`git add -A`.cwd(MOCK_REPO).quiet();
   await $`git commit -m "Initial commit"`.cwd(MOCK_REPO).quiet();
 
+  // Rename branch to main
+  await $`git branch -M main`.cwd(MOCK_REPO).quiet();
+
   // Add remote and push
   await $`git remote add origin ${MOCK_REMOTE}`.cwd(MOCK_REPO).quiet();
   await $`git push -u origin main`.cwd(MOCK_REPO).quiet();

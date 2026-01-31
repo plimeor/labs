@@ -8,7 +8,9 @@ if (!process.env.ICLOUD_PATH || !process.env.REPO_PATH) {
 // Expand ~ in path
 function expandHome(path) {
   if (path.startsWith('~')) {
-    return process.env.HOME + path.slice(1);
+    const os = require('os');
+    const home = process.env.HOME || os.homedir();
+    return home + path.slice(1);
   }
   return path;
 }
