@@ -1,0 +1,13 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "types": ["bun"],
+    "paths": {
+      "@orbit/shared": ["../shared/src/index.ts"],
+      "@orbit/shared/*": ["../shared/src/*"]
+    }
+  },
+  "include": ["src/**/*", "drizzle/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

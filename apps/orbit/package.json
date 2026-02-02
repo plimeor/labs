@@ -3,11 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "workspaces": [
-    "web",
-    "server",
-    "shared"
-  ],
   "scripts": {
     "dev": "bun run --filter '*' dev",
     "dev:web": "bun run --filter @orbit/web dev",
