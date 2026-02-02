@@ -1,0 +1,42 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "perf": "warn"
+  },
+  "rules": {
+    // General
+    "no-console": "off",
+
+    // TypeScript
+    "@typescript-eslint/no-floating-promises": "error",
+
+    // Import
+    "import/no-cycle": "error",
+    "import/no-duplicates": "warn",
+    "import/no-named-as-default": "error",
+    "import/no-self-import": "error",
+    "import/no-unassigned-import": [
+      "error",
+      {
+        "allow": ["*.css", "*.less", "*.scss", "*.styl"]
+      }
+    ],
+
+    // Jest
+    "jest/no-export": "error",
+
+    // Promise
+    "no-promise-executor-return": "error",
+    "promise/no-multiple-resolved": "warn",
+
+    // React
+    "react/jsx-no-duplicate-props": "error",
+    "react/no-danger": "warn",
+    "react/no-unknown-property": "error",
+
+    // Unicorn
+    "unicorn/no-useless-fallback-in-spread": "warn"
+  }
+}
