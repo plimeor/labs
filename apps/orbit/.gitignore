@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+bun.lock
+
+# Build outputs
+dist/
+build/
+.vite/
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+data/*.db
+
+# Logs
+logs/
+*.log
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# PM2
+.pm2/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
