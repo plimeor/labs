@@ -1,0 +1,30 @@
+{
+  // Formatting settings
+  "editor.defaultFormatter": "oxc.oxc-vscode",
+  "editor.formatOnSave": true,
+  "editor.formatOnPaste": false,
+
+  // Language-specific settings (fallback if oxc extension not installed)
+  "[javascript]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+
+  // Disable other formatters to avoid conflicts
+  "prettier.enable": false,
+  "eslint.format.enable": false
+}
