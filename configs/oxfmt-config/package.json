@@ -1,0 +1,23 @@
+{
+  "name": "@plimeor-labs/oxfmt-config",
+  "version": "0.1.0",
+  "description": "Shared oxfmt configuration",
+  "license": "MIT",
+  "files": [
+    "*.json",
+    "scripts/"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./oxfmtrc.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "postinstall": "node ./scripts/postinstall.js"
+  },
+  "peerDependencies": {
+    "oxfmt": ">=0.15.0"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@plimeor-labs/tsconfig",
+  "version": "0.1.0",
+  "description": "Shared TypeScript configuration presets",
+  "license": "MIT",
+  "files": [
+    "*.json"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./base.json",
+    "./client": "./client.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
