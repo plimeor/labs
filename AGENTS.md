@@ -42,6 +42,7 @@ This is a Bun monorepo workspace. Packages are located in the `packages/` direct
 ### Pre-commit Checks
 
 This repository uses gitleaks for secret detection:
+
 - Local: pre-commit hook scans staged files
 - CI: GitHub Actions scans all PRs
 
@@ -117,9 +118,11 @@ bun install
 ### Pre-commit Hook
 
 The pre-commit hook runs:
+
 - **gitleaks** - Secret detection (requires `brew install gitleaks`)
 
 To skip hooks temporarily (not recommended):
+
 ```bash
 git commit --no-verify
 ```

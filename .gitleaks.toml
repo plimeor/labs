@@ -19,12 +19,7 @@ keywords = ["/Users/", "/home/", "C:\\Users\\"]
 description = "Global allowlist"
 
 # Ignore lock files (contain hashes, not secrets)
-paths = [
-    '''package-lock\.json$''',
-    '''bun\.lockb$''',
-    '''yarn\.lock$''',
-    '''pnpm-lock\.yaml$''',
-]
+paths = ['''package-lock\.json$''', '''bun\.lockb$''', '''yarn\.lock$''', '''pnpm-lock\.yaml$''']
 
 # Add specific false positives here as needed:
 # [[allowlist.commits]]
