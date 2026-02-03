@@ -1,2 +1,1 @@
-// Chat module - to be implemented
-export {};
+export { chatController, agentsController } from './chat.controller'
