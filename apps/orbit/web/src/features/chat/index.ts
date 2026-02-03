@@ -1,2 +1,3 @@
-// Chat feature - to be implemented
-export {};
+export * from './components'
+export * from './hooks/useChat'
+export * from './api/chat.api'
