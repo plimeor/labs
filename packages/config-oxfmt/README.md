@@ -24,14 +24,41 @@ bun add -D @plimeor-labs/oxfmt-config
 
 ## Usage
 
-The configuration is automatically set up via a postinstall script that copies `.oxfmtrc.json` to your project root.
+### Automatic Setup (Recommended)
 
-Alternatively, create an `.oxfmtrc.json` file manually:
+The configuration is automatically set up via a postinstall script that copies `.oxfmtrc.json` to your project root when you install the package.
+
+### Manual Setup
+
+Since oxfmt [does not currently support `extends`](https://github.com/oxc-project/oxc/issues/16394), you need to copy the configuration manually or use the postinstall script.
+
+**Option 1: Copy the configuration file**
+
+```bash
+cp node_modules/@plimeor-labs/oxfmt-config/oxfmtrc.json .oxfmtrc.json
+```
+
+**Option 2: Create `.oxfmtrc.json` with the same settings**
 
 ```json
 {
   "$schema": "https://raw.githubusercontent.com/oxc-project/oxc/main/npm/oxfmt/configuration_schema.json",
-  "extends": "@plimeor-labs/oxfmt-config"
+  "arrowParens": "avoid",
+  "experimentalSortImports": {
+    "internalPattern": ["~/", "@/", "@repo/"],
+    "groups": [
+      ["builtin"],
+      ["external"],
+      ["internal"],
+      ["parent", "sibling", "index"],
+      ["subpath"],
+      ["side-effect-style"],
+      ["unknown"]
+    ]
+  },
+  "embeddedLanguageFormatting": "auto",
+  "semi": false,
+  "singleQuote": true
 }
 ```
 
