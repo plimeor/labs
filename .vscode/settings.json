@@ -1,4 +1,13 @@
 {
+  "files.exclude": {
+    "**/.git": true,
+    "**/.svn": true,
+    "**/.hg": true,
+    "**/.DS_Store": true,
+    "**/Thumbs.db": true,
+    "**/packages/config-*/node_modules": true,
+    "**/packages/tool-*/node_modules": true
+  },
   // Formatting settings
   "editor.defaultFormatter": "oxc.oxc-vscode",
   "editor.formatOnSave": true,
@@ -22,9 +31,5 @@
   },
   "[jsonc]": {
     "editor.defaultFormatter": "oxc.oxc-vscode"
-  },
-
-  // Disable other formatters to avoid conflicts
-  "prettier.enable": false,
-  "eslint.format.enable": false
+  }
 }
