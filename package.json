@@ -3,9 +3,7 @@
   "private": true,
   "workspaces": [
     "apps/*",
-    "configs/*",
-    "packages/*",
-    "tools/*"
+    "packages/*"
   ],
   "type": "module",
   "scripts": {
