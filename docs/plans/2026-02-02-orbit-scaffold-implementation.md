@@ -1,36 +1,38 @@
-# Orbit 项目骨架搭建实施计划
+# Orbit Project Scaffold Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** 搭建 Orbit 项目的完整目录结构和基础配置，包括前端、后端和共享代码包。
+**Goal:** Build the complete directory structure and basic configuration for the Orbit project, including frontend, backend, and shared code packages.
 
-**Architecture:** Orbit 是一个自包含的 monorepo，使用 Bun workspaces 管理三个子包（web/server/shared）。前端使用 React + Vite 8，后端使用 Elysia + Bun，数据库使用 SQLite + Drizzle ORM。
+**Architecture:** Orbit is a self-contained monorepo using Bun workspaces to manage three sub-packages (web/server/shared). The frontend uses React + Vite 8, the backend uses Elysia + Bun, and the database uses SQLite + Drizzle ORM.
 
 **Tech Stack:**
+
 - Frontend: React 18, Vite 8, Tailwind CSS 4, tailwind-variants, react-router, lucide-react
 - Backend: Elysia, Bun, TypeBox, Drizzle ORM, SQLite, PM2
 - Shared: TypeScript, TypeBox
 
 ---
 
-## Task 1: 创建 Orbit 根目录和基础配置
+## Task 1: Create Orbit Root Directory and Basic Configuration
 
 **Files:**
+
 - Create: `apps/orbit/package.json`
 - Create: `apps/orbit/tsconfig.json`
 - Create: `apps/orbit/.gitignore`
 - Create: `apps/orbit/.env.example`
 - Create: `apps/orbit/README.md`
 
-**Step 1: 创建 orbit 根目录**
+**Step 1: Create orbit root directory**
 
 ```bash
 mkdir -p apps/orbit
 ```
 
-**Step 2: 创建 workspace root package.json**
+**Step 2: Create workspace root package.json**
 
-在 `apps/orbit/package.json` 写入:
+Write to `apps/orbit/package.json`:
 
 ```json
 {
@@ -38,11 +40,7 @@ mkdir -p apps/orbit
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "workspaces": [
-    "web",
-    "server",
-    "shared"
-  ],
+  "workspaces": ["web", "server", "shared"],
   "scripts": {
     "dev": "bun run --filter '*' dev",
     "dev:web": "bun run --filter @orbit/web dev",
@@ -70,9 +68,9 @@ mkdir -p apps/orbit
 }
 ```
 
-**Step 3: 创建基础 tsconfig.json**
+**Step 3: Create basic tsconfig.json**
 
-在 `apps/orbit/tsconfig.json` 写入:
+Write to `apps/orbit/tsconfig.json`:
 
 ```json
 {
@@ -92,9 +90,9 @@ mkdir -p apps/orbit
 }
 ```
 
-**Step 4: 创建 .gitignore**
+**Step 4: Create .gitignore**
 
-在 `apps/orbit/.gitignore` 写入:
+Write to `apps/orbit/.gitignore`:
 
 ```
 # Dependencies
@@ -136,9 +134,9 @@ logs/
 Thumbs.db
 ```
 
-**Step 5: 创建 .env.example**
+**Step 5: Create .env.example**
 
-在 `apps/orbit/.env.example` 写入:
+Write to `apps/orbit/.env.example`:
 
 ```
 # Server Configuration
@@ -152,54 +150,60 @@ DATABASE_PATH=./data/orbit.dev.db
 API_BASE_URL=http://localhost:3001
 ```
 
-**Step 6: 创建 README.md**
+**Step 6: Create README.md**
 
-在 `apps/orbit/README.md` 写入:
+Write to `apps/orbit/README.md`:
 
 ```markdown
 # Orbit
 
-个人 AI 助手和 Agent 工作平台。
+Personal AI assistant and agent workspace platform.
 
-## 技术栈
+## Tech Stack
 
-**前端**
+**Frontend**
+
 - React 18+
 - Vite 8
 - Tailwind CSS 4
 - react-router
 - lucide-react
 
-**后端**
+**Backend**
+
 - Elysia
 - Bun
 - Drizzle ORM
 - SQLite
 - PM2
 
-## 开发
+## Development
 
 \`\`\`bash
-# 安装依赖
+
+# Install dependencies
+
 bun install
 
-# 启动开发环境
+# Start development environment
+
 bun dev
 
-# 独立启动
-bun dev:web      # 前端 (http://localhost:3000)
-bun dev:server   # 后端 (http://localhost:3001)
+# Start individually
+
+bun dev:web # Frontend (http://localhost:3000)
+bun dev:server # Backend (http://localhost:3001)
 \`\`\`
 
-## 数据库
+## Database
 
 \`\`\`bash
-bun db:generate  # 生成 migration
-bun db:migrate   # 执行 migration
-bun db:studio    # 打开 Drizzle Studio
+bun db:generate # Generate migration
+bun db:migrate # Run migration
+bun db:studio # Open Drizzle Studio
 \`\`\`
 
-## 部署
+## Deployment
 
 \`\`\`bash
 bun build
@@ -207,7 +211,7 @@ bun daemon:start
 \`\`\`
 ```
 
-**Step 7: 提交**
+**Step 7: Commit**
 
 ```bash
 git add apps/orbit/
@@ -216,9 +220,10 @@ git commit -m "feat(orbit): initialize orbit workspace root"
 
 ---
 
-## Task 2: 创建 Shared 包结构和配置
+## Task 2: Create Shared Package Structure and Configuration
 
 **Files:**
+
 - Create: `apps/orbit/shared/package.json`
 - Create: `apps/orbit/shared/tsconfig.json`
 - Create: `apps/orbit/shared/src/types/index.ts`
@@ -231,15 +236,15 @@ git commit -m "feat(orbit): initialize orbit workspace root"
 - Create: `apps/orbit/shared/src/utils/index.ts`
 - Create: `apps/orbit/shared/src/index.ts`
 
-**Step 1: 创建目录结构**
+**Step 1: Create directory structure**
 
 ```bash
 mkdir -p apps/orbit/shared/src/{types/{models,api},schemas,constants,utils}
 ```
 
-**Step 2: 创建 shared package.json**
+**Step 2: Create shared package.json**
 
-在 `apps/orbit/shared/package.json` 写入:
+Write to `apps/orbit/shared/package.json`:
 
 ```json
 {
@@ -269,9 +274,9 @@ mkdir -p apps/orbit/shared/src/{types/{models,api},schemas,constants,utils}
 }
 ```
 
-**Step 3: 创建 shared tsconfig.json**
+**Step 3: Create shared tsconfig.json**
 
-在 `apps/orbit/shared/tsconfig.json` 写入:
+Write to `apps/orbit/shared/tsconfig.json`:
 
 ```json
 {
@@ -288,41 +293,41 @@ mkdir -p apps/orbit/shared/src/{types/{models,api},schemas,constants,utils}
 }
 ```
 
-**Step 4: 创建 types 入口文件**
+**Step 4: Create types entry files**
 
-在 `apps/orbit/shared/src/types/models/index.ts` 写入:
+Write to `apps/orbit/shared/src/types/models/index.ts`:
 
 ```typescript
 // Data models - to be implemented
-export {};
+export {}
 ```
 
-在 `apps/orbit/shared/src/types/api/index.ts` 写入:
+Write to `apps/orbit/shared/src/types/api/index.ts`:
 
 ```typescript
 // API request/response types - to be implemented
-export {};
+export {}
 ```
 
-在 `apps/orbit/shared/src/types/index.ts` 写入:
+Write to `apps/orbit/shared/src/types/index.ts`:
 
 ```typescript
-export * from './models/index.js';
-export * from './api/index.js';
+export * from './models/index.js'
+export * from './api/index.js'
 ```
 
-**Step 5: 创建 schemas 入口文件**
+**Step 5: Create schemas entry file**
 
-在 `apps/orbit/shared/src/schemas/index.ts` 写入:
+Write to `apps/orbit/shared/src/schemas/index.ts`:
 
 ```typescript
 // TypeBox schemas - to be implemented
-export {};
+export {}
 ```
 
-**Step 6: 创建 constants 文件**
+**Step 6: Create constants files**
 
-在 `apps/orbit/shared/src/constants/routes.ts` 写入:
+Write to `apps/orbit/shared/src/constants/routes.ts`:
 
 ```typescript
 /**
@@ -331,47 +336,47 @@ export {};
 export const API_ROUTES = {
   BASE: '/api',
   HEALTH: '/health',
-} as const;
+} as const
 ```
 
-在 `apps/orbit/shared/src/constants/config.ts` 写入:
+Write to `apps/orbit/shared/src/constants/config.ts`:
 
 ```typescript
 /**
  * Configuration constants
  */
-export const DEFAULT_PORT = 3001;
-export const DEFAULT_HOST = 'localhost';
+export const DEFAULT_PORT = 3001
+export const DEFAULT_HOST = 'localhost'
 ```
 
-在 `apps/orbit/shared/src/constants/index.ts` 写入:
+Write to `apps/orbit/shared/src/constants/index.ts`:
 
 ```typescript
-export * from './routes.js';
-export * from './config.js';
+export * from './routes.js'
+export * from './config.js'
 ```
 
-**Step 7: 创建 utils 入口文件**
+**Step 7: Create utils entry file**
 
-在 `apps/orbit/shared/src/utils/index.ts` 写入:
+Write to `apps/orbit/shared/src/utils/index.ts`:
 
 ```typescript
 // Pure utility functions - to be implemented
-export {};
+export {}
 ```
 
-**Step 8: 创建主入口文件**
+**Step 8: Create main entry file**
 
-在 `apps/orbit/shared/src/index.ts` 写入:
+Write to `apps/orbit/shared/src/index.ts`:
 
 ```typescript
-export * from './types/index.js';
-export * from './schemas/index.js';
-export * from './constants/index.js';
-export * from './utils/index.js';
+export * from './types/index.js'
+export * from './schemas/index.js'
+export * from './constants/index.js'
+export * from './utils/index.js'
 ```
 
-**Step 9: 验证类型检查**
+**Step 9: Verify type checking**
 
 ```bash
 cd apps/orbit/shared
@@ -379,9 +384,9 @@ bun install
 bun type-check
 ```
 
-Expected: 无错误输出
+Expected: No error output
 
-**Step 10: 提交**
+**Step 10: Commit**
 
 ```bash
 git add apps/orbit/shared/
@@ -390,9 +395,10 @@ git commit -m "feat(orbit): create shared package structure"
 
 ---
 
-## Task 3: 创建 Server 包结构和配置
+## Task 3: Create Server Package Structure and Configuration
 
 **Files:**
+
 - Create: `apps/orbit/server/package.json`
 - Create: `apps/orbit/server/tsconfig.json`
 - Create: `apps/orbit/server/drizzle.config.ts`
@@ -409,7 +415,7 @@ git commit -m "feat(orbit): create shared package structure"
 - Create: `apps/orbit/server/data/.gitkeep`
 - Create: `apps/orbit/server/logs/.gitkeep`
 
-**Step 1: 创建目录结构**
+**Step 1: Create directory structure**
 
 ```bash
 mkdir -p apps/orbit/server/src/{core/{config,logger,db},plugins,modules}
@@ -417,9 +423,9 @@ mkdir -p apps/orbit/server/drizzle/{schema,migrations}
 mkdir -p apps/orbit/server/{data,logs}
 ```
 
-**Step 2: 创建 server package.json**
+**Step 2: Create server package.json**
 
-在 `apps/orbit/server/package.json` 写入:
+Write to `apps/orbit/server/package.json`:
 
 ```json
 {
@@ -454,9 +460,9 @@ mkdir -p apps/orbit/server/{data,logs}
 }
 ```
 
-**Step 3: 创建 server tsconfig.json**
+**Step 3: Create server tsconfig.json**
 
-在 `apps/orbit/server/tsconfig.json` 写入:
+Write to `apps/orbit/server/tsconfig.json`:
 
 ```json
 {
@@ -474,91 +480,91 @@ mkdir -p apps/orbit/server/{data,logs}
 }
 ```
 
-**Step 4: 创建环境配置**
+**Step 4: Create environment configuration**
 
-在 `apps/orbit/server/src/core/config/env.ts` 写入:
+Write to `apps/orbit/server/src/core/config/env.ts`:
 
 ```typescript
-import { DEFAULT_PORT } from '@orbit/shared/constants';
+import { DEFAULT_PORT } from '@orbit/shared/constants'
 
 export const env = {
   NODE_ENV: process.env.NODE_ENV || 'development',
   PORT: parseInt(process.env.PORT || String(DEFAULT_PORT), 10),
   DATABASE_PATH: process.env.DATABASE_PATH || './data/orbit.dev.db',
-} as const;
+} as const
 
-export const isDevelopment = env.NODE_ENV === 'development';
-export const isProduction = env.NODE_ENV === 'production';
+export const isDevelopment = env.NODE_ENV === 'development'
+export const isProduction = env.NODE_ENV === 'production'
 ```
 
-**Step 5: 创建 Logger**
+**Step 5: Create Logger**
 
-在 `apps/orbit/server/src/core/logger/index.ts` 写入:
+Write to `apps/orbit/server/src/core/logger/index.ts`:
 
 ```typescript
-type LogLevel = 'info' | 'warn' | 'error' | 'debug';
+type LogLevel = 'info' | 'warn' | 'error' | 'debug'
 
 class Logger {
   private log(level: LogLevel, message: string, ...args: unknown[]) {
-    const timestamp = new Date().toISOString();
-    console[level](`[${timestamp}] [${level.toUpperCase()}]`, message, ...args);
+    const timestamp = new Date().toISOString()
+    console[level](`[${timestamp}] [${level.toUpperCase()}]`, message, ...args)
   }
 
   info(message: string, ...args: unknown[]) {
-    this.log('info', message, ...args);
+    this.log('info', message, ...args)
   }
 
   warn(message: string, ...args: unknown[]) {
-    this.log('warn', message, ...args);
+    this.log('warn', message, ...args)
   }
 
   error(message: string, ...args: unknown[]) {
-    this.log('error', message, ...args);
+    this.log('error', message, ...args)
   }
 
   debug(message: string, ...args: unknown[]) {
-    this.log('debug', message, ...args);
+    this.log('debug', message, ...args)
   }
 }
 
-export const logger = new Logger();
+export const logger = new Logger()
 ```
 
-**Step 6: 创建数据库配置**
+**Step 6: Create database configuration**
 
-在 `apps/orbit/server/src/core/db/client.ts` 写入:
+Write to `apps/orbit/server/src/core/db/client.ts`:
 
 ```typescript
-import Database from 'better-sqlite3';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { env } from '../config/env.js';
-import * as schema from '../../../drizzle/schema/index.js';
+import Database from 'better-sqlite3'
+import { drizzle } from 'drizzle-orm/better-sqlite3'
+import { env } from '../config/env.js'
+import * as schema from '../../../drizzle/schema/index.js'
 
-const sqlite = new Database(env.DATABASE_PATH);
-sqlite.pragma('journal_mode = WAL');
+const sqlite = new Database(env.DATABASE_PATH)
+sqlite.pragma('journal_mode = WAL')
 
-export const db = drizzle(sqlite, { schema });
+export const db = drizzle(sqlite, { schema })
 ```
 
-在 `apps/orbit/server/src/core/db/index.ts` 写入:
+Write to `apps/orbit/server/src/core/db/index.ts`:
 
 ```typescript
-export { db } from './client.js';
+export { db } from './client.js'
 ```
 
-在 `apps/orbit/server/drizzle/schema/index.ts` 写入:
+Write to `apps/orbit/server/drizzle/schema/index.ts`:
 
 ```typescript
 // Database schema - to be implemented
-export {};
+export {}
 ```
 
-**Step 7: 创建 Drizzle 配置**
+**Step 7: Create Drizzle configuration**
 
-在 `apps/orbit/server/drizzle.config.ts` 写入:
+Write to `apps/orbit/server/drizzle.config.ts`:
 
 ```typescript
-import { defineConfig } from 'drizzle-kit';
+import { defineConfig } from 'drizzle-kit'
 
 export default defineConfig({
   schema: './drizzle/schema/*.ts',
@@ -567,30 +573,30 @@ export default defineConfig({
   dbCredentials: {
     url: process.env.DATABASE_PATH || './data/orbit.dev.db',
   },
-});
+})
 ```
 
-**Step 8: 创建 CORS 插件**
+**Step 8: Create CORS plugin**
 
-在 `apps/orbit/server/src/plugins/cors.ts` 写入:
+Write to `apps/orbit/server/src/plugins/cors.ts`:
 
 ```typescript
-import { cors } from '@elysiajs/cors';
-import { isDevelopment } from '../core/config/env.js';
+import { cors } from '@elysiajs/cors'
+import { isDevelopment } from '../core/config/env.js'
 
 export const corsPlugin = cors({
   origin: isDevelopment ? '*' : ['http://localhost:3000'],
   credentials: true,
-});
+})
 ```
 
-**Step 9: 创建 Swagger 插件**
+**Step 9: Create Swagger plugin**
 
-在 `apps/orbit/server/src/plugins/swagger.ts` 写入:
+Write to `apps/orbit/server/src/plugins/swagger.ts`:
 
 ```typescript
-import { swagger } from '@elysiajs/swagger';
-import { isDevelopment } from '../core/config/env.js';
+import { swagger } from '@elysiajs/swagger'
+import { isDevelopment } from '../core/config/env.js'
 
 export const swaggerPlugin = isDevelopment
   ? swagger({
@@ -600,57 +606,55 @@ export const swaggerPlugin = isDevelopment
           version: '0.1.0',
           description: 'Orbit API Documentation',
         },
-        tags: [
-          { name: 'Health', description: 'Health check endpoints' },
-        ],
+        tags: [{ name: 'Health', description: 'Health check endpoints' }],
       },
     })
-  : null;
+  : null
 ```
 
-**Step 10: 创建 Elysia App**
+**Step 10: Create Elysia App**
 
-在 `apps/orbit/server/src/app.ts` 写入:
+Write to `apps/orbit/server/src/app.ts`:
 
 ```typescript
-import { Elysia } from 'elysia';
-import { API_ROUTES } from '@orbit/shared/constants';
-import { corsPlugin } from './plugins/cors.js';
-import { swaggerPlugin } from './plugins/swagger.js';
-import { logger } from './core/logger/index.js';
+import { Elysia } from 'elysia'
+import { API_ROUTES } from '@orbit/shared/constants'
+import { corsPlugin } from './plugins/cors.js'
+import { swaggerPlugin } from './plugins/swagger.js'
+import { logger } from './core/logger/index.js'
 
 export const app = new Elysia()
   .use(corsPlugin)
   .use(swaggerPlugin ?? (() => {}))
   .get(API_ROUTES.HEALTH, () => {
-    return { status: 'ok', timestamp: new Date().toISOString() };
+    return { status: 'ok', timestamp: new Date().toISOString() }
   })
   .onStart(() => {
-    logger.info('Server started');
+    logger.info('Server started')
   })
   .onStop(() => {
-    logger.info('Server stopped');
-  });
+    logger.info('Server stopped')
+  })
 ```
 
-**Step 11: 创建服务入口**
+**Step 11: Create service entry point**
 
-在 `apps/orbit/server/src/index.ts` 写入:
+Write to `apps/orbit/server/src/index.ts`:
 
 ```typescript
-import { app } from './app.js';
-import { env } from './core/config/env.js';
-import { logger } from './core/logger/index.js';
+import { app } from './app.js'
+import { env } from './core/config/env.js'
+import { logger } from './core/logger/index.js'
 
-app.listen(env.PORT);
+app.listen(env.PORT)
 
-logger.info(`🚀 Server running at http://localhost:${env.PORT}`);
-logger.info(`📚 API docs at http://localhost:${env.PORT}/swagger`);
+logger.info(`🚀 Server running at http://localhost:${env.PORT}`)
+logger.info(`📚 API docs at http://localhost:${env.PORT}/swagger`)
 ```
 
-**Step 12: 创建 PM2 配置**
+**Step 12: Create PM2 configuration**
 
-在 `apps/orbit/server/ecosystem.config.cjs` 写入:
+Write to `apps/orbit/server/ecosystem.config.cjs`:
 
 ```javascript
 module.exports = {
@@ -683,17 +687,17 @@ module.exports = {
       min_uptime: '10s',
     },
   ],
-};
+}
 ```
 
-**Step 13: 创建 .gitkeep 文件**
+**Step 13: Create .gitkeep files**
 
 ```bash
 touch apps/orbit/server/data/.gitkeep
 touch apps/orbit/server/logs/.gitkeep
 ```
 
-**Step 14: 安装依赖并验证**
+**Step 14: Install dependencies and verify**
 
 ```bash
 cd apps/orbit/server
@@ -701,22 +705,23 @@ bun install
 bun type-check
 ```
 
-Expected: 无错误输出
+Expected: No error output
 
-**Step 15: 启动服务器验证**
+**Step 15: Start server to verify**
 
 ```bash
 bun dev
 ```
 
 Expected:
-- 输出 "🚀 Server running at http://localhost:3001"
-- 可以访问 http://localhost:3001/health
-- 可以访问 http://localhost:3001/swagger
 
-按 Ctrl+C 停止服务器
+- Output "🚀 Server running at http://localhost:3001"
+- Can access http://localhost:3001/health
+- Can access http://localhost:3001/swagger
 
-**Step 16: 提交**
+Press Ctrl+C to stop the server
+
+**Step 16: Commit**
 
 ```bash
 git add apps/orbit/server/
@@ -725,9 +730,10 @@ git commit -m "feat(orbit): create server package with Elysia setup"
 
 ---
 
-## Task 4: 创建 Web 包结构和配置
+## Task 4: Create Web Package Structure and Configuration
 
 **Files:**
+
 - Create: `apps/orbit/web/package.json`
 - Create: `apps/orbit/web/tsconfig.json`
 - Create: `apps/orbit/web/tsconfig.app.json`
@@ -743,16 +749,16 @@ git commit -m "feat(orbit): create server package with Elysia setup"
 - Create: `apps/orbit/web/src/vite-env.d.ts`
 - Create: `apps/orbit/web/public/.gitkeep`
 
-**Step 1: 创建目录结构**
+**Step 1: Create directory structure**
 
 ```bash
 mkdir -p apps/orbit/web/src/{app/{routes,providers},features/{chat,agents,sessions,sources},shared/{components,hooks,utils,styles}}
 mkdir -p apps/orbit/web/public
 ```
 
-**Step 2: 创建 web package.json**
+**Step 2: Create web package.json**
 
-在 `apps/orbit/web/package.json` 写入:
+Write to `apps/orbit/web/package.json`:
 
 ```json
 {
@@ -788,21 +794,18 @@ mkdir -p apps/orbit/web/public
 }
 ```
 
-**Step 3: 创建 TypeScript 配置**
+**Step 3: Create TypeScript configuration**
 
-在 `apps/orbit/web/tsconfig.json` 写入:
+Write to `apps/orbit/web/tsconfig.json`:
 
 ```json
 {
   "files": [],
-  "references": [
-    { "path": "./tsconfig.app.json" },
-    { "path": "./tsconfig.node.json" }
-  ]
+  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }]
 }
 ```
 
-在 `apps/orbit/web/tsconfig.app.json` 写入:
+Write to `apps/orbit/web/tsconfig.app.json`:
 
 ```json
 {
@@ -834,7 +837,7 @@ mkdir -p apps/orbit/web/public
 }
 ```
 
-在 `apps/orbit/web/tsconfig.node.json` 写入:
+Write to `apps/orbit/web/tsconfig.node.json`:
 
 ```json
 {
@@ -858,15 +861,15 @@ mkdir -p apps/orbit/web/public
 }
 ```
 
-**Step 4: 创建 Vite 配置**
+**Step 4: Create Vite configuration**
 
-在 `apps/orbit/web/vite.config.ts` 写入:
+Write to `apps/orbit/web/vite.config.ts`:
 
 ```typescript
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import tailwindcss from '@tailwindcss/vite';
-import path from 'path';
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
+import path from 'path'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -884,53 +887,53 @@ export default defineConfig({
       },
     },
   },
-});
+})
 ```
 
-**Step 5: 创建 Tailwind 配置**
+**Step 5: Create Tailwind configuration**
 
-在 `apps/orbit/web/tailwind.config.ts` 写入:
+Write to `apps/orbit/web/tailwind.config.ts`:
 
 ```typescript
-import type { Config } from 'tailwindcss';
+import type { Config } from 'tailwindcss'
 
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
-} satisfies Config;
+} satisfies Config
 ```
 
-在 `apps/orbit/web/postcss.config.js` 写入:
+Write to `apps/orbit/web/postcss.config.js`:
 
 ```javascript
 export default {
   plugins: {
     tailwindcss: {},
   },
-};
+}
 ```
 
-**Step 6: 创建全局样式**
+**Step 6: Create global styles**
 
-在 `apps/orbit/web/src/shared/styles/index.css` 写入:
+Write to `apps/orbit/web/src/shared/styles/index.css`:
 
 ```css
-@import "tailwindcss";
+@import 'tailwindcss';
 ```
 
-**Step 7: 创建 Vite 环境类型定义**
+**Step 7: Create Vite environment type definitions**
 
-在 `apps/orbit/web/src/vite-env.d.ts` 写入:
+Write to `apps/orbit/web/src/vite-env.d.ts`:
 
 ```typescript
 /// <reference types="vite/client" />
 ```
 
-**Step 8: 创建路由**
+**Step 8: Create routes**
 
-在 `apps/orbit/web/src/app/routes/index.tsx` 写入:
+Write to `apps/orbit/web/src/app/routes/index.tsx`:
 
 ```tsx
-import { createBrowserRouter } from 'react-router';
+import { createBrowserRouter } from 'react-router'
 
 const router = createBrowserRouter([
   {
@@ -944,48 +947,48 @@ const router = createBrowserRouter([
       </div>
     ),
   },
-]);
+])
 
-export default router;
+export default router
 ```
 
-**Step 9: 创建 App 组件**
+**Step 9: Create App component**
 
-在 `apps/orbit/web/src/app/App.tsx` 写入:
+Write to `apps/orbit/web/src/app/App.tsx`:
 
 ```tsx
-import { RouterProvider } from 'react-router';
-import router from './routes';
+import { RouterProvider } from 'react-router'
+import router from './routes'
 
 export function App() {
-  return <RouterProvider router={router} />;
+  return <RouterProvider router={router} />
 }
 ```
 
-**Step 10: 创建应用入口**
+**Step 10: Create application entry point**
 
-在 `apps/orbit/web/src/main.tsx` 写入:
+Write to `apps/orbit/web/src/main.tsx`:
 
 ```tsx
-import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
-import { App } from './app/App';
-import './shared/styles/index.css';
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import { App } from './app/App'
+import './shared/styles/index.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
-  </StrictMode>
-);
+  </StrictMode>,
+)
 ```
 
-**Step 11: 创建 HTML 模板**
+**Step 11: Create HTML template**
 
-在 `apps/orbit/web/index.html` 写入:
+Write to `apps/orbit/web/index.html`:
 
 ```html
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -998,13 +1001,13 @@ createRoot(document.getElementById('root')!).render(
 </html>
 ```
 
-**Step 12: 创建 .gitkeep**
+**Step 12: Create .gitkeep**
 
 ```bash
 touch apps/orbit/web/public/.gitkeep
 ```
 
-**Step 13: 安装依赖并验证**
+**Step 13: Install dependencies and verify**
 
 ```bash
 cd apps/orbit/web
@@ -1012,22 +1015,23 @@ bun install
 bun type-check
 ```
 
-Expected: 无错误输出
+Expected: No error output
 
-**Step 14: 启动开发服务器验证**
+**Step 14: Start development server to verify**
 
 ```bash
 bun dev
 ```
 
 Expected:
-- 输出 "VITE v6.x.x ready in xxx ms"
-- 输出 "Local: http://localhost:3000/"
-- 访问 http://localhost:3000 看到 "Orbit" 标题
 
-按 Ctrl+C 停止服务器
+- Output "VITE v6.x.x ready in xxx ms"
+- Output "Local: http://localhost:3000/"
+- Visit http://localhost:3000 to see "Orbit" title
 
-**Step 15: 提交**
+Press Ctrl+C to stop the server
+
+**Step 15: Commit**
 
 ```bash
 git add apps/orbit/web/
@@ -1036,9 +1040,10 @@ git commit -m "feat(orbit): create web package with React and Vite setup"
 
 ---
 
-## Task 5: 创建功能模块占位符
+## Task 5: Create Feature Module Placeholders
 
 **Files:**
+
 - Create: `apps/orbit/web/src/features/chat/index.ts`
 - Create: `apps/orbit/web/src/features/agents/index.ts`
 - Create: `apps/orbit/web/src/features/sessions/index.ts`
@@ -1050,7 +1055,7 @@ git commit -m "feat(orbit): create web package with React and Vite setup"
 - Create: `apps/orbit/server/src/modules/sources/index.ts`
 - Create: `apps/orbit/server/src/modules/sessions/index.ts`
 
-**Step 1: 创建前端功能模块占位符**
+**Step 1: Create frontend feature module placeholders**
 
 ```bash
 echo "// Chat feature - to be implemented\nexport {};" > apps/orbit/web/src/features/chat/index.ts
@@ -1059,7 +1064,7 @@ echo "// Sessions feature - to be implemented\nexport {};" > apps/orbit/web/src/
 echo "// Sources feature - to be implemented\nexport {};" > apps/orbit/web/src/features/sources/index.ts
 ```
 
-**Step 2: 创建后端功能模块占位符**
+**Step 2: Create backend feature module placeholders**
 
 ```bash
 echo "// AI module - to be implemented\nexport {};" > apps/orbit/server/src/modules/ai/index.ts
@@ -1070,16 +1075,16 @@ echo "// Sources module - to be implemented\nexport {};" > apps/orbit/server/src
 echo "// Sessions module - to be implemented\nexport {};" > apps/orbit/server/src/modules/sessions/index.ts
 ```
 
-**Step 3: 验证文件创建**
+**Step 3: Verify file creation**
 
 ```bash
 ls -la apps/orbit/web/src/features/*/index.ts
 ls -la apps/orbit/server/src/modules/*/index.ts
 ```
 
-Expected: 所有占位符文件都已创建
+Expected: All placeholder files have been created
 
-**Step 4: 提交**
+**Step 4: Commit**
 
 ```bash
 git add apps/orbit/
@@ -1088,9 +1093,9 @@ git commit -m "feat(orbit): add feature module placeholders"
 
 ---
 
-## Task 6: 验证整体工作流
+## Task 6: Verify Overall Workflow
 
-**Step 1: 从根目录安装所有依赖**
+**Step 1: Install all dependencies from root directory**
 
 ```bash
 cd apps/orbit
@@ -1098,90 +1103,93 @@ bun install
 ```
 
 Expected:
-- 成功安装所有 workspace 的依赖
-- 无错误输出
 
-**Step 2: 运行类型检查**
+- Successfully install all workspace dependencies
+- No error output
+
+**Step 2: Run type checking**
 
 ```bash
 bun type-check
 ```
 
-Expected: 所有包的类型检查通过
+Expected: Type checking passes for all packages
 
-**Step 3: 启动后端服务器**
+**Step 3: Start backend server**
 
-在第一个终端:
+In the first terminal:
 
 ```bash
 bun dev:server
 ```
 
-Expected: 服务器在 http://localhost:3001 启动
+Expected: Server starts at http://localhost:3001
 
-**Step 4: 启动前端开发服务器**
+**Step 4: Start frontend development server**
 
-在第二个终端:
+In the second terminal:
 
 ```bash
 cd apps/orbit
 bun dev:web
 ```
 
-Expected: 前端在 http://localhost:3000 启动
+Expected: Frontend starts at http://localhost:3000
 
-**Step 5: 验证 API 代理**
+**Step 5: Verify API proxy**
 
-访问:
-- http://localhost:3000 - 前端页面
-- http://localhost:3001/health - 后端健康检查
-- http://localhost:3001/swagger - API 文档
+Visit:
 
-Expected: 所有端点正常响应
+- http://localhost:3000 - Frontend page
+- http://localhost:3001/health - Backend health check
+- http://localhost:3001/swagger - API documentation
 
-**Step 6: 停止所有服务**
+Expected: All endpoints respond normally
 
-按 Ctrl+C 停止两个终端的服务
+**Step 6: Stop all services**
 
-**Step 7: 测试 PM2 守护进程**
+Press Ctrl+C to stop both terminal services
+
+**Step 7: Test PM2 daemon**
 
 ```bash
 cd apps/orbit
 bun daemon:start:dev
 ```
 
-Expected: PM2 成功启动 orbit-server
+Expected: PM2 successfully starts orbit-server
 
 ```bash
 bun daemon:status
 ```
 
-Expected: 显示 orbit-server 状态为 online
+Expected: Shows orbit-server status as online
 
 ```bash
 curl http://localhost:3001/health
 ```
 
-Expected: 返回 `{"status":"ok","timestamp":"..."}`
+Expected: Returns `{"status":"ok","timestamp":"..."}`
 
 ```bash
 bun daemon:stop
 ```
 
-Expected: 成功停止服务
+Expected: Successfully stops the service
 
-**Step 8: 构建验证**
+**Step 8: Build verification**
 
 ```bash
 bun build
 ```
 
 Expected:
-- web 构建成功，生成 dist 目录
-- server 构建成功，生成 dist 目录
-- 无错误输出
 
-**Step 9: 最终提交**
+- web build succeeds, generates dist directory
+- server build succeeds, generates dist directory
+- No error output
+
+**Step 9: Final commit**
 
 ```bash
 git add apps/orbit/
@@ -1190,24 +1198,25 @@ git commit -m "feat(orbit): verify complete workflow and build process"
 
 ---
 
-## 完成标准
+## Completion Criteria
 
-✅ 所有目录结构按设计文档创建
-✅ 所有配置文件正确配置
-✅ Shared 包类型检查通过
-✅ Server 可以启动并响应健康检查
-✅ Web 可以启动并显示页面
-✅ API 代理工作正常
-✅ PM2 守护进程可以正常启动和停止
-✅ 构建流程无错误
-✅ 所有更改已提交到 git
+✅ All directory structures created according to design document
+✅ All configuration files properly configured
+✅ Shared package type checking passes
+✅ Server can start and respond to health checks
+✅ Web can start and display page
+✅ API proxy works correctly
+✅ PM2 daemon can start and stop normally
+✅ Build process has no errors
+✅ All changes committed to git
 
-## 后续步骤
+## Next Steps
 
-骨架搭建完成后，可以开始实现具体功能：
-1. 定义数据库 schema（agents, sessions, messages）
-2. 实现 AI/LLM 集成模块
-3. 实现聊天功能
-4. 实现 Agent 管理
-5. 实现会话管理
-6. 添加测试
+After scaffold setup is complete, specific features can be implemented:
+
+1. Define database schema (agents, sessions, messages)
+2. Implement AI/LLM integration module
+3. Implement chat functionality
+4. Implement Agent management
+5. Implement session management
+6. Add tests

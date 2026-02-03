@@ -1,40 +1,40 @@
 # Orbit Agent System Design
 
-**日期**: 2026-02-03
-**状态**: 设计完成
-**版本**: v1.0
+**Date**: 2026-02-03
+**Status**: Design Complete
+**Version**: v1.0
 
-## 概述
+## Overview
 
-Orbit 是一个结合 openclaw 完整 workspace 系统和现代 Agent SDK 的个人 AI 助手平台。
+Orbit is a personal AI assistant platform combining openclaw's complete workspace system with modern Agent SDK.
 
-### 核心特性
+### Core Features
 
-- **完整 Workspace 系统**: AGENTS.md, SOUL.md, IDENTITY.md, USER.md, HEARTBEAT.md, BOOTSTRAP.md
-- **Memory 管理**: 每日日志 + 长期记忆
-- **Agent SDK 执行**: 使用 `@anthropic-ai/claude-agent-sdk`
-- **自我调度**: Agent 可以配置自己的定时任务
-- **Multi-agent 协调**: Agent 间异步消息通信
-- **SQLite IPC**: 简单的数据库作为 IPC 机制
-- **Web Chat UI**: Chat-only 界面
+- **Complete Workspace System**: AGENTS.md, SOUL.md, IDENTITY.md, USER.md, HEARTBEAT.md, BOOTSTRAP.md
+- **Memory Management**: Daily logs + long-term memory
+- **Agent SDK Execution**: Using `@anthropic-ai/claude-agent-sdk`
+- **Self-scheduling**: Agents can configure their own scheduled tasks
+- **Multi-agent Coordination**: Asynchronous message communication between agents
+- **SQLite IPC**: Simple database as IPC mechanism
+- **Web Chat UI**: Chat-only interface
 
-### 技术栈
+### Tech Stack
 
-- **Agent 执行**: `@anthropic-ai/claude-agent-sdk`
-- **后端**: Elysia + Bun
-- **数据库**: SQLite + Drizzle ORM
-- **前端**: React + Vite (minimal chat UI)
-- **调度**: 简单轮询机制（30秒）
+- **Agent Execution**: `@anthropic-ai/claude-agent-sdk`
+- **Backend**: Elysia + Bun
+- **Database**: SQLite + Drizzle ORM
+- **Frontend**: React + Vite (minimal chat UI)
+- **Scheduling**: Simple polling mechanism (30 seconds)
 
 ---
 
-## 架构设计
+## Architecture Design
 
-### 整体架构
+### Overall Architecture
 
 ```
 ┌─────────────────────────────────────────┐
-│   Elysia Server (单进程)                 │
+│   Elysia Server (single process)        │
 │                                         │
 │  ┌─────────────────────────────────┐   │
 │  │ Chat API                        │   │
@@ -58,8 +58,8 @@ Orbit 是一个结合 openclaw 完整 workspace 系统和现代 Agent SDK 的个
 │                                         │
 │  ┌─────────────────────────────────┐   │
 │  │ Scheduler Service               │   │
-│  │  - 每 30 秒轮询 SQLite          │   │
-│  │  - 执行到期任务                  │   │
+│  │  - Poll SQLite every 30s        │   │
+│  │  - Execute due tasks            │   │
 │  └─────────────────────────────────┘   │
 │                                         │
 │  ┌─────────────────────────────────┐   │
@@ -72,7 +72,7 @@ Orbit 是一个结合 openclaw 完整 workspace 系统和现代 Agent SDK 的个
 └─────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────┐
-│   Agent Workspace (文件系统)             │
+│   Agent Workspace (file system)         │
 │                                         │
 │  ~/.config/orbit/agents/<agent-name>/   │
 │  ├── AGENTS.md                          │
@@ -93,71 +93,71 @@ Orbit 是一个结合 openclaw 完整 workspace 系统和现代 Agent SDK 的个
 
 ---
 
-## Agent Workspace 系统
+## Agent Workspace System
 
-### 目录结构
+### Directory Structure
 
 ```
 ~/.config/orbit/agents/<agent-name>/
-├── AGENTS.md              # 操作指南，每次会话加载
-├── SOUL.md                # 个性、语气、边界
-├── IDENTITY.md            # Agent 元数据（名字、特征）
-├── USER.md                # 关于用户的学习信息
-├── HEARTBEAT.md           # 定期心跳检查清单
-├── BOOTSTRAP.md           # 首次运行仪式（完成后删除）
-├── TOOLS.md               # 可用工具文档
+├── AGENTS.md              # Operating guide, loaded every session
+├── SOUL.md                # Personality, tone, boundaries
+├── IDENTITY.md            # Agent metadata (name, traits)
+├── USER.md                # Learned information about user
+├── HEARTBEAT.md           # Periodic heartbeat checklist
+├── BOOTSTRAP.md           # First-run ritual (deleted after completion)
+├── TOOLS.md               # Available tools documentation
 ├── memory/
-│   ├── long-term.md       # 长期记忆
+│   ├── long-term.md       # Long-term memory
 │   └── daily/
-│       ├── 2026-02-01.md  # 每日日志
+│       ├── 2026-02-01.md  # Daily logs
 │       ├── 2026-02-02.md
 │       └── 2026-02-03.md
-└── workspace/             # Agent 工作目录
-    └── (agent 创建的文件)
+└── workspace/             # Agent working directory
+    └── (files created by agent)
 ```
 
-### 文件用途
+### File Purposes
 
-| 文件 | 用途 | 更新方式 |
-|------|------|---------|
-| AGENTS.md | 操作协议、memory 管理规则 | 静态模板 |
-| SOUL.md | 个性特征、沟通风格 | 静态模板 |
-| IDENTITY.md | Agent 身份（bootstrap 时填写） | Agent 首次运行时创建 |
-| USER.md | 用户信息 | Agent 学习更新 |
-| HEARTBEAT.md | 定期检查任务 | 静态模板 |
-| BOOTSTRAP.md | 首次设置向导 | 完成后删除 |
-| TOOLS.md | 工具使用说明 | 静态模板 |
-| memory/long-term.md | 重要事实 | Agent 整理更新 |
-| memory/daily/*.md | 每日活动日志 | Agent 会话结束时写入 |
+| File                | Purpose                                     | Update Method                   |
+| ------------------- | ------------------------------------------- | ------------------------------- |
+| AGENTS.md           | Operating protocol, memory management rules | Static template                 |
+| SOUL.md             | Personality traits, communication style     | Static template                 |
+| IDENTITY.md         | Agent identity (filled in during bootstrap) | Created by agent on first run   |
+| USER.md             | User information                            | Updated by agent learning       |
+| HEARTBEAT.md        | Periodic check tasks                        | Static template                 |
+| BOOTSTRAP.md        | First-time setup wizard                     | Deleted after completion        |
+| TOOLS.md            | Tool usage instructions                     | Static template                 |
+| memory/long-term.md | Important facts                             | Updated by agent curation       |
+| memory/daily/\*.md  | Daily activity logs                         | Written by agent at session end |
 
 ---
 
-## System Prompt 组合
+## System Prompt Composition
 
-### 加载流程
+### Loading Flow
 
 ```typescript
 async function composeSystemPrompt(
   agentName: string,
-  sessionType: 'chat' | 'heartbeat' | 'cron'
+  sessionType: 'chat' | 'heartbeat' | 'cron',
 ): Promise<string> {
-  const workspacePath = `~/.config/orbit/agents/${agentName}/`;
+  const workspacePath = `~/.config/orbit/agents/${agentName}/`
 
-  // 1. 加载核心个性文件（总是）
-  const agents = await readFile(`${workspacePath}/AGENTS.md`);
-  const soul = await readFile(`${workspacePath}/SOUL.md`);
-  const identity = await readFile(`${workspacePath}/IDENTITY.md`);
-  const user = await readFile(`${workspacePath}/USER.md`);
-  const tools = await readFile(`${workspacePath}/TOOLS.md`);
+  // 1. Load core personality files (always)
+  const agents = await readFile(`${workspacePath}/AGENTS.md`)
+  const soul = await readFile(`${workspacePath}/SOUL.md`)
+  const identity = await readFile(`${workspacePath}/IDENTITY.md`)
+  const user = await readFile(`${workspacePath}/USER.md`)
+  const tools = await readFile(`${workspacePath}/TOOLS.md`)
 
-  // 2. 加载最近 memory（今天 + 昨天）
-  const today = format(new Date(), 'yyyy-MM-dd');
-  const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
-  const memoryToday = await readFile(`${workspacePath}/memory/daily/${today}.md`);
-  const memoryYesterday = await readFile(`${workspacePath}/memory/daily/${yesterday}.md`);
-  const longTerm = await readFile(`${workspacePath}/memory/long-term.md`);
+  // 2. Load recent memory (today + yesterday)
+  const today = format(new Date(), 'yyyy-MM-dd')
+  const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd')
+  const memoryToday = await readFile(`${workspacePath}/memory/daily/${today}.md`)
+  const memoryYesterday = await readFile(`${workspacePath}/memory/daily/${yesterday}.md`)
+  const longTerm = await readFile(`${workspacePath}/memory/long-term.md`)
 
-  // 3. 组合 system prompt
+  // 3. Compose system prompt
   return `
 ${identity}
 
@@ -181,52 +181,51 @@ ${memoryYesterday}
 
 **Today (${today}):**
 ${memoryToday}
-  `.trim();
+  `.trim()
 }
 ```
 
-### 文件截断规则
+### File Truncation Rules
 
-- 每个文件最大 20,000 字符
-- 超过限制：保留 70% 头部 + 20% 尾部
-- 缺失文件：跳过，不报错
+- Each file maximum 20,000 characters
+- If exceeding limit: retain 70% head + 20% tail
+- Missing files: skip, no error
 
 ---
 
-## Agent SDK 集成
+## Agent SDK Integration
 
-### 执行流程
+### Execution Flow
 
 ```typescript
 export async function executeAgent(params: {
-  agentName: string;
-  prompt: string;
-  sessionType: 'chat' | 'heartbeat' | 'cron';
-  sessionId?: string;
+  agentName: string
+  prompt: string
+  sessionType: 'chat' | 'heartbeat' | 'cron'
+  sessionId?: string
 }): Promise<{ result: string; newSessionId: string }> {
+  const workspacePath = `~/.config/orbit/agents/${params.agentName}/workspace`
 
-  const workspacePath = `~/.config/orbit/agents/${params.agentName}/workspace`;
+  // 1. Check inbox (inter-agent messages)
+  const inbox = await checkInbox(params.agentName)
 
-  // 1. 检查 inbox（agent 间消息）
-  const inbox = await checkInbox(params.agentName);
+  // 2. Compose system prompt
+  let systemPrompt = await composeSystemPrompt(params.agentName, params.sessionType)
 
-  // 2. 组合 system prompt
-  let systemPrompt = await composeSystemPrompt(params.agentName, params.sessionType);
-
-  // 3. 添加 inbox 消息到 system prompt
+  // 3. Add inbox messages to system prompt
   if (inbox.length > 0) {
-    systemPrompt += `\n\n## Inbox\n\nYou have ${inbox.length} messages:\n`;
+    systemPrompt += `\n\n## Inbox\n\nYou have ${inbox.length} messages:\n`
     inbox.forEach(msg => {
-      systemPrompt += `- From ${msg.fromAgent}: ${msg.message}\n`;
-    });
+      systemPrompt += `- From ${msg.fromAgent}: ${msg.message}\n`
+    })
   }
 
-  // 4. 创建 MCP server
-  const orbitMcp = createOrbitMcp(params.agentName);
+  // 4. Create MCP server
+  const orbitMcp = createOrbitMcp(params.agentName)
 
-  // 5. 执行 Agent SDK
-  let result = '';
-  let newSessionId = '';
+  // 5. Execute Agent SDK
+  let result = ''
+  let newSessionId = ''
 
   for await (const message of query({
     prompt: params.prompt,
@@ -236,60 +235,64 @@ export async function executeAgent(params: {
       systemPrompt: systemPrompt,
       allowedTools: [
         'Bash',
-        'Read', 'Write', 'Edit', 'Glob', 'Grep',
-        'WebSearch', 'WebFetch',
-        'mcp__orbit__*'
+        'Read',
+        'Write',
+        'Edit',
+        'Glob',
+        'Grep',
+        'WebSearch',
+        'WebFetch',
+        'mcp__orbit__*',
       ],
       permissionMode: 'bypassPermissions',
       allowDangerouslySkipPermissions: true,
       mcpServers: {
-        orbit: orbitMcp
-      }
-    }
+        orbit: orbitMcp,
+      },
+    },
   })) {
-
     if (message.type === 'system' && message.subtype === 'init') {
-      newSessionId = message.session_id;
+      newSessionId = message.session_id
     }
 
     if ('result' in message && message.result) {
-      result = message.result as string;
+      result = message.result as string
     }
   }
 
-  // 6. 标记 inbox 已读
+  // 6. Mark inbox as read
   if (inbox.length > 0) {
-    await markInboxRead(inbox.map(m => m.id));
+    await markInboxRead(inbox.map(m => m.id))
   }
 
-  // 7. 写入今日 memory
+  // 7. Write to today's memory
   await appendDailyMemory(params.agentName, {
     sessionType: params.sessionType,
     prompt: params.prompt,
     result: result,
-    timestamp: new Date()
-  });
+    timestamp: new Date(),
+  })
 
-  return { result, newSessionId };
+  return { result, newSessionId }
 }
 ```
 
 ---
 
-## MCP Tools (Agent 能力)
+## MCP Tools (Agent Capabilities)
 
-### Tool 列表
+### Tool List
 
-| Tool | 描述 | 用途 |
-|------|------|------|
-| `send_to_agent` | 发送消息给另一个 agent | Multi-agent 协调 |
-| `schedule_task` | 调度定时任务 | Self-configuration |
-| `list_tasks` | 列出所有任务 | 查看调度状态 |
-| `pause_task` | 暂停任务 | 任务管理 |
-| `resume_task` | 恢复任务 | 任务管理 |
-| `cancel_task` | 取消任务 | 任务管理 |
+| Tool            | Description                   | Purpose                  |
+| --------------- | ----------------------------- | ------------------------ |
+| `send_to_agent` | Send message to another agent | Multi-agent coordination |
+| `schedule_task` | Schedule a timed task         | Self-configuration       |
+| `list_tasks`    | List all tasks                | View scheduling status   |
+| `pause_task`    | Pause a task                  | Task management          |
+| `resume_task`   | Resume a task                 | Task management          |
+| `cancel_task`   | Cancel a task                 | Task management          |
 
-### schedule_task 实现
+### schedule_task Implementation
 
 ```typescript
 tool(
@@ -309,23 +312,23 @@ SCHEDULE TYPE:
     scheduleType: z.enum(['cron', 'interval', 'once']),
     scheduleValue: z.string(),
     contextMode: z.enum(['isolated', 'main']).default('isolated'),
-    name: z.string().optional()
+    name: z.string().optional(),
   },
-  async (args) => {
-    // 计算 next_run
-    let nextRun: Date | null = null;
+  async args => {
+    // Calculate next_run
+    let nextRun: Date | null = null
 
     if (args.scheduleType === 'cron') {
-      const interval = CronExpression.parse(args.scheduleValue);
-      nextRun = interval.next().toDate();
+      const interval = CronExpression.parse(args.scheduleValue)
+      nextRun = interval.next().toDate()
     } else if (args.scheduleType === 'interval') {
-      const ms = parseInt(args.scheduleValue, 10);
-      nextRun = new Date(Date.now() + ms);
+      const ms = parseInt(args.scheduleValue, 10)
+      nextRun = new Date(Date.now() + ms)
     } else if (args.scheduleType === 'once') {
-      nextRun = new Date(args.scheduleValue);
+      nextRun = new Date(args.scheduleValue)
     }
 
-    // 直接插入 SQLite
+    // Insert directly into SQLite
     const result = await db.insert(scheduledTasks).values({
       agentName: currentAgent,
       name: args.name,
@@ -335,27 +338,29 @@ SCHEDULE TYPE:
       contextMode: args.contextMode,
       status: 'active',
       nextRun,
-      createdAt: new Date()
-    });
+      createdAt: new Date(),
+    })
 
     return {
-      content: [{
-        type: 'text',
-        text: `Task scheduled (ID: ${result.lastInsertRowid}). Next run: ${nextRun?.toISOString()}`
-      }]
-    };
-  }
+      content: [
+        {
+          type: 'text',
+          text: `Task scheduled (ID: ${result.lastInsertRowid}). Next run: ${nextRun?.toISOString()}`,
+        },
+      ],
+    }
+  },
 )
 ```
 
 ---
 
-## SQLite IPC 设计
+## SQLite IPC Design
 
-### 核心表 Schema
+### Core Table Schema
 
 ```sql
--- 定时任务
+-- Scheduled tasks
 CREATE TABLE scheduled_tasks (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   agent_name TEXT NOT NULL,
@@ -373,7 +378,7 @@ CREATE TABLE scheduled_tasks (
 CREATE INDEX idx_next_run ON scheduled_tasks(next_run);
 CREATE INDEX idx_status ON scheduled_tasks(status);
 
--- Agent 间消息
+-- Inter-agent messages
 CREATE TABLE agent_inbox (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   from_agent TEXT NOT NULL,
@@ -385,7 +390,7 @@ CREATE TABLE agent_inbox (
   read_at TIMESTAMP
 );
 
--- Agent 元数据
+-- Agent metadata
 CREATE TABLE agents (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL UNIQUE,
@@ -396,7 +401,7 @@ CREATE TABLE agents (
   last_active_at TIMESTAMP
 );
 
--- 会话记录
+-- Chat sessions
 CREATE TABLE chat_sessions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   agent_name TEXT NOT NULL,
@@ -407,7 +412,7 @@ CREATE TABLE chat_sessions (
   message_count INTEGER DEFAULT 0
 );
 
--- 消息历史
+-- Message history
 CREATE TABLE messages (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   session_id INTEGER NOT NULL,
@@ -418,160 +423,161 @@ CREATE TABLE messages (
 );
 ```
 
-### IPC 通信流程
+### IPC Communication Flow
 
-**Agent → Server (调度任务):**
+**Agent → Server (schedule task):**
+
 ```
-Agent 执行 → MCP tool: schedule_task() → INSERT INTO scheduled_tasks
+Agent executes → MCP tool: schedule_task() → INSERT INTO scheduled_tasks
 ```
 
-**Agent → Agent (消息):**
+**Agent → Agent (message):**
+
 ```
 Agent A → MCP tool: send_to_agent() → INSERT INTO agent_inbox
-Agent B 启动 → SELECT FROM agent_inbox WHERE to_agent='B'
+Agent B starts → SELECT FROM agent_inbox WHERE to_agent='B'
 ```
 
-**Server → Agent (执行任务):**
+**Server → Agent (execute task):**
+
 ```
 Scheduler tick() → SELECT FROM scheduled_tasks WHERE next_run <= now()
-→ executeAgent() → 更新 next_run
+→ executeAgent() → update next_run
 ```
 
 ---
 
-## Scheduler 实现
+## Scheduler Implementation
 
-### 简单轮询机制
+### Simple Polling Mechanism
 
 ```typescript
 export class SchedulerService {
-  private intervalId: NodeJS.Timeout | null = null;
-  private readonly pollInterval = 30000; // 30 秒
+  private intervalId: NodeJS.Timeout | null = null
+  private readonly pollInterval = 30000 // 30 seconds
 
   start() {
-    this.intervalId = setInterval(() => this.tick(), this.pollInterval);
-    this.tick(); // 立即执行一次
+    this.intervalId = setInterval(() => this.tick(), this.pollInterval)
+    this.tick() // Execute immediately once
   }
 
   stop() {
     if (this.intervalId) {
-      clearInterval(this.intervalId);
+      clearInterval(this.intervalId)
     }
   }
 
   private async tick() {
-    // 查找到期任务
-    const dueTasks = await db.select()
+    // Find due tasks
+    const dueTasks = await db
+      .select()
       .from(scheduledTasks)
-      .where(and(
-        lte(scheduledTasks.nextRun, new Date()),
-        eq(scheduledTasks.status, 'active')
-      ));
+      .where(and(lte(scheduledTasks.nextRun, new Date()), eq(scheduledTasks.status, 'active')))
 
-    // 执行每个任务
+    // Execute each task
     for (const task of dueTasks) {
-      await this.runTask(task);
+      await this.runTask(task)
     }
   }
 
   private async runTask(task: ScheduledTask) {
     try {
-      // 执行 agent
+      // Execute agent
       await executeAgent({
         agentName: task.agentName,
         prompt: task.prompt,
         sessionType: task.contextMode === 'main' ? 'chat' : 'cron',
-        sessionId: task.contextMode === 'main' ? undefined : `cron-${task.id}`
-      });
+        sessionId: task.contextMode === 'main' ? undefined : `cron-${task.id}`,
+      })
 
-      // 计算下次运行
-      const nextRun = this.calculateNextRun(task);
+      // Calculate next run
+      const nextRun = this.calculateNextRun(task)
 
-      // 更新任务
-      await db.update(scheduledTasks)
+      // Update task
+      await db
+        .update(scheduledTasks)
         .set({
           lastRun: new Date(),
           nextRun,
-          status: nextRun ? 'active' : 'completed'
+          status: nextRun ? 'active' : 'completed',
         })
-        .where(eq(scheduledTasks.id, task.id));
-
+        .where(eq(scheduledTasks.id, task.id))
     } catch (error) {
-      console.error(`Task ${task.id} failed:`, error);
+      console.error(`Task ${task.id} failed:`, error)
     }
   }
 
   private calculateNextRun(task: ScheduledTask): Date | null {
     if (task.scheduleType === 'cron') {
-      const interval = CronExpression.parse(task.scheduleValue);
-      return interval.next().toDate();
+      const interval = CronExpression.parse(task.scheduleValue)
+      return interval.next().toDate()
     } else if (task.scheduleType === 'interval') {
-      const ms = parseInt(task.scheduleValue, 10);
-      return new Date(Date.now() + ms);
+      const ms = parseInt(task.scheduleValue, 10)
+      return new Date(Date.now() + ms)
     }
-    return null; // once 任务
+    return null // once task
   }
 }
 ```
 
 ---
 
-## 完整执行流程
+## Complete Execution Flows
 
-### 场景 1: Web Chat
+### Scenario 1: Web Chat
 
 ```
-1. 用户在 Web UI 输入消息
+1. User inputs message in Web UI
    ↓
 2. POST /api/chat { agentName: "main", message: "..." }
    ↓
 3. executeAgent()
    ↓
-4. 加载 workspace 文件 → 组合 system prompt
+4. Load workspace files → compose system prompt
    ↓
-5. 检查 inbox（如有消息）
+5. Check inbox (if there are messages)
    ↓
-6. 调用 Agent SDK query()
+6. Call Agent SDK query()
    ↓
-7. Agent 执行，可能调用 MCP tools
+7. Agent executes, may call MCP tools
    ↓
-8. 返回结果
+8. Return result
    ↓
-9. 写入今日 memory
+9. Write to today's memory
    ↓
-10. 返回给 Web UI
+10. Return to Web UI
 ```
 
-### 场景 2: Agent 自我调度
+### Scenario 2: Agent Self-scheduling
 
 ```
-1. 用户: "每天早上 9 点给我发送昨日总结"
+1. User: "Send me yesterday's summary every morning at 9am"
    ↓
-2. Agent 理解意图
+2. Agent understands intent
    ↓
-3. Agent 调用 MCP tool: schedule_task({
+3. Agent calls MCP tool: schedule_task({
      prompt: "Review yesterday's memory and send summary",
      schedule_type: "cron",
      schedule_value: "0 9 * * *",
      context_mode: "isolated"
    })
    ↓
-4. MCP tool 执行: INSERT INTO scheduled_tasks
+4. MCP tool executes: INSERT INTO scheduled_tasks
    ↓
-5. 返回: "Task scheduled (ID: 123), next run: 2026-02-04T09:00:00Z"
+5. Returns: "Task scheduled (ID: 123), next run: 2026-02-04T09:00:00Z"
    ↓
-6. Agent 回复用户: "好的，我会每天早上 9 点发送昨日总结"
+6. Agent replies to user: "OK, I'll send yesterday's summary every morning at 9am"
 ```
 
-### 场景 3: 定时任务执行
+### Scenario 3: Scheduled Task Execution
 
 ```
-1. Scheduler 每 30 秒 tick()
+1. Scheduler ticks every 30 seconds
    ↓
 2. SELECT * FROM scheduled_tasks
    WHERE next_run <= now() AND status = 'active'
    ↓
-3. （次日 9:00）发现到期任务
+3. (Next day 9:00) Finds due task
    ↓
 4. executeAgent({
      agentName: "main",
@@ -579,57 +585,57 @@ export class SchedulerService {
      sessionType: "cron"
    })
    ↓
-5. Agent 读取昨日 memory
+5. Agent reads yesterday's memory
    ↓
-6. Agent 生成总结
+6. Agent generates summary
    ↓
-7. Agent 调用 MCP tool: send_message("昨日总结: ...")
+7. Agent calls MCP tool: send_message("Yesterday's summary: ...")
    ↓
-8. 消息发送到 Web UI
+8. Message sent to Web UI
    ↓
-9. 更新任务: next_run = "2026-02-05T09:00:00Z"
+9. Update task: next_run = "2026-02-05T09:00:00Z"
 ```
 
-### 场景 4: Multi-agent 协调
+### Scenario 4: Multi-agent Coordination
 
 ```
-1. Agent A 运行中
+1. Agent A is running
    ↓
-2. Agent A 调用 MCP tool: send_to_agent({
+2. Agent A calls MCP tool: send_to_agent({
      targetAgent: "agent-b",
-     message: "请帮我分析这个数据"
+     message: "Please help me analyze this data"
    })
    ↓
 3. INSERT INTO agent_inbox (from='agent-a', to='agent-b', ...)
    ↓
-4. （稍后）Agent B 启动
+4. (Later) Agent B starts
    ↓
 5. executeAgent('agent-b', ...)
    ↓
 6. SELECT FROM agent_inbox WHERE to_agent='agent-b' AND status='pending'
    ↓
-7. 发现 Agent A 的消息
+7. Finds Agent A's message
    ↓
-8. 消息添加到 system prompt: "## Inbox\n- From agent-a: 请帮我分析这个数据"
+8. Message added to system prompt: "## Inbox\n- From agent-a: Please help me analyze this data"
    ↓
-9. Agent B 处理并回复
+9. Agent B processes and replies
    ↓
-10. 标记消息已读: UPDATE agent_inbox SET status='read'
+10. Mark message as read: UPDATE agent_inbox SET status='read'
 ```
 
 ---
 
-## 项目目录结构
+## Project Directory Structure
 
 ```
 apps/orbit/
-├── web/                                # React 前端
+├── web/                                # React frontend
 │   ├── src/
 │   │   ├── app/
 │   │   │   ├── routes/
 │   │   │   └── App.tsx
 │   │   ├── features/
-│   │   │   └── chat/                   # Chat 界面
+│   │   │   └── chat/                   # Chat interface
 │   │   │       ├── components/
 │   │   │       └── api/
 │   │   └── main.tsx
@@ -638,14 +644,14 @@ apps/orbit/
 │
 ├── server/
 │   ├── src/
-│   │   ├── index.ts                    # Server 入口
+│   │   ├── index.ts                    # Server entry
 │   │   ├── app.ts                      # Elysia app
 │   │   ├── modules/
 │   │   │   ├── agents/
 │   │   │   │   ├── agent.service.ts    # CRUD
-│   │   │   │   ├── agent.runtime.ts    # SDK 执行
+│   │   │   │   ├── agent.runtime.ts    # SDK execution
 │   │   │   │   ├── context.service.ts  # System prompt
-│   │   │   │   ├── memory.service.ts   # Memory 读写
+│   │   │   │   ├── memory.service.ts   # Memory read/write
 │   │   │   │   └── tools/
 │   │   │   │       └── orbit-mcp.ts    # MCP tools
 │   │   │   ├── scheduler/
@@ -682,7 +688,7 @@ apps/orbit/
 │   ├── package.json
 │   └── drizzle.config.ts
 │
-├── shared/                             # 类型共享
+├── shared/                             # Type sharing
 │   ├── src/
 │   │   ├── types/
 │   │   └── schemas/
@@ -707,24 +713,24 @@ apps/orbit/
 │       │       └── 2026-02-02.md
 │       └── workspace/
 └── data/
-    └── orbit.db                        # SQLite 数据库
+    └── orbit.db                        # SQLite database
 ```
 
 ---
 
-## 设计原则
+## Design Principles
 
-1. **YAGNI**: 避免过度设计，只实现必要功能
-2. **简单 IPC**: 直接 SQLite 插入，无复杂队列
-3. **Workspace 完整性**: 保留 openclaw 的完整 workspace 系统
-4. **Agent SDK 原生**: 充分利用 Agent SDK 能力
-5. **自我配置**: Agent 通过 MCP tools 配置自己的行为
-6. **Multi-agent**: SQLite inbox 实现异步消息
-7. **Chat-only UI**: 初期只做聊天界面，其他由 agent 管理
+1. **YAGNI**: Avoid over-engineering, only implement necessary features
+2. **Simple IPC**: Direct SQLite insertion, no complex queues
+3. **Workspace Completeness**: Preserve openclaw's complete workspace system
+4. **Agent SDK Native**: Fully leverage Agent SDK capabilities
+5. **Self-configuration**: Agents configure their own behavior through MCP tools
+6. **Multi-agent**: SQLite inbox implements asynchronous messaging
+7. **Chat-only UI**: Initially only chat interface, other management by agents
 
 ---
 
-## 参考资料
+## References
 
 - **openclaw**: https://github.com/openclaw/openclaw
 - **nanoclaw**: https://github.com/gavrielc/nanoclaw
@@ -734,13 +740,13 @@ apps/orbit/
 
 ---
 
-## 下一步
+## Next Steps
 
-1. ✅ 设计完成
-2. ⏳ 创建项目结构
-3. ⏳ 实现 database schema
-4. ⏳ 实现 agent runtime
-5. ⏳ 实现 MCP tools
-6. ⏳ 实现 scheduler
-7. ⏳ 实现 chat API
-8. ⏳ 测试完整流程
+1. ✅ Design complete
+2. ⏳ Create project structure
+3. ⏳ Implement database schema
+4. ⏳ Implement agent runtime
+5. ⏳ Implement MCP tools
+6. ⏳ Implement scheduler
+7. ⏳ Implement chat API
+8. ⏳ Test complete flow

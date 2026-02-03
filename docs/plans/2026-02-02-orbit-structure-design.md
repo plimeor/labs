@@ -1,22 +1,24 @@
-# Orbit 项目目录结构设计
+# Orbit Project Structure Design
 
-**日期**: 2026-02-02
-**状态**: 已验证
-**版本**: v1.0
+**Date**: 2026-02-02
+**Status**: Verified
+**Version**: v1.0
 
-## 项目概述
+## Project Overview
 
-Orbit 是一个结合个人 AI 助手（参考 openclaw）和 agent 工作平台（参考 craft-agents-oss）功能的项目，采用前后端分离架构。
+Orbit is a project combining personal AI assistant capabilities (referencing openclaw) and agent workspace platform features (referencing craft-agents-oss), using a frontend-backend separation architecture.
 
-### 核心功能
-- 个人 AI 助手能力（多渠道交互、语音支持等）
-- Agent 工作平台（多任务、API/服务连接、会话共享等）
-- 本地数据存储（SQLite）
-- 文档导向的工作流
+### Core Features
 
-### 技术栈
+- Personal AI assistant capabilities (multi-channel interaction, voice support, etc.)
+- Agent workspace platform (multi-tasking, API/service connections, session sharing, etc.)
+- Local data storage (SQLite)
+- Document-oriented workflow
 
-**前端**
+### Tech Stack
+
+**Frontend**
+
 - React 18+
 - Vite 8
 - Tailwind CSS 4
@@ -24,7 +26,8 @@ Orbit 是一个结合个人 AI 助手（参考 openclaw）和 agent 工作平台
 - react-router
 - lucide-react
 
-**后端**
+**Backend**
+
 - Elysia (Web framework)
 - Bun (Runtime)
 - TypeBox (Schema validation)
@@ -32,64 +35,65 @@ Orbit 是一个结合个人 AI 助手（参考 openclaw）和 agent 工作平台
 - SQLite (Database)
 - PM2 (Process management)
 
-## 整体架构
+## Overall Architecture
 
-### Monorepo 组织原则
+### Monorepo Organization Principles
 
-基于以下考虑：
-1. Labs 是个人 monorepo，未来会有完全不同领域的项目
-2. 不同项目可能使用不同技术栈
-3. 遵循 YAGNI 原则，避免过早抽象
+Based on the following considerations:
 
-**决策**: Orbit 采用自包含结构，内部使用 Bun workspaces 管理子包。
+1. Labs is a personal monorepo that will have completely different domain projects in the future
+2. Different projects may use different tech stacks
+3. Follow YAGNI principle, avoid premature abstraction
 
-### 顶层结构
+**Decision**: Orbit uses a self-contained structure, internally using Bun workspaces to manage sub-packages.
+
+### Top-level Structure
 
 ```
 labs/
 ├── apps/
 │   ├── playground/
-│   └── orbit/                    # Orbit 项目（自包含 monorepo）
+│   └── orbit/                    # Orbit project (self-contained monorepo)
 │       ├── web/                  # React SPA
-│       ├── server/               # Elysia 守护进程
-│       ├── shared/               # 前后端共享代码
+│       ├── server/               # Elysia daemon
+│       ├── shared/               # Frontend-backend shared code
 │       ├── package.json          # Workspace root
-│       ├── tsconfig.json         # 基础配置
+│       ├── tsconfig.json         # Base configuration
 │       ├── .env.example
 │       ├── .gitignore
 │       └── README.md
-├── packages/                     # 保留为空，待真正需要跨项目复用时使用
+├── packages/                     # Reserved as empty, use when truly needed for cross-project reuse
 ├── tools/
 │   └── icloud-git-sync/
 ├── package.json                  # Labs root
 └── ...
 ```
 
-## Orbit 内部结构
+## Orbit Internal Structure
 
-### Web 前端
+### Web Frontend
 
 ```
 apps/orbit/web/
 ├── src/
-│   ├── app/                      # 应用层
-│   │   ├── routes/               # react-router 路由定义
+│   ├── app/                      # Application layer
+│   │   ├── routes/               # react-router route definitions
 │   │   ├── providers/            # Context providers
-│   │   └── App.tsx               # 根组件
-│   ├── features/                 # 功能模块（按业务领域）
-│   │   ├── chat/                 # 聊天/对话功能
+│   │   └── App.tsx               # Root component
+│   ├── features/                 # Feature modules (by business domain)
+│   │   ├── chat/                 # Chat/conversation functionality
 │   │   │   ├── components/
 │   │   │   ├── hooks/
 │   │   │   └── api/
-│   │   ├── agents/               # Agent 管理
-│   │   ├── sessions/             # 会话管理
-│   │   └── sources/              # 数据源/连接管理
-│   ├── shared/                   # 前端内部共享代码
-│   │   ├── components/           # 通用 UI 组件
-│   │   ├── hooks/                # 通用 React hooks
-│   │   ├── utils/                # 工具函数
-│   │   └── styles/               # 全局样式、Tailwind 配置
-│   ├── main.tsx                  # 应用入口
+│   │   ├── agents/               # Agent management
+│   │   ├── sessions/             # Session management
+│   │   └── sources/              # Data source/connection management
+│   ├── shared/                   # Frontend internal shared code
+│   │   ├── components/           # Common UI components
+│   │   ├── hooks/                # Common React hooks
+│   │   ├── utils/                # Utility functions
+│   │   └── styles/               # Global styles, Tailwind config
+│   ├── main.tsx                  # Application entry point
 │   └── vite-env.d.ts
 ├── public/
 ├── index.html
@@ -99,94 +103,96 @@ apps/orbit/web/
 └── package.json
 ```
 
-**设计理由**:
-- **Feature-based 结构**: 按业务功能组织而非技术层次，便于功能独立开发
-- **features/** 目录对应核心业务能力（chat, agents, sessions, sources）
-- **shared/** 存放前端内部可复用的 UI 组件和工具
+**Design Rationale**:
 
-**包名**: `@orbit/web`
+- **Feature-based structure**: Organized by business functionality rather than technical layers, facilitating independent feature development
+- **features/** directory corresponds to core business capabilities (chat, agents, sessions, sources)
+- **shared/** stores frontend internal reusable UI components and tools
 
-### Server 后端
+**Package name**: `@orbit/web`
+
+### Server Backend
 
 ```
 apps/orbit/server/
 ├── src/
-│   ├── index.ts                  # 服务入口
-│   ├── app.ts                    # Elysia app 配置
-│   ├── modules/                  # 功能模块
-│   │   ├── ai/                   # AI/LLM 集成
-│   │   │   ├── providers/        # 不同 LLM provider
+│   ├── index.ts                  # Service entry point
+│   ├── app.ts                    # Elysia app configuration
+│   ├── modules/                  # Feature modules
+│   │   ├── ai/                   # AI/LLM integration
+│   │   │   ├── providers/        # Different LLM providers
 │   │   │   ├── chat.controller.ts
 │   │   │   └── chat.service.ts
-│   │   ├── agents/               # Agent 引擎
+│   │   ├── agents/               # Agent engine
 │   │   │   ├── agent.controller.ts
 │   │   │   ├── agent.service.ts
 │   │   │   └── registry.ts
-│   │   ├── chat/                 # 聊天/对话
-│   │   ├── channels/             # 多渠道支持（参考 openclaw）
-│   │   ├── sources/              # 数据源/API 连接
-│   │   └── sessions/             # 会话管理
-│   ├── core/                     # 核心基础设施
-│   │   ├── db/                   # 数据库连接、migrations
+│   │   ├── chat/                 # Chat/conversation
+│   │   ├── channels/             # Multi-channel support (referencing openclaw)
+│   │   ├── sources/              # Data source/API connections
+│   │   └── sessions/             # Session management
+│   ├── core/                     # Core infrastructure
+│   │   ├── db/                   # Database connections, migrations
 │   │   │   ├── index.ts
 │   │   │   └── client.ts
-│   │   ├── config/               # 配置管理
+│   │   ├── config/               # Configuration management
 │   │   │   └── env.ts
-│   │   └── logger/               # 日志
+│   │   └── logger/               # Logging
 │   │       └── index.ts
-│   └── plugins/                  # Elysia 插件
+│   └── plugins/                  # Elysia plugins
 │       ├── cors.ts
 │       └── swagger.ts
 ├── drizzle/                      # Drizzle ORM
-│   ├── schema/                   # 数据库 schema
+│   ├── schema/                   # Database schema
 │   │   ├── agents.ts
 │   │   ├── sessions.ts
 │   │   ├── messages.ts
 │   │   └── index.ts
-│   └── migrations/               # 迁移文件
-├── data/                         # SQLite 数据库文件
+│   └── migrations/               # Migration files
+├── data/                         # SQLite database files
 │   └── .gitkeep
-├── logs/                         # PM2 日志
+├── logs/                         # PM2 logs
 │   └── .gitkeep
-├── ecosystem.config.cjs          # PM2 配置
-├── drizzle.config.ts             # Drizzle 配置
+├── ecosystem.config.cjs          # PM2 configuration
+├── drizzle.config.ts             # Drizzle configuration
 ├── tsconfig.json
 └── package.json
 ```
 
-**设计理由**:
-- **modules/** 按业务领域组织，与前端 features 对应
-- **core/** 存放基础设施代码（数据库、配置、日志）
-- **Drizzle ORM**: 类型安全且轻量，适合 SQLite
-- **PM2**: 守护进程管理，参考 icloud-git-sync 方案
+**Design Rationale**:
 
-**包名**: `@orbit/server`
+- **modules/** organized by business domain, corresponding to frontend features
+- **core/** stores infrastructure code (database, configuration, logging)
+- **Drizzle ORM**: Type-safe and lightweight, suitable for SQLite
+- **PM2**: Daemon process management, referencing icloud-git-sync solution
 
-### Shared 共享代码
+**Package name**: `@orbit/server`
+
+### Shared Code
 
 ```
 apps/orbit/shared/
 ├── src/
-│   ├── types/                    # TypeScript 类型定义
-│   │   ├── api/                  # API 请求/响应类型
+│   ├── types/                    # TypeScript type definitions
+│   │   ├── api/                  # API request/response types
 │   │   │   ├── chat.ts
 │   │   │   ├── agent.ts
 │   │   │   └── index.ts
-│   │   ├── models/               # 数据模型
+│   │   ├── models/               # Data models
 │   │   │   ├── agent.ts
 │   │   │   ├── session.ts
 │   │   │   ├── message.ts
 │   │   │   └── index.ts
 │   │   └── index.ts
-│   ├── schemas/                  # TypeBox schema（运行时验证）
+│   ├── schemas/                  # TypeBox schema (runtime validation)
 │   │   ├── agent.schema.ts
 │   │   ├── session.schema.ts
 │   │   └── index.ts
-│   ├── constants/                # 常量定义
-│   │   ├── routes.ts             # API 路由路径
-│   │   ├── config.ts             # 配置常量
+│   ├── constants/                # Constant definitions
+│   │   ├── routes.ts             # API route paths
+│   │   ├── config.ts             # Configuration constants
 │   │   └── index.ts
-│   └── utils/                    # 纯函数工具（前后端通用）
+│   └── utils/                    # Pure function utilities (frontend-backend shared)
 │       ├── validators.ts
 │       ├── formatters.ts
 │       └── index.ts
@@ -194,17 +200,18 @@ apps/orbit/shared/
 └── package.json
 ```
 
-**设计理由**:
-- **types/** 确保前后端类型一致，避免 API 契约不同步
-- **schemas/** 使用 TypeBox 进行运行时验证（Elysia 内置）
-- **constants/** 共享 API 路由、配置等常量
-- **utils/** 只放纯函数，确保可在前后端环境运行
+**Design Rationale**:
 
-**约束**: 不放置 React 组件或 Node.js 特定代码
+- **types/** ensures frontend-backend type consistency, avoiding API contract discrepancies
+- **schemas/** uses TypeBox for runtime validation (built-in to Elysia)
+- **constants/** shares API routes, configuration constants, etc.
+- **utils/** only contains pure functions, ensuring they can run in both frontend and backend environments
 
-**包名**: `@orbit/shared`
+**Constraints**: Does not contain React components or Node.js-specific code
 
-## 配置文件
+**Package name**: `@orbit/shared`
+
+## Configuration Files
 
 ### Orbit Workspace Root
 
@@ -215,11 +222,7 @@ apps/orbit/shared/
   "name": "@orbit/root",
   "version": "0.1.0",
   "private": true,
-  "workspaces": [
-    "web",
-    "server",
-    "shared"
-  ],
+  "workspaces": ["web", "server", "shared"],
   "scripts": {
     "dev": "bun run --filter '*' dev",
     "dev:web": "bun run --filter @orbit/web dev",
@@ -243,7 +246,7 @@ apps/orbit/shared/
 }
 ```
 
-### PM2 配置
+### PM2 Configuration
 
 **ecosystem.config.cjs** (`apps/orbit/server/ecosystem.config.cjs`):
 
@@ -278,61 +281,65 @@ module.exports = {
       min_uptime: '10s',
     },
   ],
-};
+}
 ```
 
-## 开发工作流
+## Development Workflow
 
-### 本地开发
+### Local Development
 
-1. **启动开发环境**:
+1. **Start development environment**:
+
    ```bash
    cd apps/orbit
    bun install
-   bun dev  # 同时启动 web 和 server
+   bun dev  # Start both web and server
    ```
 
-2. **独立启动**:
+2. **Start individually**:
+
    ```bash
-   bun dev:web     # 只启动前端 (http://localhost:3000)
-   bun dev:server  # 只启动后端 (http://localhost:3001)
+   bun dev:web     # Start frontend only (http://localhost:3000)
+   bun dev:server  # Start backend only (http://localhost:3001)
    ```
 
-3. **数据库操作**:
+3. **Database operations**:
    ```bash
-   bun db:generate  # 生成 migration
-   bun db:migrate   # 执行 migration
-   bun db:studio    # 打开 Drizzle Studio
+   bun db:generate  # Generate migration
+   bun db:migrate   # Run migration
+   bun db:studio    # Open Drizzle Studio
    ```
 
-### 生产部署
+### Production Deployment
 
-1. **构建**:
+1. **Build**:
+
    ```bash
    bun build
    ```
 
-2. **启动守护进程**:
+2. **Start daemon**:
+
    ```bash
-   bun daemon:start       # 生产模式
-   bun daemon:start:dev   # 开发模式
+   bun daemon:start       # Production mode
+   bun daemon:start:dev   # Development mode
    ```
 
-3. **进程管理**:
+3. **Process management**:
    ```bash
-   bun daemon:stop      # 停止
-   bun daemon:restart   # 重启
-   bun daemon:logs      # 查看日志
-   bun daemon:status    # 查看状态
+   bun daemon:stop      # Stop
+   bun daemon:restart   # Restart
+   bun daemon:logs      # View logs
+   bun daemon:status    # View status
    ```
 
-### 访问地址
+### Access URLs
 
 - **Web**: `http://localhost:3000`
 - **API**: `http://localhost:3001`
-- **API Docs**: `http://localhost:3001/swagger` (开发环境)
+- **API Docs**: `http://localhost:3001/swagger` (development environment)
 
-## 数据流
+## Data Flow
 
 ```
 ┌─────────────┐      HTTP API       ┌──────────────┐
@@ -351,32 +358,35 @@ module.exports = {
 └─────────────┘
 ```
 
-## 未来扩展
+## Future Extensions
 
-### 短期（本期不实现）
-- ~~Cloudflare Tunnel~~（暂不实现）
-- ~~Tauri 客户端（macOS/iOS）~~（暂不实现）
+### Short-term (Not implemented in this phase)
 
-### 中期
-- 如需要跨项目共享代码，可提取到 `packages/`:
-  - `@labs/ui-components`: 通用 UI 组件
-  - `@labs/utils`: 通用工具函数
-  - `@labs/types`: 通用类型定义
+- ~~Cloudflare Tunnel~~ (Not implemented for now)
+- ~~Tauri client (macOS/iOS)~~ (Not implemented for now)
 
-### 长期
-- 根据实际需要调整 monorepo 结构
-- 考虑其他项目的技术栈和架构需求
+### Medium-term
 
-## 设计原则总结
+- If cross-project code sharing is needed, can extract to `packages/`:
+  - `@labs/ui-components`: Common UI components
+  - `@labs/utils`: Common utility functions
+  - `@labs/types`: Common type definitions
 
-1. **YAGNI**: 避免过早抽象，只在真正需要时才提取共享代码
-2. **自包含**: Orbit 尽可能独立，减少跨项目依赖
-3. **类型安全**: 前后端通过 shared 包共享类型定义和 schema
-4. **Feature-based**: 按业务功能而非技术层次组织代码
-5. **渐进式**: 为未来扩展留有空间，但不过度设计
+### Long-term
 
-## 参考
+- Adjust monorepo structure based on actual needs
+- Consider tech stack and architectural requirements for other projects
 
-- **openclaw**: 多渠道个人 AI 助手架构
-- **craft-agents-oss**: Agent 工作平台的功能设计
-- **icloud-git-sync**: PM2 守护进程配置方案
+## Design Principles Summary
+
+1. **YAGNI**: Avoid premature abstraction, only extract shared code when truly needed
+2. **Self-contained**: Orbit is as independent as possible, reducing cross-project dependencies
+3. **Type safety**: Frontend and backend share type definitions and schemas through shared package
+4. **Feature-based**: Organize code by business functionality rather than technical layers
+5. **Progressive**: Leave room for future expansion, but don't over-engineer
+
+## References
+
+- **openclaw**: Multi-channel personal AI assistant architecture
+- **craft-agents-oss**: Agent workspace platform feature design
+- **icloud-git-sync**: PM2 daemon configuration solution
