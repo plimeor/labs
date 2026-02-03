@@ -1,0 +1,8 @@
+{
+  "extends": "@plimeor-labs/tsconfig",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src"]
+}

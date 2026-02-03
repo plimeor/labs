@@ -1,11 +1,16 @@
 {
   "name": "labs",
   "private": true,
-  "workspaces": [
-    "apps/orbit/*",
-    "packages/*",
-    "tools/*"
-  ],
+  "workspaces": {
+    "packages": [
+      "apps/orbit/*",
+      "packages/*",
+      "tools/*"
+    ],
+    "catalog": {
+      "@logtape/logtape": "^0.8.0"
+    }
+  },
   "type": "module",
   "scripts": {
     "prepare": "husky",

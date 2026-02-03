@@ -1,0 +1,12 @@
+{
+  "name": "@plimeor-labs/logger",
+  "version": "0.1.0",
+  "description": "Lightweight logger wrapper for LogTape",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@logtape/logtape": "catalog:"
+  }
+}

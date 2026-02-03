@@ -20,6 +20,7 @@
     "@elysiajs/swagger": "^1.0.0",
     "@modelcontextprotocol/sdk": "^1.25.3",
     "@orbit/shared": "workspace:*",
+    "@plimeor-labs/logger": "workspace:*",
     "@sinclair/typebox": "^0.34.0",
     "cron-parser": "^5.5.0",
     "date-fns": "^4.1.0",
