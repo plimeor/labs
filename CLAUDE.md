@@ -59,15 +59,6 @@ docs: update installation instructions
 
 ## Pull Requests
 
-<<<<<<< HEAD
-1. **Title**: Use conventional commit format
-2. **Description**: Explain what and why (not how)
-3. **Tests**: Include tests for new functionality
-4. **Security**: Ensure no secrets are included
-5. **Review**: All PRs require at least one approval
-
-## Development Setup
-=======
 Title must follow conventional commit format.
 
 Requirements:
@@ -78,7 +69,6 @@ Requirements:
 4. One approval required
 
 ## Development
->>>>>>> e7e77a4 (docs: simplify AGENTS.md guidelines)
 
 ```bash
 bun install
