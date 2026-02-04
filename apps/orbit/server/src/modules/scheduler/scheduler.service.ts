@@ -1,15 +1,17 @@
+import { scheduledTasks, type ScheduledTask } from '@db/tasks'
 import { CronExpressionParser } from 'cron-parser'
 import { and, eq, lte } from 'drizzle-orm'
 
-import { scheduledTasks, type ScheduledTask } from '../../../drizzle/schema/tasks'
-import { db } from '../../core/db/client'
-import { logger } from '../../core/logger'
+import { db } from '@/core/db'
+import { logger } from '@/core/logger'
+
+import { getAgentById } from '../agents/services/agent.service'
 import { executeAgent } from '../agents/services/runtime.service'
 
 const DEFAULT_POLL_INTERVAL = 30000 // 30 seconds
 
 export class SchedulerService {
-  private intervalId: ReturnType<typeof setInterval> | null = null
+  private intervalId: ReturnType<typeof setInterval> | undefined
   private readonly pollInterval: number
   private isRunning = false
 
@@ -33,7 +35,7 @@ export class SchedulerService {
   stop(): void {
     if (this.intervalId) {
       clearInterval(this.intervalId)
-      this.intervalId = null
+      this.intervalId = undefined
       logger.info('Scheduler stopped')
     }
   }
@@ -71,8 +73,15 @@ export class SchedulerService {
   }
 
   private async runTask(task: ScheduledTask): Promise<void> {
+    // Get agent name from ID
+    const agent = await getAgentById(task.agentId)
+    if (!agent) {
+      logger.error(`Agent not found for task ${task.id}`, { agentId: task.agentId })
+      return
+    }
+
     logger.info(`Executing task ${task.id}`, {
-      agentName: task.agentName,
+      agentName: agent.name,
       name: task.name,
       scheduleType: task.scheduleType,
     })
@@ -80,7 +89,7 @@ export class SchedulerService {
     try {
       // Execute the agent
       await executeAgent({
-        agentName: task.agentName,
+        agentName: agent.name,
         prompt: task.prompt,
         sessionType: task.contextMode === 'main' ? 'chat' : 'cron',
         sessionId: task.contextMode === 'main' ? undefined : `cron-${task.id}`,
@@ -107,7 +116,7 @@ export class SchedulerService {
     }
   }
 
-  private calculateNextRun(task: ScheduledTask): Date | null {
+  private calculateNextRun(task: ScheduledTask): Date | undefined {
     if (task.scheduleType === 'cron') {
       try {
         const interval = CronExpressionParser.parse(task.scheduleValue)
@@ -116,7 +125,7 @@ export class SchedulerService {
         logger.error(`Invalid cron expression for task ${task.id}`, {
           value: task.scheduleValue,
         })
-        return null
+        return undefined
       }
     } else if (task.scheduleType === 'interval') {
       const ms = parseInt(task.scheduleValue, 10)
@@ -124,18 +133,18 @@ export class SchedulerService {
         logger.error(`Invalid interval for task ${task.id}`, {
           value: task.scheduleValue,
         })
-        return null
+        return undefined
       }
       return new Date(Date.now() + ms)
     }
 
     // 'once' tasks don't have a next run
-    return null
+    return undefined
   }
 }
 
 // Singleton instance
-let schedulerInstance: SchedulerService | null = null
+let schedulerInstance: SchedulerService | undefined
 
 export function getScheduler(): SchedulerService {
   if (!schedulerInstance) {
