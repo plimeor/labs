@@ -6,11 +6,11 @@ import { readFile } from 'fs/promises'
 
 import { getAgentWorkspacePath } from './workspace.service'
 
-const MAX_FILE_LENGTH = 20000
+const MAX_FILE_LENGTH = 50_000
 
-async function readFileWithTruncation(filePath: string): Promise<string | null> {
+async function readFileWithTruncation(filePath: string): Promise<string | undefined> {
   if (!existsSync(filePath)) {
-    return null
+    return undefined
   }
 
   try {
@@ -26,7 +26,7 @@ async function readFileWithTruncation(filePath: string): Promise<string | null> 
 
     return content
   } catch {
-    return null
+    return undefined
   }
 }
 
@@ -61,9 +61,9 @@ export async function composeSystemPrompt(
   const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd')
 
   const [memoryToday, memoryYesterday, longTerm] = await Promise.all([
-    readFileWithTruncation(join(workspacePath, 'memory', 'daily', `${today}.md`)),
-    readFileWithTruncation(join(workspacePath, 'memory', 'daily', `${yesterday}.md`)),
-    readFileWithTruncation(join(workspacePath, 'memory', 'long-term.md')),
+    readFileWithTruncation(join(workspacePath, 'memory', `${today}.md`)),
+    readFileWithTruncation(join(workspacePath, 'memory', `${yesterday}.md`)),
+    readFileWithTruncation(join(workspacePath, 'MEMORY.md')),
   ])
 
   // Build system prompt

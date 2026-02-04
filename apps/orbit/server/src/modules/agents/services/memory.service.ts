@@ -4,10 +4,11 @@ import { join } from 'path'
 import { format } from 'date-fns'
 import { readFile, writeFile, appendFile, mkdir } from 'fs/promises'
 
+import { type SessionType } from './context.service'
 import { getAgentWorkspacePath } from './workspace.service'
 
 export interface MemoryEntry {
-  sessionType: 'chat' | 'heartbeat' | 'cron'
+  sessionType: SessionType
   prompt: string
   result: string
   timestamp: Date
@@ -15,12 +16,12 @@ export interface MemoryEntry {
 
 export async function appendDailyMemory(agentName: string, entry: MemoryEntry): Promise<void> {
   const workspacePath = getAgentWorkspacePath(agentName)
-  const dailyDir = join(workspacePath, 'memory', 'daily')
+  const memoryDir = join(workspacePath, 'memory')
   const today = format(new Date(), 'yyyy-MM-dd')
-  const filePath = join(dailyDir, `${today}.md`)
+  const filePath = join(memoryDir, `${today}.md`)
 
-  // Ensure daily directory exists
-  await mkdir(dailyDir, { recursive: true })
+  // Ensure memory directory exists
+  await mkdir(memoryDir, { recursive: true })
 
   const time = format(entry.timestamp, 'HH:mm')
   const entryText = `
@@ -41,24 +42,24 @@ export async function appendDailyMemory(agentName: string, entry: MemoryEntry): 
   }
 }
 
-export async function readDailyMemory(agentName: string, date: Date): Promise<string | null> {
+export async function readDailyMemory(agentName: string, date: Date): Promise<string | undefined> {
   const workspacePath = getAgentWorkspacePath(agentName)
   const dateStr = format(date, 'yyyy-MM-dd')
-  const filePath = join(workspacePath, 'memory', 'daily', `${dateStr}.md`)
+  const filePath = join(workspacePath, 'memory', `${dateStr}.md`)
 
   if (!existsSync(filePath)) {
-    return null
+    return undefined
   }
 
   return readFile(filePath, 'utf-8')
 }
 
-export async function readLongTermMemory(agentName: string): Promise<string | null> {
+export async function readLongTermMemory(agentName: string): Promise<string | undefined> {
   const workspacePath = getAgentWorkspacePath(agentName)
-  const filePath = join(workspacePath, 'memory', 'long-term.md')
+  const filePath = join(workspacePath, 'MEMORY.md')
 
   if (!existsSync(filePath)) {
-    return null
+    return undefined
   }
 
   return readFile(filePath, 'utf-8')
@@ -66,14 +67,14 @@ export async function readLongTermMemory(agentName: string): Promise<string | nu
 
 export async function updateLongTermMemory(agentName: string, content: string): Promise<void> {
   const workspacePath = getAgentWorkspacePath(agentName)
-  const filePath = join(workspacePath, 'memory', 'long-term.md')
+  const filePath = join(workspacePath, 'MEMORY.md')
 
   await writeFile(filePath, content)
 }
 
 export async function appendLongTermMemory(agentName: string, entry: string): Promise<void> {
   const workspacePath = getAgentWorkspacePath(agentName)
-  const filePath = join(workspacePath, 'memory', 'long-term.md')
+  const filePath = join(workspacePath, 'MEMORY.md')
 
   const timestamp = format(new Date(), 'yyyy-MM-dd HH:mm')
   const entryText = `\n## ${timestamp}\n\n${entry}\n`
@@ -88,14 +89,14 @@ export async function appendLongTermMemory(agentName: string, entry: string): Pr
 
 export async function listDailyMemoryFiles(agentName: string): Promise<string[]> {
   const workspacePath = getAgentWorkspacePath(agentName)
-  const dailyDir = join(workspacePath, 'memory', 'daily')
+  const memoryDir = join(workspacePath, 'memory')
 
-  if (!existsSync(dailyDir)) {
+  if (!existsSync(memoryDir)) {
     return []
   }
 
   const { readdir } = await import('fs/promises')
-  const files = await readdir(dailyDir)
+  const files = await readdir(memoryDir)
 
   return files
     .filter(f => f.endsWith('.md'))

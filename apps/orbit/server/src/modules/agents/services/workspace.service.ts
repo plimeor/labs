@@ -43,7 +43,7 @@ export async function createAgentWorkspace(
 
   // Create directory structure
   await mkdir(workspacePath, { recursive: true })
-  await mkdir(join(workspacePath, 'memory', 'daily'), { recursive: true })
+  await mkdir(join(workspacePath, 'memory'), { recursive: true })
   await mkdir(join(workspacePath, 'workspace'), { recursive: true })
 
   // Copy template files
@@ -79,10 +79,7 @@ export async function createAgentWorkspace(
   }
 
   // Create empty long-term memory
-  await writeFile(
-    join(workspacePath, 'memory', 'long-term.md'),
-    '# Long-term Memory\n\n(No entries yet)\n',
-  )
+  await writeFile(join(workspacePath, 'MEMORY.md'), '# Long-term Memory\n\n(No entries yet)\n')
 
   return workspacePath
 }
