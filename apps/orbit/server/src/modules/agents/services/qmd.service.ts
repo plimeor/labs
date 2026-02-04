@@ -72,6 +72,36 @@ function getIndexPath(agentName: string): string {
 }
 
 /**
+ * Add a collection to the index with deduplication
+ * If the collection already exists, this is a no-op
+ */
+async function addCollection(indexPath: string, path: string, name: string): Promise<void> {
+  const result = await $`INDEX_PATH=${indexPath} qmd collection list --format json`.json()
+  const existingNames = new Set((result as Array<{ name: string }>).map(c => c.name))
+
+  if (existingNames.has(name)) {
+    return
+  }
+
+  await $`INDEX_PATH=${indexPath} qmd collection add ${path} --name ${name}`.quiet()
+}
+
+/**
+ * Add context to the index with deduplication
+ * If the context URI already exists, this is a no-op
+ */
+async function addContext(indexPath: string, uri: string, description: string): Promise<void> {
+  const result = await $`INDEX_PATH=${indexPath} qmd context list --format json`.json()
+  const existingUris = new Set((result as Array<{ uri: string }>).map(c => c.uri))
+
+  if (existingUris.has(uri)) {
+    return
+  }
+
+  await $`INDEX_PATH=${indexPath} qmd context add ${uri} ${description}`.quiet()
+}
+
+/**
  * Initialize QMD collection for an agent
  * Called when agent is created or on first search
  *
@@ -86,38 +116,21 @@ export async function initializeIndex(agentName: string): Promise<void> {
   const indexPath = getIndexPath(agentName)
   const config = await getQmdConfig()
 
-  // Check existing collections
-  const collectionsResult =
-    await $`INDEX_PATH=${indexPath} qmd collection list --format json`.json()
-  const existingCollections = new Set(
-    (collectionsResult as Array<{ name: string }>).map(c => c.name),
-  )
-
   // Add default collections
-  const memoryPath = resolve(workspace, 'memory')
-  const workspacePath = resolve(workspace, 'workspace')
+  await addCollection(indexPath, resolve(workspace, 'memory'), 'memory')
+  await addCollection(indexPath, resolve(workspace, 'workspace'), 'workspace')
 
-  if (!existingCollections.has('memory')) {
-    await $`INDEX_PATH=${indexPath} qmd collection add ${memoryPath} --name memory`.quiet()
-  }
-  if (!existingCollections.has('workspace')) {
-    await $`INDEX_PATH=${indexPath} qmd collection add ${workspacePath} --name workspace`.quiet()
-  }
-
-  // Add extra collections from config (sequential execution required)
+  // Add extra collections from config
   const extraCollections = config.collections[agentName] ?? []
   for (const [i, dir] of extraCollections.entries()) {
-    const collectionName = `extra-${i}`
-    if (!existingCollections.has(collectionName)) {
-      const expandedDir = dir.replace(/^~/, homedir())
-      // eslint-disable-next-line no-await-in-loop -- sequential execution required for qmd commands
-      await $`INDEX_PATH=${indexPath} qmd collection add ${expandedDir} --name ${collectionName}`.quiet()
-    }
+    const expandedDir = dir.replace(/^~/, homedir())
+    // eslint-disable-next-line no-await-in-loop -- sequential execution required for qmd commands
+    await addCollection(indexPath, expandedDir, `extra-${i}`)
   }
 
   // Add context for better retrieval
-  await $`INDEX_PATH=${indexPath} qmd context add "qmd://memory" "Agent daily memories and long-term notes"`.quiet()
-  await $`INDEX_PATH=${indexPath} qmd context add "qmd://workspace" "Files and documents created by the agent"`.quiet()
+  await addContext(indexPath, 'qmd://memory', 'Agent daily memories and long-term notes')
+  await addContext(indexPath, 'qmd://workspace', 'Files and documents created by the agent')
 
   // Generate initial embeddings
   await $`INDEX_PATH=${indexPath} qmd embed`.quiet()
