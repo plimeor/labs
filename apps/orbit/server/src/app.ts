@@ -5,9 +5,9 @@ import { logger } from './core/logger'
 import { syncAgentsWithWorkspaces } from './modules/agents/services/agent.service'
 import { ensureOrbitDirs } from './modules/agents/services/workspace.service'
 import { chatController, agentsController } from './modules/chat'
+import { corsPlugin } from './modules/plugins/cors'
+import { swaggerPlugin } from './modules/plugins/swagger'
 import { startScheduler, stopScheduler } from './modules/scheduler'
-import { corsPlugin } from './plugins/cors'
-import { swaggerPlugin } from './plugins/swagger'
 
 const baseApp = new Elysia().use(corsPlugin)
 

@@ -1,6 +1,6 @@
 import { swagger } from '@elysiajs/swagger'
 
-import { isDevelopment } from '../core/env.js'
+import { isDevelopment } from '@/core/env'
 
 export const swaggerPlugin = isDevelopment
   ? swagger({
