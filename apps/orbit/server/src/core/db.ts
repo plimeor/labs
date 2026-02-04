@@ -1,9 +1,9 @@
 import { Database } from 'bun:sqlite'
 
+import * as schema from '@db'
 import { drizzle } from 'drizzle-orm/bun-sqlite'
 
-import * as schema from '../../../drizzle/schema'
-import { env } from '../config/env'
+import { env } from './env'
 
 const sqlite = new Database(env.DATABASE_PATH)
 sqlite.exec('PRAGMA journal_mode = WAL;')
