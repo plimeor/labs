@@ -1,26 +1,15 @@
-type LogLevel = 'info' | 'warn' | 'error' | 'debug'
+import { logger as baseLogger } from '@plimeor-labs/logger'
 
-class Logger {
-  private log(level: LogLevel, message: string, ...args: unknown[]) {
-    const timestamp = new Date().toISOString()
-    console[level](`[${timestamp}] [${level.toUpperCase()}]`, message, ...args)
-  }
-
-  info(message: string, ...args: unknown[]) {
-    this.log('info', message, ...args)
-  }
-
-  warn(message: string, ...args: unknown[]) {
-    this.log('warn', message, ...args)
-  }
-
-  error(message: string, ...args: unknown[]) {
-    this.log('error', message, ...args)
-  }
-
-  debug(message: string, ...args: unknown[]) {
-    this.log('debug', message, ...args)
-  }
+export async function setupLogger() {
+  await baseLogger.setup({
+    name: 'orbit',
+    level: 'debug',
+  })
 }
 
-export const logger = new Logger()
+export const logger = {
+  info: baseLogger.info.bind(baseLogger),
+  warn: baseLogger.warn.bind(baseLogger),
+  error: baseLogger.error.bind(baseLogger),
+  debug: baseLogger.debug.bind(baseLogger),
+}
