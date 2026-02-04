@@ -437,7 +437,7 @@ function getIndexPath(agentName: string): string {
 export async function initializeIndex(agentName: string): Promise<void> {
   const workspace = getAgentWorkspacePath(agentName)
   const indexPath = getIndexPath(agentName)
-  const config = getQmdConfig()
+  const config = await getQmdConfig()
 
   // Add default collections
   await $`INDEX_PATH=${indexPath} qmd collection add ${workspace}/memory --name memory`
@@ -534,8 +534,7 @@ export async function indexExists(agentName: string): Promise<boolean> {
 ```typescript
 // src/core/config/qmd.config.ts
 
-import { parse } from '@iarna/toml'
-import { readFileSync, existsSync } from 'fs'
+import { existsSync } from 'fs'
 import { resolve } from 'path'
 import { homedir } from 'os'
 
@@ -551,7 +550,11 @@ const defaultConfig: QmdConfig = {
   collections: {},
 }
 
-export function getQmdConfig(): QmdConfig {
+/**
+ * Load QMD config from TOML file using Bun's native dynamic import
+ * No third-party library needed - Bun handles TOML parsing natively
+ */
+export async function getQmdConfig(): Promise<QmdConfig> {
   if (cachedConfig) return cachedConfig
 
   const configPath = resolve(homedir(), '.config/orbit/config.toml')
@@ -562,8 +565,9 @@ export function getQmdConfig(): QmdConfig {
   }
 
   try {
-    const content = readFileSync(configPath, 'utf-8')
-    const parsed = parse(content) as any
+    // Bun native TOML import - no @iarna/toml needed
+    const module = await import(configPath)
+    const parsed = module.default
 
     cachedConfig = {
       enabled: parsed.qmd?.enabled ?? true,
@@ -576,8 +580,9 @@ export function getQmdConfig(): QmdConfig {
   return cachedConfig
 }
 
-export function isQmdEnabled(): boolean {
-  return getQmdConfig().enabled
+export async function isQmdEnabled(): Promise<boolean> {
+  const config = await getQmdConfig()
+  return config.enabled
 }
 ```
 
