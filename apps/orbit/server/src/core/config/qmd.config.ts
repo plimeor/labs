@@ -34,7 +34,7 @@ export async function getQmdConfig(): Promise<QmdConfig> {
 
     const config: QmdConfig = {
       ...defaultConfig,
-      ...parsed.qmd,
+      ...(parsed.qmd ?? {}),
     }
     cachedConfig = config
     return config
