@@ -1,5 +1,6 @@
-import { swagger } from '@elysiajs/swagger';
-import { isDevelopment } from '../core/config/env.js';
+import { swagger } from '@elysiajs/swagger'
+
+import { isDevelopment } from '../core/env.js'
 
 export const swaggerPlugin = isDevelopment
   ? swagger({
@@ -9,9 +10,7 @@ export const swaggerPlugin = isDevelopment
           version: '0.1.0',
           description: 'Orbit API Documentation',
         },
-        tags: [
-          { name: 'Health', description: 'Health check endpoints' },
-        ],
+        tags: [{ name: 'Health', description: 'Health check endpoints' }],
       },
     })
-  : null;
+  : undefined
