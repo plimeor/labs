@@ -1,9 +1,9 @@
 import { chatSessions, messages } from '@db/sessions'
+import { logger } from '@plimeor-labs/logger'
 import { eq } from 'drizzle-orm'
 import { Elysia, t } from 'elysia'
 
 import { db } from '@/core/db'
-import { logger } from '@/core/logger'
 
 import { ensureAgent, listAgents } from '../agents/services/agent.service'
 import { executeAgent } from '../agents/services/runtime.service'

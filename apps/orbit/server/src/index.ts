@@ -1,8 +1,9 @@
+import { logger } from '@plimeor-labs/logger'
+
 import { app } from './app.js'
 import { env } from './core/env.js'
-import { logger, setupLogger } from './core/logger.js'
 
-await setupLogger()
+await logger.setup({ name: 'orbit', level: 'debug' })
 
 app.listen(env.PORT)
 

@@ -1,6 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
-
-import { logger } from '@/core/logger'
+import { logger } from '@plimeor-labs/logger'
 
 import { createOrbitTools, type OrbitToolHandler } from '../tools/orbit-tools'
 import { getAgent, getAgentById, updateAgentLastActive } from './agent.service'

@@ -1,7 +1,7 @@
 import { API_ROUTES } from '@orbit/shared/constants'
+import { logger } from '@plimeor-labs/logger'
 import { Elysia } from 'elysia'
 
-import { logger } from './core/logger'
 import { syncAgentsWithWorkspaces } from './modules/agents/services/agent.service'
 import { ensureOrbitDirs } from './modules/agents/services/workspace.service'
 import { chatController, agentsController } from './modules/chat'

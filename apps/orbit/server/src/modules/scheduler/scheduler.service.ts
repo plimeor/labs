@@ -1,9 +1,9 @@
 import { scheduledTasks, type ScheduledTask } from '@db/tasks'
+import { logger } from '@plimeor-labs/logger'
 import { CronExpressionParser } from 'cron-parser'
 import { and, eq, lte } from 'drizzle-orm'
 
 import { db } from '@/core/db'
-import { logger } from '@/core/logger'
 
 import { getAgentById } from '../agents/services/agent.service'
 import { executeAgent } from '../agents/services/runtime.service'
