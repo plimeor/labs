@@ -5,7 +5,10 @@
     "types": ["bun"],
     "paths": {
       "@orbit/shared": ["../shared/src/index.ts"],
-      "@orbit/shared/*": ["../shared/src/*"]
+      "@orbit/shared/*": ["../shared/src/*"],
+      "@/*": ["./src/*"],
+      "@db": ["./drizzle/schema/index.ts"],
+      "@db/*": ["./drizzle/schema/*"]
     }
   },
   "include": ["src/**/*", "drizzle/**/*"],
