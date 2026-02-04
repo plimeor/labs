@@ -1,11 +1,13 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { logger } from '@plimeor-labs/logger'
 
+import { createMemoryTools, type MemoryToolHandler } from '../tools/memory-tools'
 import { createOrbitTools, type OrbitToolHandler } from '../tools/orbit-tools'
 import { getAgent, getAgentById, updateAgentLastActive } from './agent.service'
 import { composeSystemPrompt, type SessionType, type InboxMessage } from './context.service'
 import { checkInboxByName, markInboxRead } from './inbox.service'
 import { appendDailyMemory } from './memory.service'
+import * as qmd from './qmd.service'
 import { getAgentWorkingDir } from './workspace.service'
 
 const anthropic = new Anthropic()
@@ -49,7 +51,32 @@ export async function executeAgent(params: ExecuteAgentParams): Promise<ExecuteA
   const systemPrompt = await composeSystemPrompt(agentName, sessionType, inboxMessages)
 
   // Create orbit tools for this agent
-  const { tools, handleToolCall } = createOrbitTools(agentName, agent.id)
+  const { tools: orbitTools, handleToolCall: handleOrbitToolCall } = createOrbitTools(
+    agentName,
+    agent.id,
+  )
+
+  // Create memory tools (returns undefined if QMD not available)
+  const memoryToolsResult = createMemoryTools(agentName)
+
+  // Combine all tools
+  const tools = memoryToolsResult
+    ? [...orbitTools, ...memoryToolsResult.tools]
+    : orbitTools
+
+  // Combined tool handler
+  const handleToolCall = async (
+    toolName: string,
+    args: Record<string, unknown>,
+    workingDir: string,
+  ): Promise<string> => {
+    // Check if it's a memory tool
+    if (memoryToolsResult && (toolName === 'search_memory' || toolName === 'get_memory')) {
+      return memoryToolsResult.handleToolCall(toolName as keyof MemoryToolHandler, args)
+    }
+    // Otherwise it's an orbit tool
+    return handleOrbitToolCall(toolName as keyof OrbitToolHandler, args, workingDir)
+  }
 
   // Execute with Anthropic API
   let result = ''
@@ -126,6 +153,13 @@ export async function executeAgent(params: ExecuteAgentParams): Promise<ExecuteA
       result,
       timestamp: new Date(),
     })
+
+    // Trigger async QMD index update (non-blocking)
+    if (qmd.isQmdAvailable()) {
+      qmd.updateIndex(agentName).catch(err => {
+        logger.warn(`Failed to update QMD index for agent ${agentName}`, { error: err })
+      })
+    }
 
     logger.info(`Agent ${agentName} executed successfully`, {
       sessionType,
