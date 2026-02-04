@@ -1,9 +1,10 @@
+import { chatSessions, messages } from '@db/sessions'
 import { eq } from 'drizzle-orm'
 import { Elysia, t } from 'elysia'
 
-import { chatSessions, messages } from '../../../drizzle/schema/sessions'
-import { db } from '../../core/db/client'
-import { logger } from '../../core/logger'
+import { db } from '@/core/db'
+import { logger } from '@/core/logger'
+
 import { ensureAgent, listAgents } from '../agents/services/agent.service'
 import { executeAgent } from '../agents/services/runtime.service'
 
@@ -17,7 +18,7 @@ export const chatController = new Elysia({ prefix: '/api/chat' })
       logger.info('Chat request received', { agentName, sessionId })
 
       // Ensure agent exists (creates if not)
-      await ensureAgent(agentName)
+      const agent = await ensureAgent(agentName)
 
       // Execute agent
       const result = await executeAgent({
@@ -30,13 +31,13 @@ export const chatController = new Elysia({ prefix: '/api/chat' })
       // Store session and message
       let session = sessionId
         ? await db.select().from(chatSessions).where(eq(chatSessions.sessionId, sessionId)).get()
-        : null
+        : undefined
 
       if (!session) {
         const newSession = await db
           .insert(chatSessions)
           .values({
-            agentName,
+            agentId: agent.id,
             sessionId: result.sessionId,
           })
           .returning()
@@ -46,7 +47,7 @@ export const chatController = new Elysia({ prefix: '/api/chat' })
       // Store user message
       await db.insert(messages).values({
         sessionId: session.id,
-        agentName,
+        agentId: agent.id,
         role: 'user',
         content: message,
       })
@@ -54,7 +55,7 @@ export const chatController = new Elysia({ prefix: '/api/chat' })
       // Store assistant message
       await db.insert(messages).values({
         sessionId: session.id,
-        agentName,
+        agentId: agent.id,
         role: 'assistant',
         content: result.result,
       })
@@ -106,8 +107,8 @@ export const chatController = new Elysia({ prefix: '/api/chat' })
       return {
         session: {
           id: session.sessionId,
-          agentName: session.agentName,
-          startedAt: session.startedAt,
+          agentId: session.agentId,
+          createdAt: session.createdAt,
           messageCount: session.messageCount,
         },
         messages: history.map(m => ({
@@ -126,19 +127,20 @@ export const chatController = new Elysia({ prefix: '/api/chat' })
 
   // List all sessions for an agent
   .get(
-    '/sessions/:agentName',
+    '/sessions/:agentId',
     async ({ params }) => {
+      const agentId = parseInt(params.agentId, 10)
       const sessions = await db
         .select()
         .from(chatSessions)
-        .where(eq(chatSessions.agentName, params.agentName))
-        .orderBy(chatSessions.startedAt)
+        .where(eq(chatSessions.agentId, agentId))
+        .orderBy(chatSessions.createdAt)
         .all()
 
       return {
         sessions: sessions.map(s => ({
           id: s.sessionId,
-          startedAt: s.startedAt,
+          createdAt: s.createdAt,
           lastMessageAt: s.lastMessageAt,
           messageCount: s.messageCount,
         })),
@@ -146,7 +148,7 @@ export const chatController = new Elysia({ prefix: '/api/chat' })
     },
     {
       params: t.Object({
-        agentName: t.String(),
+        agentId: t.String(),
       }),
     },
   )
@@ -154,11 +156,11 @@ export const chatController = new Elysia({ prefix: '/api/chat' })
 export const agentsController = new Elysia({ prefix: '/api/agents' })
   // List all agents
   .get('/', async () => {
-    const agents = await listAgents()
+    const agentList = await listAgents()
     return {
-      agents: agents.map(a => ({
+      agents: agentList.map(a => ({
+        id: a.id,
         name: a.name,
-        displayName: a.displayName,
         status: a.status,
         lastActiveAt: a.lastActiveAt,
         createdAt: a.createdAt,
@@ -174,8 +176,8 @@ export const agentsController = new Elysia({ prefix: '/api/agents' })
       const agent = await createAgent(body)
       return {
         agent: {
+          id: agent.id,
           name: agent.name,
-          displayName: agent.displayName,
           status: agent.status,
           createdAt: agent.createdAt,
         },
@@ -184,7 +186,6 @@ export const agentsController = new Elysia({ prefix: '/api/agents' })
     {
       body: t.Object({
         name: t.String(),
-        displayName: t.Optional(t.String()),
         description: t.Optional(t.String()),
       }),
     },
@@ -203,8 +204,8 @@ export const agentsController = new Elysia({ prefix: '/api/agents' })
 
       return {
         agent: {
+          id: agent.id,
           name: agent.name,
-          displayName: agent.displayName,
           status: agent.status,
           lastActiveAt: agent.lastActiveAt,
           createdAt: agent.createdAt,
