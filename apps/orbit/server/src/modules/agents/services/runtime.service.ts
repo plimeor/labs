@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { logger } from '@plimeor-labs/logger'
 
-import { createMemoryTools, type MemoryToolHandler } from '../tools/memory-tools'
+import { createMemoryTools } from '../tools/memory-tools'
 import { createOrbitTools, type OrbitToolHandler } from '../tools/orbit-tools'
 import { getAgent, getAgentById, updateAgentLastActive } from './agent.service'
 import { composeSystemPrompt, type SessionType, type InboxMessage } from './context.service'
@@ -60,9 +60,7 @@ export async function executeAgent(params: ExecuteAgentParams): Promise<ExecuteA
   const memoryToolsResult = createMemoryTools(agentName)
 
   // Combine all tools
-  const tools = memoryToolsResult
-    ? [...orbitTools, ...memoryToolsResult.tools]
-    : orbitTools
+  const tools = memoryToolsResult ? [...orbitTools, ...memoryToolsResult.tools] : orbitTools
 
   // Combined tool handler
   const handleToolCall = async (
@@ -72,7 +70,7 @@ export async function executeAgent(params: ExecuteAgentParams): Promise<ExecuteA
   ): Promise<string> => {
     // Check if it's a memory tool
     if (memoryToolsResult && (toolName === 'search_memory' || toolName === 'get_memory')) {
-      return memoryToolsResult.handleToolCall(toolName as keyof MemoryToolHandler, args)
+      return memoryToolsResult.handleToolCall(toolName, args)
     }
     // Otherwise it's an orbit tool
     return handleOrbitToolCall(toolName as keyof OrbitToolHandler, args, workingDir)
