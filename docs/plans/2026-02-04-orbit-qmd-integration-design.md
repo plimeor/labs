@@ -431,10 +431,10 @@ function getIndexPath(agentName: string): string {
 /**
  * Initialize QMD collection for an agent
  * Called when agent is created or on first search
+ *
+ * @throws Error if QMD is not available - caller must check isQmdAvailable() first
  */
 export async function initializeIndex(agentName: string): Promise<void> {
-  if (!isQmdAvailable()) return
-
   const workspace = getAgentWorkspacePath(agentName)
   const indexPath = getIndexPath(agentName)
   const config = getQmdConfig()
@@ -462,10 +462,10 @@ export async function initializeIndex(agentName: string): Promise<void> {
 /**
  * Update index when memory files change
  * Called after memory write operations
+ *
+ * @throws Error if QMD is not available - caller must check isQmdAvailable() first
  */
 export async function updateIndex(agentName: string): Promise<void> {
-  if (!isQmdAvailable()) return
-
   const indexPath = getIndexPath(agentName)
   await $`INDEX_PATH=${indexPath} qmd update`
   await $`INDEX_PATH=${indexPath} qmd embed`
@@ -473,10 +473,10 @@ export async function updateIndex(agentName: string): Promise<void> {
 
 /**
  * Search agent's memory using QMD hybrid search
+ *
+ * @throws Error if QMD is not available - caller must check isQmdAvailable() first
  */
 export async function search(options: SearchOptions, query: string): Promise<SearchResult[]> {
-  if (!isQmdAvailable()) return []
-
   const indexPath = getIndexPath(options.agentName)
   const maxResults = options.maxResults ?? 6
 
@@ -495,14 +495,14 @@ export async function search(options: SearchOptions, query: string): Promise<Sea
 
 /**
  * Get full document content
+ *
+ * @throws Error if QMD is not available - caller must check isQmdAvailable() first
  */
 export async function getDocument(
   agentName: string,
   path: string,
   options?: { from?: number; lines?: number }
 ): Promise<string> {
-  if (!isQmdAvailable()) return ''
-
   const indexPath = getIndexPath(agentName)
 
   let cmd = `INDEX_PATH=${indexPath} qmd get "${path}"`
@@ -519,10 +519,10 @@ export async function getDocument(
 
 /**
  * Check if index exists for agent
+ *
+ * @throws Error if QMD is not available - caller must check isQmdAvailable() first
  */
 export async function indexExists(agentName: string): Promise<boolean> {
-  if (!isQmdAvailable()) return false
-
   const indexPath = getIndexPath(agentName)
   const file = Bun.file(indexPath)
   return file.exists()
@@ -749,8 +749,11 @@ export async function executeAgent(params: {
     timestamp: new Date(),
   })
 
-  // Trigger async index update (non-blocking, skips if QMD unavailable)
-  qmd.updateIndex(params.agentName).catch(console.error)
+  // Trigger async index update (non-blocking)
+  // Only call if QMD is available
+  if (qmd.isQmdAvailable()) {
+    qmd.updateIndex(params.agentName).catch(console.error)
+  }
 
   return { result, newSessionId }
 }
