@@ -1,10 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk'
 
-import { logger } from '../../../core/logger'
+import { logger } from '@/core/logger'
+
 import { createOrbitTools, type OrbitToolHandler } from '../tools/orbit-tools'
-import { updateAgentLastActive } from './agent.service'
+import { getAgent, getAgentById, updateAgentLastActive } from './agent.service'
 import { composeSystemPrompt, type SessionType, type InboxMessage } from './context.service'
-import { checkInbox, markInboxRead } from './inbox.service'
+import { checkInboxByName, markInboxRead } from './inbox.service'
 import { appendDailyMemory } from './memory.service'
 import { getAgentWorkingDir } from './workspace.service'
 
@@ -26,19 +27,30 @@ export async function executeAgent(params: ExecuteAgentParams): Promise<ExecuteA
   const { agentName, prompt, sessionType, sessionId } = params
   const workingDir = getAgentWorkingDir(agentName)
 
+  // Get agent ID
+  const agent = await getAgent(agentName)
+  if (!agent) {
+    throw new Error(`Agent not found: ${agentName}`)
+  }
+
   // Check inbox for messages
-  const inbox = await checkInbox(agentName)
-  const inboxMessages: InboxMessage[] = inbox.map(m => ({
-    id: m.id,
-    fromAgent: m.fromAgent,
-    message: m.message,
-  }))
+  const inbox = await checkInboxByName(agentName)
+  const inboxMessages: InboxMessage[] = await Promise.all(
+    inbox.map(async m => {
+      const fromAgent = await getAgentById(m.fromAgentId)
+      return {
+        id: m.id,
+        fromAgent: fromAgent?.name || `Agent#${m.fromAgentId}`,
+        message: m.message,
+      }
+    }),
+  )
 
   // Compose system prompt
   const systemPrompt = await composeSystemPrompt(agentName, sessionType, inboxMessages)
 
   // Create orbit tools for this agent
-  const { tools, handleToolCall } = createOrbitTools(agentName)
+  const { tools, handleToolCall } = createOrbitTools(agentName, agent.id)
 
   // Execute with Anthropic API
   let result = ''
