@@ -7,17 +7,24 @@ import {
   getLogger,
 } from '@logtape/logtape'
 
-type ConfigLevel = 'debug' | 'info' | 'warning' | 'error'
+type Level = 'debug' | 'info' | 'warning' | 'error'
 type LogMethod = 'debug' | 'info' | 'warn' | 'error'
+
+const levelToMethod: Record<Level, LogMethod> = {
+  debug: 'debug',
+  info: 'info',
+  warning: 'warn',
+  error: 'error',
+} as const
 
 interface SetupOptions {
   name: string
-  level?: ConfigLevel
+  level?: Level
   pretty?: boolean
 }
 
 interface QueuedLog {
-  method: LogMethod
+  level: Level
   category: string[]
   message: string
   properties: Record<string, unknown>
@@ -28,25 +35,26 @@ let isConfigured = false
 const queue: QueuedLog[] = []
 
 function log(
-  method: LogMethod,
+  level: Level,
   category: string[],
   message: string,
   properties: Record<string, unknown> = {},
 ) {
   if (!isConfigured) {
-    queue.push({ method, category, message, properties })
+    queue.push({ level, category, message, properties })
     return
   }
-  const instance = getLogger(category)
-  instance[method](message, properties)
+  const fullCategory = rootCategory ? [rootCategory, ...category] : category
+  const instance = getLogger(fullCategory)
+  instance[levelToMethod[level]](message, properties)
 }
 
 function flushQueue() {
   while (queue.length > 0) {
-    const { method, category, message, properties } = queue.shift()!
+    const { level, category, message, properties } = queue.shift()!
     const fullCategory = rootCategory ? [rootCategory, ...category] : category
     const instance = getLogger(fullCategory)
-    instance[method](message, properties)
+    instance[levelToMethod[level]](message, properties)
   }
 }
 
@@ -85,7 +93,7 @@ export const logger = {
   },
 
   warn(message: string, properties?: Record<string, unknown>) {
-    log('warn', [], message, properties)
+    log('warning', [], message, properties)
   },
 
   error(message: string, properties?: Record<string, unknown>) {
