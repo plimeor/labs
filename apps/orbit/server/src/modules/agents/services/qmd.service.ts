@@ -1,9 +1,9 @@
-import { unlink } from 'fs/promises'
 import { homedir } from 'os'
 import { resolve } from 'path'
 
 import { logger } from '@plimeor-labs/logger'
 import { $ } from 'bun'
+import { unlink } from 'fs/promises'
 
 import { getQmdConfig } from '@/core/config/qmd.config'
 
@@ -87,9 +87,10 @@ export async function initializeIndex(agentName: string): Promise<void> {
   const config = await getQmdConfig()
 
   // Check existing collections
-  const collectionsResult = await $`INDEX_PATH=${indexPath} qmd collection list --format json`.json()
+  const collectionsResult =
+    await $`INDEX_PATH=${indexPath} qmd collection list --format json`.json()
   const existingCollections = new Set(
-    (collectionsResult as Array<{ name: string }>).map((c) => c.name),
+    (collectionsResult as Array<{ name: string }>).map(c => c.name),
   )
 
   // Add default collections
@@ -128,54 +129,44 @@ export async function initializeIndex(agentName: string): Promise<void> {
  * Update index when memory files change
  * Called after memory write operations
  *
- * @throws Error if QMD is not available - caller must check isQmdAvailable() first
+ * @throws Error if QMD commands fail
  */
 export async function updateIndex(agentName: string): Promise<void> {
   const indexPath = getIndexPath(agentName)
-
-  try {
-    await $`INDEX_PATH=${indexPath} qmd update`.quiet()
-    await $`INDEX_PATH=${indexPath} qmd embed`.quiet()
-  } catch (error) {
-    logger.warn(`Failed to update QMD index for agent ${agentName}`, { error })
-  }
+  await $`INDEX_PATH=${indexPath} qmd update`.quiet()
+  await $`INDEX_PATH=${indexPath} qmd embed`.quiet()
 }
 
 /**
  * Search agent's memory using QMD hybrid search
  *
- * @throws Error if QMD is not available - caller must check isQmdAvailable() first
+ * @throws Error if QMD search fails
  */
 export async function search(options: SearchOptions, query: string): Promise<SearchResult[]> {
   const indexPath = getIndexPath(options.agentName)
   const maxResults = options.maxResults ?? 6
 
-  try {
-    // Use 'query' command for hybrid search with reranking
-    const result =
-      await $`INDEX_PATH=${indexPath} qmd query ${query} --limit ${maxResults} --format json`.json()
+  // Use 'query' command for hybrid search with reranking
+  const result =
+    await $`INDEX_PATH=${indexPath} qmd query ${query} --limit ${maxResults} --format json`.json()
 
-    return (result as unknown[]).map((item: unknown) => {
-      const record = item as Record<string, unknown>
-      return {
-        docid: String(record.docid ?? ''),
-        path: String(record.path ?? ''),
-        score: Number(record.score ?? 0),
-        title: String(record.title ?? ''),
-        snippet: String(record.snippet ?? ''),
-        lines: record.lines as { start: number; end: number } | undefined,
-      }
-    })
-  } catch (error) {
-    logger.warn(`QMD search failed for agent ${options.agentName}`, { error })
-    return []
-  }
+  return (result as unknown[]).map((item: unknown) => {
+    const record = item as Record<string, unknown>
+    return {
+      docid: String(record.docid ?? ''),
+      path: String(record.path ?? ''),
+      score: Number(record.score ?? 0),
+      title: String(record.title ?? ''),
+      snippet: String(record.snippet ?? ''),
+      lines: record.lines as { start: number; end: number } | undefined,
+    }
+  })
 }
 
 /**
  * Get full document content
  *
- * @throws Error if QMD is not available - caller must check isQmdAvailable() first
+ * @throws Error if QMD get fails
  */
 export async function getDocument(
   agentName: string,
@@ -184,21 +175,15 @@ export async function getDocument(
 ): Promise<string> {
   const indexPath = getIndexPath(agentName)
 
-  try {
-    const args: string[] = ['get', path]
-    if (options?.from) {
-      args.push('--from', String(options.from))
-    }
-    if (options?.lines) {
-      args.push('--lines', String(options.lines))
-    }
-
-    const result = await $`INDEX_PATH=${indexPath} qmd ${args}`.text()
-    return result
-  } catch (error) {
-    logger.warn(`Failed to get document ${path} for agent ${agentName}`, { error })
-    return ''
+  const args: string[] = ['get', path]
+  if (options?.from) {
+    args.push('--from', String(options.from))
   }
+  if (options?.lines) {
+    args.push('--lines', String(options.lines))
+  }
+
+  return await $`INDEX_PATH=${indexPath} qmd ${args}`.text()
 }
 
 /**

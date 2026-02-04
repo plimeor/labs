@@ -25,7 +25,8 @@ export const memoryToolDefinitions: Anthropic.Tool[] = [
   },
   {
     name: 'get_memory',
-    description: 'Read full content from a memory file. Use after search_memory for complete context.',
+    description:
+      'Read full content from a memory file. Use after search_memory for complete context.',
     input_schema: {
       type: 'object',
       properties: {
@@ -56,7 +57,10 @@ export interface MemoryToolHandler {
 export function createMemoryTools(
   agentName: string,
 ):
-  | { tools: Anthropic.Tool[]; handleToolCall: (toolName: string, args: Record<string, unknown>) => Promise<string> }
+  | {
+      tools: Anthropic.Tool[]
+      handleToolCall: (toolName: string, args: Record<string, unknown>) => Promise<string>
+    }
   | undefined {
   // Skip if QMD not available
   if (!qmd.isQmdAvailable()) {
@@ -67,55 +71,58 @@ export function createMemoryTools(
     async search_memory(args) {
       const { query, maxResults } = args
 
-      // Ensure index exists
-      if (!(await qmd.indexExists(agentName))) {
-        await qmd.initializeIndex(agentName)
+      try {
+        // Ensure index exists
+        if (!(await qmd.indexExists(agentName))) {
+          await qmd.initializeIndex(agentName)
+        }
+
+        const results = await qmd.search({ agentName, maxResults }, query)
+
+        if (results.length === 0) {
+          return 'No relevant memories found.'
+        }
+
+        const formatted = results
+          .map((r, i) => {
+            const location = r.lines ? `${r.path}:${r.lines.start}-${r.lines.end}` : r.path
+            return `${i + 1}. [${r.score.toFixed(2)}] ${location}\n   ${r.title}\n   ${r.snippet}`
+          })
+          .join('\n\n')
+
+        return formatted
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        return `Memory search failed: ${message}`
       }
-
-      const results = await qmd.search({ agentName, maxResults }, query)
-
-      if (results.length === 0) {
-        return 'No relevant memories found.'
-      }
-
-      const formatted = results
-        .map((r, i) => {
-          const location = r.lines ? `${r.path}:${r.lines.start}-${r.lines.end}` : r.path
-          return `${i + 1}. [${r.score.toFixed(2)}] ${location}\n   ${r.title}\n   ${r.snippet}`
-        })
-        .join('\n\n')
-
-      return formatted
     },
 
     async get_memory(args) {
       const { path, from, lines = 50 } = args
 
-      const content = await qmd.getDocument(agentName, path, { from, lines })
+      try {
+        const content = await qmd.getDocument(agentName, path, { from, lines })
 
-      if (!content) {
-        return `File not found or empty: ${path}`
+        if (!content) {
+          return `File is empty: ${path}`
+        }
+
+        return content
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        return `Failed to read memory file: ${message}`
       }
-
-      return content
     },
   }
 
-  async function handleToolCall(
-    toolName: keyof MemoryToolHandler,
-    args: Record<string, unknown>,
-  ): Promise<string> {
-    const handler = handlers[toolName]
-    if (!handler) {
-      return `Unknown tool: ${toolName}`
+  async function handleToolCall(toolName: string, args: Record<string, unknown>): Promise<string> {
+    if (toolName === 'search_memory') {
+      return handlers.search_memory(args as { query: string; maxResults?: number })
     }
-
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return await (handler as any)(args)
-    } catch (error) {
-      return `Error executing ${toolName}: ${error instanceof Error ? error.message : String(error)}`
+    if (toolName === 'get_memory') {
+      return handlers.get_memory(args as { path: string; from?: number; lines?: number })
     }
+    return `Unknown tool: ${toolName}`
   }
 
   return {

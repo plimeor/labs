@@ -32,15 +32,16 @@ export async function getQmdConfig(): Promise<QmdConfig> {
     const module = await import(configPath)
     const parsed = module.default
 
-    cachedConfig = {
+    const config: QmdConfig = {
       ...defaultConfig,
       ...parsed.qmd,
     }
+    cachedConfig = config
+    return config
   } catch {
     cachedConfig = defaultConfig
+    return defaultConfig
   }
-
-  return cachedConfig
 }
 
 export async function isQmdEnabled(): Promise<boolean> {
