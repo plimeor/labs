@@ -2,6 +2,7 @@ import { API_ROUTES } from '@orbit/shared/constants'
 import { Elysia } from 'elysia'
 
 import { logger } from './core/logger'
+import { syncAgentsWithWorkspaces } from './modules/agents/services/agent.service'
 import { ensureOrbitDirs } from './modules/agents/services/workspace.service'
 import { chatController, agentsController } from './modules/chat'
 import { startScheduler, stopScheduler } from './modules/scheduler'
@@ -22,6 +23,13 @@ export const app = (swaggerPlugin ? baseApp.use(swaggerPlugin) : baseApp)
 
     // Start scheduler
     startScheduler()
+
+    // Sync agents with workspaces (non-blocking)
+    setImmediate(() => {
+      syncAgentsWithWorkspaces().catch(err => {
+        logger.error('Failed to sync agents with workspaces', { error: err })
+      })
+    })
 
     logger.info('Server started')
   })
