@@ -72,32 +72,48 @@ function getIndexPath(agentName: string): string {
 }
 
 /**
- * Add a collection to the index with deduplication
- * If the collection already exists, this is a no-op
+ * Get existing collection names from the index
  */
-async function addCollection(indexPath: string, path: string, name: string): Promise<void> {
+async function getExistingCollections(indexPath: string): Promise<Set<string>> {
   const result = await $`INDEX_PATH=${indexPath} qmd collection list --format json`.json()
-  const existingNames = new Set((result as Array<{ name: string }>).map(c => c.name))
+  return new Set((result as Array<{ name: string }>).map(c => c.name))
+}
 
-  if (existingNames.has(name)) {
+/**
+ * Get existing context URIs from the index
+ */
+async function getExistingContexts(indexPath: string): Promise<Set<string>> {
+  const result = await $`INDEX_PATH=${indexPath} qmd context list --format json`.json()
+  return new Set((result as Array<{ uri: string }>).map(c => c.uri))
+}
+
+/**
+ * Add a collection to the index if it doesn't already exist
+ */
+async function addCollectionIfNotExists(
+  indexPath: string,
+  path: string,
+  name: string,
+  existing: Set<string>,
+): Promise<void> {
+  if (existing.has(name)) {
     return
   }
-
   await $`INDEX_PATH=${indexPath} qmd collection add ${path} --name ${name}`.quiet()
 }
 
 /**
- * Add context to the index with deduplication
- * If the context URI already exists, this is a no-op
+ * Add context to the index if it doesn't already exist
  */
-async function addContext(indexPath: string, uri: string, description: string): Promise<void> {
-  const result = await $`INDEX_PATH=${indexPath} qmd context list --format json`.json()
-  const existingUris = new Set((result as Array<{ uri: string }>).map(c => c.uri))
-
-  if (existingUris.has(uri)) {
+async function addContextIfNotExists(
+  indexPath: string,
+  uri: string,
+  description: string,
+  existing: Set<string>,
+): Promise<void> {
+  if (existing.has(uri)) {
     return
   }
-
   await $`INDEX_PATH=${indexPath} qmd context add ${uri} ${description}`.quiet()
 }
 
@@ -116,21 +132,47 @@ export async function initializeIndex(agentName: string): Promise<void> {
   const indexPath = getIndexPath(agentName)
   const config = await getQmdConfig()
 
+  // Fetch existing collections and contexts once
+  const [existingCollections, existingContexts] = await Promise.all([
+    getExistingCollections(indexPath),
+    getExistingContexts(indexPath),
+  ])
+
   // Add default collections
-  await addCollection(indexPath, resolve(workspace, 'memory'), 'memory')
-  await addCollection(indexPath, resolve(workspace, 'workspace'), 'workspace')
+  await addCollectionIfNotExists(
+    indexPath,
+    resolve(workspace, 'memory'),
+    'memory',
+    existingCollections,
+  )
+  await addCollectionIfNotExists(
+    indexPath,
+    resolve(workspace, 'workspace'),
+    'workspace',
+    existingCollections,
+  )
 
   // Add extra collections from config
   const extraCollections = config.collections[agentName] ?? []
   for (const [i, dir] of extraCollections.entries()) {
     const expandedDir = dir.replace(/^~/, homedir())
     // eslint-disable-next-line no-await-in-loop -- sequential execution required for qmd commands
-    await addCollection(indexPath, expandedDir, `extra-${i}`)
+    await addCollectionIfNotExists(indexPath, expandedDir, `extra-${i}`, existingCollections)
   }
 
   // Add context for better retrieval
-  await addContext(indexPath, 'qmd://memory', 'Agent daily memories and long-term notes')
-  await addContext(indexPath, 'qmd://workspace', 'Files and documents created by the agent')
+  await addContextIfNotExists(
+    indexPath,
+    'qmd://memory',
+    'Agent daily memories and long-term notes',
+    existingContexts,
+  )
+  await addContextIfNotExists(
+    indexPath,
+    'qmd://workspace',
+    'Files and documents created by the agent',
+    existingContexts,
+  )
 
   // Generate initial embeddings
   await $`INDEX_PATH=${indexPath} qmd embed`.quiet()
@@ -206,6 +248,13 @@ export async function indexExists(agentName: string): Promise<boolean> {
   const indexPath = getIndexPath(agentName)
   const file = Bun.file(indexPath)
   return file.exists()
+}
+
+/**
+ * Reset QMD availability cache (for testing)
+ */
+export function resetQmdAvailability(): void {
+  qmdAvailable = undefined
 }
 
 /**

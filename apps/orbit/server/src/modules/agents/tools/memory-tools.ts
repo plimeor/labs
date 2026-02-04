@@ -48,15 +48,13 @@ export const memoryToolDefinitions: Anthropic.Tool[] = [
   },
 ]
 
-// Tool handler interface
-export interface MemoryToolHandler {
+// Tool handler interface (internal)
+interface MemoryToolHandler {
   search_memory: (args: { query: string; maxResults?: number }) => Promise<string>
   get_memory: (args: { path: string; from?: number; lines?: number }) => Promise<string>
 }
 
-export function createMemoryTools(
-  agentName: string,
-):
+export function createMemoryTools(agentName: string):
   | {
       tools: Anthropic.Tool[]
       handleToolCall: (toolName: string, args: Record<string, unknown>) => Promise<string>
