@@ -20,6 +20,7 @@
     "tailwind-variants": "^0.2.1"
   },
   "devDependencies": {
+    "@plimeor-labs/tsconfig": "workspace:*",
     "@tailwindcss/vite": "^4.0.0",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",

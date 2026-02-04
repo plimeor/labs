@@ -19,6 +19,7 @@
     "@sinclair/typebox": "^0.32.0"
   },
   "devDependencies": {
+    "@plimeor-labs/tsconfig": "workspace:*",
     "@types/bun": "latest",
     "typescript": "^5"
   }

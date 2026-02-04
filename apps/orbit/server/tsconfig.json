@@ -1,7 +1,6 @@
 {
-  "extends": "../tsconfig.json",
+  "extends": "@plimeor-labs/tsconfig",
   "compilerOptions": {
-    "lib": ["ES2022"],
     "types": ["bun"],
     "paths": {
       "@orbit/shared": ["../shared/src/index.ts"],
