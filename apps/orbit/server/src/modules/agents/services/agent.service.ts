@@ -1,7 +1,8 @@
+import { agents, type Agent, type NewAgent } from '@db/agents'
 import { eq } from 'drizzle-orm'
 
-import { agents, type Agent, type NewAgent } from '../../../../drizzle/schema/agents'
-import { db } from '../../../core/db/client'
+import { db } from '@/core/db'
+
 import {
   createAgentWorkspace,
   deleteAgentWorkspace,
@@ -11,12 +12,11 @@ import {
 
 export interface CreateAgentParams {
   name: string
-  displayName?: string
   description?: string
 }
 
 export async function createAgent(params: CreateAgentParams): Promise<Agent> {
-  const { name, displayName, description } = params
+  const { name, description } = params
 
   // Check if agent already exists
   const existing = await db.select().from(agents).where(eq(agents.name, name)).get()
@@ -26,12 +26,11 @@ export async function createAgent(params: CreateAgentParams): Promise<Agent> {
   }
 
   // Create workspace on filesystem
-  const workspacePath = await createAgentWorkspace(name, displayName, description)
+  const workspacePath = await createAgentWorkspace(name, name, description)
 
   // Insert into database
   const newAgent: NewAgent = {
     name,
-    displayName: displayName || name,
     workspacePath,
     status: 'active',
   }
@@ -40,16 +39,12 @@ export async function createAgent(params: CreateAgentParams): Promise<Agent> {
   return result[0]
 }
 
-export async function getAgent(name: string): Promise<Agent | null> {
-  const result = await db.select().from(agents).where(eq(agents.name, name)).get()
-
-  return result || null
+export async function getAgent(name: string): Promise<Agent | undefined> {
+  return db.select().from(agents).where(eq(agents.name, name)).get()
 }
 
-export async function getAgentById(id: number): Promise<Agent | null> {
-  const result = await db.select().from(agents).where(eq(agents.id, id)).get()
-
-  return result || null
+export async function getAgentById(id: number): Promise<Agent | undefined> {
+  return db.select().from(agents).where(eq(agents.id, id)).get()
 }
 
 export async function listAgents(): Promise<Agent[]> {
@@ -100,15 +95,14 @@ export async function syncAgentsWithWorkspaces(): Promise<void> {
   const dbAgentNames = new Set(dbAgents.map(a => a.name))
 
   // Create DB entries for workspaces that don't have them
-  for (const name of workspaces) {
-    if (!dbAgentNames.has(name)) {
-      const workspacePath = getAgentWorkspacePath(name)
-      await db.insert(agents).values({
+  const newWorkspaces = workspaces.filter(name => !dbAgentNames.has(name))
+  await Promise.all(
+    newWorkspaces.map(name =>
+      db.insert(agents).values({
         name,
-        displayName: name,
-        workspacePath,
+        workspacePath: getAgentWorkspacePath(name),
         status: 'active',
-      })
-    }
-  }
+      }),
+    ),
+  )
 }
