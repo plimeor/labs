@@ -7,7 +7,7 @@ interface QmdConfig {
   collections: Record<string, string[]>
 }
 
-let cachedConfig: QmdConfig | null = null
+let cachedConfig: QmdConfig | undefined
 
 const defaultConfig: QmdConfig = {
   enabled: true,
@@ -29,13 +29,12 @@ export async function getQmdConfig(): Promise<QmdConfig> {
   }
 
   try {
-    // Bun native TOML import - no @iarna/toml needed
     const module = await import(configPath)
     const parsed = module.default
 
     cachedConfig = {
-      enabled: parsed.qmd?.enabled ?? true,
-      collections: parsed.qmd?.collections ?? {},
+      ...defaultConfig,
+      ...parsed.qmd,
     }
   } catch {
     cachedConfig = defaultConfig
@@ -50,5 +49,5 @@ export async function isQmdEnabled(): Promise<boolean> {
 }
 
 export function clearConfigCache(): void {
-  cachedConfig = null
+  cachedConfig = undefined
 }

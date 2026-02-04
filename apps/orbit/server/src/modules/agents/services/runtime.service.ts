@@ -56,11 +56,13 @@ export async function executeAgent(params: ExecuteAgentParams): Promise<ExecuteA
     agent.id,
   )
 
-  // Create memory tools (returns empty array if QMD not available)
-  const { tools: memoryTools, handleToolCall: handleMemoryToolCall } = createMemoryTools(agentName)
+  // Create memory tools (returns undefined if QMD not available)
+  const memoryToolsResult = createMemoryTools(agentName)
 
   // Combine all tools
-  const tools = [...orbitTools, ...memoryTools]
+  const tools = memoryToolsResult
+    ? [...orbitTools, ...memoryToolsResult.tools]
+    : orbitTools
 
   // Combined tool handler
   const handleToolCall = async (
@@ -69,8 +71,8 @@ export async function executeAgent(params: ExecuteAgentParams): Promise<ExecuteA
     workingDir: string,
   ): Promise<string> => {
     // Check if it's a memory tool
-    if (toolName === 'search_memory' || toolName === 'get_memory') {
-      return handleMemoryToolCall(toolName as keyof MemoryToolHandler, args)
+    if (memoryToolsResult && (toolName === 'search_memory' || toolName === 'get_memory')) {
+      return memoryToolsResult.handleToolCall(toolName as keyof MemoryToolHandler, args)
     }
     // Otherwise it's an orbit tool
     return handleOrbitToolCall(toolName as keyof OrbitToolHandler, args, workingDir)

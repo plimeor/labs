@@ -1,3 +1,4 @@
+import { unlink } from 'fs/promises'
 import { homedir } from 'os'
 import { resolve } from 'path'
 
@@ -9,14 +10,14 @@ import { getQmdConfig } from '@/core/config/qmd.config'
 import { getAgentWorkspacePath } from './workspace.service'
 
 /** QMD availability status (checked once at startup) */
-let qmdAvailable: boolean | null = null
+let qmdAvailable: boolean | undefined
 
 /**
  * Check if QMD is installed and available
  * Called once at server startup, result is cached
  */
 export async function checkQmdAvailability(): Promise<boolean> {
-  if (qmdAvailable !== null) {
+  if (qmdAvailable !== undefined) {
     return qmdAvailable
   }
 
@@ -77,23 +78,40 @@ function getIndexPath(agentName: string): string {
  * @throws Error if QMD is not available - caller must check isQmdAvailable() first
  */
 export async function initializeIndex(agentName: string): Promise<void> {
+  if (!isQmdAvailable()) {
+    throw new Error('QMD is not available')
+  }
+
   const workspace = getAgentWorkspacePath(agentName)
   const indexPath = getIndexPath(agentName)
   const config = await getQmdConfig()
+
+  // Check existing collections
+  const collectionsResult = await $`INDEX_PATH=${indexPath} qmd collection list --format json`.json()
+  const existingCollections = new Set(
+    (collectionsResult as Array<{ name: string }>).map((c) => c.name),
+  )
 
   // Add default collections
   const memoryPath = resolve(workspace, 'memory')
   const workspacePath = resolve(workspace, 'workspace')
 
-  await $`INDEX_PATH=${indexPath} qmd collection add ${memoryPath} --name memory`.quiet()
-  await $`INDEX_PATH=${indexPath} qmd collection add ${workspacePath} --name workspace`.quiet()
+  if (!existingCollections.has('memory')) {
+    await $`INDEX_PATH=${indexPath} qmd collection add ${memoryPath} --name memory`.quiet()
+  }
+  if (!existingCollections.has('workspace')) {
+    await $`INDEX_PATH=${indexPath} qmd collection add ${workspacePath} --name workspace`.quiet()
+  }
 
   // Add extra collections from config (sequential execution required)
   const extraCollections = config.collections[agentName] ?? []
   for (const [i, dir] of extraCollections.entries()) {
-    const expandedDir = dir.replace(/^~/, homedir())
-    // eslint-disable-next-line no-await-in-loop -- sequential execution required for qmd commands
-    await $`INDEX_PATH=${indexPath} qmd collection add ${expandedDir} --name extra-${i}`.quiet()
+    const collectionName = `extra-${i}`
+    if (!existingCollections.has(collectionName)) {
+      const expandedDir = dir.replace(/^~/, homedir())
+      // eslint-disable-next-line no-await-in-loop -- sequential execution required for qmd commands
+      await $`INDEX_PATH=${indexPath} qmd collection add ${expandedDir} --name ${collectionName}`.quiet()
+    }
   }
 
   // Add context for better retrieval
@@ -201,7 +219,6 @@ export async function deleteIndex(agentName: string): Promise<void> {
   try {
     const file = Bun.file(indexPath)
     if (await file.exists()) {
-      const { unlink } = await import('fs/promises')
       await unlink(indexPath)
       logger.info(`QMD index deleted for agent: ${agentName}`)
     }

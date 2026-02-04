@@ -6,14 +6,8 @@ import * as qmd from '../services/qmd.service'
 export const memoryToolDefinitions: Anthropic.Tool[] = [
   {
     name: 'search_memory',
-    description: `Search your memories and notes semantically.
-
-Uses hybrid search combining:
-- Keyword matching (BM25)
-- Semantic similarity (vector)
-- LLM reranking for best results
-
-Returns relevant snippets with file paths and line numbers.`,
+    description:
+      'Search your memories and notes using hybrid search (BM25 + vector + LLM reranking).',
     input_schema: {
       type: 'object',
       properties: {
@@ -31,9 +25,7 @@ Returns relevant snippets with file paths and line numbers.`,
   },
   {
     name: 'get_memory',
-    description: `Read full content from a memory file.
-
-Use this after search_memory to get complete context around a relevant snippet.`,
+    description: 'Read full content from a memory file. Use after search_memory for complete context.',
     input_schema: {
       type: 'object',
       properties: {
@@ -61,13 +53,14 @@ export interface MemoryToolHandler {
   get_memory: (args: { path: string; from?: number; lines?: number }) => Promise<string>
 }
 
-export function createMemoryTools(agentName: string) {
+export function createMemoryTools(
+  agentName: string,
+):
+  | { tools: Anthropic.Tool[]; handleToolCall: (toolName: string, args: Record<string, unknown>) => Promise<string> }
+  | undefined {
   // Skip if QMD not available
   if (!qmd.isQmdAvailable()) {
-    return {
-      tools: [] as Anthropic.Tool[],
-      handleToolCall: async () => 'Memory tools not available',
-    }
+    return undefined
   }
 
   const handlers: MemoryToolHandler = {
