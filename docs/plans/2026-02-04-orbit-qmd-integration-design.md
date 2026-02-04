@@ -220,7 +220,7 @@ Markdown Files
 │   │   ├── AGENTS.md                                                     │
 │   │   ├── TOOLS.md                                                      │
 │   │   ├── memory/                                                       │
-│   │   │   ├── long-term.md          ◄─── Indexed by QMD                │
+│   │   │   ├── LONG_TERM.md          ◄─── Indexed by QMD                │
 │   │   │   └── daily/                                                    │
 │   │   │       ├── 2026-02-01.md     ◄─── Indexed by QMD                │
 │   │   │       ├── 2026-02-02.md     ◄─── Indexed by QMD                │
@@ -576,7 +576,7 @@ export async function executeAgent(params: {
 | Path | Description |
 |------|-------------|
 | `memory/*.md` | Daily memory files |
-| `memory/long-term.md` | Long-term memory |
+| `memory/LONG_TERM.md` | Long-term memory |
 | `workspace/**/*.md` | Agent-created documents |
 
 ### Excluded
