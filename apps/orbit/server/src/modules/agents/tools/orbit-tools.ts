@@ -1,10 +1,11 @@
 import type Anthropic from '@anthropic-ai/sdk'
+import { scheduledTasks, type NewScheduledTask } from '@db/tasks'
 import { CronExpressionParser } from 'cron-parser'
 import { eq } from 'drizzle-orm'
 
-import { scheduledTasks, type NewScheduledTask } from '../../../../drizzle/schema/tasks'
-import { db } from '../../../core/db/client'
-import { sendToAgent } from '../services/inbox.service'
+import { db } from '@/core/db'
+
+import { sendToAgentByName } from '../services/inbox.service'
 
 // Tool definitions for Anthropic API
 export const orbitToolDefinitions: Anthropic.Tool[] = [
@@ -67,8 +68,8 @@ SCHEDULE TYPE:
         },
         messageType: {
           type: 'string',
-          enum: ['message', 'request', 'response'],
-          default: 'message',
+          enum: ['request', 'response'],
+          default: 'request',
           description: 'Type of message',
         },
       },
@@ -139,7 +140,7 @@ export interface OrbitToolHandler {
   send_to_agent: (args: {
     targetAgent: string
     message: string
-    messageType?: 'message' | 'request' | 'response'
+    messageType?: 'request' | 'response'
   }) => Promise<string>
   list_tasks: () => Promise<string>
   pause_task: (args: { taskId: number }) => Promise<string>
@@ -150,7 +151,7 @@ export interface OrbitToolHandler {
 function calculateNextRun(
   scheduleType: 'cron' | 'interval' | 'once',
   scheduleValue: string,
-): Date | null {
+): Date | undefined {
   if (scheduleType === 'cron') {
     const interval = CronExpressionParser.parse(scheduleValue)
     return interval.next().toDate()
@@ -160,10 +161,10 @@ function calculateNextRun(
   } else if (scheduleType === 'once') {
     return new Date(scheduleValue)
   }
-  return null
+  return undefined
 }
 
-export function createOrbitTools(agentName: string) {
+export function createOrbitTools(agentName: string, agentId: number) {
   const handlers: OrbitToolHandler = {
     async schedule_task(args) {
       const { prompt, scheduleType, scheduleValue, contextMode = 'isolated', name } = args
@@ -174,8 +175,8 @@ export function createOrbitTools(agentName: string) {
       }
 
       const newTask: NewScheduledTask = {
-        agentName,
-        name: name || null,
+        agentId,
+        name,
         prompt,
         scheduleType,
         scheduleValue,
@@ -191,9 +192,9 @@ export function createOrbitTools(agentName: string) {
     },
 
     async send_to_agent(args) {
-      const { targetAgent, message, messageType = 'message' } = args
+      const { targetAgent, message, messageType = 'request' } = args
 
-      const result = await sendToAgent(agentName, targetAgent, message, messageType)
+      const result = await sendToAgentByName(agentName, targetAgent, message, messageType)
 
       return `Message sent to ${targetAgent} (ID: ${result.id})`
     },
@@ -202,7 +203,7 @@ export function createOrbitTools(agentName: string) {
       const tasks = await db
         .select()
         .from(scheduledTasks)
-        .where(eq(scheduledTasks.agentName, agentName))
+        .where(eq(scheduledTasks.agentId, agentId))
         .all()
 
       if (tasks.length === 0) {
@@ -226,7 +227,7 @@ export function createOrbitTools(agentName: string) {
         return `Error: Task ${taskId} not found`
       }
 
-      if (task.agentName !== agentName) {
+      if (task.agentId !== agentId) {
         return `Error: Task ${taskId} does not belong to this agent`
       }
 
@@ -244,7 +245,7 @@ export function createOrbitTools(agentName: string) {
         return `Error: Task ${taskId} not found`
       }
 
-      if (task.agentName !== agentName) {
+      if (task.agentId !== agentId) {
         return `Error: Task ${taskId} does not belong to this agent`
       }
 
@@ -271,7 +272,7 @@ export function createOrbitTools(agentName: string) {
         return `Error: Task ${taskId} not found`
       }
 
-      if (task.agentName !== agentName) {
+      if (task.agentId !== agentId) {
         return `Error: Task ${taskId} does not belong to this agent`
       }
 
