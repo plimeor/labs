@@ -292,6 +292,49 @@ Memory Impact:
 
 ---
 
+## Configuration
+
+### TOML Config Structure
+
+Location: `~/.config/orbit/config.toml`
+
+```toml
+[qmd]
+enabled = true  # Global switch, default true if qmd is available
+
+# Per-agent extra collections (optional)
+# Key: agent name, Value: list of directories to index
+[qmd.collections]
+alice = [
+  "~/Documents/alice-notes",
+  "~/Projects/alice-research"
+]
+
+bob = [
+  "~/work/bob-docs"
+]
+
+# carol has no extra collections, uses default memory/ and workspace/ only
+```
+
+### Config Schema
+
+```typescript
+// src/core/config/qmd.config.ts
+
+interface QmdConfig {
+  enabled: boolean
+  collections: Record<string, string[]>  // agentName -> extra directories
+}
+
+const defaultConfig: QmdConfig = {
+  enabled: true,
+  collections: {},
+}
+```
+
+---
+
 ## Implementation
 
 ### Directory Structure
@@ -299,24 +342,69 @@ Memory Impact:
 ```
 apps/orbit/server/
 ├── src/
+│   ├── core/
+│   │   └── config/
+│   │       └── qmd.config.ts             # New: QMD config loader
 │   ├── modules/
 │   │   ├── agents/
 │   │   │   ├── services/
-│   │   │   │   ├── memory.service.ts         # Existing: daily memory read/write
-│   │   │   │   └── qmd.service.ts            # New: QMD wrapper
+│   │   │   │   ├── memory.service.ts     # Existing: daily memory read/write
+│   │   │   │   └── qmd.service.ts        # New: QMD wrapper
 │   │   │   └── tools/
-│   │   │       ├── orbit-tools.ts            # Existing
-│   │   │       └── memory-tools.ts           # New: search_memory, get_memory
+│   │   │       ├── orbit-tools.ts        # Existing
+│   │   │       └── memory-tools.ts       # New: search_memory, get_memory
 ```
 
-### QMD Service
+### QMD Availability Check
 
 ```typescript
 // src/modules/agents/services/qmd.service.ts
 
 import { $ } from 'bun'
 import { resolve } from 'path'
+import { logger } from '@plimeor-labs/logger'
 import { getAgentWorkspacePath } from './agent.service'
+import { getQmdConfig } from '../../../core/config/qmd.config'
+
+/** QMD availability status (checked once at startup) */
+let qmdAvailable: boolean | null = null
+
+/**
+ * Check if QMD is installed and available
+ * Called once at server startup, result is cached
+ */
+export async function checkQmdAvailability(): Promise<boolean> {
+  if (qmdAvailable !== null) {
+    return qmdAvailable
+  }
+
+  try {
+    const result = await $`which qmd`.quiet()
+    qmdAvailable = result.exitCode === 0
+  } catch {
+    qmdAvailable = false
+  }
+
+  if (!qmdAvailable) {
+    logger.warn('╔════════════════════════════════════════════════════════════╗')
+    logger.warn('║  QMD is not installed. Memory search features are disabled.║')
+    logger.warn('║                                                            ║')
+    logger.warn('║  To enable memory search, install QMD:                     ║')
+    logger.warn('║  bun install -g https://github.com/tobi/qmd                ║')
+    logger.warn('╚════════════════════════════════════════════════════════════╝')
+  } else {
+    logger.info('QMD detected, memory search features enabled')
+  }
+
+  return qmdAvailable
+}
+
+/**
+ * Check if QMD is available (sync, uses cached result)
+ */
+export function isQmdAvailable(): boolean {
+  return qmdAvailable ?? false
+}
 
 interface SearchResult {
   docid: string
@@ -327,7 +415,7 @@ interface SearchResult {
   lines?: { start: number; end: number }
 }
 
-interface QmdConfig {
+interface SearchOptions {
   agentName: string
   maxResults?: number
 }
@@ -345,14 +433,23 @@ function getIndexPath(agentName: string): string {
  * Called when agent is created or on first search
  */
 export async function initializeIndex(agentName: string): Promise<void> {
+  if (!isQmdAvailable()) return
+
   const workspace = getAgentWorkspacePath(agentName)
   const indexPath = getIndexPath(agentName)
+  const config = getQmdConfig()
 
-  // Add memory directory as collection
+  // Add default collections
   await $`INDEX_PATH=${indexPath} qmd collection add ${workspace}/memory --name memory`
-
-  // Add workspace directory (agent-created files)
   await $`INDEX_PATH=${indexPath} qmd collection add ${workspace}/workspace --name workspace`
+
+  // Add extra collections from config
+  const extraCollections = config.collections[agentName] ?? []
+  for (let i = 0; i < extraCollections.length; i++) {
+    const dir = extraCollections[i]
+    const expandedDir = dir.replace(/^~/, process.env.HOME ?? '')
+    await $`INDEX_PATH=${indexPath} qmd collection add ${expandedDir} --name extra-${i}`
+  }
 
   // Add context for better retrieval
   await $`INDEX_PATH=${indexPath} qmd context add "qmd://memory" "Agent daily memories and long-term notes"`
@@ -367,6 +464,8 @@ export async function initializeIndex(agentName: string): Promise<void> {
  * Called after memory write operations
  */
 export async function updateIndex(agentName: string): Promise<void> {
+  if (!isQmdAvailable()) return
+
   const indexPath = getIndexPath(agentName)
   await $`INDEX_PATH=${indexPath} qmd update`
   await $`INDEX_PATH=${indexPath} qmd embed`
@@ -375,9 +474,11 @@ export async function updateIndex(agentName: string): Promise<void> {
 /**
  * Search agent's memory using QMD hybrid search
  */
-export async function search(config: QmdConfig, query: string): Promise<SearchResult[]> {
-  const indexPath = getIndexPath(config.agentName)
-  const maxResults = config.maxResults ?? 6
+export async function search(options: SearchOptions, query: string): Promise<SearchResult[]> {
+  if (!isQmdAvailable()) return []
+
+  const indexPath = getIndexPath(options.agentName)
+  const maxResults = options.maxResults ?? 6
 
   // Use 'query' command for hybrid search with reranking
   const result = await $`INDEX_PATH=${indexPath} qmd query ${query} --limit ${maxResults} --format json`.json()
@@ -400,6 +501,8 @@ export async function getDocument(
   path: string,
   options?: { from?: number; lines?: number }
 ): Promise<string> {
+  if (!isQmdAvailable()) return ''
+
   const indexPath = getIndexPath(agentName)
 
   let cmd = `INDEX_PATH=${indexPath} qmd get "${path}"`
@@ -418,9 +521,63 @@ export async function getDocument(
  * Check if index exists for agent
  */
 export async function indexExists(agentName: string): Promise<boolean> {
+  if (!isQmdAvailable()) return false
+
   const indexPath = getIndexPath(agentName)
   const file = Bun.file(indexPath)
   return file.exists()
+}
+```
+
+### Config Loader
+
+```typescript
+// src/core/config/qmd.config.ts
+
+import { parse } from '@iarna/toml'
+import { readFileSync, existsSync } from 'fs'
+import { resolve } from 'path'
+import { homedir } from 'os'
+
+interface QmdConfig {
+  enabled: boolean
+  collections: Record<string, string[]>
+}
+
+let cachedConfig: QmdConfig | null = null
+
+const defaultConfig: QmdConfig = {
+  enabled: true,
+  collections: {},
+}
+
+export function getQmdConfig(): QmdConfig {
+  if (cachedConfig) return cachedConfig
+
+  const configPath = resolve(homedir(), '.config/orbit/config.toml')
+
+  if (!existsSync(configPath)) {
+    cachedConfig = defaultConfig
+    return cachedConfig
+  }
+
+  try {
+    const content = readFileSync(configPath, 'utf-8')
+    const parsed = parse(content) as any
+
+    cachedConfig = {
+      enabled: parsed.qmd?.enabled ?? true,
+      collections: parsed.qmd?.collections ?? {},
+    }
+  } catch {
+    cachedConfig = defaultConfig
+  }
+
+  return cachedConfig
+}
+
+export function isQmdEnabled(): boolean {
+  return getQmdConfig().enabled
 }
 ```
 
@@ -433,7 +590,16 @@ import { tool } from '@anthropic-ai/claude-agent-sdk'
 import { z } from 'zod'
 import * as qmd from '../services/qmd.service'
 
+/**
+ * Create memory tools for an agent
+ * Returns empty array if QMD is not available
+ */
 export function createMemoryTools(agentName: string) {
+  // Skip if QMD not available
+  if (!qmd.isQmdAvailable()) {
+    return []
+  }
+
   return [
     tool(
       'search_memory',
@@ -506,6 +672,23 @@ Use this after search_memory to get complete context around a relevant snippet.`
 }
 ```
 
+### Server Startup
+
+```typescript
+// src/index.ts (server entry point)
+
+import { checkQmdAvailability } from './modules/agents/services/qmd.service'
+
+async function bootstrap() {
+  // Check QMD availability at startup (result is cached)
+  await checkQmdAvailability()
+
+  // ... rest of server initialization ...
+}
+
+bootstrap()
+```
+
 ### Integration with Agent Runtime
 
 ```typescript
@@ -522,9 +705,27 @@ export async function executeAgent(params: {
 }): Promise<{ result: string; newSessionId: string }> {
   // ... existing code ...
 
-  // Create MCP tools including memory tools
+  // Create MCP tools including memory tools (returns [] if QMD unavailable)
   const orbitMcp = createOrbitMcp(params.agentName)
   const memoryTools = createMemoryTools(params.agentName)
+
+  // Build allowed tools list
+  const allowedTools = [
+    'Bash',
+    'Read',
+    'Write',
+    'Edit',
+    'Glob',
+    'Grep',
+    'WebSearch',
+    'WebFetch',
+    'mcp__orbit__*',
+  ]
+
+  // Only add memory tools if QMD is available
+  if (qmd.isQmdAvailable()) {
+    allowedTools.push('search_memory', 'get_memory')
+  }
 
   // Execute Agent SDK with memory tools
   for await (const message of query({
@@ -533,19 +734,7 @@ export async function executeAgent(params: {
       cwd: workspacePath,
       resume: params.sessionId,
       systemPrompt: systemPrompt,
-      allowedTools: [
-        'Bash',
-        'Read',
-        'Write',
-        'Edit',
-        'Glob',
-        'Grep',
-        'WebSearch',
-        'WebFetch',
-        'mcp__orbit__*',
-        'search_memory',    // New
-        'get_memory',       // New
-      ],
+      allowedTools,
       // ... rest of options ...
     },
   })) {
@@ -560,7 +749,7 @@ export async function executeAgent(params: {
     timestamp: new Date(),
   })
 
-  // Trigger async index update (non-blocking)
+  // Trigger async index update (non-blocking, skips if QMD unavailable)
   qmd.updateIndex(params.agentName).catch(console.error)
 
   return { result, newSessionId }
@@ -578,6 +767,7 @@ export async function executeAgent(params: {
 | `memory/*.md` | Daily memory files |
 | `memory/LONG_TERM.md` | Long-term memory |
 | `workspace/**/*.md` | Agent-created documents |
+| `[qmd.collections.<agent>]` | Extra directories from config (per-agent) |
 
 ### Excluded
 
