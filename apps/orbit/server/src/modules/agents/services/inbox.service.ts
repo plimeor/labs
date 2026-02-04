@@ -1,21 +1,18 @@
+import { agents } from '@db/agents'
+import { agentInbox, type AgentInboxMessage, type NewAgentInboxMessage } from '@db/inbox'
 import { eq, and, inArray } from 'drizzle-orm'
 
-import {
-  agentInbox,
-  type AgentInboxMessage,
-  type NewAgentInboxMessage,
-} from '../../../../drizzle/schema/inbox'
-import { db } from '../../../core/db/client'
+import { db } from '@/core/db'
 
 export async function sendToAgent(
-  fromAgent: string,
-  toAgent: string,
+  fromAgentId: number,
+  toAgentId: number,
   message: string,
-  messageType: 'message' | 'request' | 'response' = 'message',
+  messageType: 'request' | 'response' = 'request',
 ): Promise<AgentInboxMessage> {
   const newMessage: NewAgentInboxMessage = {
-    fromAgent,
-    toAgent,
+    fromAgentId,
+    toAgentId,
     message,
     messageType,
     status: 'pending',
@@ -25,12 +22,39 @@ export async function sendToAgent(
   return result[0]
 }
 
-export async function checkInbox(agentName: string): Promise<AgentInboxMessage[]> {
+export async function sendToAgentByName(
+  fromAgentName: string,
+  toAgentName: string,
+  message: string,
+  messageType: 'request' | 'response' = 'request',
+): Promise<AgentInboxMessage> {
+  const fromAgent = await db.select().from(agents).where(eq(agents.name, fromAgentName)).get()
+  const toAgent = await db.select().from(agents).where(eq(agents.name, toAgentName)).get()
+
+  if (!fromAgent) {
+    throw new Error(`Agent not found: ${fromAgentName}`)
+  }
+  if (!toAgent) {
+    throw new Error(`Agent not found: ${toAgentName}`)
+  }
+
+  return sendToAgent(fromAgent.id, toAgent.id, message, messageType)
+}
+
+export async function checkInbox(agentId: number): Promise<AgentInboxMessage[]> {
   return db
     .select()
     .from(agentInbox)
-    .where(and(eq(agentInbox.toAgent, agentName), eq(agentInbox.status, 'pending')))
+    .where(and(eq(agentInbox.toAgentId, agentId), eq(agentInbox.status, 'pending')))
     .all()
+}
+
+export async function checkInboxByName(agentName: string): Promise<AgentInboxMessage[]> {
+  const agent = await db.select().from(agents).where(eq(agents.name, agentName)).get()
+  if (!agent) {
+    return []
+  }
+  return checkInbox(agent.id)
 }
 
 export async function markInboxRead(messageIds: number[]): Promise<void> {
@@ -48,21 +72,21 @@ export async function archiveInboxMessages(messageIds: number[]): Promise<void> 
   await db.update(agentInbox).set({ status: 'archived' }).where(inArray(agentInbox.id, messageIds))
 }
 
-export async function getInboxHistory(agentName: string, limit = 50): Promise<AgentInboxMessage[]> {
+export async function getInboxHistory(agentId: number, limit = 50): Promise<AgentInboxMessage[]> {
   return db
     .select()
     .from(agentInbox)
-    .where(eq(agentInbox.toAgent, agentName))
+    .where(eq(agentInbox.toAgentId, agentId))
     .orderBy(agentInbox.createdAt)
     .limit(limit)
     .all()
 }
 
-export async function getSentMessages(agentName: string, limit = 50): Promise<AgentInboxMessage[]> {
+export async function getSentMessages(agentId: number, limit = 50): Promise<AgentInboxMessage[]> {
   return db
     .select()
     .from(agentInbox)
-    .where(eq(agentInbox.fromAgent, agentName))
+    .where(eq(agentInbox.fromAgentId, agentId))
     .orderBy(agentInbox.createdAt)
     .limit(limit)
     .all()
