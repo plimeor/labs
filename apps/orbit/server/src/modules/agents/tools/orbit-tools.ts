@@ -186,7 +186,7 @@ export function createOrbitTools(agentName: string, agentId: number) {
       }
 
       const result = await db.insert(scheduledTasks).values(newTask).returning()
-      const task = result[0]
+      const task = result[0]!
 
       return `Task scheduled successfully (ID: ${task.id}). Next run: ${nextRun.toISOString()}`
     },

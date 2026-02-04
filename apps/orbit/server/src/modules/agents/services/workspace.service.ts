@@ -73,7 +73,7 @@ export async function createAgentWorkspace(
     let content = await readFile(identityPath, 'utf-8')
     content = content
       .replace('{{AGENT_NAME}}', displayName || agentName)
-      .replace('{{CREATED_DATE}}', new Date().toISOString().split('T')[0])
+      .replace('{{CREATED_DATE}}', new Date().toISOString().split('T')[0]!)
       .replace('{{AGENT_DESCRIPTION}}', description || 'A helpful AI assistant')
     await writeFile(identityPath, content)
   }

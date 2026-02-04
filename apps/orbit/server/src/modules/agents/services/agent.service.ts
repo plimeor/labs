@@ -36,7 +36,7 @@ export async function createAgent(params: CreateAgentParams): Promise<Agent> {
   }
 
   const result = await db.insert(agents).values(newAgent).returning()
-  return result[0]
+  return result[0]!
 }
 
 export async function getAgent(name: string): Promise<Agent | undefined> {

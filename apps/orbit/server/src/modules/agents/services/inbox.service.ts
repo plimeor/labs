@@ -19,7 +19,7 @@ export async function sendToAgent(
   }
 
   const result = await db.insert(agentInbox).values(newMessage).returning()
-  return result[0]
+  return result[0]!
 }
 
 export async function sendToAgentByName(

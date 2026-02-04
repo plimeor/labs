@@ -41,7 +41,7 @@ export const chatController = new Elysia({ prefix: '/api/chat' })
             sessionId: result.sessionId,
           })
           .returning()
-        session = newSession[0]
+        session = newSession[0]!
       }
 
       // Store user message
