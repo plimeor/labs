@@ -7,16 +7,17 @@ import {
   getLogger,
 } from '@logtape/logtape'
 
-type Level = 'debug' | 'info' | 'warn' | 'error'
+type ConfigLevel = 'debug' | 'info' | 'warning' | 'error'
+type LogMethod = 'debug' | 'info' | 'warn' | 'error'
 
 interface SetupOptions {
   name: string
-  level?: Level
+  level?: ConfigLevel
   pretty?: boolean
 }
 
 interface QueuedLog {
-  level: Level
+  method: LogMethod
   category: string[]
   message: string
   properties: Record<string, unknown>
@@ -27,25 +28,25 @@ let isConfigured = false
 const queue: QueuedLog[] = []
 
 function log(
-  level: Level,
+  method: LogMethod,
   category: string[],
   message: string,
   properties: Record<string, unknown> = {},
 ) {
   if (!isConfigured) {
-    queue.push({ level, category, message, properties })
+    queue.push({ method, category, message, properties })
     return
   }
   const instance = getLogger(category)
-  instance[level](message, properties)
+  instance[method](message, properties)
 }
 
 function flushQueue() {
   while (queue.length > 0) {
-    const { level, category, message, properties } = queue.shift()!
+    const { method, category, message, properties } = queue.shift()!
     const fullCategory = rootCategory ? [rootCategory, ...category] : category
     const instance = getLogger(fullCategory)
-    instance[level](message, properties)
+    instance[method](message, properties)
   }
 }
 
@@ -83,8 +84,8 @@ export const logger = {
     log('info', [], message, properties)
   },
 
-  warning(message: string, properties?: Record<string, unknown>) {
-    log('warning', [], message, properties)
+  warn(message: string, properties?: Record<string, unknown>) {
+    log('warn', [], message, properties)
   },
 
   error(message: string, properties?: Record<string, unknown>) {
