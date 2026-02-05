@@ -10,19 +10,14 @@
  * - Syncing agents with workspaces
  */
 
-import { describe, it, expect, beforeEach, afterEach, mock } from 'bun:test'
+import { describe, it, expect, beforeEach, mock } from 'bun:test'
 
 import { agents, type Agent, type NewAgent } from '@db/agents'
 import { eq } from 'drizzle-orm'
 
-import { createTestDb, closeTestDb, type TestDb, type TestDatabase } from '../helpers/test-db'
+import { db } from '@/core/db'
 
-// ============================================================
-// Test Database Setup
-// ============================================================
-
-let testDb: TestDatabase
-let db: TestDb
+import { clearAllTables } from '../helpers/test-db'
 
 // ============================================================
 // Mock Workspace Service
@@ -47,7 +42,7 @@ const mockWorkspaceService = {
 }
 
 // ============================================================
-// Service Functions (inline for testing with test db)
+// Service Functions (inline for testing with mocked workspace)
 // ============================================================
 
 async function createAgent(params: { name: string; description?: string }): Promise<Agent> {
@@ -134,15 +129,10 @@ async function syncAgentsWithWorkspaces(): Promise<void> {
 
 describe('Agent Service', () => {
   beforeEach(async () => {
-    testDb = await createTestDb()
-    db = testDb.db
+    await clearAllTables()
     mockWorkspaces.clear()
     mockWorkspaceService.createAgentWorkspace.mockClear()
     mockWorkspaceService.deleteAgentWorkspace.mockClear()
-  })
-
-  afterEach(() => {
-    closeTestDb(testDb)
   })
 
   // ----------------------------------------------------------

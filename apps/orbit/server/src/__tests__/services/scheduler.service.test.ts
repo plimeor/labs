@@ -10,21 +10,16 @@
  * - One-time task completion
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
+import { describe, it, expect, beforeEach } from 'bun:test'
 
 import { agents, type Agent } from '@db/agents'
 import { scheduledTasks, type ScheduledTask, type NewScheduledTask } from '@db/tasks'
 import { CronExpressionParser } from 'cron-parser'
 import { eq, and, lte } from 'drizzle-orm'
 
-import { createTestDb, closeTestDb, type TestDb, type TestDatabase } from '../helpers/test-db'
+import { db } from '@/core/db'
 
-// ============================================================
-// Test Database Setup
-// ============================================================
-
-let testDb: TestDatabase
-let db: TestDb
+import { clearAllTables } from '../helpers/test-db'
 
 // Helper to create test agent
 async function createTestAgent(name: string): Promise<Agent> {
@@ -139,12 +134,7 @@ async function cancelTask(taskId: number): Promise<void> {
 
 describe('Scheduler Service', () => {
   beforeEach(async () => {
-    testDb = await createTestDb()
-    db = testDb.db
-  })
-
-  afterEach(() => {
-    closeTestDb(testDb)
+    await clearAllTables()
   })
 
   // ----------------------------------------------------------

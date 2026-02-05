@@ -12,13 +12,15 @@
  * Uses mocked Anthropic SDK and QMD service
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
+import { describe, it, expect, beforeEach } from 'bun:test'
 
 import { agents, type Agent } from '@db/agents'
 import { agentInbox, type AgentInboxMessage } from '@db/inbox'
 import { eq, and } from 'drizzle-orm'
 
-import { createTestDb, closeTestDb, type TestDb, type TestDatabase } from '../helpers/test-db'
+import { db } from '@/core/db'
+
+import { clearAllTables } from '../helpers/test-db'
 import {
   createTextResponse,
   createToolUseResponse,
@@ -26,13 +28,6 @@ import {
   type MockMessageResponse,
 } from '../mocks/anthropic.mock'
 import { resetMockQmd } from '../mocks/qmd.mock'
-
-// ============================================================
-// Test Database Setup
-// ============================================================
-
-let testDb: TestDatabase
-let db: TestDb
 
 async function createTestAgent(name: string): Promise<Agent> {
   const result = await db
@@ -243,15 +238,10 @@ async function executeAgent(params: ExecuteAgentParams): Promise<ExecuteAgentRes
 
 describe('Runtime Service', () => {
   beforeEach(async () => {
-    testDb = await createTestDb()
-    db = testDb.db
+    await clearAllTables()
     resetMockQmd()
     resetMockAnthropic()
     memoryEntries.length = 0
-  })
-
-  afterEach(() => {
-    closeTestDb(testDb)
   })
 
   // ----------------------------------------------------------

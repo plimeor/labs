@@ -9,20 +9,15 @@
  * - Message history retrieval
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
+import { describe, it, expect, beforeEach } from 'bun:test'
 
 import { agents, type Agent } from '@db/agents'
 import { agentInbox, type AgentInboxMessage, type NewAgentInboxMessage } from '@db/inbox'
 import { eq, and, inArray } from 'drizzle-orm'
 
-import { createTestDb, closeTestDb, type TestDb, type TestDatabase } from '../helpers/test-db'
+import { db } from '@/core/db'
 
-// ============================================================
-// Test Database Setup
-// ============================================================
-
-let testDb: TestDatabase
-let db: TestDb
+import { clearAllTables } from '../helpers/test-db'
 
 // Helper to create test agents
 async function createTestAgent(name: string): Promise<Agent> {
@@ -135,12 +130,7 @@ async function getSentMessages(agentId: number, limit = 50): Promise<AgentInboxM
 
 describe('Inbox Service', () => {
   beforeEach(async () => {
-    testDb = await createTestDb()
-    db = testDb.db
-  })
-
-  afterEach(() => {
-    closeTestDb(testDb)
+    await clearAllTables()
   })
 
   // ----------------------------------------------------------

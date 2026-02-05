@@ -10,7 +10,7 @@
  * - cancel_task: Delete a task
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
+import { describe, it, expect, beforeEach } from 'bun:test'
 
 import { agents, type Agent } from '@db/agents'
 import { agentInbox } from '@db/inbox'
@@ -18,14 +18,9 @@ import { scheduledTasks, type NewScheduledTask } from '@db/tasks'
 import { CronExpressionParser } from 'cron-parser'
 import { eq } from 'drizzle-orm'
 
-import { createTestDb, closeTestDb, type TestDb, type TestDatabase } from '../helpers/test-db'
+import { db } from '@/core/db'
 
-// ============================================================
-// Test Database Setup
-// ============================================================
-
-let testDb: TestDatabase
-let db: TestDb
+import { clearAllTables } from '../helpers/test-db'
 
 // Helper functions
 async function createTestAgent(name: string): Promise<Agent> {
@@ -224,12 +219,7 @@ function createOrbitToolHandlers(agentName: string, agentId: number): OrbitToolH
 
 describe('Orbit Tools', () => {
   beforeEach(async () => {
-    testDb = await createTestDb()
-    db = testDb.db
-  })
-
-  afterEach(() => {
-    closeTestDb(testDb)
+    await clearAllTables()
   })
 
   // ----------------------------------------------------------
