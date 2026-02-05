@@ -138,6 +138,11 @@ bun run dev
 # Production
 bun run start
 
+# Testing
+bun run test           # Run tests
+bun run test:watch     # Run tests in watch mode
+bun run test:coverage  # Run tests with coverage
+
 # Database
 bun run db:generate  # Generate migration
 bun run db:migrate   # Apply migration
@@ -163,6 +168,25 @@ bun run db:studio    # Open Drizzle Studio
 - `GET /api/health` - Server status
 
 ## Development Notes
+
+### Testing Architecture
+
+**Test Isolation**: Tests use environment variables to isolate from production:
+
+- `DATABASE_PATH`: Points to test database (auto-created in preload)
+- `ORBIT_CONFIG_PATH`: Points to test workspace directories
+
+**Mock Strategy**: Only mock external services, use real implementations for internal code:
+
+- ✅ Mocked: Anthropic SDK (external LLM), QMD service (external CLI)
+- ❌ Real: All internal services (agent, inbox, runtime, scheduler, workspace)
+
+**Test Infrastructure**:
+
+- `bunfig.toml`: Configures Bun test runner with preload script
+- `preload.ts`: Sets up test database using drizzle-kit/api before tests run
+- `test-db.ts`: Database cleanup helpers for test isolation
+- `mocks/`: Mock implementations for external dependencies
 
 ### Adding New Tools
 
