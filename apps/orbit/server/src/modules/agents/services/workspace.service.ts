@@ -4,7 +4,8 @@ import { join } from 'path'
 
 import { mkdir, copyFile, readdir, writeFile } from 'fs/promises'
 
-const ORBIT_BASE_PATH = join(homedir(), '.config', 'orbit')
+/** Base path for orbit data. Override with ORBIT_BASE_PATH env var for testing. */
+const ORBIT_BASE_PATH = process.env.ORBIT_BASE_PATH || join(homedir(), '.config', 'orbit')
 const AGENTS_PATH = join(ORBIT_BASE_PATH, 'agents')
 const TEMPLATES_PATH = join(import.meta.dir, '..', '..', '..', '..', 'templates')
 

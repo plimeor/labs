@@ -1,20 +1,27 @@
 /**
  * Test Preload
  *
- * Runs before any test file. Sets up test database using drizzle-kit/api.
+ * Runs before any test file. Sets up test database and workspace paths.
  */
 
 import { Database } from 'bun:sqlite'
-import { existsSync, unlinkSync } from 'fs'
+import { existsSync, unlinkSync, rmSync, mkdirSync } from 'fs'
 
 import * as schema from '@db'
 import { generateSQLiteDrizzleJson, generateSQLiteMigration } from 'drizzle-kit/api'
 
-// Test database path
+// Test paths - set before any other imports use them
 const TEST_DB_PATH = '/tmp/orbit-test.db'
+const TEST_ORBIT_BASE_PATH = '/tmp/orbit-test'
 
-// Set environment before any other imports use it
 process.env.DATABASE_PATH = TEST_DB_PATH
+process.env.ORBIT_BASE_PATH = TEST_ORBIT_BASE_PATH
+
+// Clean up test workspace directory
+if (existsSync(TEST_ORBIT_BASE_PATH)) {
+  rmSync(TEST_ORBIT_BASE_PATH, { recursive: true })
+}
+mkdirSync(TEST_ORBIT_BASE_PATH, { recursive: true })
 
 // Remove existing test db for clean slate
 if (existsSync(TEST_DB_PATH)) {

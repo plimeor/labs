@@ -8,44 +8,13 @@
  * - Memory writing after execution
  * - Inbox message handling
  *
- * Mocks only: Anthropic SDK, QMD service, workspace paths
- * Real: DB operations, inbox service, agent service, memory service, context service
+ * Mocks only: Anthropic SDK, QMD service
+ * Real: DB operations, inbox service, agent service, memory service, context service, workspace service
  */
 
 import { describe, it, expect, beforeEach, mock } from 'bun:test'
-import { mkdirSync, writeFileSync, rmSync, existsSync } from 'fs'
+import { existsSync, rmSync, mkdirSync } from 'fs'
 import { join } from 'path'
-
-// ============================================================
-// Test workspace setup (must be before mocks use these)
-// ============================================================
-
-const TEST_WORKSPACE_BASE = '/tmp/orbit-test-runtime'
-
-function getTestWorkspacePath(agentName: string): string {
-  return join(TEST_WORKSPACE_BASE, agentName)
-}
-
-function setupTestWorkspace(agentName: string): void {
-  const workspacePath = getTestWorkspacePath(agentName)
-
-  // Clean up and recreate
-  if (existsSync(workspacePath)) {
-    rmSync(workspacePath, { recursive: true })
-  }
-
-  mkdirSync(join(workspacePath, 'memory'), { recursive: true })
-  mkdirSync(join(workspacePath, 'workspace'), { recursive: true })
-
-  // Create minimal required files
-  writeFileSync(join(workspacePath, 'IDENTITY.md'), `# ${agentName}\n\nYou are ${agentName}.`)
-}
-
-function cleanupTestWorkspaces(): void {
-  if (existsSync(TEST_WORKSPACE_BASE)) {
-    rmSync(TEST_WORKSPACE_BASE, { recursive: true })
-  }
-}
 
 // ============================================================
 // Mock state for Anthropic (inline to avoid import issues)
@@ -148,29 +117,8 @@ function getMockAnthropicState(): MockAnthropicState {
 }
 
 // ============================================================
-// Set up ALL mocks BEFORE any imports
+// Set up mocks BEFORE any imports (only Anthropic SDK and QMD)
 // ============================================================
-
-// Mock Workspace Service (returns test paths)
-mock.module('@/modules/agents/services/workspace.service', () => ({
-  getAgentWorkspacePath: (agentName: string) => getTestWorkspacePath(agentName),
-  getAgentWorkingDir: (agentName: string) => join(getTestWorkspacePath(agentName), 'workspace'),
-  createAgentWorkspace: async (agentName: string) => {
-    setupTestWorkspace(agentName)
-    return getTestWorkspacePath(agentName)
-  },
-  deleteAgentWorkspace: async (agentName: string) => {
-    const path = getTestWorkspacePath(agentName)
-    if (existsSync(path)) {
-      rmSync(path, { recursive: true })
-    }
-  },
-  agentWorkspaceExists: async (agentName: string) => existsSync(getTestWorkspacePath(agentName)),
-  listAgentWorkspaces: async () => [],
-  ensureOrbitDirs: async () => {},
-  getOrbitBasePath: () => TEST_WORKSPACE_BASE,
-  getAgentsPath: () => TEST_WORKSPACE_BASE,
-}))
 
 // Mock QMD Service
 mock.module('@/modules/agents/services/qmd.service', () => ({
@@ -212,9 +160,11 @@ import { agentInbox, type AgentInboxMessage } from '@db/inbox'
 import { eq } from 'drizzle-orm'
 
 import { db } from '@/core/db'
+import { createAgent } from '@/modules/agents/services/agent.service'
 import { sendToAgentByName, checkInboxByName } from '@/modules/agents/services/inbox.service'
 // Import real services (after mocks are set up)
 import { executeAgent } from '@/modules/agents/services/runtime.service'
+import { getAgentWorkspacePath } from '@/modules/agents/services/workspace.service'
 
 import { clearAllTables } from '../helpers/test-db'
 
@@ -222,18 +172,18 @@ import { clearAllTables } from '../helpers/test-db'
 // Test Helpers
 // ============================================================
 
-async function createTestAgent(name: string): Promise<Agent> {
-  setupTestWorkspace(name)
+/** Clean up agents directory between tests */
+function cleanupAgentsDir(): void {
+  const agentsDir = join(process.env.ORBIT_BASE_PATH!, 'agents')
+  if (existsSync(agentsDir)) {
+    rmSync(agentsDir, { recursive: true })
+  }
+  mkdirSync(agentsDir, { recursive: true })
+}
 
-  const result = await db
-    .insert(agents)
-    .values({
-      name,
-      workspacePath: getTestWorkspacePath(name),
-      status: 'active',
-    })
-    .returning()
-  return result[0]!
+async function createTestAgent(name: string): Promise<Agent> {
+  // Use real createAgent which creates workspace via real workspace service
+  return createAgent({ name })
 }
 
 async function sendInboxMessage(
@@ -251,8 +201,8 @@ async function sendInboxMessage(
 describe('Runtime Service', () => {
   beforeEach(async () => {
     await clearAllTables()
+    cleanupAgentsDir()
     resetMockAnthropic()
-    cleanupTestWorkspaces()
   })
 
   // ----------------------------------------------------------
@@ -331,7 +281,7 @@ describe('Runtime Service', () => {
         })
 
         // Check memory file was created
-        const workspacePath = getTestWorkspacePath('chat-bot')
+        const workspacePath = getAgentWorkspacePath('chat-bot')
         const memoryDir = join(workspacePath, 'memory')
         expect(existsSync(memoryDir)).toBe(true)
       })
