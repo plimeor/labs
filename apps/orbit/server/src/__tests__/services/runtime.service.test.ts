@@ -161,7 +161,7 @@ import { eq } from 'drizzle-orm'
 
 import { db } from '@/core/db'
 import { createAgent } from '@/modules/agents/services/agent.service'
-import { sendToAgentByName, checkInboxByName } from '@/modules/agents/services/inbox.service'
+import { sendToAgentByName } from '@/modules/agents/services/inbox.service'
 // Import real services (after mocks are set up)
 import { executeAgent } from '@/modules/agents/services/runtime.service'
 import { getAgentWorkspacePath } from '@/modules/agents/services/workspace.service'
@@ -209,120 +209,50 @@ describe('Runtime Service', () => {
   // Feature: Simple Chat Execution
   // ----------------------------------------------------------
   describe('Feature: Simple Chat Execution', () => {
-    describe('Scenario: Execute agent with text-only response', () => {
-      it('Given an agent "chat-bot" exists', async () => {
-        const agent = await createTestAgent('chat-bot')
-        expect(agent.id).toBeGreaterThan(0)
+    it('should execute agent and return response with session ID and updated lastActiveAt', async () => {
+      const agent = await createTestAgent('chat-bot')
+      expect(agent.lastActiveAt).toBeNull()
+      resetMockAnthropic([createTextResponse('Hello! How can I help you?')])
+
+      const result = await executeAgent({
+        agentName: 'chat-bot',
+        prompt: 'Hello',
+        sessionType: 'chat',
       })
 
-      it('When the agent is executed with a prompt', async () => {
-        await createTestAgent('chat-bot')
-        resetMockAnthropic([createTextResponse('Hello! How can I help you?')])
+      expect(result.result).toBe('Hello! How can I help you?')
+      expect(result.sessionId).toContain('chat-bot')
 
-        const result = await executeAgent({
-          agentName: 'chat-bot',
+      const updated = await db.select().from(agents).where(eq(agents.name, 'chat-bot')).get()
+      expect(updated!.lastActiveAt).not.toBeNull()
+
+      const workspacePath = getAgentWorkspacePath('chat-bot')
+      const memoryDir = join(workspacePath, 'memory')
+      expect(existsSync(memoryDir)).toBe(true)
+    })
+
+    it('should use provided session ID', async () => {
+      await createTestAgent('session-bot')
+      resetMockAnthropic([createTextResponse('Continuing...')])
+
+      const result = await executeAgent({
+        agentName: 'session-bot',
+        prompt: 'Continue',
+        sessionType: 'chat',
+        sessionId: 'existing-session-123',
+      })
+
+      expect(result.sessionId).toBe('existing-session-123')
+    })
+
+    it('should fail to execute non-existent agent', async () => {
+      await expect(
+        executeAgent({
+          agentName: 'ghost',
           prompt: 'Hello',
           sessionType: 'chat',
-        })
-
-        expect(result.result).toBe('Hello! How can I help you?')
-      })
-
-      it('Then the response text should be returned', async () => {
-        await createTestAgent('chat-bot')
-        resetMockAnthropic([createTextResponse('I am doing great!')])
-
-        const result = await executeAgent({
-          agentName: 'chat-bot',
-          prompt: 'How are you?',
-          sessionType: 'chat',
-        })
-
-        expect(result.result).toBe('I am doing great!')
-      })
-
-      it('And a session ID should be generated', async () => {
-        await createTestAgent('chat-bot')
-        resetMockAnthropic([createTextResponse('Response')])
-
-        const result = await executeAgent({
-          agentName: 'chat-bot',
-          prompt: 'Test',
-          sessionType: 'chat',
-        })
-
-        expect(result.sessionId).toContain('chat-bot')
-      })
-
-      it('And the agent lastActiveAt should be updated', async () => {
-        const agent = await createTestAgent('chat-bot')
-        expect(agent.lastActiveAt).toBeNull()
-
-        resetMockAnthropic([createTextResponse('Response')])
-
-        await executeAgent({
-          agentName: 'chat-bot',
-          prompt: 'Test',
-          sessionType: 'chat',
-        })
-
-        const updated = await db.select().from(agents).where(eq(agents.name, 'chat-bot')).get()
-        expect(updated!.lastActiveAt).not.toBeNull()
-      })
-
-      it('And a memory entry should be recorded', async () => {
-        await createTestAgent('chat-bot')
-        resetMockAnthropic([createTextResponse('Response')])
-
-        await executeAgent({
-          agentName: 'chat-bot',
-          prompt: 'Test prompt',
-          sessionType: 'chat',
-        })
-
-        // Check memory file was created
-        const workspacePath = getAgentWorkspacePath('chat-bot')
-        const memoryDir = join(workspacePath, 'memory')
-        expect(existsSync(memoryDir)).toBe(true)
-      })
-    })
-
-    describe('Scenario: Execute agent with existing session ID', () => {
-      it('Given an agent and existing session', async () => {
-        await createTestAgent('session-bot')
-        resetMockAnthropic([createTextResponse('Continuing...')])
-      })
-
-      it('When executed with a session ID', async () => {
-        await createTestAgent('session-bot')
-        resetMockAnthropic([createTextResponse('Continuing...')])
-
-        const result = await executeAgent({
-          agentName: 'session-bot',
-          prompt: 'Continue',
-          sessionType: 'chat',
-          sessionId: 'existing-session-123',
-        })
-
-        expect(result.sessionId).toBe('existing-session-123')
-      })
-    })
-
-    describe('Scenario: Fail to execute non-existent agent', () => {
-      it('Given no agent "ghost" exists', async () => {
-        const agent = await db.select().from(agents).where(eq(agents.name, 'ghost')).get()
-        expect(agent).toBeUndefined()
-      })
-
-      it('When trying to execute "ghost"', async () => {
-        await expect(
-          executeAgent({
-            agentName: 'ghost',
-            prompt: 'Hello',
-            sessionType: 'chat',
-          }),
-        ).rejects.toThrow('Agent not found: ghost')
-      })
+        }),
+      ).rejects.toThrow('Agent not found: ghost')
     })
   })
 
@@ -330,171 +260,73 @@ describe('Runtime Service', () => {
   // Feature: Tool Use Handling
   // ----------------------------------------------------------
   describe('Feature: Tool Use Handling', () => {
-    describe('Scenario: Agent uses a single tool', () => {
-      it('Given an agent that will use a tool', async () => {
-        await createTestAgent('tool-user')
-        resetMockAnthropic([
-          createToolUseResponse([
-            {
-              name: 'schedule_task',
-              input: { prompt: 'Do something', scheduleType: 'interval', scheduleValue: '3600000' },
-            },
-          ]),
-          createTextResponse('Task scheduled successfully!'),
-        ])
+    it('should execute single tool and return final response', async () => {
+      await createTestAgent('tool-user')
+      resetMockAnthropic([
+        createToolUseResponse([
+          {
+            name: 'schedule_task',
+            input: { prompt: 'Task', scheduleType: 'interval', scheduleValue: '3600000' },
+          },
+        ]),
+        createTextResponse('Your task has been scheduled!'),
+      ])
+
+      const result = await executeAgent({
+        agentName: 'tool-user',
+        prompt: 'Schedule a reminder',
+        sessionType: 'chat',
       })
 
-      it('When the agent is executed', async () => {
-        await createTestAgent('tool-user')
-        resetMockAnthropic([
-          createToolUseResponse([
-            {
-              name: 'schedule_task',
-              input: { prompt: 'Task', scheduleType: 'interval', scheduleValue: '3600000' },
-            },
-          ]),
-          createTextResponse('Done!'),
-        ])
-
-        const result = await executeAgent({
-          agentName: 'tool-user',
-          prompt: 'Schedule a reminder',
-          sessionType: 'chat',
-        })
-
-        expect(result.result).toBe('Done!')
-      })
-
-      it('And the final text response should be returned', async () => {
-        await createTestAgent('tool-user')
-        resetMockAnthropic([
-          createToolUseResponse([
-            {
-              name: 'schedule_task',
-              input: { prompt: 'Task', scheduleType: 'interval', scheduleValue: '3600000' },
-            },
-          ]),
-          createTextResponse('Your task has been scheduled!'),
-        ])
-
-        const result = await executeAgent({
-          agentName: 'tool-user',
-          prompt: 'Schedule a reminder',
-          sessionType: 'chat',
-        })
-
-        expect(result.result).toBe('Your task has been scheduled!')
-      })
+      expect(result.result).toBe('Your task has been scheduled!')
     })
 
-    describe('Scenario: Agent uses multiple tools in sequence', () => {
-      it('Given an agent that will use multiple tools', async () => {
-        await createTestAgent('multi-tool')
-        await createTestAgent('target-agent')
+    it('should execute multiple tools in sequence', async () => {
+      await createTestAgent('multi-tool')
+      await createTestAgent('target-agent')
+      resetMockAnthropic([
+        createToolUseResponse([
+          {
+            name: 'schedule_task',
+            input: { prompt: 'Task', scheduleType: 'interval', scheduleValue: '3600000' },
+          },
+        ]),
+        createToolUseResponse([
+          { name: 'send_to_agent', input: { targetAgent: 'target-agent', message: 'Hello!' } },
+        ]),
+        createTextResponse('All done!'),
+      ])
 
-        resetMockAnthropic([
-          createToolUseResponse([
-            {
-              name: 'schedule_task',
-              input: { prompt: 'Task', scheduleType: 'interval', scheduleValue: '3600000' },
-            },
-          ]),
-          createToolUseResponse([
-            { name: 'send_to_agent', input: { targetAgent: 'target-agent', message: 'Hello!' } },
-          ]),
-          createTextResponse('All done!'),
-        ])
+      const result = await executeAgent({
+        agentName: 'multi-tool',
+        prompt: 'Do multiple things',
+        sessionType: 'chat',
       })
 
-      it('When the agent is executed', async () => {
-        await createTestAgent('multi-tool')
-        await createTestAgent('target-agent')
-
-        resetMockAnthropic([
-          createToolUseResponse([
-            {
-              name: 'schedule_task',
-              input: { prompt: 'Task', scheduleType: 'interval', scheduleValue: '3600000' },
-            },
-          ]),
-          createToolUseResponse([
-            { name: 'send_to_agent', input: { targetAgent: 'target-agent', message: 'Hello!' } },
-          ]),
-          createTextResponse('All done!'),
-        ])
-
-        const result = await executeAgent({
-          agentName: 'multi-tool',
-          prompt: 'Do multiple things',
-          sessionType: 'chat',
-        })
-
-        expect(result.result).toBe('All done!')
-      })
-
-      it('Then all tools should be executed in order', async () => {
-        await createTestAgent('multi-tool')
-        await createTestAgent('target-agent')
-
-        resetMockAnthropic([
-          createToolUseResponse([
-            {
-              name: 'schedule_task',
-              input: { prompt: 'Task', scheduleType: 'interval', scheduleValue: '3600000' },
-            },
-          ]),
-          createToolUseResponse([
-            { name: 'send_to_agent', input: { targetAgent: 'target-agent', message: 'Hello!' } },
-          ]),
-          createTextResponse('All done!'),
-        ])
-
-        await executeAgent({
-          agentName: 'multi-tool',
-          prompt: 'Do multiple things',
-          sessionType: 'chat',
-        })
-
-        // Verify API was called 3 times (2 tool uses + 1 final)
-        const state = getMockAnthropicState()
-        expect(state.apiCalls.length).toBe(3)
-      })
+      expect(result.result).toBe('All done!')
+      const state = getMockAnthropicState()
+      expect(state.apiCalls.length).toBe(3)
     })
 
-    describe('Scenario: Agent response with text and tool use', () => {
-      it('Given an agent that returns mixed response', async () => {
-        await createTestAgent('mixed-bot')
-        resetMockAnthropic([
-          createMixedResponse('Let me schedule that for you...', [
-            {
-              name: 'schedule_task',
-              input: { prompt: 'Task', scheduleType: 'interval', scheduleValue: '3600000' },
-            },
-          ]),
-          createTextResponse('Done!'),
-        ])
+    it('should handle mixed response with text and tool use', async () => {
+      await createTestAgent('mixed-bot')
+      resetMockAnthropic([
+        createMixedResponse('Scheduling...', [
+          {
+            name: 'schedule_task',
+            input: { prompt: 'Task', scheduleType: 'interval', scheduleValue: '3600000' },
+          },
+        ]),
+        createTextResponse('Task scheduled!'),
+      ])
+
+      const result = await executeAgent({
+        agentName: 'mixed-bot',
+        prompt: 'Schedule something',
+        sessionType: 'chat',
       })
 
-      it('When the agent is executed', async () => {
-        await createTestAgent('mixed-bot')
-        resetMockAnthropic([
-          createMixedResponse('Scheduling...', [
-            {
-              name: 'schedule_task',
-              input: { prompt: 'Task', scheduleType: 'interval', scheduleValue: '3600000' },
-            },
-          ]),
-          createTextResponse('Task scheduled!'),
-        ])
-
-        const result = await executeAgent({
-          agentName: 'mixed-bot',
-          prompt: 'Schedule something',
-          sessionType: 'chat',
-        })
-
-        expect(result.result).toBe('Task scheduled!')
-      })
+      expect(result.result).toBe('Task scheduled!')
     })
   })
 
@@ -502,106 +334,39 @@ describe('Runtime Service', () => {
   // Feature: Inbox Message Handling
   // ----------------------------------------------------------
   describe('Feature: Inbox Message Handling', () => {
-    describe('Scenario: Agent receives and processes inbox messages', () => {
-      it('Given an agent has pending inbox messages', async () => {
-        await createTestAgent('alice')
-        await createTestAgent('bob')
+    it('should mark inbox messages as read and include in system prompt', async () => {
+      await createTestAgent('alice')
+      await createTestAgent('bob')
+      const msg = await sendInboxMessage('alice', 'bob', 'Important message!')
+      resetMockAnthropic([createTextResponse('Response')])
 
-        await sendInboxMessage('alice', 'bob', 'Hey Bob, how are you?')
-
-        const inbox = await checkInboxByName('bob')
-        expect(inbox.length).toBe(1)
-        expect(inbox[0]!.status).toBe('pending')
+      await executeAgent({
+        agentName: 'bob',
+        prompt: 'Hello',
+        sessionType: 'chat',
       })
 
-      it('When bob agent is executed', async () => {
-        await createTestAgent('alice')
-        await createTestAgent('bob')
+      const updated = await db.select().from(agentInbox).where(eq(agentInbox.id, msg.id)).get()
+      expect(updated!.status).toBe('read')
+      expect(updated!.readAt).not.toBeNull()
 
-        await sendInboxMessage('alice', 'bob', 'Hey Bob!')
-
-        resetMockAnthropic([createTextResponse('I got your message!')])
-
-        await executeAgent({
-          agentName: 'bob',
-          prompt: 'Check inbox',
-          sessionType: 'chat',
-        })
-      })
-
-      it('Then inbox messages should be marked as read', async () => {
-        await createTestAgent('alice')
-        await createTestAgent('bob')
-
-        const msg = await sendInboxMessage('alice', 'bob', 'Hey Bob!')
-
-        resetMockAnthropic([createTextResponse('Response')])
-
-        await executeAgent({
-          agentName: 'bob',
-          prompt: 'Check inbox',
-          sessionType: 'chat',
-        })
-
-        const updated = await db.select().from(agentInbox).where(eq(agentInbox.id, msg.id)).get()
-
-        expect(updated!.status).toBe('read')
-        expect(updated!.readAt).not.toBeNull()
-      })
-
-      it('And inbox content should be included in system prompt', async () => {
-        await createTestAgent('alice')
-        await createTestAgent('bob')
-
-        await sendInboxMessage('alice', 'bob', 'Important message!')
-
-        resetMockAnthropic([createTextResponse('Response')])
-
-        await executeAgent({
-          agentName: 'bob',
-          prompt: 'Hello',
-          sessionType: 'chat',
-        })
-
-        // Check that the API was called with inbox in system prompt
-        const state = getMockAnthropicState()
-        expect(state.apiCalls.length).toBeGreaterThan(0)
-        expect((state.apiCalls[0] as any).system).toContain('Important message!')
-      })
+      const state = getMockAnthropicState()
+      expect((state.apiCalls[0] as any).system).toContain('Important message!')
     })
 
-    describe('Scenario: Agent with no inbox messages', () => {
-      it('Given an agent has no pending messages', async () => {
-        await createTestAgent('lonely-bot')
+    it('should execute normally when no inbox messages', async () => {
+      await createTestAgent('lonely-bot')
+      resetMockAnthropic([createTextResponse('Normal response')])
+
+      const result = await executeAgent({
+        agentName: 'lonely-bot',
+        prompt: 'Test',
+        sessionType: 'chat',
       })
 
-      it('When the agent is executed', async () => {
-        await createTestAgent('lonely-bot')
-        resetMockAnthropic([createTextResponse('Hello!')])
-
-        const result = await executeAgent({
-          agentName: 'lonely-bot',
-          prompt: 'Hi',
-          sessionType: 'chat',
-        })
-
-        expect(result.result).toBe('Hello!')
-      })
-
-      it('Then execution should proceed normally', async () => {
-        await createTestAgent('lonely-bot')
-        resetMockAnthropic([createTextResponse('Normal response')])
-
-        const result = await executeAgent({
-          agentName: 'lonely-bot',
-          prompt: 'Test',
-          sessionType: 'chat',
-        })
-
-        expect(result.result).toBe('Normal response')
-        const state = getMockAnthropicState()
-        expect((state.apiCalls[0] as any).system).not.toContain('Inbox')
-      })
+      expect(result.result).toBe('Normal response')
+      const state = getMockAnthropicState()
+      expect((state.apiCalls[0] as any).system).not.toContain('Inbox')
     })
   })
 
@@ -609,67 +374,46 @@ describe('Runtime Service', () => {
   // Feature: Session Types
   // ----------------------------------------------------------
   describe('Feature: Session Types', () => {
-    describe('Scenario: Chat session execution', () => {
-      it('Given a chat session type', async () => {
-        await createTestAgent('chat-agent')
-        resetMockAnthropic([createTextResponse('Chat response')])
+    it('should include chat in system prompt for chat session', async () => {
+      await createTestAgent('chat-agent')
+      resetMockAnthropic([createTextResponse('Chat response')])
+
+      await executeAgent({
+        agentName: 'chat-agent',
+        prompt: 'Hello',
+        sessionType: 'chat',
       })
 
-      it('When executed with chat session type', async () => {
-        await createTestAgent('chat-agent')
-        resetMockAnthropic([createTextResponse('Chat response')])
-
-        await executeAgent({
-          agentName: 'chat-agent',
-          prompt: 'Hello',
-          sessionType: 'chat',
-        })
-
-        const state = getMockAnthropicState()
-        expect((state.apiCalls[0] as any).system).toContain('chat')
-      })
+      const state = getMockAnthropicState()
+      expect((state.apiCalls[0] as any).system).toContain('chat')
     })
 
-    describe('Scenario: Heartbeat session execution', () => {
-      it('Given a heartbeat session type', async () => {
-        await createTestAgent('heartbeat-agent')
-        resetMockAnthropic([createTextResponse('Heartbeat done')])
+    it('should include heartbeat in system prompt for heartbeat session', async () => {
+      await createTestAgent('heartbeat-agent')
+      resetMockAnthropic([createTextResponse('Heartbeat done')])
+
+      await executeAgent({
+        agentName: 'heartbeat-agent',
+        prompt: 'Daily check',
+        sessionType: 'heartbeat',
       })
 
-      it('When executed with heartbeat session type', async () => {
-        await createTestAgent('heartbeat-agent')
-        resetMockAnthropic([createTextResponse('Heartbeat done')])
-
-        await executeAgent({
-          agentName: 'heartbeat-agent',
-          prompt: 'Daily check',
-          sessionType: 'heartbeat',
-        })
-
-        const state = getMockAnthropicState()
-        expect((state.apiCalls[0] as any).system).toContain('heartbeat')
-      })
+      const state = getMockAnthropicState()
+      expect((state.apiCalls[0] as any).system).toContain('heartbeat')
     })
 
-    describe('Scenario: Cron session execution', () => {
-      it('Given a cron session type', async () => {
-        await createTestAgent('cron-agent')
-        resetMockAnthropic([createTextResponse('Cron task done')])
+    it('should include cron in system prompt for cron session', async () => {
+      await createTestAgent('cron-agent')
+      resetMockAnthropic([createTextResponse('Cron task done')])
+
+      await executeAgent({
+        agentName: 'cron-agent',
+        prompt: 'Scheduled task',
+        sessionType: 'cron',
       })
 
-      it('When executed with cron session type', async () => {
-        await createTestAgent('cron-agent')
-        resetMockAnthropic([createTextResponse('Cron task done')])
-
-        await executeAgent({
-          agentName: 'cron-agent',
-          prompt: 'Scheduled task',
-          sessionType: 'cron',
-        })
-
-        const state = getMockAnthropicState()
-        expect((state.apiCalls[0] as any).system).toContain('cron')
-      })
+      const state = getMockAnthropicState()
+      expect((state.apiCalls[0] as any).system).toContain('cron')
     })
   })
 
@@ -677,91 +421,37 @@ describe('Runtime Service', () => {
   // Feature: Agentic Loop Behavior
   // ----------------------------------------------------------
   describe('Feature: Agentic Loop Behavior', () => {
-    describe('Scenario: Loop continues until no tool calls', () => {
-      it('Given multiple tool calls are needed', async () => {
-        await createTestAgent('loop-agent')
-        await createTestAgent('target-agent')
+    it('should continue loop until text-only response', async () => {
+      await createTestAgent('loop-agent')
+      await createTestAgent('target-agent')
+      resetMockAnthropic([
+        createToolUseResponse([
+          {
+            name: 'schedule_task',
+            input: { prompt: 'Task 1', scheduleType: 'interval', scheduleValue: '3600000' },
+          },
+        ]),
+        createToolUseResponse([
+          { name: 'send_to_agent', input: { targetAgent: 'target-agent', message: 'Hi!' } },
+        ]),
+        createToolUseResponse([
+          {
+            name: 'schedule_task',
+            input: { prompt: 'Task 2', scheduleType: 'interval', scheduleValue: '7200000' },
+          },
+        ]),
+        createTextResponse('All tasks complete!'),
+      ])
 
-        resetMockAnthropic([
-          createToolUseResponse([
-            {
-              name: 'schedule_task',
-              input: { prompt: 'Task 1', scheduleType: 'interval', scheduleValue: '3600000' },
-            },
-          ]),
-          createToolUseResponse([
-            { name: 'send_to_agent', input: { targetAgent: 'target-agent', message: 'Hi!' } },
-          ]),
-          createToolUseResponse([
-            {
-              name: 'schedule_task',
-              input: { prompt: 'Task 2', scheduleType: 'interval', scheduleValue: '7200000' },
-            },
-          ]),
-          createTextResponse('Finally done!'),
-        ])
+      const result = await executeAgent({
+        agentName: 'loop-agent',
+        prompt: 'Many tasks',
+        sessionType: 'chat',
       })
 
-      it('When agent is executed', async () => {
-        await createTestAgent('loop-agent')
-        await createTestAgent('target-agent')
-
-        resetMockAnthropic([
-          createToolUseResponse([
-            {
-              name: 'schedule_task',
-              input: { prompt: 'Task 1', scheduleType: 'interval', scheduleValue: '3600000' },
-            },
-          ]),
-          createToolUseResponse([
-            { name: 'send_to_agent', input: { targetAgent: 'target-agent', message: 'Hi!' } },
-          ]),
-          createTextResponse('Done!'),
-        ])
-
-        const result = await executeAgent({
-          agentName: 'loop-agent',
-          prompt: 'Complex task',
-          sessionType: 'chat',
-        })
-
-        expect(result.result).toBe('Done!')
-      })
-
-      it('Then loop should continue until text-only response', async () => {
-        await createTestAgent('loop-agent')
-        await createTestAgent('target-agent')
-
-        resetMockAnthropic([
-          createToolUseResponse([
-            {
-              name: 'schedule_task',
-              input: { prompt: 'Task 1', scheduleType: 'interval', scheduleValue: '3600000' },
-            },
-          ]),
-          createToolUseResponse([
-            { name: 'send_to_agent', input: { targetAgent: 'target-agent', message: 'Hi!' } },
-          ]),
-          createToolUseResponse([
-            {
-              name: 'schedule_task',
-              input: { prompt: 'Task 2', scheduleType: 'interval', scheduleValue: '7200000' },
-            },
-          ]),
-          createTextResponse('All tasks complete!'),
-        ])
-
-        const result = await executeAgent({
-          agentName: 'loop-agent',
-          prompt: 'Many tasks',
-          sessionType: 'chat',
-        })
-
-        // 4 API calls total (3 tool uses + 1 final text)
-        const state = getMockAnthropicState()
-        expect(state.apiCalls.length).toBe(4)
-        expect(result.result).toBe('All tasks complete!')
-      })
+      const state = getMockAnthropicState()
+      expect(state.apiCalls.length).toBe(4)
+      expect(result.result).toBe('All tasks complete!')
     })
   })
 })
