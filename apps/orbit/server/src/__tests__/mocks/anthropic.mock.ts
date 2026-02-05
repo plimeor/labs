@@ -100,6 +100,93 @@ export function createMixedResponse(text: string, toolCalls: MockToolCall[]): Mo
 }
 
 // ============================================================
+// Global Mock State (similar to qmd.mock.ts pattern)
+// ============================================================
+
+export interface MockAnthropicState {
+  /** Sequence of responses to return for each API call */
+  responses: MockMessageResponse[]
+  /** Current call index */
+  callIndex: number
+  /** Record of all API calls made */
+  apiCalls: Anthropic.MessageCreateParams[]
+  /** Error to throw on API call (for testing error handling) */
+  error: Error | null
+}
+
+/**
+ * Create fresh mock state
+ */
+export function createMockAnthropicState(): MockAnthropicState {
+  return {
+    responses: [createTextResponse('Mock response')],
+    callIndex: 0,
+    apiCalls: [],
+    error: null,
+  }
+}
+
+// Global mock state (can be reset between tests)
+let globalMockState = createMockAnthropicState()
+
+/**
+ * Reset the global mock state
+ */
+export function resetMockAnthropic(
+  responses: MockMessageResponse[] = [createTextResponse('Mock response')],
+): void {
+  globalMockState = {
+    responses,
+    callIndex: 0,
+    apiCalls: [],
+    error: null,
+  }
+}
+
+/**
+ * Get current global mock state (for assertions)
+ */
+export function getMockAnthropicState(): MockAnthropicState {
+  return globalMockState
+}
+
+/**
+ * Set responses for the global mock
+ */
+export function setMockResponses(responses: MockMessageResponse[]): void {
+  globalMockState.responses = responses
+  globalMockState.callIndex = 0
+}
+
+/**
+ * Set an error to be thrown on API calls
+ */
+export function setMockError(error: Error | null): void {
+  globalMockState.error = error
+}
+
+/**
+ * Mock API call using global state
+ */
+export async function mockAnthropicApiCall(
+  params: Anthropic.MessageCreateParams,
+): Promise<MockMessageResponse> {
+  globalMockState.apiCalls.push(params)
+
+  if (globalMockState.error) {
+    throw globalMockState.error
+  }
+
+  const response =
+    globalMockState.responses[
+      Math.min(globalMockState.callIndex, globalMockState.responses.length - 1)
+    ]!
+  globalMockState.callIndex++
+
+  return response
+}
+
+// ============================================================
 // Mock Anthropic Client
 // ============================================================
 

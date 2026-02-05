@@ -14,6 +14,11 @@ export {
   closeTestDb,
   clearAllTables,
   initSchemaCache,
+  // Time comparison helpers
+  isApproximatelyNow,
+  isApproximatelyEqual,
+  isAtOrAfter,
+  isFutureTime,
   type TestDb,
   type TestDatabase,
 } from './helpers/test-db'

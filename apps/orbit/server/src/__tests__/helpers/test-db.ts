@@ -101,3 +101,93 @@ export function clearAllTables(db: TestDb): void {
 export async function initSchemaCache(): Promise<void> {
   await generateSchemaSQL()
 }
+
+// ============================================================
+// Time Comparison Helpers
+// ============================================================
+
+/** Default tolerance for timestamp comparisons (1 second) */
+const DEFAULT_TIME_TOLERANCE_MS = 1000
+
+/**
+ * Assert that a timestamp is approximately now (within tolerance).
+ * Helps avoid flaky tests due to timing differences.
+ *
+ * @param timestamp - The timestamp to check
+ * @param toleranceMs - Tolerance in milliseconds (default: 1000ms)
+ * @returns true if timestamp is within tolerance of now
+ */
+export function isApproximatelyNow(
+  timestamp: Date | number | null | undefined,
+  toleranceMs = DEFAULT_TIME_TOLERANCE_MS,
+): boolean {
+  if (timestamp == null) return false
+
+  const time = typeof timestamp === 'number' ? timestamp : timestamp.getTime()
+  const now = Date.now()
+
+  return Math.abs(now - time) <= toleranceMs
+}
+
+/**
+ * Assert that a timestamp is approximately equal to another (within tolerance).
+ *
+ * @param actual - The actual timestamp
+ * @param expected - The expected timestamp
+ * @param toleranceMs - Tolerance in milliseconds (default: 1000ms)
+ * @returns true if timestamps are within tolerance of each other
+ */
+export function isApproximatelyEqual(
+  actual: Date | number | null | undefined,
+  expected: Date | number,
+  toleranceMs = DEFAULT_TIME_TOLERANCE_MS,
+): boolean {
+  if (actual == null) return false
+
+  const actualTime = typeof actual === 'number' ? actual : actual.getTime()
+  const expectedTime = typeof expected === 'number' ? expected : expected.getTime()
+
+  return Math.abs(actualTime - expectedTime) <= toleranceMs
+}
+
+/**
+ * Assert that a timestamp is at or after a reference time (with tolerance).
+ *
+ * @param timestamp - The timestamp to check
+ * @param reference - The reference time
+ * @param toleranceMs - Tolerance in milliseconds (default: 1000ms)
+ * @returns true if timestamp is at or after reference (within tolerance)
+ */
+export function isAtOrAfter(
+  timestamp: Date | number | null | undefined,
+  reference: Date | number,
+  toleranceMs = DEFAULT_TIME_TOLERANCE_MS,
+): boolean {
+  if (timestamp == null) return false
+
+  const time = typeof timestamp === 'number' ? timestamp : timestamp.getTime()
+  const refTime = typeof reference === 'number' ? reference : reference.getTime()
+
+  return time >= refTime - toleranceMs
+}
+
+/**
+ * Assert that a timestamp is in the future relative to a reference (with tolerance).
+ *
+ * @param timestamp - The timestamp to check
+ * @param reference - The reference time (defaults to now)
+ * @param toleranceMs - Tolerance in milliseconds (default: 1000ms)
+ * @returns true if timestamp is after reference (within tolerance)
+ */
+export function isFutureTime(
+  timestamp: Date | number | null | undefined,
+  reference: Date | number = Date.now(),
+  toleranceMs = DEFAULT_TIME_TOLERANCE_MS,
+): boolean {
+  if (timestamp == null) return false
+
+  const time = typeof timestamp === 'number' ? timestamp : timestamp.getTime()
+  const refTime = typeof reference === 'number' ? reference : reference.getTime()
+
+  return time > refTime - toleranceMs
+}
