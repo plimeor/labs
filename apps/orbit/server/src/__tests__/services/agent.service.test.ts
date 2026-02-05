@@ -12,11 +12,6 @@
 
 import { describe, it, expect, beforeEach, mock } from 'bun:test'
 
-import { agents, type Agent, type NewAgent } from '@db/agents'
-import { eq } from 'drizzle-orm'
-
-import { db } from '@/core/db'
-
 import { clearAllTables } from '../helpers/test-db'
 
 // ============================================================
@@ -25,103 +20,45 @@ import { clearAllTables } from '../helpers/test-db'
 
 const mockWorkspaces = new Map<string, boolean>()
 
-const mockWorkspaceService = {
-  createAgentWorkspace: mock(async (name: string) => {
-    if (mockWorkspaces.get(name)) {
-      throw new Error(`Agent workspace already exists: ${name}`)
-    }
-    mockWorkspaces.set(name, true)
-    return `/tmp/orbit/agents/${name}`
-  }),
-  deleteAgentWorkspace: mock(async (name: string) => {
-    mockWorkspaces.delete(name)
-  }),
-  getAgentWorkspacePath: (name: string) => `/tmp/orbit/agents/${name}`,
-  agentWorkspaceExists: mock(async (name: string) => mockWorkspaces.has(name)),
-  listAgentWorkspaces: mock(async () => Array.from(mockWorkspaces.keys())),
-}
-
-// ============================================================
-// Service Functions (inline for testing with mocked workspace)
-// ============================================================
-
-async function createAgent(params: { name: string; description?: string }): Promise<Agent> {
-  const { name } = params
-
-  const existing = await db.select().from(agents).where(eq(agents.name, name)).get()
-  if (existing) {
-    throw new Error(`Agent already exists: ${name}`)
+const mockCreateAgentWorkspace = mock(async (name: string) => {
+  if (mockWorkspaces.get(name)) {
+    throw new Error(`Agent workspace already exists: ${name}`)
   }
+  mockWorkspaces.set(name, true)
+  return `/tmp/orbit/agents/${name}`
+})
 
-  const workspacePath = await mockWorkspaceService.createAgentWorkspace(name)
+const mockDeleteAgentWorkspace = mock(async (name: string) => {
+  mockWorkspaces.delete(name)
+})
 
-  const newAgent: NewAgent = {
-    name,
-    workspacePath,
-    status: 'active',
-  }
+const mockAgentWorkspaceExists = mock(async (name: string) => mockWorkspaces.has(name))
 
-  const result = await db.insert(agents).values(newAgent).returning()
-  return result[0]!
-}
+const mockListAgentWorkspaces = mock(async () => Array.from(mockWorkspaces.keys()))
 
-async function getAgent(name: string): Promise<Agent | undefined> {
-  return db.select().from(agents).where(eq(agents.name, name)).get()
-}
+const mockGetAgentWorkspacePath = (name: string) => `/tmp/orbit/agents/${name}`
 
-async function getAgentById(id: number): Promise<Agent | undefined> {
-  return db.select().from(agents).where(eq(agents.id, id)).get()
-}
+// Mock the workspace module before importing agent service
+mock.module('@/modules/agents/services/workspace.service', () => ({
+  createAgentWorkspace: mockCreateAgentWorkspace,
+  deleteAgentWorkspace: mockDeleteAgentWorkspace,
+  agentWorkspaceExists: mockAgentWorkspaceExists,
+  listAgentWorkspaces: mockListAgentWorkspaces,
+  getAgentWorkspacePath: mockGetAgentWorkspacePath,
+}))
 
-async function listAgents(): Promise<Agent[]> {
-  return db.select().from(agents).all()
-}
-
-async function updateAgentLastActive(name: string): Promise<void> {
-  await db.update(agents).set({ lastActiveAt: new Date() }).where(eq(agents.name, name))
-}
-
-async function updateAgentStatus(name: string, status: 'active' | 'inactive'): Promise<void> {
-  await db.update(agents).set({ status }).where(eq(agents.name, name))
-}
-
-async function deleteAgent(name: string): Promise<void> {
-  const agent = await getAgent(name)
-  if (!agent) {
-    throw new Error(`Agent not found: ${name}`)
-  }
-
-  await db.delete(agents).where(eq(agents.name, name))
-
-  if (await mockWorkspaceService.agentWorkspaceExists(name)) {
-    await mockWorkspaceService.deleteAgentWorkspace(name)
-  }
-}
-
-async function ensureAgent(name: string): Promise<Agent> {
-  let agent = await getAgent(name)
-  if (!agent) {
-    agent = await createAgent({ name })
-  }
-  return agent
-}
-
-async function syncAgentsWithWorkspaces(): Promise<void> {
-  const workspaces = await mockWorkspaceService.listAgentWorkspaces()
-  const dbAgents = await listAgents()
-  const dbAgentNames = new Set(dbAgents.map(a => a.name))
-
-  const newWorkspaces = workspaces.filter(name => !dbAgentNames.has(name))
-  await Promise.all(
-    newWorkspaces.map(name =>
-      db.insert(agents).values({
-        name,
-        workspacePath: mockWorkspaceService.getAgentWorkspacePath(name),
-        status: 'active',
-      }),
-    ),
-  )
-}
+// Now import the real agent service (will use mocked workspace)
+import {
+  createAgent,
+  getAgent,
+  getAgentById,
+  listAgents,
+  updateAgentLastActive,
+  updateAgentStatus,
+  deleteAgent,
+  ensureAgent,
+  syncAgentsWithWorkspaces,
+} from '@/modules/agents/services/agent.service'
 
 // ============================================================
 // BDD Tests
@@ -131,8 +68,8 @@ describe('Agent Service', () => {
   beforeEach(async () => {
     await clearAllTables()
     mockWorkspaces.clear()
-    mockWorkspaceService.createAgentWorkspace.mockClear()
-    mockWorkspaceService.deleteAgentWorkspace.mockClear()
+    mockCreateAgentWorkspace.mockClear()
+    mockDeleteAgentWorkspace.mockClear()
   })
 
   // ----------------------------------------------------------
@@ -159,7 +96,11 @@ describe('Agent Service', () => {
 
       it('And a workspace should be created for the agent', async () => {
         await createAgent({ name: 'orbit-assistant' })
-        expect(mockWorkspaceService.createAgentWorkspace).toHaveBeenCalledWith('orbit-assistant')
+        expect(mockCreateAgentWorkspace).toHaveBeenCalledWith(
+          'orbit-assistant',
+          'orbit-assistant',
+          undefined,
+        )
       })
     })
 
@@ -388,7 +329,7 @@ describe('Agent Service', () => {
       it('And the agent workspace should be deleted', async () => {
         await createAgent({ name: 'temp-agent' })
         await deleteAgent('temp-agent')
-        expect(mockWorkspaceService.deleteAgentWorkspace).toHaveBeenCalledWith('temp-agent')
+        expect(mockDeleteAgentWorkspace).toHaveBeenCalledWith('temp-agent')
       })
     })
 
