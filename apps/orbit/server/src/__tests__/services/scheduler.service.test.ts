@@ -14,10 +14,17 @@ import { describe, it, expect, beforeEach } from 'bun:test'
 
 import { agents, type Agent } from '@db/agents'
 import { scheduledTasks, type ScheduledTask, type NewScheduledTask } from '@db/tasks'
-import { CronExpressionParser } from 'cron-parser'
-import { eq, and, lte } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 
 import { db } from '@/core/db'
+import {
+  calculateNextRun,
+  findDueTasks,
+  updateTaskAfterRun,
+  pauseTask,
+  resumeTask,
+  cancelTask,
+} from '@/modules/scheduler/scheduler-utils'
 
 import { clearAllTables } from '../helpers/test-db'
 
@@ -54,78 +61,6 @@ async function createTestTask(
     })
     .returning()
   return result[0]!
-}
-
-// ============================================================
-// Scheduler Logic (inline for testing)
-// ============================================================
-
-function calculateNextRun(
-  scheduleType: 'cron' | 'interval' | 'once',
-  scheduleValue: string,
-): Date | undefined {
-  if (scheduleType === 'cron') {
-    try {
-      const interval = CronExpressionParser.parse(scheduleValue)
-      return interval.next().toDate()
-    } catch {
-      return undefined
-    }
-  } else if (scheduleType === 'interval') {
-    const ms = parseInt(scheduleValue, 10)
-    if (isNaN(ms)) {
-      return undefined
-    }
-    return new Date(Date.now() + ms)
-  } else if (scheduleType === 'once') {
-    return new Date(scheduleValue)
-  }
-  return undefined
-}
-
-async function findDueTasks(): Promise<ScheduledTask[]> {
-  const now = new Date()
-  return db
-    .select()
-    .from(scheduledTasks)
-    .where(and(lte(scheduledTasks.nextRun, now), eq(scheduledTasks.status, 'active')))
-    .all()
-}
-
-async function updateTaskAfterRun(
-  taskId: number,
-  scheduleType: 'cron' | 'interval' | 'once',
-  scheduleValue: string,
-): Promise<void> {
-  const nextRun = calculateNextRun(scheduleType, scheduleValue)
-
-  await db
-    .update(scheduledTasks)
-    .set({
-      lastRun: new Date(),
-      nextRun,
-      status: nextRun ? 'active' : 'completed',
-    })
-    .where(eq(scheduledTasks.id, taskId))
-}
-
-async function pauseTask(taskId: number): Promise<void> {
-  await db.update(scheduledTasks).set({ status: 'paused' }).where(eq(scheduledTasks.id, taskId))
-}
-
-async function resumeTask(taskId: number, task: ScheduledTask): Promise<void> {
-  const nextRun = calculateNextRun(
-    task.scheduleType as 'cron' | 'interval' | 'once',
-    task.scheduleValue,
-  )
-  await db
-    .update(scheduledTasks)
-    .set({ status: 'active', nextRun })
-    .where(eq(scheduledTasks.id, taskId))
-}
-
-async function cancelTask(taskId: number): Promise<void> {
-  await db.delete(scheduledTasks).where(eq(scheduledTasks.id, taskId))
 }
 
 // ============================================================

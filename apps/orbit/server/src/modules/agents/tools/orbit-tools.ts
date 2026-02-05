@@ -148,15 +148,23 @@ export interface OrbitToolHandler {
   cancel_task: (args: { taskId: number }) => Promise<string>
 }
 
-function calculateNextRun(
+/** @internal Exported for testing */
+export function calculateNextRun(
   scheduleType: 'cron' | 'interval' | 'once',
   scheduleValue: string,
 ): Date | undefined {
   if (scheduleType === 'cron') {
-    const interval = CronExpressionParser.parse(scheduleValue)
-    return interval.next().toDate()
+    try {
+      const interval = CronExpressionParser.parse(scheduleValue)
+      return interval.next().toDate()
+    } catch {
+      return undefined
+    }
   } else if (scheduleType === 'interval') {
     const ms = parseInt(scheduleValue, 10)
+    if (isNaN(ms)) {
+      return undefined
+    }
     return new Date(Date.now() + ms)
   } else if (scheduleType === 'once') {
     return new Date(scheduleValue)

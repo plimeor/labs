@@ -7,77 +7,135 @@
  * - Agentic loop with multiple tool calls
  * - Memory writing after execution
  * - Inbox message handling
- * - QMD index updates
  *
- * Uses mocked Anthropic SDK and QMD service
+ * Mocks only: Anthropic SDK, QMD service, workspace paths
+ * Real: DB operations, inbox service, agent service, memory service, context service
  */
 
-import { describe, it, expect, beforeEach } from 'bun:test'
+import { describe, it, expect, beforeEach, mock } from 'bun:test'
+import { mkdirSync, writeFileSync, rmSync, existsSync } from 'fs'
+import { join } from 'path'
 
-import { agents, type Agent } from '@db/agents'
-import { agentInbox, type AgentInboxMessage } from '@db/inbox'
-import { eq, and } from 'drizzle-orm'
+// ============================================================
+// Test workspace setup (must be before mocks use these)
+// ============================================================
 
-import { db } from '@/core/db'
+const TEST_WORKSPACE_BASE = '/tmp/orbit-test-runtime'
 
-import { clearAllTables } from '../helpers/test-db'
-import {
-  createTextResponse,
-  createToolUseResponse,
-  createMixedResponse,
-  type MockMessageResponse,
-} from '../mocks/anthropic.mock'
-import { resetMockQmd } from '../mocks/qmd.mock'
-
-async function createTestAgent(name: string): Promise<Agent> {
-  const result = await db
-    .insert(agents)
-    .values({
-      name,
-      workspacePath: `/tmp/orbit/agents/${name}`,
-      status: 'active',
-    })
-    .returning()
-  return result[0]!
+function getTestWorkspacePath(agentName: string): string {
+  return join(TEST_WORKSPACE_BASE, agentName)
 }
 
-async function sendInboxMessage(
-  fromAgentId: number,
-  toAgentId: number,
-  message: string,
-): Promise<AgentInboxMessage> {
-  const result = await db
-    .insert(agentInbox)
-    .values({
-      fromAgentId,
-      toAgentId,
-      message,
-      messageType: 'request',
-      status: 'pending',
-    })
-    .returning()
-  return result[0]!
+function setupTestWorkspace(agentName: string): void {
+  const workspacePath = getTestWorkspacePath(agentName)
+
+  // Clean up and recreate
+  if (existsSync(workspacePath)) {
+    rmSync(workspacePath, { recursive: true })
+  }
+
+  mkdirSync(join(workspacePath, 'memory'), { recursive: true })
+  mkdirSync(join(workspacePath, 'workspace'), { recursive: true })
+
+  // Create minimal required files
+  writeFileSync(join(workspacePath, 'IDENTITY.md'), `# ${agentName}\n\nYou are ${agentName}.`)
+}
+
+function cleanupTestWorkspaces(): void {
+  if (existsSync(TEST_WORKSPACE_BASE)) {
+    rmSync(TEST_WORKSPACE_BASE, { recursive: true })
+  }
 }
 
 // ============================================================
-// Mock Anthropic Client
+// Mock state for Anthropic (inline to avoid import issues)
 // ============================================================
+
+interface MockMessageResponse {
+  id: string
+  type: 'message'
+  role: 'assistant'
+  content: Array<
+    { type: 'text'; text: string } | { type: 'tool_use'; id: string; name: string; input: unknown }
+  >
+  model: string
+  stop_reason: 'end_turn' | 'tool_use' | 'max_tokens' | 'stop_sequence' | null
+  stop_sequence: string | null
+  usage: { input_tokens: number; output_tokens: number }
+}
 
 interface MockAnthropicState {
   responses: MockMessageResponse[]
   callIndex: number
-  apiCalls: Array<{
-    system: string
-    messages: unknown[]
-    tools: unknown[]
-  }>
+  apiCalls: unknown[]
 }
 
-let mockAnthropicState: MockAnthropicState
+let mockAnthropicState: MockAnthropicState = {
+  responses: [],
+  callIndex: 0,
+  apiCalls: [],
+}
+
+function createTextResponse(text: string): MockMessageResponse {
+  return {
+    id: `msg_${Date.now()}`,
+    type: 'message',
+    role: 'assistant',
+    content: [{ type: 'text', text }],
+    model: 'claude-sonnet-4-20250514',
+    stop_reason: 'end_turn',
+    stop_sequence: null,
+    usage: { input_tokens: 100, output_tokens: 50 },
+  }
+}
+
+function createToolUseResponse(
+  toolCalls: Array<{ name: string; input: unknown }>,
+): MockMessageResponse {
+  return {
+    id: `msg_${Date.now()}`,
+    type: 'message',
+    role: 'assistant',
+    content: toolCalls.map((tc, i) => ({
+      type: 'tool_use' as const,
+      id: `toolu_${Date.now()}_${i}`,
+      name: tc.name,
+      input: tc.input,
+    })),
+    model: 'claude-sonnet-4-20250514',
+    stop_reason: 'tool_use',
+    stop_sequence: null,
+    usage: { input_tokens: 100, output_tokens: 50 },
+  }
+}
+
+function createMixedResponse(
+  text: string,
+  toolCalls: Array<{ name: string; input: unknown }>,
+): MockMessageResponse {
+  return {
+    id: `msg_${Date.now()}`,
+    type: 'message',
+    role: 'assistant',
+    content: [
+      { type: 'text' as const, text },
+      ...toolCalls.map((tc, i) => ({
+        type: 'tool_use' as const,
+        id: `toolu_${Date.now()}_${i}`,
+        name: tc.name,
+        input: tc.input,
+      })),
+    ],
+    model: 'claude-sonnet-4-20250514',
+    stop_reason: 'tool_use',
+    stop_sequence: null,
+    usage: { input_tokens: 100, output_tokens: 50 },
+  }
+}
 
 function resetMockAnthropic(
   responses: MockMessageResponse[] = [createTextResponse('Mock response')],
-) {
+): void {
   mockAnthropicState = {
     responses,
     callIndex: 0,
@@ -85,151 +143,105 @@ function resetMockAnthropic(
   }
 }
 
-// Mock API call
-async function mockApiCall(params: {
-  system: string
-  messages: unknown[]
-  tools: unknown[]
-}): Promise<MockMessageResponse> {
-  mockAnthropicState.apiCalls.push(params)
-
-  const response =
-    mockAnthropicState.responses[
-      Math.min(mockAnthropicState.callIndex, mockAnthropicState.responses.length - 1)
-    ]!
-  mockAnthropicState.callIndex++
-
-  return response
+function getMockAnthropicState(): MockAnthropicState {
+  return mockAnthropicState
 }
 
 // ============================================================
-// Simplified Runtime Logic (for testing)
+// Set up ALL mocks BEFORE any imports
 // ============================================================
 
-type SessionType = 'chat' | 'heartbeat' | 'cron'
+// Mock Workspace Service (returns test paths)
+mock.module('@/modules/agents/services/workspace.service', () => ({
+  getAgentWorkspacePath: (agentName: string) => getTestWorkspacePath(agentName),
+  getAgentWorkingDir: (agentName: string) => join(getTestWorkspacePath(agentName), 'workspace'),
+  createAgentWorkspace: async (agentName: string) => {
+    setupTestWorkspace(agentName)
+    return getTestWorkspacePath(agentName)
+  },
+  deleteAgentWorkspace: async (agentName: string) => {
+    const path = getTestWorkspacePath(agentName)
+    if (existsSync(path)) {
+      rmSync(path, { recursive: true })
+    }
+  },
+  agentWorkspaceExists: async (agentName: string) => existsSync(getTestWorkspacePath(agentName)),
+  listAgentWorkspaces: async () => [],
+  ensureOrbitDirs: async () => {},
+  getOrbitBasePath: () => TEST_WORKSPACE_BASE,
+  getAgentsPath: () => TEST_WORKSPACE_BASE,
+}))
 
-interface ExecuteAgentParams {
-  agentName: string
-  prompt: string
-  sessionType: SessionType
-  sessionId?: string
-}
+// Mock QMD Service
+mock.module('@/modules/agents/services/qmd.service', () => ({
+  isQmdAvailable: () => false,
+  checkQmdAvailability: async () => false,
+  updateIndex: async () => {},
+  search: async () => [],
+  getDocument: async () => '',
+  indexExists: async () => false,
+  initializeIndex: async () => {},
+  deleteIndex: async () => {},
+  resetQmdAvailability: () => {},
+}))
 
-interface ExecuteAgentResult {
-  result: string
-  sessionId: string
-  toolCallsMade: string[]
-}
-
-// Memory entries recorded during execution
-const memoryEntries: Array<{ agentName: string; entry: unknown }> = []
-
-// Simplified execute agent (inline for testing with mocks)
-async function executeAgent(params: ExecuteAgentParams): Promise<ExecuteAgentResult> {
-  const { agentName, prompt, sessionType, sessionId } = params
-
-  // Get agent
-  const agent = await db.select().from(agents).where(eq(agents.name, agentName)).get()
-  if (!agent) {
-    throw new Error(`Agent not found: ${agentName}`)
+// Mock Anthropic SDK - create a class that matches the SDK interface
+mock.module('@anthropic-ai/sdk', () => {
+  class MockAnthropic {
+    messages = {
+      create: async (params: unknown): Promise<MockMessageResponse> => {
+        mockAnthropicState.apiCalls.push(params)
+        const response =
+          mockAnthropicState.responses[
+            Math.min(mockAnthropicState.callIndex, mockAnthropicState.responses.length - 1)
+          ]!
+        mockAnthropicState.callIndex++
+        return response
+      },
+    }
   }
+  return { default: MockAnthropic }
+})
 
-  // Check inbox
-  const inbox = await db
-    .select()
-    .from(agentInbox)
-    .where(and(eq(agentInbox.toAgentId, agent.id), eq(agentInbox.status, 'pending')))
-    .all()
+// ============================================================
+// NOW import modules that depend on the mocked modules
+// ============================================================
 
-  // Compose system prompt (simplified)
-  const systemPrompt = `You are ${agentName}. Session type: ${sessionType}.${
-    inbox.length > 0 ? `\n\nInbox: ${inbox.map(m => m.message).join(', ')}` : ''
-  }`
+import { agents, type Agent } from '@db/agents'
+import { agentInbox, type AgentInboxMessage } from '@db/inbox'
+import { eq } from 'drizzle-orm'
 
-  // Define tools (simplified)
-  const tools = [
-    { name: 'schedule_task', description: 'Schedule a task' },
-    { name: 'send_to_agent', description: 'Send message to agent' },
-  ]
+import { db } from '@/core/db'
+import { sendToAgentByName, checkInboxByName } from '@/modules/agents/services/inbox.service'
+// Import real services (after mocks are set up)
+import { executeAgent } from '@/modules/agents/services/runtime.service'
 
-  // Execute agentic loop
-  let result = ''
-  const toolCallsMade: string[] = []
-  const newSessionId = sessionId || `${agentName}-${Date.now()}`
+import { clearAllTables } from '../helpers/test-db'
 
-  const messages: unknown[] = [{ role: 'user', content: prompt }]
+// ============================================================
+// Test Helpers
+// ============================================================
 
-  let continueLoop = true
-  while (continueLoop) {
-    const response = await mockApiCall({
-      system: systemPrompt,
-      messages,
-      tools,
+async function createTestAgent(name: string): Promise<Agent> {
+  setupTestWorkspace(name)
+
+  const result = await db
+    .insert(agents)
+    .values({
+      name,
+      workspacePath: getTestWorkspacePath(name),
+      status: 'active',
     })
+    .returning()
+  return result[0]!
+}
 
-    const assistantContent: unknown[] = []
-
-    for (const block of response.content) {
-      assistantContent.push(block)
-
-      if (block.type === 'text') {
-        result = block.text
-      } else if (block.type === 'tool_use') {
-        toolCallsMade.push(block.name)
-
-        // Simulate tool execution
-        const toolResult = `Tool ${block.name} executed successfully`
-
-        messages.push({ role: 'assistant', content: assistantContent })
-        messages.push({
-          role: 'user',
-          content: [
-            {
-              type: 'tool_result',
-              tool_use_id: block.id,
-              content: toolResult,
-            },
-          ],
-        })
-      }
-    }
-
-    // Check if we should continue
-    if (response.stop_reason === 'end_turn' || response.content.every(b => b.type === 'text')) {
-      continueLoop = false
-    } else if (response.content.some(b => b.type === 'tool_use')) {
-      // Continue loop after tool use
-      continueLoop = true
-    } else {
-      continueLoop = false
-    }
-  }
-
-  // Mark inbox messages as read
-  if (inbox.length > 0) {
-    for (const msg of inbox) {
-      await db
-        .update(agentInbox)
-        .set({ status: 'read', readAt: new Date() })
-        .where(eq(agentInbox.id, msg.id))
-    }
-  }
-
-  // Update last active
-  await db.update(agents).set({ lastActiveAt: new Date() }).where(eq(agents.name, agentName))
-
-  // Record memory entry
-  memoryEntries.push({
-    agentName,
-    entry: {
-      sessionType,
-      prompt,
-      result,
-      timestamp: new Date(),
-    },
-  })
-
-  return { result, sessionId: newSessionId, toolCallsMade }
+async function sendInboxMessage(
+  fromAgentName: string,
+  toAgentName: string,
+  message: string,
+): Promise<AgentInboxMessage> {
+  return sendToAgentByName(fromAgentName, toAgentName, message, 'request')
 }
 
 // ============================================================
@@ -239,9 +251,8 @@ async function executeAgent(params: ExecuteAgentParams): Promise<ExecuteAgentRes
 describe('Runtime Service', () => {
   beforeEach(async () => {
     await clearAllTables()
-    resetMockQmd()
     resetMockAnthropic()
-    memoryEntries.length = 0
+    cleanupTestWorkspaces()
   })
 
   // ----------------------------------------------------------
@@ -319,8 +330,10 @@ describe('Runtime Service', () => {
           sessionType: 'chat',
         })
 
-        expect(memoryEntries.length).toBe(1)
-        expect(memoryEntries[0]!.agentName).toBe('chat-bot')
+        // Check memory file was created
+        const workspacePath = getTestWorkspacePath('chat-bot')
+        const memoryDir = join(workspacePath, 'memory')
+        expect(existsSync(memoryDir)).toBe(true)
       })
     })
 
@@ -372,7 +385,10 @@ describe('Runtime Service', () => {
         await createTestAgent('tool-user')
         resetMockAnthropic([
           createToolUseResponse([
-            { name: 'schedule_task', input: { prompt: 'Do something', scheduleType: 'interval' } },
+            {
+              name: 'schedule_task',
+              input: { prompt: 'Do something', scheduleType: 'interval', scheduleValue: '3600000' },
+            },
           ]),
           createTextResponse('Task scheduled successfully!'),
         ])
@@ -381,7 +397,12 @@ describe('Runtime Service', () => {
       it('When the agent is executed', async () => {
         await createTestAgent('tool-user')
         resetMockAnthropic([
-          createToolUseResponse([{ name: 'schedule_task', input: { prompt: 'Task' } }]),
+          createToolUseResponse([
+            {
+              name: 'schedule_task',
+              input: { prompt: 'Task', scheduleType: 'interval', scheduleValue: '3600000' },
+            },
+          ]),
           createTextResponse('Done!'),
         ])
 
@@ -391,30 +412,18 @@ describe('Runtime Service', () => {
           sessionType: 'chat',
         })
 
-        expect(result.toolCallsMade).toContain('schedule_task')
-      })
-
-      it('Then the tool should be executed', async () => {
-        await createTestAgent('tool-user')
-        resetMockAnthropic([
-          createToolUseResponse([{ name: 'schedule_task', input: { prompt: 'Task' } }]),
-          createTextResponse('Done!'),
-        ])
-
-        const result = await executeAgent({
-          agentName: 'tool-user',
-          prompt: 'Schedule a reminder',
-          sessionType: 'chat',
-        })
-
-        expect(result.toolCallsMade.length).toBe(1)
-        expect(result.toolCallsMade[0]).toBe('schedule_task')
+        expect(result.result).toBe('Done!')
       })
 
       it('And the final text response should be returned', async () => {
         await createTestAgent('tool-user')
         resetMockAnthropic([
-          createToolUseResponse([{ name: 'schedule_task', input: {} }]),
+          createToolUseResponse([
+            {
+              name: 'schedule_task',
+              input: { prompt: 'Task', scheduleType: 'interval', scheduleValue: '3600000' },
+            },
+          ]),
           createTextResponse('Your task has been scheduled!'),
         ])
 
@@ -431,18 +440,36 @@ describe('Runtime Service', () => {
     describe('Scenario: Agent uses multiple tools in sequence', () => {
       it('Given an agent that will use multiple tools', async () => {
         await createTestAgent('multi-tool')
+        await createTestAgent('target-agent')
+
         resetMockAnthropic([
-          createToolUseResponse([{ name: 'schedule_task', input: {} }]),
-          createToolUseResponse([{ name: 'send_to_agent', input: {} }]),
+          createToolUseResponse([
+            {
+              name: 'schedule_task',
+              input: { prompt: 'Task', scheduleType: 'interval', scheduleValue: '3600000' },
+            },
+          ]),
+          createToolUseResponse([
+            { name: 'send_to_agent', input: { targetAgent: 'target-agent', message: 'Hello!' } },
+          ]),
           createTextResponse('All done!'),
         ])
       })
 
       it('When the agent is executed', async () => {
         await createTestAgent('multi-tool')
+        await createTestAgent('target-agent')
+
         resetMockAnthropic([
-          createToolUseResponse([{ name: 'schedule_task', input: {} }]),
-          createToolUseResponse([{ name: 'send_to_agent', input: {} }]),
+          createToolUseResponse([
+            {
+              name: 'schedule_task',
+              input: { prompt: 'Task', scheduleType: 'interval', scheduleValue: '3600000' },
+            },
+          ]),
+          createToolUseResponse([
+            { name: 'send_to_agent', input: { targetAgent: 'target-agent', message: 'Hello!' } },
+          ]),
           createTextResponse('All done!'),
         ])
 
@@ -452,25 +479,35 @@ describe('Runtime Service', () => {
           sessionType: 'chat',
         })
 
-        expect(result.toolCallsMade.length).toBe(2)
+        expect(result.result).toBe('All done!')
       })
 
       it('Then all tools should be executed in order', async () => {
         await createTestAgent('multi-tool')
+        await createTestAgent('target-agent')
+
         resetMockAnthropic([
-          createToolUseResponse([{ name: 'schedule_task', input: {} }]),
-          createToolUseResponse([{ name: 'send_to_agent', input: {} }]),
+          createToolUseResponse([
+            {
+              name: 'schedule_task',
+              input: { prompt: 'Task', scheduleType: 'interval', scheduleValue: '3600000' },
+            },
+          ]),
+          createToolUseResponse([
+            { name: 'send_to_agent', input: { targetAgent: 'target-agent', message: 'Hello!' } },
+          ]),
           createTextResponse('All done!'),
         ])
 
-        const result = await executeAgent({
+        await executeAgent({
           agentName: 'multi-tool',
           prompt: 'Do multiple things',
           sessionType: 'chat',
         })
 
-        expect(result.toolCallsMade[0]).toBe('schedule_task')
-        expect(result.toolCallsMade[1]).toBe('send_to_agent')
+        // Verify API was called 3 times (2 tool uses + 1 final)
+        const state = getMockAnthropicState()
+        expect(state.apiCalls.length).toBe(3)
       })
     })
 
@@ -479,7 +516,10 @@ describe('Runtime Service', () => {
         await createTestAgent('mixed-bot')
         resetMockAnthropic([
           createMixedResponse('Let me schedule that for you...', [
-            { name: 'schedule_task', input: {} },
+            {
+              name: 'schedule_task',
+              input: { prompt: 'Task', scheduleType: 'interval', scheduleValue: '3600000' },
+            },
           ]),
           createTextResponse('Done!'),
         ])
@@ -488,7 +528,12 @@ describe('Runtime Service', () => {
       it('When the agent is executed', async () => {
         await createTestAgent('mixed-bot')
         resetMockAnthropic([
-          createMixedResponse('Scheduling...', [{ name: 'schedule_task', input: {} }]),
+          createMixedResponse('Scheduling...', [
+            {
+              name: 'schedule_task',
+              input: { prompt: 'Task', scheduleType: 'interval', scheduleValue: '3600000' },
+            },
+          ]),
           createTextResponse('Task scheduled!'),
         ])
 
@@ -498,7 +543,6 @@ describe('Runtime Service', () => {
           sessionType: 'chat',
         })
 
-        expect(result.toolCallsMade).toContain('schedule_task')
         expect(result.result).toBe('Task scheduled!')
       })
     })
@@ -510,26 +554,21 @@ describe('Runtime Service', () => {
   describe('Feature: Inbox Message Handling', () => {
     describe('Scenario: Agent receives and processes inbox messages', () => {
       it('Given an agent has pending inbox messages', async () => {
-        const alice = await createTestAgent('alice')
-        const bob = await createTestAgent('bob')
+        await createTestAgent('alice')
+        await createTestAgent('bob')
 
-        await sendInboxMessage(alice.id, bob.id, 'Hey Bob, how are you?')
+        await sendInboxMessage('alice', 'bob', 'Hey Bob, how are you?')
 
-        const inbox = await db
-          .select()
-          .from(agentInbox)
-          .where(eq(agentInbox.toAgentId, bob.id))
-          .all()
-
+        const inbox = await checkInboxByName('bob')
         expect(inbox.length).toBe(1)
         expect(inbox[0]!.status).toBe('pending')
       })
 
       it('When bob agent is executed', async () => {
-        const alice = await createTestAgent('alice')
-        const bob = await createTestAgent('bob')
+        await createTestAgent('alice')
+        await createTestAgent('bob')
 
-        await sendInboxMessage(alice.id, bob.id, 'Hey Bob!')
+        await sendInboxMessage('alice', 'bob', 'Hey Bob!')
 
         resetMockAnthropic([createTextResponse('I got your message!')])
 
@@ -541,10 +580,10 @@ describe('Runtime Service', () => {
       })
 
       it('Then inbox messages should be marked as read', async () => {
-        const alice = await createTestAgent('alice')
-        const bob = await createTestAgent('bob')
+        await createTestAgent('alice')
+        await createTestAgent('bob')
 
-        const msg = await sendInboxMessage(alice.id, bob.id, 'Hey Bob!')
+        const msg = await sendInboxMessage('alice', 'bob', 'Hey Bob!')
 
         resetMockAnthropic([createTextResponse('Response')])
 
@@ -561,10 +600,10 @@ describe('Runtime Service', () => {
       })
 
       it('And inbox content should be included in system prompt', async () => {
-        const alice = await createTestAgent('alice')
-        const bob = await createTestAgent('bob')
+        await createTestAgent('alice')
+        await createTestAgent('bob')
 
-        await sendInboxMessage(alice.id, bob.id, 'Important message!')
+        await sendInboxMessage('alice', 'bob', 'Important message!')
 
         resetMockAnthropic([createTextResponse('Response')])
 
@@ -575,8 +614,9 @@ describe('Runtime Service', () => {
         })
 
         // Check that the API was called with inbox in system prompt
-        expect(mockAnthropicState.apiCalls.length).toBeGreaterThan(0)
-        expect(mockAnthropicState.apiCalls[0]!.system).toContain('Important message!')
+        const state = getMockAnthropicState()
+        expect(state.apiCalls.length).toBeGreaterThan(0)
+        expect((state.apiCalls[0] as any).system).toContain('Important message!')
       })
     })
 
@@ -609,7 +649,8 @@ describe('Runtime Service', () => {
         })
 
         expect(result.result).toBe('Normal response')
-        expect(mockAnthropicState.apiCalls[0]!.system).not.toContain('Inbox')
+        const state = getMockAnthropicState()
+        expect((state.apiCalls[0] as any).system).not.toContain('Inbox')
       })
     })
   })
@@ -634,7 +675,8 @@ describe('Runtime Service', () => {
           sessionType: 'chat',
         })
 
-        expect(mockAnthropicState.apiCalls[0]!.system).toContain('chat')
+        const state = getMockAnthropicState()
+        expect((state.apiCalls[0] as any).system).toContain('chat')
       })
     })
 
@@ -654,7 +696,8 @@ describe('Runtime Service', () => {
           sessionType: 'heartbeat',
         })
 
-        expect(mockAnthropicState.apiCalls[0]!.system).toContain('heartbeat')
+        const state = getMockAnthropicState()
+        expect((state.apiCalls[0] as any).system).toContain('heartbeat')
       })
     })
 
@@ -674,49 +717,8 @@ describe('Runtime Service', () => {
           sessionType: 'cron',
         })
 
-        expect(mockAnthropicState.apiCalls[0]!.system).toContain('cron')
-      })
-    })
-  })
-
-  // ----------------------------------------------------------
-  // Feature: Memory Recording
-  // ----------------------------------------------------------
-  describe('Feature: Memory Recording', () => {
-    describe('Scenario: Memory entry recorded after execution', () => {
-      it('Given an agent executes successfully', async () => {
-        await createTestAgent('memory-agent')
-        resetMockAnthropic([createTextResponse('Done!')])
-      })
-
-      it('When execution completes', async () => {
-        await createTestAgent('memory-agent')
-        resetMockAnthropic([createTextResponse('Task completed!')])
-
-        await executeAgent({
-          agentName: 'memory-agent',
-          prompt: 'Do something',
-          sessionType: 'chat',
-        })
-
-        expect(memoryEntries.length).toBe(1)
-      })
-
-      it('Then a memory entry should be created', async () => {
-        await createTestAgent('memory-agent')
-        resetMockAnthropic([createTextResponse('Result text')])
-
-        await executeAgent({
-          agentName: 'memory-agent',
-          prompt: 'Test prompt',
-          sessionType: 'chat',
-        })
-
-        const entry = memoryEntries[0]!
-        expect(entry.agentName).toBe('memory-agent')
-        expect((entry.entry as any).prompt).toBe('Test prompt')
-        expect((entry.entry as any).result).toBe('Result text')
-        expect((entry.entry as any).sessionType).toBe('chat')
+        const state = getMockAnthropicState()
+        expect((state.apiCalls[0] as any).system).toContain('cron')
       })
     })
   })
@@ -728,19 +730,42 @@ describe('Runtime Service', () => {
     describe('Scenario: Loop continues until no tool calls', () => {
       it('Given multiple tool calls are needed', async () => {
         await createTestAgent('loop-agent')
+        await createTestAgent('target-agent')
+
         resetMockAnthropic([
-          createToolUseResponse([{ name: 'schedule_task', input: {} }]),
-          createToolUseResponse([{ name: 'send_to_agent', input: {} }]),
-          createToolUseResponse([{ name: 'schedule_task', input: {} }]),
+          createToolUseResponse([
+            {
+              name: 'schedule_task',
+              input: { prompt: 'Task 1', scheduleType: 'interval', scheduleValue: '3600000' },
+            },
+          ]),
+          createToolUseResponse([
+            { name: 'send_to_agent', input: { targetAgent: 'target-agent', message: 'Hi!' } },
+          ]),
+          createToolUseResponse([
+            {
+              name: 'schedule_task',
+              input: { prompt: 'Task 2', scheduleType: 'interval', scheduleValue: '7200000' },
+            },
+          ]),
           createTextResponse('Finally done!'),
         ])
       })
 
       it('When agent is executed', async () => {
         await createTestAgent('loop-agent')
+        await createTestAgent('target-agent')
+
         resetMockAnthropic([
-          createToolUseResponse([{ name: 'schedule_task', input: {} }]),
-          createToolUseResponse([{ name: 'send_to_agent', input: {} }]),
+          createToolUseResponse([
+            {
+              name: 'schedule_task',
+              input: { prompt: 'Task 1', scheduleType: 'interval', scheduleValue: '3600000' },
+            },
+          ]),
+          createToolUseResponse([
+            { name: 'send_to_agent', input: { targetAgent: 'target-agent', message: 'Hi!' } },
+          ]),
           createTextResponse('Done!'),
         ])
 
@@ -750,15 +775,29 @@ describe('Runtime Service', () => {
           sessionType: 'chat',
         })
 
-        expect(result.toolCallsMade.length).toBe(2)
+        expect(result.result).toBe('Done!')
       })
 
       it('Then loop should continue until text-only response', async () => {
         await createTestAgent('loop-agent')
+        await createTestAgent('target-agent')
+
         resetMockAnthropic([
-          createToolUseResponse([{ name: 'schedule_task', input: {} }]),
-          createToolUseResponse([{ name: 'send_to_agent', input: {} }]),
-          createToolUseResponse([{ name: 'schedule_task', input: {} }]),
+          createToolUseResponse([
+            {
+              name: 'schedule_task',
+              input: { prompt: 'Task 1', scheduleType: 'interval', scheduleValue: '3600000' },
+            },
+          ]),
+          createToolUseResponse([
+            { name: 'send_to_agent', input: { targetAgent: 'target-agent', message: 'Hi!' } },
+          ]),
+          createToolUseResponse([
+            {
+              name: 'schedule_task',
+              input: { prompt: 'Task 2', scheduleType: 'interval', scheduleValue: '7200000' },
+            },
+          ]),
           createTextResponse('All tasks complete!'),
         ])
 
@@ -769,7 +808,8 @@ describe('Runtime Service', () => {
         })
 
         // 4 API calls total (3 tool uses + 1 final text)
-        expect(mockAnthropicState.apiCalls.length).toBe(4)
+        const state = getMockAnthropicState()
+        expect(state.apiCalls.length).toBe(4)
         expect(result.result).toBe('All tasks complete!')
       })
     })

@@ -10,7 +10,15 @@ import { appendDailyMemory } from './memory.service'
 import * as qmd from './qmd.service'
 import { getAgentWorkingDir } from './workspace.service'
 
-const anthropic = new Anthropic()
+/** @internal Lazy-initialized for testability */
+let anthropic: Anthropic | undefined
+
+function getAnthropicClient(): Anthropic {
+  if (!anthropic) {
+    anthropic = new Anthropic()
+  }
+  return anthropic
+}
 
 export interface ExecuteAgentParams {
   agentName: string
@@ -86,7 +94,7 @@ export async function executeAgent(params: ExecuteAgentParams): Promise<ExecuteA
     // Agentic loop - continue until no more tool calls
     let continueLoop = true
     while (continueLoop) {
-      const response = await anthropic.messages.create({
+      const response = await getAnthropicClient().messages.create({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 8192,
         system: systemPrompt,
