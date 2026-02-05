@@ -174,7 +174,7 @@ import { clearAllTables } from '../helpers/test-db'
 
 /** Clean up agents directory between tests */
 function cleanupAgentsDir(): void {
-  const agentsDir = join(process.env.ORBIT_BASE_PATH!, 'agents')
+  const agentsDir = join(process.env.ORBIT_CONFIG_PATH!, 'agents')
   if (existsSync(agentsDir)) {
     rmSync(agentsDir, { recursive: true })
   }

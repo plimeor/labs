@@ -4,13 +4,13 @@ import { join } from 'path'
 
 import { mkdir, copyFile, readdir, writeFile } from 'fs/promises'
 
-/** Base path for orbit data. Override with ORBIT_BASE_PATH env var for testing. */
-const ORBIT_BASE_PATH = process.env.ORBIT_BASE_PATH || join(homedir(), '.config', 'orbit')
-const AGENTS_PATH = join(ORBIT_BASE_PATH, 'agents')
+/** Base path for orbit config. Override with ORBIT_CONFIG_PATH env var for testing. */
+const ORBIT_CONFIG_PATH = process.env.ORBIT_CONFIG_PATH || join(homedir(), '.config', 'orbit')
+const AGENTS_PATH = join(ORBIT_CONFIG_PATH, 'agents')
 const TEMPLATES_PATH = join(import.meta.dir, '..', '..', '..', '..', 'templates')
 
 export function getOrbitBasePath(): string {
-  return ORBIT_BASE_PATH
+  return ORBIT_CONFIG_PATH
 }
 
 export function getAgentsPath(): string {
@@ -26,9 +26,9 @@ export function getAgentWorkingDir(agentName: string): string {
 }
 
 export async function ensureOrbitDirs(): Promise<void> {
-  await mkdir(ORBIT_BASE_PATH, { recursive: true })
+  await mkdir(ORBIT_CONFIG_PATH, { recursive: true })
   await mkdir(AGENTS_PATH, { recursive: true })
-  await mkdir(join(ORBIT_BASE_PATH, 'data'), { recursive: true })
+  await mkdir(join(ORBIT_CONFIG_PATH, 'data'), { recursive: true })
 }
 
 export async function createAgentWorkspace(

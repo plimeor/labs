@@ -12,16 +12,16 @@ import { generateSQLiteDrizzleJson, generateSQLiteMigration } from 'drizzle-kit/
 
 // Test paths - set before any other imports use them
 const TEST_DB_PATH = '/tmp/orbit-test.db'
-const TEST_ORBIT_BASE_PATH = '/tmp/orbit-test'
+const TEST_ORBIT_CONFIG_PATH = '/tmp/orbit-test'
 
 process.env.DATABASE_PATH = TEST_DB_PATH
-process.env.ORBIT_BASE_PATH = TEST_ORBIT_BASE_PATH
+process.env.ORBIT_CONFIG_PATH = TEST_ORBIT_CONFIG_PATH
 
 // Clean up test workspace directory
-if (existsSync(TEST_ORBIT_BASE_PATH)) {
-  rmSync(TEST_ORBIT_BASE_PATH, { recursive: true })
+if (existsSync(TEST_ORBIT_CONFIG_PATH)) {
+  rmSync(TEST_ORBIT_CONFIG_PATH, { recursive: true })
 }
-mkdirSync(TEST_ORBIT_BASE_PATH, { recursive: true })
+mkdirSync(TEST_ORBIT_CONFIG_PATH, { recursive: true })
 
 // Remove existing test db for clean slate
 if (existsSync(TEST_DB_PATH)) {
