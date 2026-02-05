@@ -9,51 +9,20 @@
  * - Message history retrieval
  */
 
-import { Database } from 'bun:sqlite'
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
 
 import { agents, type Agent } from '@db/agents'
 import { agentInbox, type AgentInboxMessage, type NewAgentInboxMessage } from '@db/inbox'
 import { eq, and, inArray } from 'drizzle-orm'
-import { drizzle } from 'drizzle-orm/bun-sqlite'
+
+import { createTestDb, closeTestDb, type TestDb, type TestDatabase } from '../helpers/test-db'
 
 // ============================================================
 // Test Database Setup
 // ============================================================
 
-let sqlite: Database
-let db: ReturnType<typeof drizzle>
-
-function setupTestDb() {
-  sqlite = new Database(':memory:')
-  sqlite.exec(`
-    CREATE TABLE agents (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL UNIQUE,
-      status TEXT NOT NULL DEFAULT 'active',
-      workspace_path TEXT NOT NULL,
-      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-      last_active_at INTEGER
-    );
-
-    CREATE TABLE agent_inbox (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      from_agent_id INTEGER NOT NULL,
-      to_agent_id INTEGER NOT NULL,
-      message TEXT NOT NULL,
-      message_type TEXT NOT NULL DEFAULT 'request',
-      request_id TEXT,
-      status TEXT NOT NULL DEFAULT 'pending',
-      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-      read_at INTEGER
-    );
-  `)
-  db = drizzle(sqlite)
-}
-
-function teardownTestDb() {
-  sqlite.close()
-}
+let testDb: TestDatabase
+let db: TestDb
 
 // Helper to create test agents
 async function createTestAgent(name: string): Promise<Agent> {
@@ -165,12 +134,13 @@ async function getSentMessages(agentId: number, limit = 50): Promise<AgentInboxM
 // ============================================================
 
 describe('Inbox Service', () => {
-  beforeEach(() => {
-    setupTestDb()
+  beforeEach(async () => {
+    testDb = await createTestDb()
+    db = testDb.db
   })
 
   afterEach(() => {
-    teardownTestDb()
+    closeTestDb(testDb)
   })
 
   // ----------------------------------------------------------

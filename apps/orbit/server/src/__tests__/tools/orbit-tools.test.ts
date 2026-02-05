@@ -10,7 +10,6 @@
  * - cancel_task: Delete a task
  */
 
-import { Database } from 'bun:sqlite'
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
 
 import { agents, type Agent } from '@db/agents'
@@ -18,59 +17,15 @@ import { agentInbox } from '@db/inbox'
 import { scheduledTasks, type NewScheduledTask } from '@db/tasks'
 import { CronExpressionParser } from 'cron-parser'
 import { eq } from 'drizzle-orm'
-import { drizzle } from 'drizzle-orm/bun-sqlite'
+
+import { createTestDb, closeTestDb, type TestDb, type TestDatabase } from '../helpers/test-db'
 
 // ============================================================
 // Test Database Setup
 // ============================================================
 
-let sqlite: Database
-let db: ReturnType<typeof drizzle>
-
-function setupTestDb() {
-  sqlite = new Database(':memory:')
-  sqlite.exec(`
-    CREATE TABLE agents (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL UNIQUE,
-      status TEXT NOT NULL DEFAULT 'active',
-      workspace_path TEXT NOT NULL,
-      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-      last_active_at INTEGER
-    );
-
-    CREATE TABLE scheduled_tasks (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      agent_id INTEGER NOT NULL,
-      name TEXT,
-      prompt TEXT NOT NULL,
-      schedule_type TEXT NOT NULL,
-      schedule_value TEXT NOT NULL,
-      context_mode TEXT NOT NULL DEFAULT 'isolated',
-      status TEXT NOT NULL DEFAULT 'active',
-      next_run INTEGER,
-      last_run INTEGER,
-      created_at INTEGER NOT NULL DEFAULT (unixepoch())
-    );
-
-    CREATE TABLE agent_inbox (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      from_agent_id INTEGER NOT NULL,
-      to_agent_id INTEGER NOT NULL,
-      message TEXT NOT NULL,
-      message_type TEXT NOT NULL DEFAULT 'request',
-      request_id TEXT,
-      status TEXT NOT NULL DEFAULT 'pending',
-      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-      read_at INTEGER
-    );
-  `)
-  db = drizzle(sqlite)
-}
-
-function teardownTestDb() {
-  sqlite.close()
-}
+let testDb: TestDatabase
+let db: TestDb
 
 // Helper functions
 async function createTestAgent(name: string): Promise<Agent> {
@@ -268,12 +223,13 @@ function createOrbitToolHandlers(agentName: string, agentId: number): OrbitToolH
 // ============================================================
 
 describe('Orbit Tools', () => {
-  beforeEach(() => {
-    setupTestDb()
+  beforeEach(async () => {
+    testDb = await createTestDb()
+    db = testDb.db
   })
 
   afterEach(() => {
-    teardownTestDb()
+    closeTestDb(testDb)
   })
 
   // ----------------------------------------------------------
