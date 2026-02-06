@@ -1,1 +1,1 @@
-export { agentsController, chatController } from './chat.controller'
+export { createChatController, createAgentsController } from './chat.controller'

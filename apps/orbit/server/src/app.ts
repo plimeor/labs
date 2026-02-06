@@ -2,13 +2,37 @@ import { API_ROUTES } from '@orbit/shared/constants'
 import { logger } from '@plimeor-labs/logger'
 import { Elysia } from 'elysia'
 
-import { syncAgentsWithWorkspaces } from './modules/agents/services/agent.service'
-import { ensureOrbitDirs } from './modules/agents/services/workspace.service'
-import { agentsController, chatController } from './modules/chat'
-import { corsPlugin } from './modules/plugins/cors'
-import { swaggerPlugin } from './modules/plugins/swagger'
-import { startScheduler, stopScheduler } from './modules/scheduler'
+import { AgentPool } from '@/agent/agent-pool'
+import { ensureOrbitDirs, getOrbitBasePath } from '@/modules/agents/services/workspace.service'
+import { createChatController, createAgentsController } from '@/modules/chat'
+import { corsPlugin } from '@/modules/plugins/cors'
+import { swaggerPlugin } from '@/modules/plugins/swagger'
+import { AgentStore } from '@/stores/agent.store'
+import { InboxStore } from '@/stores/inbox.store'
+import { SessionStore } from '@/stores/session.store'
+import { TaskStore } from '@/stores/task.store'
 
+// Initialize stores
+const basePath = getOrbitBasePath()
+const agentStore = new AgentStore(basePath)
+const taskStore = new TaskStore(basePath)
+const inboxStore = new InboxStore(basePath)
+const sessionStore = new SessionStore(basePath)
+
+// Initialize agent pool
+const agentPool = new AgentPool({
+  basePath,
+  agentStore,
+  taskStore,
+  inboxStore,
+  sessionStore,
+})
+
+// Build controllers
+const chatController = createChatController({ agentPool, agentStore, sessionStore })
+const agentsController = createAgentsController({ agentStore })
+
+// Build app
 const baseApp = new Elysia().use(corsPlugin)
 
 export const app = (swaggerPlugin ? baseApp.use(swaggerPlugin) : baseApp)
@@ -21,21 +45,15 @@ export const app = (swaggerPlugin ? baseApp.use(swaggerPlugin) : baseApp)
     // Ensure orbit directories exist
     await ensureOrbitDirs()
 
-    // Start scheduler
-    startScheduler()
+    // Start agent pool eviction
+    agentPool.startEviction()
 
-    // Sync agents with workspaces (non-blocking)
-    setImmediate(() => {
-      syncAgentsWithWorkspaces().catch(err => {
-        logger.error('Failed to sync agents with workspaces', { error: err })
-      })
-    })
-
+    // TODO: Scheduler will be rewritten in Task 10 to use new stores
     logger.info('Server started')
   })
   .onStop(() => {
-    // Stop scheduler
-    stopScheduler()
+    // Stop agent pool eviction
+    agentPool.stopEviction()
 
     logger.info('Server stopped')
   })

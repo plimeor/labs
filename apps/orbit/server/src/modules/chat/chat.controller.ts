@@ -1,231 +1,215 @@
-import { chatSessions, messages } from '@db/sessions'
 import { logger } from '@plimeor-labs/logger'
-import { eq } from 'drizzle-orm'
 import { Elysia, t } from 'elysia'
 
-import { db } from '@/core/db'
+import type { AgentPool } from '@/agent/agent-pool'
+import type { AgentStore } from '@/stores/agent.store'
+import type { SessionStore } from '@/stores/session.store'
 
-import { ensureAgent, listAgents } from '../agents/services/agent.service'
-import { executeAgent } from '../agents/services/runtime.service'
+export function createChatController(deps: {
+  agentPool: AgentPool
+  agentStore: AgentStore
+  sessionStore: SessionStore
+}) {
+  const { agentPool, agentStore, sessionStore } = deps
 
-export const chatController = new Elysia({ prefix: '/api/chat' })
-  // Send a message to an agent
-  .post(
-    '/',
-    async ({ body }) => {
-      const { agentName, message, sessionId } = body
+  return (
+    new Elysia({ prefix: '/api/chat' })
+      // SSE streaming chat endpoint
+      .post(
+        '/',
+        async ({ body, set }) => {
+          const { agentName, message, sessionId, model } = body
 
-      logger.info('Chat request received', { agentName, sessionId })
+          logger.info('Chat request received', { agentName, sessionId })
 
-      // Ensure agent exists (creates if not)
-      const agent = await ensureAgent(agentName)
+          // Ensure agent exists
+          await agentStore.ensure(agentName)
 
-      // Execute agent
-      const result = await executeAgent({
-        agentName,
-        prompt: message,
-        sessionType: 'chat',
-        sessionId
-      })
+          // Get or create agent instance
+          const agent = await agentPool.get(agentName)
 
-      // Store session and message
-      let session = sessionId
-        ? await db.select().from(chatSessions).where(eq(chatSessions.sessionId, sessionId)).get()
-        : undefined
+          // Create readable stream for SSE
+          const stream = new ReadableStream({
+            async start(controller) {
+              const encoder = new TextEncoder()
 
-      if (!session) {
-        const newSession = await db
-          .insert(chatSessions)
-          .values({
-            agentId: agent.id,
-            sessionId: result.sessionId
+              function sendEvent(type: string, data: unknown) {
+                const payload = JSON.stringify({ type, ...(data as Record<string, unknown>) })
+                controller.enqueue(encoder.encode(`data: ${payload}\n\n`))
+              }
+
+              try {
+                // Create session
+                const session = await sessionStore.create(agentName, {})
+
+                sendEvent('system', { session_id: session.id })
+
+                // Stream agent responses
+                let resultText = ''
+                for await (const msg of agent.chat(message, {
+                  sessionType: 'chat',
+                  sessionId,
+                  model,
+                })) {
+                  sendEvent(msg.type, msg)
+
+                  if (msg.type === 'result') {
+                    const resultMsg = msg as unknown as { result?: string }
+                    resultText = resultMsg.result ?? ''
+                  }
+                }
+
+                // Store messages
+                await sessionStore.appendMessage(agentName, session.id, {
+                  role: 'user',
+                  content: message,
+                })
+                await sessionStore.appendMessage(agentName, session.id, {
+                  role: 'assistant',
+                  content: resultText,
+                })
+              } catch (error) {
+                logger.error('Chat stream error', { error, agentName })
+                sendEvent('error', {
+                  message: error instanceof Error ? error.message : 'Unknown error',
+                })
+              } finally {
+                controller.close()
+              }
+            },
           })
-          .returning()
-        session = newSession[0]!
-      }
 
-      // Store user message
-      await db.insert(messages).values({
-        sessionId: session.id,
-        agentId: agent.id,
-        role: 'user',
-        content: message
-      })
+          set.headers['Content-Type'] = 'text/event-stream'
+          set.headers['Cache-Control'] = 'no-cache'
+          set.headers['Connection'] = 'keep-alive'
 
-      // Store assistant message
-      await db.insert(messages).values({
-        sessionId: session.id,
-        agentId: agent.id,
-        role: 'assistant',
-        content: result.result
-      })
-
-      // Update session
-      await db
-        .update(chatSessions)
-        .set({
-          lastMessageAt: new Date(),
-          messageCount: session.messageCount + 2
-        })
-        .where(eq(chatSessions.id, session.id))
-
-      return {
-        response: result.result,
-        sessionId: result.sessionId
-      }
-    },
-    {
-      body: t.Object({
-        agentName: t.String(),
-        message: t.String(),
-        sessionId: t.Optional(t.String())
-      })
-    }
-  )
-
-  // Get chat history for a session
-  .get(
-    '/history/:sessionId',
-    async ({ params }) => {
-      const session = await db.select().from(chatSessions).where(eq(chatSessions.sessionId, params.sessionId)).get()
-
-      if (!session) {
-        return { messages: [] }
-      }
-
-      const history = await db
-        .select()
-        .from(messages)
-        .where(eq(messages.sessionId, session.id))
-        .orderBy(messages.timestamp)
-        .all()
-
-      return {
-        session: {
-          id: session.sessionId,
-          agentId: session.agentId,
-          createdAt: session.createdAt,
-          messageCount: session.messageCount
+          return stream
         },
-        messages: history.map(m => ({
-          role: m.role,
-          content: m.content,
-          timestamp: m.timestamp
-        }))
-      }
-    },
-    {
-      params: t.Object({
-        sessionId: t.String()
-      })
-    }
+        {
+          body: t.Object({
+            agentName: t.String(),
+            message: t.String(),
+            sessionId: t.Optional(t.String()),
+            model: t.Optional(t.String()),
+          }),
+        },
+      )
+
+      // Legacy non-streaming endpoint (backward compatibility)
+      .post(
+        '/sync',
+        async ({ body }) => {
+          const { agentName, message, sessionId, model } = body
+
+          await agentStore.ensure(agentName)
+          const agent = await agentPool.get(agentName)
+
+          let result = ''
+          for await (const msg of agent.chat(message, {
+            sessionType: 'chat',
+            sessionId,
+            model,
+          })) {
+            if (msg.type === 'result') {
+              const resultMsg = msg as unknown as { result?: string }
+              result = resultMsg.result ?? ''
+            }
+          }
+
+          const session = await sessionStore.create(agentName, {})
+          await sessionStore.appendMessage(agentName, session.id, {
+            role: 'user',
+            content: message,
+          })
+          await sessionStore.appendMessage(agentName, session.id, {
+            role: 'assistant',
+            content: result,
+          })
+
+          return { response: result, sessionId: session.id }
+        },
+        {
+          body: t.Object({
+            agentName: t.String(),
+            message: t.String(),
+            sessionId: t.Optional(t.String()),
+            model: t.Optional(t.String()),
+          }),
+        },
+      )
+
+      // Get chat history
+      .get(
+        '/history/:sessionId',
+        async ({ params }) => {
+          const agents = await agentStore.list()
+          for (const agent of agents) {
+            const session = await sessionStore.get(agent.name, params.sessionId)
+            if (session) {
+              const msgs = await sessionStore.getMessages(agent.name, params.sessionId)
+              return {
+                session: {
+                  id: session.id,
+                  createdAt: session.createdAt,
+                  messageCount: session.messageCount,
+                },
+                messages: msgs.map(m => ({
+                  role: m.role,
+                  content: m.content,
+                  timestamp: m.timestamp,
+                })),
+              }
+            }
+          }
+          return { messages: [] }
+        },
+        {
+          params: t.Object({ sessionId: t.String() }),
+        },
+      )
   )
+}
 
-  // List all sessions for an agent
-  .get(
-    '/sessions/:agentId',
-    async ({ params }) => {
-      const agentId = parseInt(params.agentId, 10)
-      const sessions = await db
-        .select()
-        .from(chatSessions)
-        .where(eq(chatSessions.agentId, agentId))
-        .orderBy(chatSessions.createdAt)
-        .all()
+export function createAgentsController(deps: { agentStore: AgentStore }) {
+  const { agentStore } = deps
 
-      return {
-        sessions: sessions.map(s => ({
-          id: s.sessionId,
-          createdAt: s.createdAt,
-          lastMessageAt: s.lastMessageAt,
-          messageCount: s.messageCount
-        }))
-      }
-    },
-    {
-      params: t.Object({
-        agentId: t.String()
-      })
-    }
-  )
-
-export const agentsController = new Elysia({ prefix: '/api/agents' })
-  // List all agents
-  .get('/', async () => {
-    const agentList = await listAgents()
-    return {
-      agents: agentList.map(a => ({
-        id: a.id,
-        name: a.name,
-        status: a.status,
-        lastActiveAt: a.lastActiveAt,
-        createdAt: a.createdAt
-      }))
-    }
-  })
-
-  // Create a new agent
-  .post(
-    '/',
-    async ({ body }) => {
-      const { createAgent } = await import('../agents/services/agent.service')
-      const agent = await createAgent(body)
-      return {
-        agent: {
-          id: agent.id,
-          name: agent.name,
-          status: agent.status,
-          createdAt: agent.createdAt
-        }
-      }
-    },
-    {
-      body: t.Object({
-        name: t.String(),
-        description: t.Optional(t.String())
-      })
-    }
-  )
-
-  // Get agent details
-  .get(
-    '/:name',
-    async ({ params }) => {
-      const { getAgent } = await import('../agents/services/agent.service')
-      const agent = await getAgent(params.name)
-
-      if (!agent) {
-        return { error: 'Agent not found' }
-      }
-
-      return {
-        agent: {
-          id: agent.id,
-          name: agent.name,
-          status: agent.status,
-          lastActiveAt: agent.lastActiveAt,
-          createdAt: agent.createdAt
-        }
-      }
-    },
-    {
-      params: t.Object({
-        name: t.String()
-      })
-    }
-  )
-
-  // Delete an agent
-  .delete(
-    '/:name',
-    async ({ params }) => {
-      const { deleteAgent } = await import('../agents/services/agent.service')
-      await deleteAgent(params.name)
-      return { success: true }
-    },
-    {
-      params: t.Object({
-        name: t.String()
-      })
-    }
-  )
+  return new Elysia({ prefix: '/api/agents' })
+    .get('/', async () => {
+      const agents = await agentStore.list()
+      return { agents }
+    })
+    .post(
+      '/',
+      async ({ body }) => {
+        const agent = await agentStore.create(body)
+        return { agent }
+      },
+      {
+        body: t.Object({
+          name: t.String(),
+          description: t.Optional(t.String()),
+        }),
+      },
+    )
+    .get(
+      '/:name',
+      async ({ params }) => {
+        const agent = await agentStore.get(params.name)
+        if (!agent) return { error: 'Agent not found' }
+        return { agent }
+      },
+      {
+        params: t.Object({ name: t.String() }),
+      },
+    )
+    .delete(
+      '/:name',
+      async ({ params }) => {
+        await agentStore.delete(params.name)
+        return { success: true }
+      },
+      {
+        params: t.Object({ name: t.String() }),
+      },
+    )
+}
