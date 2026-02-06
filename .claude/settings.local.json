@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh pr create --title \"refactor\\(orbit\\): simplify test architecture with real implementations\" --body \"$\\(cat <<''EOF''\n## Summary\n\n- Add BDD-style tests for orbit server services \\(agent, inbox, scheduler, runtime, orbit-tools, memory-tools\\)\n- Refactor test architecture to use real implementations instead of inline reimplementations\n- Use environment variables \\(`DATABASE_PATH`, `ORBIT_CONFIG_PATH`\\) to control test paths\n- Only mock external services \\(Anthropic SDK, QMD CLI\\)\n\n## Key Changes\n\n- **Test preload**: Set up test database and workspace paths before tests run\n- **Real implementations**: Tests now use real service functions with mocked external deps\n- **Reduced duplication**: ~430 lines of code removed by eliminating inline reimplementations\n- **Export pure functions**: `calculateNextRun`, scheduler utils exported for testing\n\n## Mocking Strategy\n\n| Service | Mocked? | Reason |\n|---------|---------|--------|\n| Anthropic SDK | ✅ | External LLM API |\n| QMD service | ✅ | External CLI tool |\n| workspace.service | ❌ | Uses `ORBIT_CONFIG_PATH` env var |\n| context.service | ❌ | Real file operations |\n| memory.service | ❌ | Real file operations |\n| inbox.service | ❌ | Real DB operations |\n| agent.service | ❌ | Real DB operations |\n\n## Test plan\n\n- [x] All 303 tests pass\n- [x] Tests use real implementations where possible\n- [x] Only external services are mocked\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\nEOF\n\\)\")",
+      "Bash(gh pr edit:*)"
+    ]
+  }
+}
