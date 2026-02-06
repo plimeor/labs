@@ -45,6 +45,13 @@ export async function createAgentWorkspace(
   await mkdir(workspacePath, { recursive: true })
   await mkdir(join(workspacePath, 'memory'), { recursive: true })
   await mkdir(join(workspacePath, 'workspace'), { recursive: true })
+  await mkdir(join(workspacePath, 'sessions'), { recursive: true })
+  await mkdir(join(workspacePath, 'tasks'), { recursive: true })
+  await mkdir(join(workspacePath, 'tasks', 'runs'), { recursive: true })
+  await mkdir(join(workspacePath, 'inbox', 'pending'), { recursive: true })
+  await mkdir(join(workspacePath, 'inbox', 'archive'), { recursive: true })
+  await mkdir(join(workspacePath, 'sources'), { recursive: true })
+  await mkdir(join(workspacePath, '.claude', 'skills'), { recursive: true })
 
   // Copy template files
   const templateFiles = ['AGENTS.md', 'SOUL.md', 'IDENTITY.md', 'USER.md', 'HEARTBEAT.md', 'BOOTSTRAP.md', 'TOOLS.md']
