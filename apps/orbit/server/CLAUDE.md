@@ -6,128 +6,137 @@ Orbit is a multi-agent system where AI agents run with isolated workspaces and c
 
 ### Core Components
 
-**Database (SQLite + Drizzle ORM)**
+**Filesystem Stores** (`src/stores/`)
 
-- `agents`: Agent registry with unique names and workspace paths
-- `chat_sessions`: Conversation sessions linking agents to users
-- `messages`: Chat history with role (user/assistant) and content
-- `scheduled_tasks`: Cron/interval/once tasks with next run time
-- `task_runs`: Execution history (status, result, error, duration)
-- `agent_inbox`: Request/response messages between agents
-- `user_inbox`: Notification messages from agents to users
+All state is stored as JSON files on the filesystem (no database). Each store manages a subdirectory under the agent's workspace:
 
-**Scheduler**
+- `AgentStore` - Agent registry (`agents/<name>/agent.json`)
+- `TaskStore` - Scheduled tasks and run history (`agents/<name>/tasks/`)
+- `InboxStore` - Agent-to-agent messages (`agents/<name>/inbox/`)
+- `SessionStore` - Chat sessions and message history (`agents/<name>/sessions/`)
 
-- Polls every 30 seconds for due tasks
-- Executes agents with task prompts
-- Calculates next run time (cron/interval) or marks completed (once)
-- Records execution results to `task_runs`
+**OrbitAgent** (`src/agent/orbit-agent.ts`)
 
-**Agent Runtime**
+Wraps the `@anthropic-ai/claude-agent-sdk` to run Claude with:
 
-- Each agent runs in isolated workspace directory
-- Session types: `chat` (interactive), `cron` (scheduled), `heartbeat` (periodic)
-- Tools available: schedule_task, send_to_agent, list_tasks, pause/resume/cancel task
+- Composed system prompts (identity, tools, inbox context)
+- In-process MCP servers (orbit-tools, memory-tools)
+- External MCP sources from `sources/` directory
+- Session resume via SDK session ID
+- Async generator streaming (`chat()` yields `SDKMessage`)
+
+**AgentPool** (`src/agent/agent-pool.ts`)
+
+Manages OrbitAgent instances with LRU eviction. Agents are created on first use and cached for reuse across chat and scheduler calls.
+
+**MCP Servers** (`src/mcp/`)
+
+In-process MCP servers providing tools to agents:
+
+- `orbit-tools.mcp` - schedule_task, send_to_agent, list_tasks, pause/resume/cancel task
+- `memory-tools.mcp` - QMD-based semantic memory (add, search, list collections)
+
+**Permission System** (`src/agent/permissions.ts`)
+
+Three modes: `safe` (read-only tools), `ask` (interactive approval), `allow-all` (unrestricted). MCP tools (orbit-tools, memory-tools) are always allowed.
+
+**Source Builder** (`src/agent/source-builder.ts`)
+
+Reads `sources/<name>/config.json` files to discover external MCP servers (stdio or HTTP/SSE transport) and adds them to the agent's MCP server list.
+
+**Scheduler** (`src/modules/scheduler/`)
+
+Polls filesystem-based TaskStore every 30 seconds for due tasks. Executes agents via AgentPool, records run results, and calculates next run time (cron/interval).
 
 ### Communication Patterns
 
-**Agent ↔ Agent** (via `agent_inbox`)
+**Agent to Agent** (via InboxStore)
 
-- Request: Agent A sends request to Agent B
-- Response: Agent B replies with `requestId` linking to original request
-- Status: pending → read → archived
+- Agent A calls `send_to_agent(targetAgent, message)` tool
+- Message saved to target agent's `inbox/pending/`
+- Target agent reads pending messages on next session
 
-**Agent → User** (via `user_inbox`)
+**Agent to User** (via SSE streaming)
 
-- One-way notifications from agents
-- Priority levels: low, normal, high
-- Status: unread → read → archived
+- `POST /api/chat` returns SSE stream
+- Events: `system`, `assistant`, `tool_use`, `result`, `error`
 
-**Agent ↔ User** (via `chat_sessions` + `messages`)
+**Scheduled Execution**
 
-- Interactive conversations
-- Messages stored with role and content
-- Session tracks message count and last activity
-
-## Data Flow
-
-### Task Execution
-
-1. Scheduler finds due task in `scheduled_tasks`
-2. Runtime executes agent with task prompt
-3. Agent runs with tools (schedule_task, send_to_agent, etc.)
-4. Result recorded to `task_runs` (status, result, error, duration)
-5. Task updated with next run time or marked completed
-
-### Agent-to-Agent Communication
-
-1. Agent A calls `send_to_agent(targetAgent, message, 'request')`
-2. Message inserted into `agent_inbox` with `messageType='request'`
-3. Agent B reads inbox on next session
-4. Agent B responds with `messageType='response'` and `requestId`
-
-### Agent-to-User Notification
-
-1. Agent calls `send_notification(userId, message, priority)`
-2. Message inserted into `user_inbox`
-3. User sees notification in UI
+- Scheduler finds due tasks, runs agent with task prompt
+- Results recorded to `tasks/runs/` directory
 
 ## File Structure
 
 ```
 apps/orbit/server/
-├── drizzle/
-│   ├── schema/
-│   │   ├── agents.ts       # Agent registry
-│   │   ├── sessions.ts     # Chat sessions + messages
-│   │   ├── tasks.ts        # Scheduled tasks + runs
-│   │   └── inbox.ts        # Agent + user inboxes
-│   └── migrations/         # Database migrations
 ├── src/
-│   ├── core/
-│   │   ├── config/         # Environment configuration
-│   │   ├── db/             # Database client
-│   │   └── logger/         # Logging utilities
+│   ├── stores/
+│   │   ├── agent.store.ts      # Agent CRUD (filesystem)
+│   │   ├── task.store.ts       # Task CRUD + due task finder
+│   │   ├── inbox.store.ts      # Inbox message CRUD
+│   │   ├── session.store.ts    # Session + message CRUD
+│   │   └── index.ts            # Barrel export
+│   ├── agent/
+│   │   ├── orbit-agent.ts      # Agent SDK wrapper
+│   │   ├── agent-pool.ts       # LRU agent cache
+│   │   ├── permissions.ts      # Permission hook
+│   │   ├── source-builder.ts   # External MCP discovery
+│   │   └── index.ts            # Barrel export
+│   ├── mcp/
+│   │   ├── orbit-tools.mcp.ts  # Orbit tools MCP server
+│   │   └── memory-tools.mcp.ts # Memory tools MCP server
 │   ├── modules/
-│   │   ├── agents/
-│   │   │   ├── services/   # Agent runtime, workspace, inbox
-│   │   │   └── tools/      # Orbit tools (schedule_task, etc.)
-│   │   ├── chat/           # Chat API endpoints
-│   │   └── scheduler/      # Task scheduler service
-│   ├── plugins/            # Elysia plugins (CORS, Swagger)
-│   └── app.ts              # Main app setup
-└── templates/              # Agent prompt templates
-    ├── AGENTS.md           # Agent operating protocol
-    ├── IDENTITY.md         # Agent personality template
-    ├── TOOLS.md            # Tool documentation
-    ├── HEARTBEAT.md        # Periodic tasks
-    └── BOOTSTRAP.md        # Initial setup
+│   │   ├── agents/services/    # Workspace, context, memory, QMD
+│   │   ├── chat/               # SSE chat controller + agents API
+│   │   ├── scheduler/          # Filesystem-based scheduler
+│   │   └── plugins/            # CORS, Swagger
+│   ├── core/                   # Config, env
+│   ├── __tests__/              # Unit + integration tests
+│   ├── app.ts                  # Main app setup
+│   └── index.ts                # Entry point
+└── templates/                  # Agent prompt templates
 ```
 
-## Database Schema Notes
+### Agent Workspace Structure
 
-### Indexes
+```
+~/.config/orbit/agents/<name>/
+├── agent.json          # Agent metadata
+├── workspace/          # Agent working directory
+├── memory/             # Daily memory logs
+├── sessions/           # Chat session files
+├── tasks/              # Scheduled task definitions
+│   └── runs/           # Task execution records
+├── inbox/
+│   ├── pending/        # Unread messages
+│   └── archive/        # Read messages
+├── sources/            # External MCP server configs
+├── .claude/skills/     # Claude skill definitions
+├── IDENTITY.md         # Agent identity
+├── AGENTS.md           # Operating protocol
+├── TOOLS.md            # Tool documentation
+└── MEMORY.md           # Long-term memory
+```
 
-**Performance indexes:**
+## API Endpoints
 
-- `scheduled_tasks.nextRunIdx`: Find due tasks quickly
-- `scheduled_tasks.statusIdx`: Filter by active/paused/completed
-- `agent_inbox.toAgentIdx`: Get agent's inbox messages
-- `user_inbox.toUserIdx`: Get user's notifications
+**Chat**
 
-### Status Fields
+- `POST /api/chat` - SSE streaming chat with agent
+- `POST /api/chat/sync` - Synchronous chat (legacy)
+- `GET /api/chat/history/:sessionId` - Get session messages
 
-**Task status:**
+**Agents**
 
-- `active`: Running on schedule
-- `paused`: Temporarily disabled
-- `completed`: One-time task finished
+- `GET /api/agents` - List agents
+- `POST /api/agents` - Create agent
+- `GET /api/agents/:name` - Get agent details
+- `DELETE /api/agents/:name` - Delete agent
 
-**Inbox status:**
+**Health**
 
-- `pending/unread`: Not yet read
-- `read`: Read but kept in inbox
-- `archived`: Processed and hidden
+- `GET /api/health` - Server status
 
 ## Running the Server
 
@@ -143,65 +152,62 @@ bun run test           # Run tests
 bun run test:watch     # Run tests in watch mode
 bun run test:coverage  # Run tests with coverage
 
-# Database
-bun run db:generate  # Generate migration
-bun run db:migrate   # Apply migration
-bun run db:studio    # Open Drizzle Studio
+# Type checking
+bun run type-check
 ```
-
-## API Endpoints
-
-**Chat**
-
-- `POST /api/chat` - Send message to agent
-- `GET /api/chat/sessions` - List sessions
-- `GET /api/chat/sessions/:id/messages` - Get messages
-
-**Agents**
-
-- `GET /api/agents` - List agents
-- `POST /api/agents` - Create agent
-- `GET /api/agents/:name` - Get agent details
-
-**Health**
-
-- `GET /api/health` - Server status
 
 ## Development Notes
 
 ### Testing Architecture
 
-**Test Isolation**: Tests use environment variables to isolate from production:
+**Test Isolation**: Tests use `ORBIT_CONFIG_PATH` environment variable to point to temporary directories, avoiding interference with production data.
 
-- `DATABASE_PATH`: Points to test database (auto-created in preload)
-- `ORBIT_CONFIG_PATH`: Points to test workspace directories
+**Mock Strategy**: Only mock external services:
 
-**Mock Strategy**: Only mock external services, use real implementations for internal code:
+- Mocked: `@anthropic-ai/claude-agent-sdk` (external LLM), QMD service (external CLI)
+- Real: All internal code (stores, agent pool, workspace, scheduler)
 
-- ✅ Mocked: Anthropic SDK (external LLM), QMD service (external CLI)
-- ❌ Real: All internal services (agent, inbox, runtime, scheduler, workspace)
+**Test Structure**: Tests are in `src/__tests__/` mirroring the source layout:
 
-**Test Infrastructure**:
-
-- `bunfig.toml`: Configures Bun test runner with preload script
-- `preload.ts`: Sets up test database using drizzle-kit/api before tests run
-- `test-db.ts`: Database cleanup helpers for test isolation
-- `mocks/`: Mock implementations for external dependencies
+- `stores/` - Store unit tests
+- `mcp/` - MCP server tests
+- `agent/` - OrbitAgent, permissions, source-builder tests
+- `controllers/` - Chat controller tests
+- `integration/` - Smoke tests
 
 ### Adding New Tools
 
-1. Add tool definition to `orbitToolDefinitions` in `orbit-tools.ts`
-2. Add handler to `handlers` object
-3. Update `OrbitToolHandler` interface
-4. Document in `templates/TOOLS.md`
+1. Add tool definition in `src/mcp/orbit-tools.mcp.ts`
+2. Implement handler in the same file
+3. Update `templates/TOOLS.md` documentation
+4. Add tests in `src/__tests__/mcp/`
 
-### Schema Changes
+### Adding External MCP Sources
 
-1. Modify schema file in `drizzle/schema/`
-2. Run `bun run db:generate` to create migration
-3. Run `bun run db:migrate` to apply migration
-4. Update TypeScript types exported from schema
+Create `sources/<name>/config.json` in the agent workspace:
 
-### Agent Templates
+```json
+{
+  "type": "mcp",
+  "transport": "stdio",
+  "command": "node",
+  "args": ["path/to/server.js"]
+}
+```
 
-Templates in `templates/` are injected into agent system prompts. Keep them concise and action-oriented. Use active voice and specific language.
+Or for HTTP/SSE transport:
+
+```json
+{
+  "type": "mcp",
+  "transport": "http",
+  "url": "http://localhost:3001/mcp"
+}
+```
+
+### Key Dependencies
+
+- `@anthropic-ai/claude-agent-sdk` - Agent SDK for running Claude
+- `elysia` - HTTP framework
+- `cron-parser` - Cron expression parsing for scheduler
+- `zod` - Schema validation
