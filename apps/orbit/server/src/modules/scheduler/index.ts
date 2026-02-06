@@ -1,1 +1,1 @@
-export { getScheduler, SchedulerService, startScheduler, stopScheduler } from './scheduler.service'
+export { SchedulerService, createSchedulerService, type SchedulerDeps } from './scheduler.service'

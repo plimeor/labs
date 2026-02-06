@@ -7,6 +7,7 @@ import { ensureOrbitDirs, getOrbitBasePath } from '@/modules/agents/services/wor
 import { createChatController, createAgentsController } from '@/modules/chat'
 import { corsPlugin } from '@/modules/plugins/cors'
 import { swaggerPlugin } from '@/modules/plugins/swagger'
+import { createSchedulerService } from '@/modules/scheduler'
 import { AgentStore } from '@/stores/agent.store'
 import { InboxStore } from '@/stores/inbox.store'
 import { SessionStore } from '@/stores/session.store'
@@ -28,6 +29,9 @@ const agentPool = new AgentPool({
   sessionStore,
 })
 
+// Initialize scheduler
+const scheduler = createSchedulerService({ taskStore, agentPool })
+
 // Build controllers
 const chatController = createChatController({ agentPool, agentStore, sessionStore })
 const agentsController = createAgentsController({ agentStore })
@@ -48,10 +52,15 @@ export const app = (swaggerPlugin ? baseApp.use(swaggerPlugin) : baseApp)
     // Start agent pool eviction
     agentPool.startEviction()
 
-    // TODO: Scheduler will be rewritten in Task 10 to use new stores
+    // Start scheduler
+    scheduler.start()
+
     logger.info('Server started')
   })
   .onStop(() => {
+    // Stop scheduler
+    scheduler.stop()
+
     // Stop agent pool eviction
     agentPool.stopEviction()
 
