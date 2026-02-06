@@ -5,11 +5,9 @@
     "paths": {
       "@orbit/shared": ["../shared/src/index.ts"],
       "@orbit/shared/*": ["../shared/src/*"],
-      "@/*": ["./src/*"],
-      "@db": ["./drizzle/schema/index.ts"],
-      "@db/*": ["./drizzle/schema/*"]
+      "@/*": ["./src/*"]
     }
   },
-  "include": ["src/**/*", "drizzle/**/*"],
+  "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
 }
