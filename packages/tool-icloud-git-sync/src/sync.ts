@@ -25,12 +25,10 @@ export const IGNORED_FILES = [
   'Thumbs.db',
   '.obsidian/workspace.json',
   '.obsidian/workspace-mobile.json',
-  STATE_FILE_NAME,
+  STATE_FILE_NAME
 ]
 
-export function log(name: string, message: string) {
-  console.log(`[${new Date().toISOString()}] [${name}] ${message}`)
-}
+export function log(_name: string, _message: string) {}
 
 /**
  * Get or initialize sync base (Commit ID)
@@ -97,9 +95,7 @@ export async function runSync(name: string, config: SyncConfig): Promise<boolean
   try {
     // 1. Get latest remote state and base
     await $`git fetch origin main`.cwd(config.repoPath).quiet()
-    const latestMain = (
-      await $`git rev-parse origin/main`.cwd(config.repoPath).quiet().text()
-    ).trim()
+    const latestMain = (await $`git rev-parse origin/main`.cwd(config.repoPath).quiet().text()).trim()
     const baseCommit = await getLastSyncCommit(config)
 
     log(name, `Current Main: ${latestMain.slice(0, 7)}, Base: ${baseCommit.slice(0, 7)}`)
@@ -127,10 +123,7 @@ export async function runSync(name: string, config: SyncConfig): Promise<boolean
       try {
         await $`rsync -a --delete ${excludes} ${mainPath}/ ${config.icloudPath}/`.quiet()
         updateLastSyncCommit(config, latestMain)
-        log(
-          name,
-          `Successfully synced latest main to iCloud. Base updated to ${latestMain.slice(0, 7)}`,
-        )
+        log(name, `Successfully synced latest main to iCloud. Base updated to ${latestMain.slice(0, 7)}`)
       } finally {
         await cleanupWorktree(config.repoPath, mainPath)
       }
@@ -165,9 +158,7 @@ export async function runSync(name: string, config: SyncConfig): Promise<boolean
 
       // Merge: bring in iCloud delta, favoring main content on conflicts
       // If main deleted a file and iCloud didn't modify it, Git merge correctly identifies it as deleted.
-      await $`git merge ${deltaCommit} -m "Merge iCloud updates (prefer main)" -X ours`
-        .cwd(worktreePath)
-        .quiet()
+      await $`git merge ${deltaCommit} -m "Merge iCloud updates (prefer main)" -X ours`.cwd(worktreePath).quiet()
 
       const finalCommit = (await $`git rev-parse HEAD`.cwd(worktreePath).quiet().text()).trim()
 

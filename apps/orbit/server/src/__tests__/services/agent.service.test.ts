@@ -10,7 +10,7 @@
  * - Syncing agents with workspaces
  */
 
-import { describe, it, expect, beforeEach, mock } from 'bun:test'
+import { beforeEach, describe, expect, it, mock } from 'bun:test'
 
 import { clearAllTables } from '../helpers/test-db'
 
@@ -44,20 +44,20 @@ mock.module('@/modules/agents/services/workspace.service', () => ({
   deleteAgentWorkspace: mockDeleteAgentWorkspace,
   agentWorkspaceExists: mockAgentWorkspaceExists,
   listAgentWorkspaces: mockListAgentWorkspaces,
-  getAgentWorkspacePath: mockGetAgentWorkspacePath,
+  getAgentWorkspacePath: mockGetAgentWorkspacePath
 }))
 
 // Now import the real agent service (will use mocked workspace)
 import {
   createAgent,
+  deleteAgent,
+  ensureAgent,
   getAgent,
   getAgentById,
   listAgents,
-  updateAgentLastActive,
-  updateAgentStatus,
-  deleteAgent,
-  ensureAgent,
   syncAgentsWithWorkspaces,
+  updateAgentLastActive,
+  updateAgentStatus
 } from '@/modules/agents/services/agent.service'
 
 // ============================================================
@@ -81,19 +81,13 @@ describe('Agent Service', () => {
 
       expect(agent.name).toBe('orbit-assistant')
       expect(agent.status).toBe('active')
-      expect(mockCreateAgentWorkspace).toHaveBeenCalledWith(
-        'orbit-assistant',
-        'orbit-assistant',
-        undefined,
-      )
+      expect(mockCreateAgentWorkspace).toHaveBeenCalledWith('orbit-assistant', 'orbit-assistant', undefined)
     })
 
     it('should fail to create duplicate agent', async () => {
       await createAgent({ name: 'orbit-assistant' })
 
-      await expect(createAgent({ name: 'orbit-assistant' })).rejects.toThrow(
-        'Agent already exists: orbit-assistant',
-      )
+      await expect(createAgent({ name: 'orbit-assistant' })).rejects.toThrow('Agent already exists: orbit-assistant')
     })
   })
 
@@ -186,7 +180,7 @@ describe('Agent Service', () => {
 
       const agent = await getAgent('lazy-bot')
       expect(agent?.lastActiveAt).not.toBeNull()
-      expect(agent!.lastActiveAt!.getTime()).toBeGreaterThanOrEqual(before.getTime() - 1000)
+      expect(agent?.lastActiveAt?.getTime()).toBeGreaterThanOrEqual(before.getTime() - 1000)
     })
   })
 

@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core'
+import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 export const chatSessions = sqliteTable(
   'chat_sessions',
@@ -11,12 +11,12 @@ export const chatSessions = sqliteTable(
       .notNull()
       .$defaultFn(() => new Date()),
     lastMessageAt: integer('last_message_at', { mode: 'timestamp' }),
-    messageCount: integer('message_count').notNull().default(0),
+    messageCount: integer('message_count').notNull().default(0)
   },
   table => ({
     agentIdx: index('idx_session_agent').on(table.agentId),
-    sessionIdx: index('idx_session_id').on(table.sessionId),
-  }),
+    sessionIdx: index('idx_session_id').on(table.sessionId)
+  })
 )
 
 export const messages = sqliteTable(
@@ -29,11 +29,11 @@ export const messages = sqliteTable(
     content: text('content').notNull(),
     timestamp: integer('timestamp', { mode: 'timestamp' })
       .notNull()
-      .$defaultFn(() => new Date()),
+      .$defaultFn(() => new Date())
   },
   table => ({
-    sessionIdx: index('idx_message_session').on(table.sessionId),
-  }),
+    sessionIdx: index('idx_message_session').on(table.sessionId)
+  })
 )
 
 export type ChatSession = typeof chatSessions.$inferSelect

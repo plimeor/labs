@@ -1,4 +1,4 @@
-import { scheduledTasks, type ScheduledTask } from '@db/tasks'
+import { type ScheduledTask, scheduledTasks } from '@db/tasks'
 import { logger } from '@plimeor-labs/logger'
 import { CronExpressionParser } from 'cron-parser'
 import { and, eq, lte } from 'drizzle-orm'
@@ -83,7 +83,7 @@ export class SchedulerService {
     logger.info(`Executing task ${task.id}`, {
       agentName: agent.name,
       name: task.name,
-      scheduleType: task.scheduleType,
+      scheduleType: task.scheduleType
     })
 
     try {
@@ -92,7 +92,7 @@ export class SchedulerService {
         agentName: agent.name,
         prompt: task.prompt,
         sessionType: task.contextMode === 'main' ? 'chat' : 'cron',
-        sessionId: task.contextMode === 'main' ? undefined : `cron-${task.id}`,
+        sessionId: task.contextMode === 'main' ? undefined : `cron-${task.id}`
       })
 
       // Calculate next run
@@ -104,12 +104,12 @@ export class SchedulerService {
         .set({
           lastRun: new Date(),
           nextRun,
-          status: nextRun ? 'active' : 'completed',
+          status: nextRun ? 'active' : 'completed'
         })
         .where(eq(scheduledTasks.id, task.id))
 
       logger.info(`Task ${task.id} completed`, {
-        nextRun: nextRun?.toISOString() || 'none',
+        nextRun: nextRun?.toISOString() || 'none'
       })
     } catch (error) {
       logger.error(`Task ${task.id} failed`, { error })
@@ -123,15 +123,15 @@ export class SchedulerService {
         return interval.next().toDate()
       } catch {
         logger.error(`Invalid cron expression for task ${task.id}`, {
-          value: task.scheduleValue,
+          value: task.scheduleValue
         })
         return undefined
       }
     } else if (task.scheduleType === 'interval') {
       const ms = parseInt(task.scheduleValue, 10)
-      if (isNaN(ms)) {
+      if (Number.isNaN(ms)) {
         logger.error(`Invalid interval for task ${task.id}`, {
-          value: task.scheduleValue,
+          value: task.scheduleValue
         })
         return undefined
       }

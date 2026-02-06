@@ -4,7 +4,7 @@ import { logger } from '@plimeor-labs/logger'
 import { createMemoryTools } from '../tools/memory-tools'
 import { createOrbitTools, type OrbitToolHandler } from '../tools/orbit-tools'
 import { getAgent, getAgentById, updateAgentLastActive } from './agent.service'
-import { composeSystemPrompt, type SessionType, type InboxMessage } from './context.service'
+import { composeSystemPrompt, type InboxMessage, type SessionType } from './context.service'
 import { checkInboxByName, markInboxRead } from './inbox.service'
 import { appendDailyMemory } from './memory.service'
 import * as qmd from './qmd.service'
@@ -50,19 +50,16 @@ export async function executeAgent(params: ExecuteAgentParams): Promise<ExecuteA
       return {
         id: m.id,
         fromAgent: fromAgent?.name || `Agent#${m.fromAgentId}`,
-        message: m.message,
+        message: m.message
       }
-    }),
+    })
   )
 
   // Compose system prompt
   const systemPrompt = await composeSystemPrompt(agentName, sessionType, inboxMessages)
 
   // Create orbit tools for this agent
-  const { tools: orbitTools, handleToolCall: handleOrbitToolCall } = createOrbitTools(
-    agentName,
-    agent.id,
-  )
+  const { tools: orbitTools, handleToolCall: handleOrbitToolCall } = createOrbitTools(agentName, agent.id)
 
   // Create memory tools (returns undefined if QMD not available)
   const memoryToolsResult = createMemoryTools(agentName)
@@ -74,7 +71,7 @@ export async function executeAgent(params: ExecuteAgentParams): Promise<ExecuteA
   const handleToolCall = async (
     toolName: string,
     args: Record<string, unknown>,
-    workingDir: string,
+    workingDir: string
   ): Promise<string> => {
     // Check if it's a memory tool
     if (memoryToolsResult && (toolName === 'search_memory' || toolName === 'get_memory')) {
@@ -99,7 +96,7 @@ export async function executeAgent(params: ExecuteAgentParams): Promise<ExecuteA
         max_tokens: 8192,
         system: systemPrompt,
         tools,
-        messages,
+        messages
       })
 
       // Process response
@@ -116,13 +113,13 @@ export async function executeAgent(params: ExecuteAgentParams): Promise<ExecuteA
           const toolResult = await handleToolCall(
             block.name as keyof OrbitToolHandler,
             block.input as Record<string, unknown>,
-            workingDir,
+            workingDir
           )
 
           toolResults.push({
             type: 'tool_result',
             tool_use_id: block.id,
-            content: toolResult,
+            content: toolResult
           })
         }
       }
@@ -157,7 +154,7 @@ export async function executeAgent(params: ExecuteAgentParams): Promise<ExecuteA
       sessionType,
       prompt,
       result,
-      timestamp: new Date(),
+      timestamp: new Date()
     })
 
     // Trigger async QMD index update (non-blocking)
@@ -169,7 +166,7 @@ export async function executeAgent(params: ExecuteAgentParams): Promise<ExecuteA
 
     logger.info(`Agent ${agentName} executed successfully`, {
       sessionType,
-      sessionId: newSessionId,
+      sessionId: newSessionId
     })
 
     return { result, sessionId: newSessionId }

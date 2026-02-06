@@ -10,20 +10,20 @@
  * - One-time task completion
  */
 
-import { describe, it, expect, beforeEach } from 'bun:test'
+import { beforeEach, describe, expect, it } from 'bun:test'
 
-import { agents, type Agent } from '@db/agents'
-import { scheduledTasks, type ScheduledTask, type NewScheduledTask } from '@db/tasks'
+import { type Agent, agents } from '@db/agents'
+import { type NewScheduledTask, type ScheduledTask, scheduledTasks } from '@db/tasks'
 import { eq } from 'drizzle-orm'
 
 import { db } from '@/core/db'
 import {
   calculateNextRun,
+  cancelTask,
   findDueTasks,
-  updateTaskAfterRun,
   pauseTask,
   resumeTask,
-  cancelTask,
+  updateTaskAfterRun
 } from '@/modules/scheduler/scheduler-utils'
 
 import { clearAllTables } from '../helpers/test-db'
@@ -35,17 +35,14 @@ async function createTestAgent(name: string): Promise<Agent> {
     .values({
       name,
       workspacePath: `/tmp/orbit/agents/${name}`,
-      status: 'active',
+      status: 'active'
     })
     .returning()
   return result[0]!
 }
 
 // Helper to create test task
-async function createTestTask(
-  agentId: number,
-  overrides: Partial<NewScheduledTask> = {},
-): Promise<ScheduledTask> {
+async function createTestTask(agentId: number, overrides: Partial<NewScheduledTask> = {}): Promise<ScheduledTask> {
   const result = await db
     .insert(scheduledTasks)
     .values({
@@ -57,7 +54,7 @@ async function createTestTask(
       contextMode: 'isolated',
       status: 'active',
       nextRun: new Date(Date.now() + 3600000),
-      ...overrides,
+      ...overrides
     })
     .returning()
   return result[0]!
@@ -80,9 +77,9 @@ describe('Scheduler Service', () => {
       const nextRun = calculateNextRun('cron', '0 9 * * *')
 
       expect(nextRun).toBeDefined()
-      expect(nextRun!.getTime()).toBeGreaterThan(Date.now())
-      expect(nextRun!.getHours()).toBe(9)
-      expect(nextRun!.getMinutes()).toBe(0)
+      expect(nextRun?.getTime()).toBeGreaterThan(Date.now())
+      expect(nextRun?.getHours()).toBe(9)
+      expect(nextRun?.getMinutes()).toBe(0)
     })
 
     it('should calculate next run for interval (1 hour)', () => {
@@ -91,13 +88,13 @@ describe('Scheduler Service', () => {
       const after = Date.now()
 
       expect(nextRun).toBeDefined()
-      expect(nextRun!.getTime()).toBeGreaterThanOrEqual(before + 3600000)
-      expect(nextRun!.getTime()).toBeLessThanOrEqual(after + 3600000)
+      expect(nextRun?.getTime()).toBeGreaterThanOrEqual(before + 3600000)
+      expect(nextRun?.getTime()).toBeLessThanOrEqual(after + 3600000)
     })
 
     it('should return exact timestamp for one-time task', () => {
       const nextRun = calculateNextRun('once', '2026-02-10T15:30:00Z')
-      expect(nextRun!.toISOString()).toBe('2026-02-10T15:30:00.000Z')
+      expect(nextRun?.toISOString()).toBe('2026-02-10T15:30:00.000Z')
     })
 
     it('should return undefined for invalid cron expression', () => {
@@ -119,17 +116,17 @@ describe('Scheduler Service', () => {
       const agent = await createTestAgent('worker')
       await createTestTask(agent.id, {
         name: 'Due Task',
-        nextRun: new Date(Date.now() - 60000),
+        nextRun: new Date(Date.now() - 60000)
       })
       await createTestTask(agent.id, {
         name: 'Future Task',
-        nextRun: new Date(Date.now() + 3600000),
+        nextRun: new Date(Date.now() + 3600000)
       })
 
       const dueTasks = await findDueTasks()
 
       expect(dueTasks.length).toBe(1)
-      expect(dueTasks[0]!.name).toBe('Due Task')
+      expect(dueTasks[0]?.name).toBe('Due Task')
     })
 
     it('should exclude paused tasks', async () => {
@@ -137,7 +134,7 @@ describe('Scheduler Service', () => {
       await createTestTask(agent.id, {
         name: 'Paused Task',
         nextRun: new Date(Date.now() - 60000),
-        status: 'paused',
+        status: 'paused'
       })
 
       const dueTasks = await findDueTasks()
@@ -149,7 +146,7 @@ describe('Scheduler Service', () => {
       await createTestTask(agent.id, {
         name: 'Completed Task',
         nextRun: null,
-        status: 'completed',
+        status: 'completed'
       })
 
       const dueTasks = await findDueTasks()
@@ -180,20 +177,16 @@ describe('Scheduler Service', () => {
       const agent = await createTestAgent('worker')
       const task = await createTestTask(agent.id, {
         scheduleType: 'interval',
-        scheduleValue: '60000',
+        scheduleValue: '60000'
       })
       const before = Date.now()
 
       await updateTaskAfterRun(task.id, 'interval', '60000')
 
-      const updated = await db
-        .select()
-        .from(scheduledTasks)
-        .where(eq(scheduledTasks.id, task.id))
-        .get()
-      expect(updated!.lastRun!.getTime()).toBeGreaterThanOrEqual(before - 1000)
-      expect(updated!.nextRun!.getTime()).toBeGreaterThanOrEqual(before + 60000 - 1000)
-      expect(updated!.status).toBe('active')
+      const updated = await db.select().from(scheduledTasks).where(eq(scheduledTasks.id, task.id)).get()
+      expect(updated?.lastRun?.getTime()).toBeGreaterThanOrEqual(before - 1000)
+      expect(updated?.nextRun?.getTime()).toBeGreaterThanOrEqual(before + 60000 - 1000)
+      expect(updated?.status).toBe('active')
     })
 
     it('should record lastRun for one-time task after execution', async () => {
@@ -201,17 +194,13 @@ describe('Scheduler Service', () => {
       const pastTime = new Date(Date.now() - 86400000).toISOString()
       const task = await createTestTask(agent.id, {
         scheduleType: 'once',
-        scheduleValue: pastTime,
+        scheduleValue: pastTime
       })
 
       await updateTaskAfterRun(task.id, 'once', pastTime)
 
-      const updated = await db
-        .select()
-        .from(scheduledTasks)
-        .where(eq(scheduledTasks.id, task.id))
-        .get()
-      expect(updated!.lastRun).toBeDefined()
+      const updated = await db.select().from(scheduledTasks).where(eq(scheduledTasks.id, task.id)).get()
+      expect(updated?.lastRun).toBeDefined()
     })
   })
 
@@ -225,37 +214,25 @@ describe('Scheduler Service', () => {
 
       await pauseTask(task.id)
 
-      const updated = await db
-        .select()
-        .from(scheduledTasks)
-        .where(eq(scheduledTasks.id, task.id))
-        .get()
-      expect(updated!.status).toBe('paused')
+      const updated = await db.select().from(scheduledTasks).where(eq(scheduledTasks.id, task.id)).get()
+      expect(updated?.status).toBe('paused')
     })
 
     it('should resume a paused task with recalculated nextRun', async () => {
       const agent = await createTestAgent('worker')
       const task = await createTestTask(agent.id, {
         scheduleType: 'interval',
-        scheduleValue: '60000',
+        scheduleValue: '60000'
       })
       await pauseTask(task.id)
       const before = Date.now()
 
-      const paused = await db
-        .select()
-        .from(scheduledTasks)
-        .where(eq(scheduledTasks.id, task.id))
-        .get()
+      const paused = await db.select().from(scheduledTasks).where(eq(scheduledTasks.id, task.id)).get()
       await resumeTask(task.id, paused!)
 
-      const updated = await db
-        .select()
-        .from(scheduledTasks)
-        .where(eq(scheduledTasks.id, task.id))
-        .get()
-      expect(updated!.status).toBe('active')
-      expect(updated!.nextRun!.getTime()).toBeGreaterThanOrEqual(before + 60000 - 1000)
+      const updated = await db.select().from(scheduledTasks).where(eq(scheduledTasks.id, task.id)).get()
+      expect(updated?.status).toBe('active')
+      expect(updated?.nextRun?.getTime()).toBeGreaterThanOrEqual(before + 60000 - 1000)
     })
   })
 
@@ -269,11 +246,7 @@ describe('Scheduler Service', () => {
 
       await cancelTask(task.id)
 
-      const deleted = await db
-        .select()
-        .from(scheduledTasks)
-        .where(eq(scheduledTasks.id, task.id))
-        .get()
+      const deleted = await db.select().from(scheduledTasks).where(eq(scheduledTasks.id, task.id)).get()
       expect(deleted).toBeUndefined()
     })
   })
@@ -288,11 +261,11 @@ describe('Scheduler Service', () => {
       { expr: '0 0 * * *', desc: 'every day at midnight' },
       { expr: '0 9 * * 1-5', desc: 'weekdays at 9am' },
       { expr: '0 0 1 * *', desc: 'first day of month' },
-      { expr: '*/15 * * * *', desc: 'every 15 minutes' },
+      { expr: '*/15 * * * *', desc: 'every 15 minutes' }
     ])('should parse cron expression "$expr" ($desc)', ({ expr }) => {
       const nextRun = calculateNextRun('cron', expr)
       expect(nextRun).toBeDefined()
-      expect(nextRun!.getTime()).toBeGreaterThan(Date.now())
+      expect(nextRun?.getTime()).toBeGreaterThan(Date.now())
     })
   })
 })

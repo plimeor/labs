@@ -5,11 +5,11 @@
  * Usage:
  *   icloud-git-sync start --icloud <path> --repo <path>
  */
-import { parseArgs } from 'util'
+import { parseArgs } from 'node:util'
 
 import { start } from './start'
 
-const HELP = `
+const _HELP = `
 iCloud Git Sync - Sync iCloud with Git using worktree isolation
 
 Usage:
@@ -35,7 +35,6 @@ async function main() {
   const command = args[0]
 
   if (!command || command === '-h' || command === '--help') {
-    console.log(HELP)
     process.exit(0)
   }
 
@@ -49,7 +48,6 @@ async function main() {
 
   // Check for help flag in start command
   if (commandArgs.includes('-h') || commandArgs.includes('--help')) {
-    console.log(HELP)
     process.exit(0)
   }
 
@@ -57,9 +55,9 @@ async function main() {
     args: commandArgs,
     options: {
       icloud: { type: 'string' },
-      repo: { type: 'string' },
+      repo: { type: 'string' }
     },
-    allowPositionals: false,
+    allowPositionals: false
   })
 
   if (!values.icloud || !values.repo) {
@@ -70,7 +68,7 @@ async function main() {
 
   await start({
     icloudPath: values.icloud,
-    repoPath: values.repo,
+    repoPath: values.repo
   })
 }
 

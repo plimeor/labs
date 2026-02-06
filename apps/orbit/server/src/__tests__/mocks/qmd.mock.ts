@@ -45,7 +45,7 @@ export function createMockQmdState(): MockQmdState {
     searchResults: new Map(),
     documents: new Map(),
     initializedAgents: new Set(),
-    updatedAgents: new Set(),
+    updatedAgents: new Set()
   }
 }
 
@@ -112,7 +112,7 @@ export async function updateIndex(agentName: string): Promise<void> {
  */
 export async function search(
   options: { agentName: string; maxResults?: number },
-  _query: string,
+  _query: string
 ): Promise<SearchResult[]> {
   if (!mockState.isAvailable) {
     throw new Error('QMD is not available')
@@ -130,7 +130,7 @@ export async function search(
 export async function getDocument(
   agentName: string,
   path: string,
-  _options?: { from?: number; lines?: number },
+  _options?: { from?: number; lines?: number }
 ): Promise<string> {
   if (!mockState.isAvailable) {
     throw new Error('QMD is not available')
@@ -216,7 +216,7 @@ export function createMockSearchResult(overrides: Partial<SearchResult> = {}): S
     score: 0.85,
     title: 'Daily Memory - 2025-02-05',
     snippet: 'This is a snippet from the memory file...',
-    ...overrides,
+    ...overrides
   }
 }
 
@@ -230,8 +230,8 @@ export function createMockSearchResults(count: number): SearchResult[] {
       path: `/memory/2025-02-0${i + 1}.md`,
       score: 0.9 - i * 0.1,
       title: `Daily Memory - 2025-02-0${i + 1}`,
-      snippet: `Snippet from memory file ${i + 1}...`,
-    }),
+      snippet: `Snippet from memory file ${i + 1}...`
+    })
   )
 }
 
@@ -261,7 +261,7 @@ export function setupAgentWithMemories(agentName: string, memoryCount = 3): void
     setDocument(
       agentName,
       `/memory/2025-02-0${i + 1}.md`,
-      `# Daily Memory - 2025-02-0${i + 1}\n\n## 09:00 - chat\n\n**Prompt:** User asked about something\n\n**Summary:** I provided helpful information.`,
+      `# Daily Memory - 2025-02-0${i + 1}\n\n## 09:00 - chat\n\n**Prompt:** User asked about something\n\n**Summary:** I provided helpful information.`
     )
   }
 }
@@ -292,5 +292,5 @@ export const mockQmdService = {
   getDocument,
   indexExists,
   resetQmdAvailability,
-  deleteIndex,
+  deleteIndex
 }

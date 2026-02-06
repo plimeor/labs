@@ -1,6 +1,6 @@
-import { existsSync } from 'fs'
-import { homedir } from 'os'
-import { resolve } from 'path'
+import { existsSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { resolve } from 'node:path'
 
 interface QmdConfig {
   enabled: boolean
@@ -11,7 +11,7 @@ let cachedConfig: QmdConfig | undefined
 
 const defaultConfig: QmdConfig = {
   enabled: true,
-  collections: {},
+  collections: {}
 }
 
 /**
@@ -34,7 +34,7 @@ export async function getQmdConfig(): Promise<QmdConfig> {
 
     const config: QmdConfig = {
       ...defaultConfig,
-      ...(parsed.qmd ?? {}),
+      ...(parsed.qmd ?? {})
     }
     cachedConfig = config
     return config

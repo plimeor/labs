@@ -46,7 +46,7 @@ export function createTextResponse(text: string): MockMessageResponse {
     model: 'claude-sonnet-4-20250514',
     stop_reason: 'end_turn',
     stop_sequence: null,
-    usage: { input_tokens: 100, output_tokens: 50 },
+    usage: { input_tokens: 100, output_tokens: 50 }
   }
 }
 
@@ -58,7 +58,7 @@ export function createToolUseResponse(toolCalls: MockToolCall[]): MockMessageRes
     type: 'tool_use' as const,
     id: `toolu_${Date.now()}_${i}`,
     name: tc.name,
-    input: tc.input,
+    input: tc.input
   }))
 
   return {
@@ -69,7 +69,7 @@ export function createToolUseResponse(toolCalls: MockToolCall[]): MockMessageRes
     model: 'claude-sonnet-4-20250514',
     stop_reason: 'tool_use',
     stop_sequence: null,
-    usage: { input_tokens: 100, output_tokens: 50 },
+    usage: { input_tokens: 100, output_tokens: 50 }
   }
 }
 
@@ -83,8 +83,8 @@ export function createMixedResponse(text: string, toolCalls: MockToolCall[]): Mo
       type: 'tool_use' as const,
       id: `toolu_${Date.now()}_${i}`,
       name: tc.name,
-      input: tc.input,
-    })),
+      input: tc.input
+    }))
   ]
 
   return {
@@ -95,7 +95,7 @@ export function createMixedResponse(text: string, toolCalls: MockToolCall[]): Mo
     model: 'claude-sonnet-4-20250514',
     stop_reason: 'tool_use',
     stop_sequence: null,
-    usage: { input_tokens: 100, output_tokens: 50 },
+    usage: { input_tokens: 100, output_tokens: 50 }
   }
 }
 
@@ -122,7 +122,7 @@ export function createMockAnthropicState(): MockAnthropicState {
     responses: [createTextResponse('Mock response')],
     callIndex: 0,
     apiCalls: [],
-    error: null,
+    error: null
   }
 }
 
@@ -132,14 +132,12 @@ let globalMockState = createMockAnthropicState()
 /**
  * Reset the global mock state
  */
-export function resetMockAnthropic(
-  responses: MockMessageResponse[] = [createTextResponse('Mock response')],
-): void {
+export function resetMockAnthropic(responses: MockMessageResponse[] = [createTextResponse('Mock response')]): void {
   globalMockState = {
     responses,
     callIndex: 0,
     apiCalls: [],
-    error: null,
+    error: null
   }
 }
 
@@ -168,19 +166,14 @@ export function setMockError(error: Error | null): void {
 /**
  * Mock API call using global state
  */
-export async function mockAnthropicApiCall(
-  params: Anthropic.MessageCreateParams,
-): Promise<MockMessageResponse> {
+export async function mockAnthropicApiCall(params: Anthropic.MessageCreateParams): Promise<MockMessageResponse> {
   globalMockState.apiCalls.push(params)
 
   if (globalMockState.error) {
     throw globalMockState.error
   }
 
-  const response =
-    globalMockState.responses[
-      Math.min(globalMockState.callIndex, globalMockState.responses.length - 1)
-    ]!
+  const response = globalMockState.responses[Math.min(globalMockState.callIndex, globalMockState.responses.length - 1)]!
   globalMockState.callIndex++
 
   return response
@@ -234,7 +227,7 @@ export function createMockAnthropicClient(options: MockAnthropicOptions = {}) {
         callIndex++
 
         return response
-      },
+      }
     },
 
     // Test utilities
@@ -243,7 +236,7 @@ export function createMockAnthropicClient(options: MockAnthropicOptions = {}) {
     _reset: () => {
       callIndex = 0
       apiCalls.length = 0
-    },
+    }
   }
 
   return mockClient
@@ -276,7 +269,7 @@ export function createMockAnthropicModule(options: MockAnthropicOptions = {}) {
  */
 export function createSimpleChatMock(response: string) {
   return createMockAnthropicClient({
-    responses: [createTextResponse(response)],
+    responses: [createTextResponse(response)]
   })
 }
 
@@ -285,7 +278,7 @@ export function createSimpleChatMock(response: string) {
  */
 export function createToolUsingAgentMock(toolCalls: MockToolCall[], finalResponse: string) {
   return createMockAnthropicClient({
-    responses: [createToolUseResponse(toolCalls), createTextResponse(finalResponse)],
+    responses: [createToolUseResponse(toolCalls), createTextResponse(finalResponse)]
   })
 }
 
@@ -302,12 +295,12 @@ export function createScheduleTaskMock(taskPrompt: string, finalResponse: string
             prompt: taskPrompt,
             scheduleType: 'interval',
             scheduleValue: '3600000',
-            contextMode: 'isolated',
-          },
-        },
+            contextMode: 'isolated'
+          }
+        }
       ]),
-      createTextResponse(finalResponse),
-    ],
+      createTextResponse(finalResponse)
+    ]
   })
 }
 
@@ -323,12 +316,12 @@ export function createSendToAgentMock(targetAgent: string, message: string, fina
           input: {
             targetAgent,
             message,
-            messageType: 'request',
-          },
-        },
+            messageType: 'request'
+          }
+        }
       ]),
-      createTextResponse(finalResponse),
-    ],
+      createTextResponse(finalResponse)
+    ]
   })
 }
 
@@ -341,11 +334,11 @@ export function createMemorySearchMock(query: string, finalResponse: string) {
       createToolUseResponse([
         {
           name: 'search_memory',
-          input: { query, maxResults: 6 },
-        },
+          input: { query, maxResults: 6 }
+        }
       ]),
-      createTextResponse(finalResponse),
-    ],
+      createTextResponse(finalResponse)
+    ]
   })
 }
 
@@ -354,6 +347,6 @@ export function createMemorySearchMock(query: string, finalResponse: string) {
  */
 export function createErrorMock(errorMessage: string) {
   return createMockAnthropicClient({
-    error: new Error(errorMessage),
+    error: new Error(errorMessage)
   })
 }

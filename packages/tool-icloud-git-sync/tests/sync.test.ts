@@ -4,12 +4,11 @@
  *
  * Tests for worktree-based sync core logic
  */
-import { test, expect, beforeAll, afterAll, describe } from 'bun:test'
-import { tmpdir } from 'os'
-import { join } from 'path'
-
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { $ } from 'bun'
-import { mkdtemp, rm } from 'fs/promises'
 
 // Test directories
 let TEST_DIR: string
@@ -225,10 +224,7 @@ describe('Error handling', () => {
     await $`echo "uncommitted" > dirty.txt`.cwd(worktreePath).quiet()
 
     // Force delete should succeed
-    const result = await $`git worktree remove ${worktreePath} --force`
-      .cwd(MOCK_REPO)
-      .nothrow()
-      .quiet()
+    const result = await $`git worktree remove ${worktreePath} --force`.cwd(MOCK_REPO).nothrow().quiet()
     expect(result.exitCode).toBe(0)
 
     // Verify deleted
@@ -258,7 +254,7 @@ describe('Concurrency safety', () => {
       // Create two worktrees simultaneously
       await Promise.all([
         $`git worktree add ${worktree1} origin/main`.cwd(MOCK_REPO).quiet(),
-        $`git worktree add ${worktree2} origin/main`.cwd(MOCK_REPO).quiet(),
+        $`git worktree add ${worktree2} origin/main`.cwd(MOCK_REPO).quiet()
       ])
 
       // Verify both exist

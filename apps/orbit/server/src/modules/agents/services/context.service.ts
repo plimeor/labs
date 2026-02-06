@@ -1,8 +1,8 @@
-import { existsSync } from 'fs'
-import { join } from 'path'
+import { existsSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
 
 import { format, subDays } from 'date-fns'
-import { readFile } from 'fs/promises'
 
 import { getAgentWorkspacePath } from './workspace.service'
 
@@ -41,7 +41,7 @@ export interface InboxMessage {
 export async function composeSystemPrompt(
   agentName: string,
   sessionType: SessionType,
-  inbox: InboxMessage[] = [],
+  inbox: InboxMessage[] = []
 ): Promise<string> {
   const workspacePath = getAgentWorkspacePath(agentName)
 
@@ -53,7 +53,7 @@ export async function composeSystemPrompt(
     readFileWithTruncation(join(workspacePath, 'USER.md')),
     readFileWithTruncation(join(workspacePath, 'TOOLS.md')),
     readFileWithTruncation(join(workspacePath, 'HEARTBEAT.md')),
-    readFileWithTruncation(join(workspacePath, 'BOOTSTRAP.md')),
+    readFileWithTruncation(join(workspacePath, 'BOOTSTRAP.md'))
   ])
 
   // Load recent memory
@@ -63,7 +63,7 @@ export async function composeSystemPrompt(
   const [memoryToday, memoryYesterday, longTerm] = await Promise.all([
     readFileWithTruncation(join(workspacePath, 'memory', `${today}.md`)),
     readFileWithTruncation(join(workspacePath, 'memory', `${yesterday}.md`)),
-    readFileWithTruncation(join(workspacePath, 'MEMORY.md')),
+    readFileWithTruncation(join(workspacePath, 'MEMORY.md'))
   ])
 
   // Build system prompt
@@ -96,19 +96,19 @@ export async function composeSystemPrompt(
 
   // Include heartbeat for heartbeat sessions
   if (sessionType === 'heartbeat' && heartbeat) {
-    sections.push('## Heartbeat Tasks\n\n' + heartbeat)
+    sections.push(`## Heartbeat Tasks\n\n${heartbeat}`)
   }
 
   // Include bootstrap if it exists (first run)
   if (bootstrap) {
-    sections.push('## First Run Setup\n\n' + bootstrap)
+    sections.push(`## First Run Setup\n\n${bootstrap}`)
   }
 
   // Memory section
   const memoryParts: string[] = []
 
   if (longTerm) {
-    memoryParts.push('### Long-term Memory\n' + longTerm)
+    memoryParts.push(`### Long-term Memory\n${longTerm}`)
   }
 
   if (memoryYesterday || memoryToday) {
@@ -124,7 +124,7 @@ export async function composeSystemPrompt(
   }
 
   if (memoryParts.length > 0) {
-    sections.push('## Memory\n\n' + memoryParts.join('\n\n'))
+    sections.push(`## Memory\n\n${memoryParts.join('\n\n')}`)
   }
 
   // Inbox messages

@@ -3,5 +3,5 @@
  */
 export const API_ROUTES = {
   BASE: '/api',
-  HEALTH: '/health',
-} as const;
+  HEALTH: '/health'
+} as const

@@ -14,9 +14,9 @@
  */
 
 import { Database } from 'bun:sqlite'
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 
-import { agents, type Agent } from '@db/agents'
+import { type Agent, agents } from '@db/agents'
 import { chatSessions, messages } from '@db/sessions'
 import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/bun-sqlite'
@@ -72,7 +72,7 @@ async function createTestAgent(name: string): Promise<Agent> {
     .values({
       name,
       workspacePath: `/tmp/orbit/agents/${name}`,
-      status: 'active',
+      status: 'active'
     })
     .returning()
   return result[0]!
@@ -84,25 +84,20 @@ async function createTestSession(agentId: number, sessionId: string) {
     .values({
       agentId,
       sessionId,
-      messageCount: 0,
+      messageCount: 0
     })
     .returning()
   return result[0]!
 }
 
-async function createTestMessage(
-  sessionId: number,
-  agentId: number,
-  role: 'user' | 'assistant',
-  content: string,
-) {
+async function createTestMessage(sessionId: number, agentId: number, role: 'user' | 'assistant', content: string) {
   const result = await db
     .insert(messages)
     .values({
       sessionId,
       agentId,
       role,
-      content,
+      content
     })
     .returning()
   return result[0]!
@@ -144,7 +139,7 @@ async function handleChatRequest(body: ChatRequest): Promise<ChatResponse> {
       .values({
         name: agentName,
         workspacePath: `/tmp/orbit/agents/${agentName}`,
-        status: 'active',
+        status: 'active'
       })
       .returning()
     agent = result[0]!
@@ -163,7 +158,7 @@ async function handleChatRequest(body: ChatRequest): Promise<ChatResponse> {
       .insert(chatSessions)
       .values({
         agentId: agent.id,
-        sessionId: executeResult.sessionId,
+        sessionId: executeResult.sessionId
       })
       .returning()
     session = newSession[0]!
@@ -174,14 +169,14 @@ async function handleChatRequest(body: ChatRequest): Promise<ChatResponse> {
     sessionId: session.id,
     agentId: agent.id,
     role: 'user',
-    content: message,
+    content: message
   })
 
   await db.insert(messages).values({
     sessionId: session.id,
     agentId: agent.id,
     role: 'assistant',
-    content: executeResult.result,
+    content: executeResult.result
   })
 
   // Update session
@@ -189,23 +184,19 @@ async function handleChatRequest(body: ChatRequest): Promise<ChatResponse> {
     .update(chatSessions)
     .set({
       lastMessageAt: new Date(),
-      messageCount: session.messageCount + 2,
+      messageCount: session.messageCount + 2
     })
     .where(eq(chatSessions.id, session.id))
 
   return {
     response: executeResult.result,
-    sessionId: executeResult.sessionId,
+    sessionId: executeResult.sessionId
   }
 }
 
 // Simulated get history handler
 async function handleGetHistory(sessionId: string) {
-  const session = await db
-    .select()
-    .from(chatSessions)
-    .where(eq(chatSessions.sessionId, sessionId))
-    .get()
+  const session = await db.select().from(chatSessions).where(eq(chatSessions.sessionId, sessionId)).get()
 
   if (!session) {
     return { messages: [] }
@@ -218,31 +209,27 @@ async function handleGetHistory(sessionId: string) {
       id: session.sessionId,
       agentId: session.agentId,
       createdAt: session.createdAt,
-      messageCount: session.messageCount,
+      messageCount: session.messageCount
     },
     messages: history.map(m => ({
       role: m.role,
       content: m.content,
-      timestamp: m.timestamp,
-    })),
+      timestamp: m.timestamp
+    }))
   }
 }
 
 // Simulated get sessions handler
 async function handleGetSessions(agentId: number) {
-  const sessions = await db
-    .select()
-    .from(chatSessions)
-    .where(eq(chatSessions.agentId, agentId))
-    .all()
+  const sessions = await db.select().from(chatSessions).where(eq(chatSessions.agentId, agentId)).all()
 
   return {
     sessions: sessions.map(s => ({
       id: s.sessionId,
       createdAt: s.createdAt,
       lastMessageAt: s.lastMessageAt,
-      messageCount: s.messageCount,
-    })),
+      messageCount: s.messageCount
+    }))
   }
 }
 
@@ -255,8 +242,8 @@ async function handleListAgents() {
       name: a.name,
       status: a.status,
       lastActiveAt: a.lastActiveAt,
-      createdAt: a.createdAt,
-    })),
+      createdAt: a.createdAt
+    }))
   }
 }
 
@@ -273,7 +260,7 @@ async function handleCreateAgent(body: { name: string; description?: string }) {
     .values({
       name: body.name,
       workspacePath: `/tmp/orbit/agents/${body.name}`,
-      status: 'active',
+      status: 'active'
     })
     .returning()
 
@@ -283,8 +270,8 @@ async function handleCreateAgent(body: { name: string; description?: string }) {
       id: agent.id,
       name: agent.name,
       status: agent.status,
-      createdAt: agent.createdAt,
-    },
+      createdAt: agent.createdAt
+    }
   }
 }
 
@@ -302,8 +289,8 @@ async function handleGetAgent(name: string) {
       name: agent.name,
       status: agent.status,
       lastActiveAt: agent.lastActiveAt,
-      createdAt: agent.createdAt,
-    },
+      createdAt: agent.createdAt
+    }
   }
 }
 
@@ -344,25 +331,21 @@ describe('Chat Controller API', () => {
 
       const response = await handleChatRequest({
         agentName: 'assistant',
-        message: 'Store this',
+        message: 'Store this'
       })
 
       expect(response.response).toBe('Stored response')
       expect(response.sessionId).toBe('stored-session')
 
-      const session = await db
-        .select()
-        .from(chatSessions)
-        .where(eq(chatSessions.sessionId, 'stored-session'))
-        .get()
+      const session = await db.select().from(chatSessions).where(eq(chatSessions.sessionId, 'stored-session')).get()
       expect(session).toBeDefined()
 
-      const msgs = await db.select().from(messages).where(eq(messages.sessionId, session!.id)).all()
+      const msgs = await db.select().from(messages).where(eq(messages.sessionId, session?.id)).all()
       expect(msgs.length).toBe(2)
-      expect(msgs[0]!.role).toBe('user')
-      expect(msgs[0]!.content).toBe('Store this')
-      expect(msgs[1]!.role).toBe('assistant')
-      expect(msgs[1]!.content).toBe('Stored response')
+      expect(msgs[0]?.role).toBe('user')
+      expect(msgs[0]?.content).toBe('Store this')
+      expect(msgs[1]?.role).toBe('assistant')
+      expect(msgs[1]?.content).toBe('Stored response')
     })
 
     it('should auto-create agent when sending to non-existent agent', async () => {
@@ -370,14 +353,14 @@ describe('Chat Controller API', () => {
 
       const response = await handleChatRequest({
         agentName: 'new-bot',
-        message: 'Hello new bot',
+        message: 'Hello new bot'
       })
 
       expect(response.response).toBe('Created!')
 
       const agent = await db.select().from(agents).where(eq(agents.name, 'new-bot')).get()
       expect(agent).toBeDefined()
-      expect(agent!.status).toBe('active')
+      expect(agent?.status).toBe('active')
     })
 
     it('should continue existing session and increase message count', async () => {
@@ -389,17 +372,13 @@ describe('Chat Controller API', () => {
       const response = await handleChatRequest({
         agentName: 'chat-agent',
         message: 'First',
-        sessionId: 'counting-session',
+        sessionId: 'counting-session'
       })
 
       expect(response.sessionId).toBe('counting-session')
 
-      const updated = await db
-        .select()
-        .from(chatSessions)
-        .where(eq(chatSessions.sessionId, 'counting-session'))
-        .get()
-      expect(updated!.messageCount).toBe(2)
+      const updated = await db.select().from(chatSessions).where(eq(chatSessions.sessionId, 'counting-session')).get()
+      expect(updated?.messageCount).toBe(2)
     })
   })
 
@@ -418,13 +397,13 @@ describe('Chat Controller API', () => {
       const result = await handleGetHistory('history-session')
 
       expect(result.messages.length).toBe(3)
-      expect(result.messages[0]!.content).toBe('First')
-      expect(result.messages[0]!.role).toBe('user')
-      expect(result.messages[1]!.content).toBe('Second')
-      expect(result.messages[2]!.content).toBe('Third')
+      expect(result.messages[0]?.content).toBe('First')
+      expect(result.messages[0]?.role).toBe('user')
+      expect(result.messages[1]?.content).toBe('Second')
+      expect(result.messages[2]?.content).toBe('Third')
       expect(result.session).toBeDefined()
-      expect(result.session!.id).toBe('history-session')
-      expect(result.session!.agentId).toBe(agent.id)
+      expect(result.session?.id).toBe('history-session')
+      expect(result.session?.agentId).toBe(agent.id)
     })
 
     it('should return empty array for non-existent session', async () => {
@@ -499,9 +478,7 @@ describe('Chat Controller API', () => {
     it('should fail to create duplicate agent', async () => {
       await createTestAgent('existing')
 
-      await expect(handleCreateAgent({ name: 'existing' })).rejects.toThrow(
-        'Agent already exists: existing',
-      )
+      await expect(handleCreateAgent({ name: 'existing' })).rejects.toThrow('Agent already exists: existing')
     })
   })
 
@@ -514,10 +491,10 @@ describe('Chat Controller API', () => {
 
       const result = await handleGetAgent('full-details')
 
-      expect(result.agent!.id).toBeGreaterThan(0)
-      expect(result.agent!.name).toBe('full-details')
-      expect(result.agent!.status).toBe('active')
-      expect(result.agent!.createdAt).toBeDefined()
+      expect(result.agent?.id).toBeGreaterThan(0)
+      expect(result.agent?.name).toBe('full-details')
+      expect(result.agent?.status).toBe('active')
+      expect(result.agent?.createdAt).toBeDefined()
     })
 
     it('should return error for non-existent agent', async () => {

@@ -10,9 +10,9 @@
  * - cancel_task: Delete a task
  */
 
-import { describe, it, expect, beforeEach } from 'bun:test'
+import { beforeEach, describe, expect, it } from 'bun:test'
 
-import { agents, type Agent } from '@db/agents'
+import { type Agent, agents } from '@db/agents'
 import { agentInbox } from '@db/inbox'
 import { scheduledTasks } from '@db/tasks'
 import { eq } from 'drizzle-orm'
@@ -29,7 +29,7 @@ async function createTestAgent(name: string): Promise<Agent> {
     .values({
       name,
       workspacePath: `/tmp/orbit/agents/${name}`,
-      status: 'active',
+      status: 'active'
     })
     .returning()
   return result[0]!
@@ -45,7 +45,7 @@ function createHandlers(agentName: string, agentId: number): OrbitToolHandler {
     list_tasks: () => handleToolCall('list_tasks', {}, ''),
     pause_task: args => handleToolCall('pause_task', args, ''),
     resume_task: args => handleToolCall('resume_task', args, ''),
-    cancel_task: args => handleToolCall('cancel_task', args, ''),
+    cancel_task: args => handleToolCall('cancel_task', args, '')
   }
 }
 
@@ -71,21 +71,17 @@ describe('Orbit Tools', () => {
         prompt: 'Check for updates',
         scheduleType: 'interval',
         scheduleValue: '3600000',
-        name: 'Hourly Check',
+        name: 'Hourly Check'
       })
 
       expect(result).toContain('Task scheduled successfully')
 
-      const tasks = await db
-        .select()
-        .from(scheduledTasks)
-        .where(eq(scheduledTasks.agentId, agent.id))
-        .all()
+      const tasks = await db.select().from(scheduledTasks).where(eq(scheduledTasks.agentId, agent.id)).all()
 
       expect(tasks.length).toBe(1)
-      expect(tasks[0]!.name).toBe('Hourly Check')
-      expect(tasks[0]!.scheduleType).toBe('interval')
-      expect(tasks[0]!.nextRun!.getTime()).toBeGreaterThanOrEqual(before + 3600000 - 1000)
+      expect(tasks[0]?.name).toBe('Hourly Check')
+      expect(tasks[0]?.scheduleType).toBe('interval')
+      expect(tasks[0]?.nextRun?.getTime()).toBeGreaterThanOrEqual(before + 3600000 - 1000)
     })
 
     it('should schedule cron task', async () => {
@@ -95,19 +91,15 @@ describe('Orbit Tools', () => {
       const result = await handlers.schedule_task({
         prompt: 'Good morning briefing',
         scheduleType: 'cron',
-        scheduleValue: '0 9 * * *',
+        scheduleValue: '0 9 * * *'
       })
 
       expect(result).toContain('Task scheduled successfully')
 
-      const tasks = await db
-        .select()
-        .from(scheduledTasks)
-        .where(eq(scheduledTasks.agentId, agent.id))
-        .all()
+      const tasks = await db.select().from(scheduledTasks).where(eq(scheduledTasks.agentId, agent.id)).all()
 
-      expect(tasks[0]!.scheduleType).toBe('cron')
-      expect(tasks[0]!.scheduleValue).toBe('0 9 * * *')
+      expect(tasks[0]?.scheduleType).toBe('cron')
+      expect(tasks[0]?.scheduleValue).toBe('0 9 * * *')
     })
 
     it('should schedule one-time task', async () => {
@@ -118,7 +110,7 @@ describe('Orbit Tools', () => {
       const result = await handlers.schedule_task({
         prompt: 'Send reminder',
         scheduleType: 'once',
-        scheduleValue: futureTime,
+        scheduleValue: futureTime
       })
 
       expect(result).toContain('Task scheduled successfully')
@@ -132,16 +124,12 @@ describe('Orbit Tools', () => {
         prompt: 'Continue conversation',
         scheduleType: 'interval',
         scheduleValue: '60000',
-        contextMode: 'main',
+        contextMode: 'main'
       })
 
-      const tasks = await db
-        .select()
-        .from(scheduledTasks)
-        .where(eq(scheduledTasks.agentId, agent.id))
-        .all()
+      const tasks = await db.select().from(scheduledTasks).where(eq(scheduledTasks.agentId, agent.id)).all()
 
-      expect(tasks[0]!.contextMode).toBe('main')
+      expect(tasks[0]?.contextMode).toBe('main')
     })
 
     it('should fail with invalid cron expression', async () => {
@@ -151,7 +139,7 @@ describe('Orbit Tools', () => {
       const result = await handlers.schedule_task({
         prompt: 'This will fail',
         scheduleType: 'cron',
-        scheduleValue: 'invalid-cron',
+        scheduleValue: 'invalid-cron'
       })
 
       expect(result).toContain('Error')
@@ -169,15 +157,15 @@ describe('Orbit Tools', () => {
 
       const result = await handlers.send_to_agent({
         targetAgent: 'bob',
-        message: 'Hello Bob!',
+        message: 'Hello Bob!'
       })
 
       expect(result).toContain('Message sent to bob')
 
       const inbox = await db.select().from(agentInbox).where(eq(agentInbox.toAgentId, bob.id)).all()
       expect(inbox.length).toBe(1)
-      expect(inbox[0]!.message).toBe('Hello Bob!')
-      expect(inbox[0]!.messageType).toBe('request')
+      expect(inbox[0]?.message).toBe('Hello Bob!')
+      expect(inbox[0]?.messageType).toBe('request')
     })
 
     it('should send response message type', async () => {
@@ -188,16 +176,12 @@ describe('Orbit Tools', () => {
       await bobHandlers.send_to_agent({
         targetAgent: 'alice',
         message: 'The answer is 4',
-        messageType: 'response',
+        messageType: 'response'
       })
 
-      const inbox = await db
-        .select()
-        .from(agentInbox)
-        .where(eq(agentInbox.toAgentId, alice.id))
-        .all()
+      const inbox = await db.select().from(agentInbox).where(eq(agentInbox.toAgentId, alice.id)).all()
 
-      expect(inbox[0]!.messageType).toBe('response')
+      expect(inbox[0]?.messageType).toBe('response')
     })
 
     it('should fail to send to non-existent agent', async () => {
@@ -206,7 +190,7 @@ describe('Orbit Tools', () => {
 
       const result = await handlers.send_to_agent({
         targetAgent: 'ghost',
-        message: 'Hello?',
+        message: 'Hello?'
       })
 
       expect(result).toContain('Error')
@@ -226,13 +210,13 @@ describe('Orbit Tools', () => {
         prompt: 'Task 1',
         scheduleType: 'interval',
         scheduleValue: '60000',
-        name: 'First Task',
+        name: 'First Task'
       })
       await handlers.schedule_task({
         prompt: 'Task 2',
         scheduleType: 'cron',
         scheduleValue: '0 9 * * *',
-        name: 'Second Task',
+        name: 'Second Task'
       })
 
       const result = await handlers.list_tasks()
@@ -264,25 +248,17 @@ describe('Orbit Tools', () => {
       await handlers.schedule_task({
         prompt: 'Pausable task',
         scheduleType: 'interval',
-        scheduleValue: '60000',
+        scheduleValue: '60000'
       })
 
-      const tasks = await db
-        .select()
-        .from(scheduledTasks)
-        .where(eq(scheduledTasks.agentId, agent.id))
-        .all()
+      const tasks = await db.select().from(scheduledTasks).where(eq(scheduledTasks.agentId, agent.id)).all()
 
-      const result = await handlers.pause_task({ taskId: tasks[0]!.id })
+      const result = await handlers.pause_task({ taskId: tasks[0]?.id })
 
       expect(result).toContain('paused')
 
-      const updated = await db
-        .select()
-        .from(scheduledTasks)
-        .where(eq(scheduledTasks.id, tasks[0]!.id))
-        .get()
-      expect(updated!.status).toBe('paused')
+      const updated = await db.select().from(scheduledTasks).where(eq(scheduledTasks.id, tasks[0]?.id)).get()
+      expect(updated?.status).toBe('paused')
     })
 
     it('should fail to pause another agent task', async () => {
@@ -293,17 +269,13 @@ describe('Orbit Tools', () => {
       await aliceHandlers.schedule_task({
         prompt: 'Alice task',
         scheduleType: 'interval',
-        scheduleValue: '60000',
+        scheduleValue: '60000'
       })
 
-      const tasks = await db
-        .select()
-        .from(scheduledTasks)
-        .where(eq(scheduledTasks.agentId, alice.id))
-        .all()
+      const tasks = await db.select().from(scheduledTasks).where(eq(scheduledTasks.agentId, alice.id)).all()
 
       const bobHandlers = createHandlers('bob', bob.id)
-      const result = await bobHandlers.pause_task({ taskId: tasks[0]!.id })
+      const result = await bobHandlers.pause_task({ taskId: tasks[0]?.id })
 
       expect(result).toContain('does not belong to this agent')
     })
@@ -328,26 +300,18 @@ describe('Orbit Tools', () => {
       await handlers.schedule_task({
         prompt: 'Resumable task',
         scheduleType: 'interval',
-        scheduleValue: '60000',
+        scheduleValue: '60000'
       })
 
-      const tasks = await db
-        .select()
-        .from(scheduledTasks)
-        .where(eq(scheduledTasks.agentId, agent.id))
-        .all()
+      const tasks = await db.select().from(scheduledTasks).where(eq(scheduledTasks.agentId, agent.id)).all()
 
-      await handlers.pause_task({ taskId: tasks[0]!.id })
-      const result = await handlers.resume_task({ taskId: tasks[0]!.id })
+      await handlers.pause_task({ taskId: tasks[0]?.id })
+      const result = await handlers.resume_task({ taskId: tasks[0]?.id })
 
       expect(result).toContain('resumed')
 
-      const updated = await db
-        .select()
-        .from(scheduledTasks)
-        .where(eq(scheduledTasks.id, tasks[0]!.id))
-        .get()
-      expect(updated!.status).toBe('active')
+      const updated = await db.select().from(scheduledTasks).where(eq(scheduledTasks.id, tasks[0]?.id)).get()
+      expect(updated?.status).toBe('active')
     })
   })
 
@@ -362,24 +326,16 @@ describe('Orbit Tools', () => {
       await handlers.schedule_task({
         prompt: 'Cancellable task',
         scheduleType: 'interval',
-        scheduleValue: '60000',
+        scheduleValue: '60000'
       })
 
-      const tasks = await db
-        .select()
-        .from(scheduledTasks)
-        .where(eq(scheduledTasks.agentId, agent.id))
-        .all()
+      const tasks = await db.select().from(scheduledTasks).where(eq(scheduledTasks.agentId, agent.id)).all()
 
-      const result = await handlers.cancel_task({ taskId: tasks[0]!.id })
+      const result = await handlers.cancel_task({ taskId: tasks[0]?.id })
 
       expect(result).toContain('cancelled and deleted')
 
-      const remaining = await db
-        .select()
-        .from(scheduledTasks)
-        .where(eq(scheduledTasks.agentId, agent.id))
-        .all()
+      const remaining = await db.select().from(scheduledTasks).where(eq(scheduledTasks.agentId, agent.id)).all()
       expect(remaining.length).toBe(0)
     })
   })

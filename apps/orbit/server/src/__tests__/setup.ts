@@ -10,10 +10,10 @@
 // Re-export test database utilities from the consolidated module
 export {
   clearAllTables,
+  isApproximatelyEqual,
   // Time comparison helpers
   isApproximatelyNow,
-  isApproximatelyEqual,
-  isAtOrAfter,
+  isAtOrAfter
 } from './helpers/test-db'
 
 // ============================================================
@@ -40,7 +40,7 @@ export function createMockAgent(overrides: Partial<MockAgent> = {}): MockAgent {
     workspacePath: '/tmp/orbit/agents/test-agent',
     createdAt: new Date(),
     lastActiveAt: null,
-    ...overrides,
+    ...overrides
   }
 }
 
@@ -74,7 +74,7 @@ export function createMockTask(overrides: Partial<MockTask> = {}): MockTask {
     nextRun: new Date(Date.now() + 3600000),
     lastRun: null,
     createdAt: new Date(),
-    ...overrides,
+    ...overrides
   }
 }
 
@@ -93,9 +93,7 @@ export interface MockInboxMessage {
 /**
  * Create a mock inbox message object
  */
-export function createMockInboxMessage(
-  overrides: Partial<MockInboxMessage> = {},
-): MockInboxMessage {
+export function createMockInboxMessage(overrides: Partial<MockInboxMessage> = {}): MockInboxMessage {
   return {
     id: 1,
     fromAgentId: 1,
@@ -106,6 +104,6 @@ export function createMockInboxMessage(
     status: 'pending',
     createdAt: new Date(),
     readAt: null,
-    ...overrides,
+    ...overrides
   }
 }

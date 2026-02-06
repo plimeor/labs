@@ -1,4 +1,4 @@
-import { User, Bot } from 'lucide-react'
+import { Bot, User } from 'lucide-react'
 
 import type { ChatMessage as ChatMessageType } from '../api/chat.api'
 
@@ -19,10 +19,8 @@ export function ChatMessage({ message }: ChatMessageProps) {
         {isUser ? <User className="h-5 w-5 text-white" /> : <Bot className="h-5 w-5 text-white" />}
       </div>
       <div className="flex-1 space-y-1">
-        <p className="text-sm font-medium text-gray-900">{isUser ? 'You' : 'Assistant'}</p>
-        <div className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap">
-          {message.content}
-        </div>
+        <p className="font-medium text-gray-900 text-sm">{isUser ? 'You' : 'Assistant'}</p>
+        <div className="prose prose-sm max-w-none whitespace-pre-wrap text-gray-700">{message.content}</div>
       </div>
     </div>
   )

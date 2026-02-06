@@ -19,7 +19,7 @@ export function ChatPage() {
           </div>
           <div>
             <h1 className="font-semibold text-gray-900">{agent}</h1>
-            <p className="text-xs text-gray-500">Personal AI Assistant</p>
+            <p className="text-gray-500 text-xs">Personal AI Assistant</p>
           </div>
         </div>
         <button className="rounded-lg p-2 text-gray-500 hover:bg-gray-100">

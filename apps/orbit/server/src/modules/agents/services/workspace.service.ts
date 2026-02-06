@@ -1,8 +1,7 @@
-import { existsSync } from 'fs'
-import { homedir } from 'os'
-import { join } from 'path'
-
-import { mkdir, copyFile, readdir, writeFile } from 'fs/promises'
+import { existsSync } from 'node:fs'
+import { copyFile, mkdir, readdir, writeFile } from 'node:fs/promises'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 
 /** Base path for orbit config. Override with ORBIT_CONFIG_PATH env var for testing. */
 const ORBIT_CONFIG_PATH = process.env.ORBIT_CONFIG_PATH || join(homedir(), '.config', 'orbit')
@@ -34,7 +33,7 @@ export async function ensureOrbitDirs(): Promise<void> {
 export async function createAgentWorkspace(
   agentName: string,
   displayName?: string,
-  description?: string,
+  description?: string
 ): Promise<string> {
   const workspacePath = getAgentWorkspacePath(agentName)
 
@@ -48,15 +47,7 @@ export async function createAgentWorkspace(
   await mkdir(join(workspacePath, 'workspace'), { recursive: true })
 
   // Copy template files
-  const templateFiles = [
-    'AGENTS.md',
-    'SOUL.md',
-    'IDENTITY.md',
-    'USER.md',
-    'HEARTBEAT.md',
-    'BOOTSTRAP.md',
-    'TOOLS.md',
-  ]
+  const templateFiles = ['AGENTS.md', 'SOUL.md', 'IDENTITY.md', 'USER.md', 'HEARTBEAT.md', 'BOOTSTRAP.md', 'TOOLS.md']
 
   for (const file of templateFiles) {
     const srcPath = join(TEMPLATES_PATH, file)
@@ -70,7 +61,7 @@ export async function createAgentWorkspace(
   // Customize IDENTITY.md with agent info
   const identityPath = join(workspacePath, 'IDENTITY.md')
   if (existsSync(identityPath)) {
-    const { readFile } = await import('fs/promises')
+    const { readFile } = await import('node:fs/promises')
     let content = await readFile(identityPath, 'utf-8')
     content = content
       .replace('{{AGENT_NAME}}', displayName || agentName)
@@ -105,6 +96,6 @@ export async function deleteAgentWorkspace(agentName: string): Promise<void> {
     throw new Error(`Agent workspace not found: ${agentName}`)
   }
 
-  const { rm } = await import('fs/promises')
+  const { rm } = await import('node:fs/promises')
   await rm(workspacePath, { recursive: true })
 }

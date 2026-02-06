@@ -1,2 +1,2 @@
 // AI module - to be implemented
-export {};
+export {}

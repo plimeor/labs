@@ -8,9 +8,9 @@ export const swaggerPlugin = isDevelopment
         info: {
           title: 'Orbit API',
           version: '0.1.0',
-          description: 'Orbit API Documentation',
+          description: 'Orbit API Documentation'
         },
-        tags: [{ name: 'Health', description: 'Health check endpoints' }],
-      },
+        tags: [{ name: 'Health', description: 'Health check endpoints' }]
+      }
     })
   : undefined

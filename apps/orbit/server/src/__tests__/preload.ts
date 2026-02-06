@@ -5,7 +5,7 @@
  */
 
 import { Database } from 'bun:sqlite'
-import { existsSync, unlinkSync, rmSync, mkdirSync } from 'fs'
+import { existsSync, mkdirSync, rmSync, unlinkSync } from 'node:fs'
 
 import * as schema from '@db'
 import { generateSQLiteDrizzleJson, generateSQLiteMigration } from 'drizzle-kit/api'
