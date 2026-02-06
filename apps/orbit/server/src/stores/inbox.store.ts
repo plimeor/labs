@@ -67,16 +67,16 @@ export class InboxStore {
     if (!existsSync(dir)) return []
 
     const files = await readdir(dir)
-    const messages: InboxMessage[] = []
+    const jsonFiles = files.filter(file => file.endsWith('.json'))
 
-    for (const file of files) {
-      if (file.endsWith('.json')) {
+    const messages = await Promise.all(
+      jsonFiles.map(async file => {
         const content = await readFile(join(dir, file), 'utf-8')
-        messages.push(JSON.parse(content) as InboxMessage)
-      }
-    }
+        return JSON.parse(content) as InboxMessage
+      }),
+    )
 
-    return messages.sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    return messages.toSorted((a, b) => a.createdAt.localeCompare(b.createdAt))
   }
 
   async markRead(agentName: string, messageIds: string[]): Promise<void> {
@@ -84,17 +84,19 @@ export class InboxStore {
     const archivePath = this.archiveDir(agentName)
     await mkdir(archivePath, { recursive: true })
 
-    for (const id of messageIds) {
-      const src = join(pendingPath, `${id}.json`)
-      if (!existsSync(src)) continue
+    await Promise.all(
+      messageIds.map(async id => {
+        const src = join(pendingPath, `${id}.json`)
+        if (!existsSync(src)) return
 
-      const content = await readFile(src, 'utf-8')
-      const msg = JSON.parse(content) as InboxMessage
-      msg.status = 'read'
-      msg.readAt = new Date().toISOString()
+        const content = await readFile(src, 'utf-8')
+        const msg = JSON.parse(content) as InboxMessage
+        msg.status = 'read'
+        msg.readAt = new Date().toISOString()
 
-      await writeFile(join(archivePath, `${id}.json`), JSON.stringify(msg, null, 2))
-      await unlink(src)
-    }
+        await writeFile(join(archivePath, `${id}.json`), JSON.stringify(msg, null, 2))
+        await unlink(src)
+      }),
+    )
   }
 }
