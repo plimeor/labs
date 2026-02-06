@@ -1,6 +1,7 @@
 import { query, type SDKMessage } from '@anthropic-ai/claude-agent-sdk'
 import { logger } from '@plimeor-labs/logger'
 
+import { buildSourceServers } from '@/agent/source-builder'
 import { createMemoryMcpServer } from '@/mcp/memory-tools.mcp'
 import { createOrbitMcpServer } from '@/mcp/orbit-tools.mcp'
 import {
@@ -40,8 +41,8 @@ export class OrbitAgent {
     this.deps = deps
   }
 
-  buildMcpServers() {
-    const servers: Record<string, ReturnType<typeof createOrbitMcpServer>> = {
+  async buildMcpServers() {
+    const servers: Record<string, any> = {
       'orbit-tools': createOrbitMcpServer(this.name, {
         taskStore: this.deps.taskStore,
         inboxStore: this.deps.inboxStore,
@@ -51,6 +52,10 @@ export class OrbitAgent {
     if (qmd.isQmdAvailable()) {
       servers['memory-tools'] = createMemoryMcpServer(this.name)
     }
+
+    // Add external MCP sources
+    const externalServers = await buildSourceServers(this.deps.basePath, this.name)
+    Object.assign(servers, externalServers)
 
     return servers
   }
@@ -71,7 +76,7 @@ export class OrbitAgent {
 
     // Build Agent SDK options
     const agentWorkspacePath = this.deps.agentStore.getWorkingDir(this.name)
-    const mcpServers = this.buildMcpServers()
+    const mcpServers = await this.buildMcpServers()
 
     this.abortController = new AbortController()
 

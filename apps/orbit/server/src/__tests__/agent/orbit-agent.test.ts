@@ -48,7 +48,7 @@ describe('OrbitAgent', () => {
     expect(agent.name).toBe('test-bot')
   })
 
-  it('should build MCP server configs', () => {
+  it('should build MCP server configs', async () => {
     const agent = new OrbitAgent('test-bot', {
       basePath: TEST_CONFIG_PATH,
       agentStore,
@@ -57,7 +57,7 @@ describe('OrbitAgent', () => {
       sessionStore,
     })
 
-    const servers = agent.buildMcpServers()
+    const servers = await agent.buildMcpServers()
     expect(servers['orbit-tools']).toBeDefined()
     expect(servers['orbit-tools'].name).toBe('orbit-tools')
   })
