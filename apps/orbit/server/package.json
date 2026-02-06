@@ -17,6 +17,7 @@
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.33",
     "@anthropic-ai/claude-code": "^2.1.29",
     "@anthropic-ai/sdk": "^0.72.1",
     "@elysiajs/cors": "^1.0.0",
