@@ -1,10 +1,10 @@
 import {
-  type Logger as LogTapeLogger,
   ansiColorFormatter,
   configure,
   defaultTextFormatter,
   getConsoleSink,
   getLogger,
+  type Logger as LogTapeLogger
 } from '@logtape/logtape'
 
 type Level = 'debug' | 'info' | 'warning' | 'error'
@@ -14,7 +14,7 @@ const levelToMethod: Record<Level, LogMethod> = {
   debug: 'debug',
   info: 'info',
   warning: 'warn',
-  error: 'error',
+  error: 'error'
 } as const
 
 interface SetupOptions {
@@ -34,12 +34,7 @@ let rootCategory: string | null = null
 let isConfigured = false
 const queue: QueuedLog[] = []
 
-function log(
-  level: Level,
-  category: string[],
-  message: string,
-  properties: Record<string, unknown> = {},
-) {
+function log(level: Level, category: string[], message: string, properties: Record<string, unknown> = {}) {
   if (!isConfigured) {
     queue.push({ level, category, message, properties })
     return
@@ -67,10 +62,10 @@ export const logger = {
     await configure({
       sinks: {
         console: getConsoleSink({
-          formatter: pretty ? ansiColorFormatter : defaultTextFormatter,
-        }),
+          formatter: pretty ? ansiColorFormatter : defaultTextFormatter
+        })
       },
-      loggers: [{ category: [name], lowestLevel: level, sinks: ['console'] }],
+      loggers: [{ category: [name], lowestLevel: level, sinks: ['console'] }]
     })
 
     isConfigured = true
@@ -98,7 +93,7 @@ export const logger = {
 
   error(message: string, properties?: Record<string, unknown>) {
     log('error', [], message, properties)
-  },
+  }
 }
 
 export type { LogTapeLogger as Logger }

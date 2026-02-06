@@ -25,7 +25,7 @@ export const chatController = new Elysia({ prefix: '/api/chat' })
         agentName,
         prompt: message,
         sessionType: 'chat',
-        sessionId,
+        sessionId
       })
 
       // Store session and message
@@ -38,7 +38,7 @@ export const chatController = new Elysia({ prefix: '/api/chat' })
           .insert(chatSessions)
           .values({
             agentId: agent.id,
-            sessionId: result.sessionId,
+            sessionId: result.sessionId
           })
           .returning()
         session = newSession[0]!
@@ -49,7 +49,7 @@ export const chatController = new Elysia({ prefix: '/api/chat' })
         sessionId: session.id,
         agentId: agent.id,
         role: 'user',
-        content: message,
+        content: message
       })
 
       // Store assistant message
@@ -57,7 +57,7 @@ export const chatController = new Elysia({ prefix: '/api/chat' })
         sessionId: session.id,
         agentId: agent.id,
         role: 'assistant',
-        content: result.result,
+        content: result.result
       })
 
       // Update session
@@ -65,33 +65,29 @@ export const chatController = new Elysia({ prefix: '/api/chat' })
         .update(chatSessions)
         .set({
           lastMessageAt: new Date(),
-          messageCount: session.messageCount + 2,
+          messageCount: session.messageCount + 2
         })
         .where(eq(chatSessions.id, session.id))
 
       return {
         response: result.result,
-        sessionId: result.sessionId,
+        sessionId: result.sessionId
       }
     },
     {
       body: t.Object({
         agentName: t.String(),
         message: t.String(),
-        sessionId: t.Optional(t.String()),
-      }),
-    },
+        sessionId: t.Optional(t.String())
+      })
+    }
   )
 
   // Get chat history for a session
   .get(
     '/history/:sessionId',
     async ({ params }) => {
-      const session = await db
-        .select()
-        .from(chatSessions)
-        .where(eq(chatSessions.sessionId, params.sessionId))
-        .get()
+      const session = await db.select().from(chatSessions).where(eq(chatSessions.sessionId, params.sessionId)).get()
 
       if (!session) {
         return { messages: [] }
@@ -109,20 +105,20 @@ export const chatController = new Elysia({ prefix: '/api/chat' })
           id: session.sessionId,
           agentId: session.agentId,
           createdAt: session.createdAt,
-          messageCount: session.messageCount,
+          messageCount: session.messageCount
         },
         messages: history.map(m => ({
           role: m.role,
           content: m.content,
-          timestamp: m.timestamp,
-        })),
+          timestamp: m.timestamp
+        }))
       }
     },
     {
       params: t.Object({
-        sessionId: t.String(),
-      }),
-    },
+        sessionId: t.String()
+      })
+    }
   )
 
   // List all sessions for an agent
@@ -142,15 +138,15 @@ export const chatController = new Elysia({ prefix: '/api/chat' })
           id: s.sessionId,
           createdAt: s.createdAt,
           lastMessageAt: s.lastMessageAt,
-          messageCount: s.messageCount,
-        })),
+          messageCount: s.messageCount
+        }))
       }
     },
     {
       params: t.Object({
-        agentId: t.String(),
-      }),
-    },
+        agentId: t.String()
+      })
+    }
   )
 
 export const agentsController = new Elysia({ prefix: '/api/agents' })
@@ -163,8 +159,8 @@ export const agentsController = new Elysia({ prefix: '/api/agents' })
         name: a.name,
         status: a.status,
         lastActiveAt: a.lastActiveAt,
-        createdAt: a.createdAt,
-      })),
+        createdAt: a.createdAt
+      }))
     }
   })
 
@@ -179,16 +175,16 @@ export const agentsController = new Elysia({ prefix: '/api/agents' })
           id: agent.id,
           name: agent.name,
           status: agent.status,
-          createdAt: agent.createdAt,
-        },
+          createdAt: agent.createdAt
+        }
       }
     },
     {
       body: t.Object({
         name: t.String(),
-        description: t.Optional(t.String()),
-      }),
-    },
+        description: t.Optional(t.String())
+      })
+    }
   )
 
   // Get agent details
@@ -208,15 +204,15 @@ export const agentsController = new Elysia({ prefix: '/api/agents' })
           name: agent.name,
           status: agent.status,
           lastActiveAt: agent.lastActiveAt,
-          createdAt: agent.createdAt,
-        },
+          createdAt: agent.createdAt
+        }
       }
     },
     {
       params: t.Object({
-        name: t.String(),
-      }),
-    },
+        name: t.String()
+      })
+    }
   )
 
   // Delete an agent
@@ -229,7 +225,7 @@ export const agentsController = new Elysia({ prefix: '/api/agents' })
     },
     {
       params: t.Object({
-        name: t.String(),
-      }),
-    },
+        name: t.String()
+      })
+    }
   )

@@ -1,13 +1,13 @@
-import { agents, type Agent, type NewAgent } from '@db/agents'
+import { type Agent, agents, type NewAgent } from '@db/agents'
 import { eq } from 'drizzle-orm'
 
 import { db } from '@/core/db'
 
 import {
+  agentWorkspaceExists,
   createAgentWorkspace,
   deleteAgentWorkspace,
-  getAgentWorkspacePath,
-  agentWorkspaceExists,
+  getAgentWorkspacePath
 } from './workspace.service'
 
 export interface CreateAgentParams {
@@ -32,7 +32,7 @@ export async function createAgent(params: CreateAgentParams): Promise<Agent> {
   const newAgent: NewAgent = {
     name,
     workspacePath,
-    status: 'active',
+    status: 'active'
   }
 
   const result = await db.insert(agents).values(newAgent).returning()
@@ -55,10 +55,7 @@ export async function updateAgentLastActive(name: string): Promise<void> {
   await db.update(agents).set({ lastActiveAt: new Date() }).where(eq(agents.name, name))
 }
 
-export async function updateAgentStatus(
-  name: string,
-  status: 'active' | 'inactive',
-): Promise<void> {
+export async function updateAgentStatus(name: string, status: 'active' | 'inactive'): Promise<void> {
   await db.update(agents).set({ status }).where(eq(agents.name, name))
 }
 
@@ -101,8 +98,8 @@ export async function syncAgentsWithWorkspaces(): Promise<void> {
       db.insert(agents).values({
         name,
         workspacePath: getAgentWorkspacePath(name),
-        status: 'active',
-      }),
-    ),
+        status: 'active'
+      })
+    )
   )
 }

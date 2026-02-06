@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react'
+import { useCallback, useState } from 'react'
 
-import { sendMessage, type ChatMessage } from '../api/chat.api'
+import { type ChatMessage, sendMessage } from '../api/chat.api'
 
 export function useChat(agentName: string) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -19,7 +19,7 @@ export function useChat(agentName: string) {
       const userMessage: ChatMessage = {
         role: 'user',
         content,
-        timestamp: new Date().toISOString(),
+        timestamp: new Date().toISOString()
       }
       setMessages(prev => [...prev, userMessage])
 
@@ -35,7 +35,7 @@ export function useChat(agentName: string) {
         const assistantMessage: ChatMessage = {
           role: 'assistant',
           content: response.response,
-          timestamp: new Date().toISOString(),
+          timestamp: new Date().toISOString()
         }
         setMessages(prev => [...prev, assistantMessage])
       } catch (err) {
@@ -46,7 +46,7 @@ export function useChat(agentName: string) {
         setIsLoading(false)
       }
     },
-    [agentName, sessionId],
+    [agentName, sessionId]
   )
 
   const clearChat = useCallback(() => {
@@ -61,6 +61,6 @@ export function useChat(agentName: string) {
     isLoading,
     error,
     send,
-    clearChat,
+    clearChat
   }
 }

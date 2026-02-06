@@ -12,12 +12,12 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: '3001',
-        DATABASE_PATH: './data/orbit.db',
+        DATABASE_PATH: './data/orbit.db'
       },
       env_development: {
         NODE_ENV: 'development',
         PORT: '3001',
-        DATABASE_PATH: './data/orbit.dev.db',
+        DATABASE_PATH: './data/orbit.dev.db'
       },
       error_file: './logs/error.log',
       out_file: './logs/out.log',
@@ -25,7 +25,7 @@ module.exports = {
       merge_logs: true,
       autorestart: true,
       max_restarts: 10,
-      min_uptime: '10s',
-    },
-  ],
-};
+      min_uptime: '10s'
+    }
+  ]
+}

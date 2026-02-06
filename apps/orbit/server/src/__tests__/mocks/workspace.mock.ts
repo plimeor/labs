@@ -42,7 +42,7 @@ export function createMockWorkspaceState(): MockWorkspaceState {
     workspacePaths: new Map(),
     createdWorkspaces: [],
     deletedWorkspaces: [],
-    orbitDirsEnsured: false,
+    orbitDirsEnsured: false
   }
 }
 
@@ -108,7 +108,7 @@ export async function ensureOrbitDirs(): Promise<void> {
 export async function createAgentWorkspace(
   agentName: string,
   _displayName?: string,
-  _description?: string,
+  _description?: string
 ): Promise<string> {
   if (mockState.workspaces.get(agentName)) {
     throw new Error(`Agent workspace already exists: ${agentName}`)
@@ -186,5 +186,5 @@ export const mockWorkspaceService = {
   createAgentWorkspace,
   agentWorkspaceExists,
   listAgentWorkspaces,
-  deleteAgentWorkspace,
+  deleteAgentWorkspace
 }

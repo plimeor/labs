@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core'
+import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 export const scheduledTasks = sqliteTable(
   'scheduled_tasks',
@@ -8,7 +8,7 @@ export const scheduledTasks = sqliteTable(
     name: text('name'),
     prompt: text('prompt').notNull(),
     scheduleType: text('schedule_type', {
-      enum: ['cron', 'interval', 'once'],
+      enum: ['cron', 'interval', 'once']
     }).notNull(),
     scheduleValue: text('schedule_value').notNull(),
     contextMode: text('context_mode', { enum: ['isolated', 'main'] })
@@ -21,13 +21,13 @@ export const scheduledTasks = sqliteTable(
     lastRun: integer('last_run', { mode: 'timestamp' }),
     createdAt: integer('created_at', { mode: 'timestamp' })
       .notNull()
-      .$defaultFn(() => new Date()),
+      .$defaultFn(() => new Date())
   },
   table => ({
     agentIdx: index('idx_task_agent').on(table.agentId),
     nextRunIdx: index('idx_next_run').on(table.nextRun),
-    statusIdx: index('idx_status').on(table.status),
-  }),
+    statusIdx: index('idx_status').on(table.status)
+  })
 )
 
 export const taskRuns = sqliteTable(
@@ -42,12 +42,12 @@ export const taskRuns = sqliteTable(
     startedAt: integer('started_at', { mode: 'timestamp' })
       .notNull()
       .$defaultFn(() => new Date()),
-    completedAt: integer('completed_at', { mode: 'timestamp' }),
+    completedAt: integer('completed_at', { mode: 'timestamp' })
   },
   table => ({
     taskIdx: index('idx_run_task').on(table.taskId),
-    startedIdx: index('idx_run_started').on(table.startedAt),
-  }),
+    startedIdx: index('idx_run_started').on(table.startedAt)
+  })
 )
 
 export type ScheduledTask = typeof scheduledTasks.$inferSelect

@@ -1,8 +1,8 @@
-import { existsSync } from 'fs'
-import { join } from 'path'
+import { existsSync } from 'node:fs'
+import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
 
 import { format } from 'date-fns'
-import { readFile, writeFile, appendFile, mkdir } from 'fs/promises'
 
 import { type SessionType } from './context.service'
 import { getAgentWorkspacePath } from './workspace.service'
@@ -95,7 +95,7 @@ export async function listDailyMemoryFiles(agentName: string): Promise<string[]>
     return []
   }
 
-  const { readdir } = await import('fs/promises')
+  const { readdir } = await import('node:fs/promises')
   const files = await readdir(memoryDir)
 
   return files

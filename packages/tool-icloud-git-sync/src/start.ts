@@ -5,9 +5,10 @@ import { resolve } from 'path'
 
  */
 import { $ } from 'bun'
+
 import { watch } from 'chokidar'
 
-import { runSync, log, type SyncConfig, IGNORED_FILES } from './sync'
+import { IGNORED_FILES, log, runSync, type SyncConfig } from './sync'
 
 export interface StartOptions {
   icloudPath: string
@@ -35,17 +36,10 @@ export async function start(options: StartOptions) {
   // Validate remote
   const remotes = await $`git remote`.cwd(repoPath).quiet().text()
   if (!remotes.includes('origin')) {
-    throw new Error(
-      `Remote 'origin' not configured. Run: cd ${repoPath} && git remote add origin <url>`,
-    )
+    throw new Error(`Remote 'origin' not configured. Run: cd ${repoPath} && git remote add origin <url>`)
   }
 
   const config: SyncConfig = { icloudPath, repoPath }
-
-  console.log(`\n✅ Starting iCloud Git Sync`)
-  console.log(`   iCloud:  ${icloudPath}`)
-  console.log(`   Repo:    ${repoPath}`)
-  console.log(`   Remote:  origin/main\n`)
 
   // Initial sync
   await runSync(name, config)
@@ -126,8 +120,8 @@ export async function start(options: StartOptions) {
     // Wait for file to stabilize before triggering events (milliseconds)
     awaitWriteFinish: {
       stabilityThreshold: 2000,
-      pollInterval: 1000,
-    },
+      pollInterval: 1000
+    }
   })
 
   watcher

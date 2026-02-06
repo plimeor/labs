@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core'
+import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 export const agents = sqliteTable('agents', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -10,7 +10,7 @@ export const agents = sqliteTable('agents', {
   createdAt: integer('created_at', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),
-  lastActiveAt: integer('last_active_at', { mode: 'timestamp' }),
+  lastActiveAt: integer('last_active_at', { mode: 'timestamp' })
 })
 
 export type Agent = typeof agents.$inferSelect

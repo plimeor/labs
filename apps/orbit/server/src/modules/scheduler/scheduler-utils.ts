@@ -5,7 +5,7 @@
  * @internal Exported for testing
  */
 
-import { scheduledTasks, type ScheduledTask } from '@db/tasks'
+import { type ScheduledTask, scheduledTasks } from '@db/tasks'
 import { and, eq, lte } from 'drizzle-orm'
 
 import { db } from '@/core/db'
@@ -35,7 +35,7 @@ export async function findDueTasks(): Promise<ScheduledTask[]> {
 export async function updateTaskAfterRun(
   taskId: number,
   scheduleType: 'cron' | 'interval' | 'once',
-  scheduleValue: string,
+  scheduleValue: string
 ): Promise<void> {
   const nextRun = calculateNextRun(scheduleType, scheduleValue)
 
@@ -44,7 +44,7 @@ export async function updateTaskAfterRun(
     .set({
       lastRun: new Date(),
       nextRun,
-      status: nextRun ? 'active' : 'completed',
+      status: nextRun ? 'active' : 'completed'
     })
     .where(eq(scheduledTasks.id, taskId))
 }
@@ -62,14 +62,8 @@ export async function pauseTask(taskId: number): Promise<void> {
  * @internal Exported for testing
  */
 export async function resumeTask(taskId: number, task: ScheduledTask): Promise<void> {
-  const nextRun = calculateNextRun(
-    task.scheduleType as 'cron' | 'interval' | 'once',
-    task.scheduleValue,
-  )
-  await db
-    .update(scheduledTasks)
-    .set({ status: 'active', nextRun })
-    .where(eq(scheduledTasks.id, taskId))
+  const nextRun = calculateNextRun(task.scheduleType as 'cron' | 'interval' | 'once', task.scheduleValue)
+  await db.update(scheduledTasks).set({ status: 'active', nextRun }).where(eq(scheduledTasks.id, taskId))
 }
 
 /**

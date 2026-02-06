@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core'
+import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 export const agentInbox = sqliteTable(
   'agent_inbox',
@@ -17,12 +17,12 @@ export const agentInbox = sqliteTable(
     createdAt: integer('created_at', { mode: 'timestamp' })
       .notNull()
       .$defaultFn(() => new Date()),
-    readAt: integer('read_at', { mode: 'timestamp' }),
+    readAt: integer('read_at', { mode: 'timestamp' })
   },
   table => ({
     toAgentIdx: index('idx_to_agent').on(table.toAgentId),
-    statusIdx: index('idx_inbox_status').on(table.status),
-  }),
+    statusIdx: index('idx_inbox_status').on(table.status)
+  })
 )
 
 export const userInbox = sqliteTable(
@@ -42,13 +42,13 @@ export const userInbox = sqliteTable(
     createdAt: integer('created_at', { mode: 'timestamp' })
       .notNull()
       .$defaultFn(() => new Date()),
-    readAt: integer('read_at', { mode: 'timestamp' }),
+    readAt: integer('read_at', { mode: 'timestamp' })
   },
   table => ({
     toUserIdx: index('idx_to_user').on(table.toUserId),
     statusIdx: index('idx_user_inbox_status').on(table.status),
-    priorityIdx: index('idx_priority').on(table.priority),
-  }),
+    priorityIdx: index('idx_priority').on(table.priority)
+  })
 )
 
 export type AgentInboxMessage = typeof agentInbox.$inferSelect

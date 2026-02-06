@@ -12,9 +12,9 @@
  * Real: DB operations, inbox service, agent service, memory service, context service, workspace service
  */
 
-import { describe, it, expect, beforeEach, mock } from 'bun:test'
-import { existsSync, rmSync, mkdirSync } from 'fs'
-import { join } from 'path'
+import { beforeEach, describe, expect, it, mock } from 'bun:test'
+import { existsSync, mkdirSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
 
 // ============================================================
 // Mock state for Anthropic (inline to avoid import issues)
@@ -24,9 +24,7 @@ interface MockMessageResponse {
   id: string
   type: 'message'
   role: 'assistant'
-  content: Array<
-    { type: 'text'; text: string } | { type: 'tool_use'; id: string; name: string; input: unknown }
-  >
+  content: Array<{ type: 'text'; text: string } | { type: 'tool_use'; id: string; name: string; input: unknown }>
   model: string
   stop_reason: 'end_turn' | 'tool_use' | 'max_tokens' | 'stop_sequence' | null
   stop_sequence: string | null
@@ -42,7 +40,7 @@ interface MockAnthropicState {
 let mockAnthropicState: MockAnthropicState = {
   responses: [],
   callIndex: 0,
-  apiCalls: [],
+  apiCalls: []
 }
 
 function createTextResponse(text: string): MockMessageResponse {
@@ -54,13 +52,11 @@ function createTextResponse(text: string): MockMessageResponse {
     model: 'claude-sonnet-4-20250514',
     stop_reason: 'end_turn',
     stop_sequence: null,
-    usage: { input_tokens: 100, output_tokens: 50 },
+    usage: { input_tokens: 100, output_tokens: 50 }
   }
 }
 
-function createToolUseResponse(
-  toolCalls: Array<{ name: string; input: unknown }>,
-): MockMessageResponse {
+function createToolUseResponse(toolCalls: Array<{ name: string; input: unknown }>): MockMessageResponse {
   return {
     id: `msg_${Date.now()}`,
     type: 'message',
@@ -69,19 +65,16 @@ function createToolUseResponse(
       type: 'tool_use' as const,
       id: `toolu_${Date.now()}_${i}`,
       name: tc.name,
-      input: tc.input,
+      input: tc.input
     })),
     model: 'claude-sonnet-4-20250514',
     stop_reason: 'tool_use',
     stop_sequence: null,
-    usage: { input_tokens: 100, output_tokens: 50 },
+    usage: { input_tokens: 100, output_tokens: 50 }
   }
 }
 
-function createMixedResponse(
-  text: string,
-  toolCalls: Array<{ name: string; input: unknown }>,
-): MockMessageResponse {
+function createMixedResponse(text: string, toolCalls: Array<{ name: string; input: unknown }>): MockMessageResponse {
   return {
     id: `msg_${Date.now()}`,
     type: 'message',
@@ -92,23 +85,21 @@ function createMixedResponse(
         type: 'tool_use' as const,
         id: `toolu_${Date.now()}_${i}`,
         name: tc.name,
-        input: tc.input,
-      })),
+        input: tc.input
+      }))
     ],
     model: 'claude-sonnet-4-20250514',
     stop_reason: 'tool_use',
     stop_sequence: null,
-    usage: { input_tokens: 100, output_tokens: 50 },
+    usage: { input_tokens: 100, output_tokens: 50 }
   }
 }
 
-function resetMockAnthropic(
-  responses: MockMessageResponse[] = [createTextResponse('Mock response')],
-): void {
+function resetMockAnthropic(responses: MockMessageResponse[] = [createTextResponse('Mock response')]): void {
   mockAnthropicState = {
     responses,
     callIndex: 0,
-    apiCalls: [],
+    apiCalls: []
   }
 }
 
@@ -130,7 +121,7 @@ mock.module('@/modules/agents/services/qmd.service', () => ({
   indexExists: async () => false,
   initializeIndex: async () => {},
   deleteIndex: async () => {},
-  resetQmdAvailability: () => {},
+  resetQmdAvailability: () => {}
 }))
 
 // Mock Anthropic SDK - create a class that matches the SDK interface
@@ -140,12 +131,10 @@ mock.module('@anthropic-ai/sdk', () => {
       create: async (params: unknown): Promise<MockMessageResponse> => {
         mockAnthropicState.apiCalls.push(params)
         const response =
-          mockAnthropicState.responses[
-            Math.min(mockAnthropicState.callIndex, mockAnthropicState.responses.length - 1)
-          ]!
+          mockAnthropicState.responses[Math.min(mockAnthropicState.callIndex, mockAnthropicState.responses.length - 1)]!
         mockAnthropicState.callIndex++
         return response
-      },
+      }
     }
   }
   return { default: MockAnthropic }
@@ -155,8 +144,8 @@ mock.module('@anthropic-ai/sdk', () => {
 // NOW import modules that depend on the mocked modules
 // ============================================================
 
-import { agents, type Agent } from '@db/agents'
-import { agentInbox, type AgentInboxMessage } from '@db/inbox'
+import { type Agent, agents } from '@db/agents'
+import { type AgentInboxMessage, agentInbox } from '@db/inbox'
 import { eq } from 'drizzle-orm'
 
 import { db } from '@/core/db'
@@ -189,7 +178,7 @@ async function createTestAgent(name: string): Promise<Agent> {
 async function sendInboxMessage(
   fromAgentName: string,
   toAgentName: string,
-  message: string,
+  message: string
 ): Promise<AgentInboxMessage> {
   return sendToAgentByName(fromAgentName, toAgentName, message, 'request')
 }
@@ -217,14 +206,14 @@ describe('Runtime Service', () => {
       const result = await executeAgent({
         agentName: 'chat-bot',
         prompt: 'Hello',
-        sessionType: 'chat',
+        sessionType: 'chat'
       })
 
       expect(result.result).toBe('Hello! How can I help you?')
       expect(result.sessionId).toContain('chat-bot')
 
       const updated = await db.select().from(agents).where(eq(agents.name, 'chat-bot')).get()
-      expect(updated!.lastActiveAt).not.toBeNull()
+      expect(updated?.lastActiveAt).not.toBeNull()
 
       const workspacePath = getAgentWorkspacePath('chat-bot')
       const memoryDir = join(workspacePath, 'memory')
@@ -239,7 +228,7 @@ describe('Runtime Service', () => {
         agentName: 'session-bot',
         prompt: 'Continue',
         sessionType: 'chat',
-        sessionId: 'existing-session-123',
+        sessionId: 'existing-session-123'
       })
 
       expect(result.sessionId).toBe('existing-session-123')
@@ -250,8 +239,8 @@ describe('Runtime Service', () => {
         executeAgent({
           agentName: 'ghost',
           prompt: 'Hello',
-          sessionType: 'chat',
-        }),
+          sessionType: 'chat'
+        })
       ).rejects.toThrow('Agent not found: ghost')
     })
   })
@@ -266,16 +255,16 @@ describe('Runtime Service', () => {
         createToolUseResponse([
           {
             name: 'schedule_task',
-            input: { prompt: 'Task', scheduleType: 'interval', scheduleValue: '3600000' },
-          },
+            input: { prompt: 'Task', scheduleType: 'interval', scheduleValue: '3600000' }
+          }
         ]),
-        createTextResponse('Your task has been scheduled!'),
+        createTextResponse('Your task has been scheduled!')
       ])
 
       const result = await executeAgent({
         agentName: 'tool-user',
         prompt: 'Schedule a reminder',
-        sessionType: 'chat',
+        sessionType: 'chat'
       })
 
       expect(result.result).toBe('Your task has been scheduled!')
@@ -288,19 +277,17 @@ describe('Runtime Service', () => {
         createToolUseResponse([
           {
             name: 'schedule_task',
-            input: { prompt: 'Task', scheduleType: 'interval', scheduleValue: '3600000' },
-          },
+            input: { prompt: 'Task', scheduleType: 'interval', scheduleValue: '3600000' }
+          }
         ]),
-        createToolUseResponse([
-          { name: 'send_to_agent', input: { targetAgent: 'target-agent', message: 'Hello!' } },
-        ]),
-        createTextResponse('All done!'),
+        createToolUseResponse([{ name: 'send_to_agent', input: { targetAgent: 'target-agent', message: 'Hello!' } }]),
+        createTextResponse('All done!')
       ])
 
       const result = await executeAgent({
         agentName: 'multi-tool',
         prompt: 'Do multiple things',
-        sessionType: 'chat',
+        sessionType: 'chat'
       })
 
       expect(result.result).toBe('All done!')
@@ -314,16 +301,16 @@ describe('Runtime Service', () => {
         createMixedResponse('Scheduling...', [
           {
             name: 'schedule_task',
-            input: { prompt: 'Task', scheduleType: 'interval', scheduleValue: '3600000' },
-          },
+            input: { prompt: 'Task', scheduleType: 'interval', scheduleValue: '3600000' }
+          }
         ]),
-        createTextResponse('Task scheduled!'),
+        createTextResponse('Task scheduled!')
       ])
 
       const result = await executeAgent({
         agentName: 'mixed-bot',
         prompt: 'Schedule something',
-        sessionType: 'chat',
+        sessionType: 'chat'
       })
 
       expect(result.result).toBe('Task scheduled!')
@@ -343,12 +330,12 @@ describe('Runtime Service', () => {
       await executeAgent({
         agentName: 'bob',
         prompt: 'Hello',
-        sessionType: 'chat',
+        sessionType: 'chat'
       })
 
       const updated = await db.select().from(agentInbox).where(eq(agentInbox.id, msg.id)).get()
-      expect(updated!.status).toBe('read')
-      expect(updated!.readAt).not.toBeNull()
+      expect(updated?.status).toBe('read')
+      expect(updated?.readAt).not.toBeNull()
 
       const state = getMockAnthropicState()
       expect((state.apiCalls[0] as any).system).toContain('Important message!')
@@ -361,7 +348,7 @@ describe('Runtime Service', () => {
       const result = await executeAgent({
         agentName: 'lonely-bot',
         prompt: 'Test',
-        sessionType: 'chat',
+        sessionType: 'chat'
       })
 
       expect(result.result).toBe('Normal response')
@@ -381,7 +368,7 @@ describe('Runtime Service', () => {
       await executeAgent({
         agentName: 'chat-agent',
         prompt: 'Hello',
-        sessionType: 'chat',
+        sessionType: 'chat'
       })
 
       const state = getMockAnthropicState()
@@ -395,7 +382,7 @@ describe('Runtime Service', () => {
       await executeAgent({
         agentName: 'heartbeat-agent',
         prompt: 'Daily check',
-        sessionType: 'heartbeat',
+        sessionType: 'heartbeat'
       })
 
       const state = getMockAnthropicState()
@@ -409,7 +396,7 @@ describe('Runtime Service', () => {
       await executeAgent({
         agentName: 'cron-agent',
         prompt: 'Scheduled task',
-        sessionType: 'cron',
+        sessionType: 'cron'
       })
 
       const state = getMockAnthropicState()
@@ -428,25 +415,23 @@ describe('Runtime Service', () => {
         createToolUseResponse([
           {
             name: 'schedule_task',
-            input: { prompt: 'Task 1', scheduleType: 'interval', scheduleValue: '3600000' },
-          },
+            input: { prompt: 'Task 1', scheduleType: 'interval', scheduleValue: '3600000' }
+          }
         ]),
-        createToolUseResponse([
-          { name: 'send_to_agent', input: { targetAgent: 'target-agent', message: 'Hi!' } },
-        ]),
+        createToolUseResponse([{ name: 'send_to_agent', input: { targetAgent: 'target-agent', message: 'Hi!' } }]),
         createToolUseResponse([
           {
             name: 'schedule_task',
-            input: { prompt: 'Task 2', scheduleType: 'interval', scheduleValue: '7200000' },
-          },
+            input: { prompt: 'Task 2', scheduleType: 'interval', scheduleValue: '7200000' }
+          }
         ]),
-        createTextResponse('All tasks complete!'),
+        createTextResponse('All tasks complete!')
       ])
 
       const result = await executeAgent({
         agentName: 'loop-agent',
         prompt: 'Many tasks',
-        sessionType: 'chat',
+        sessionType: 'chat'
       })
 
       const state = getMockAnthropicState()

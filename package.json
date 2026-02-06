@@ -19,23 +19,16 @@
     "test": "bun run --filter '*' test"
   },
   "devDependencies": {
-    "@plimeor-labs/oxfmt-config": "workspace:*",
-    "@plimeor-labs/oxlint-config": "workspace:*",
+    "@biomejs/biome": "^2.3.14",
     "@plimeor-labs/tsconfig": "workspace:*",
     "@types/bun": "latest",
     "husky": "^9.1.7",
     "lint-staged": "^15.2.11",
-    "oxfmt": "^0.20.0",
-    "oxlint": "^1.35.0",
     "typescript": "^5"
   },
   "lint-staged": {
-    "*.{js,jsx,ts,tsx,mjs,cjs}": [
-      "oxfmt --write",
-      "oxlint"
-    ],
-    "*.{json,md}": [
-      "oxfmt --write"
+    "*.{js,jsx,ts,tsx,mjs,cjs,json,md,css}": [
+      "biome check --write --no-errors-on-unmatched"
     ]
   }
 }

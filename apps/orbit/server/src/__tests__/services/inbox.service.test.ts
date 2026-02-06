@@ -9,22 +9,22 @@
  * - Message history retrieval
  */
 
-import { describe, it, expect, beforeEach } from 'bun:test'
+import { beforeEach, describe, expect, it } from 'bun:test'
 
-import { agents, type Agent } from '@db/agents'
+import { type Agent, agents } from '@db/agents'
 import { agentInbox } from '@db/inbox'
 import { eq } from 'drizzle-orm'
 
 import { db } from '@/core/db'
 import {
-  sendToAgent,
-  sendToAgentByName,
+  archiveInboxMessages,
   checkInbox,
   checkInboxByName,
-  markInboxRead,
-  archiveInboxMessages,
   getInboxHistory,
   getSentMessages,
+  markInboxRead,
+  sendToAgent,
+  sendToAgentByName
 } from '@/modules/agents/services/inbox.service'
 
 import { clearAllTables } from '../helpers/test-db'
@@ -36,7 +36,7 @@ async function createTestAgent(name: string): Promise<Agent> {
     .values({
       name,
       workspacePath: `/tmp/orbit/agents/${name}`,
-      status: 'active',
+      status: 'active'
     })
     .returning()
   return result[0]!
@@ -67,7 +67,7 @@ describe('Inbox Service', () => {
 
       const inbox = await checkInbox(receiver.id)
       expect(inbox.length).toBe(1)
-      expect(inbox[0]!.message).toBe('Hello receiver!')
+      expect(inbox[0]?.message).toBe('Hello receiver!')
     })
 
     it('should send message by agent name', async () => {
@@ -78,7 +78,7 @@ describe('Inbox Service', () => {
 
       const inbox = await checkInboxByName('bob')
       expect(inbox.length).toBe(1)
-      expect(inbox[0]!.message).toBe('Hi Bob!')
+      expect(inbox[0]?.message).toBe('Hi Bob!')
     })
 
     it('should send response message type', async () => {
@@ -88,23 +88,19 @@ describe('Inbox Service', () => {
       await sendToAgentByName('bob', 'alice', 'The answer is 4', 'response')
 
       const inbox = await checkInboxByName('alice')
-      expect(inbox[0]!.messageType).toBe('response')
+      expect(inbox[0]?.messageType).toBe('response')
     })
 
     it('should fail to send to non-existent agent', async () => {
       await createTestAgent('sender')
 
-      await expect(sendToAgentByName('sender', 'ghost', 'Hello?')).rejects.toThrow(
-        'Agent not found: ghost',
-      )
+      await expect(sendToAgentByName('sender', 'ghost', 'Hello?')).rejects.toThrow('Agent not found: ghost')
     })
 
     it('should fail to send from non-existent agent', async () => {
       await createTestAgent('receiver')
 
-      await expect(sendToAgentByName('ghost', 'receiver', 'Hello!')).rejects.toThrow(
-        'Agent not found: ghost',
-      )
+      await expect(sendToAgentByName('ghost', 'receiver', 'Hello!')).rejects.toThrow('Agent not found: ghost')
     })
   })
 
@@ -145,7 +141,7 @@ describe('Inbox Service', () => {
 
       const inbox = await checkInbox(receiver.id)
       expect(inbox.length).toBe(1)
-      expect(inbox[0]!.message).toBe('New message')
+      expect(inbox[0]?.message).toBe('New message')
     })
 
     it('should return empty list for non-existent agent', async () => {
@@ -169,7 +165,7 @@ describe('Inbox Service', () => {
       const updated = await db.select().from(agentInbox).where(eq(agentInbox.id, msg.id)).get()
       expect(updated?.status).toBe('read')
       expect(updated?.readAt).toBeDefined()
-      expect(updated!.readAt!.getTime()).toBeGreaterThanOrEqual(before.getTime() - 1000)
+      expect(updated?.readAt?.getTime()).toBeGreaterThanOrEqual(before.getTime() - 1000)
     })
 
     it('should mark multiple messages as read', async () => {
@@ -256,9 +252,7 @@ describe('Inbox Service', () => {
       const sender = await createTestAgent('sender')
       const receiver = await createTestAgent('receiver')
 
-      await Promise.all(
-        Array.from({ length: 10 }, (_, i) => sendToAgent(sender.id, receiver.id, `Message ${i}`)),
-      )
+      await Promise.all(Array.from({ length: 10 }, (_, i) => sendToAgent(sender.id, receiver.id, `Message ${i}`)))
 
       const history = await getInboxHistory(receiver.id, 3)
       expect(history.length).toBe(3)

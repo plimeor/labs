@@ -32,18 +32,18 @@ export interface Agent {
 export async function sendMessage(
   agentName: string,
   message: string,
-  sessionId?: string,
+  sessionId?: string
 ): Promise<SendMessageResponse> {
   const response = await fetch(`${API_BASE}/api/chat`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
+      'Content-Type': 'application/json'
     },
     body: JSON.stringify({
       agentName,
       message,
-      sessionId,
-    }),
+      sessionId
+    })
   })
 
   if (!response.ok) {
@@ -73,17 +73,13 @@ export async function listAgents(): Promise<{ agents: Agent[] }> {
   return response.json()
 }
 
-export async function createAgent(
-  name: string,
-  displayName?: string,
-  description?: string,
-): Promise<{ agent: Agent }> {
+export async function createAgent(name: string, displayName?: string, description?: string): Promise<{ agent: Agent }> {
   const response = await fetch(`${API_BASE}/api/agents`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
+      'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ name, displayName, description }),
+    body: JSON.stringify({ name, displayName, description })
   })
 
   if (!response.ok) {

@@ -5,12 +5,12 @@ import { ChatPage } from './ChatPage'
 const router = createBrowserRouter([
   {
     path: '/',
-    element: <ChatPage />,
+    element: <ChatPage />
   },
   {
     path: '/chat/:agentName',
-    element: <ChatPage />,
-  },
+    element: <ChatPage />
+  }
 ])
 
 export default router

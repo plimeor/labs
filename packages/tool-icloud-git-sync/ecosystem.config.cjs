@@ -8,7 +8,7 @@ if (!process.env.ICLOUD_PATH || !process.env.REPO_PATH) {
 // Expand ~ in path
 function expandHome(path) {
   if (path.startsWith('~')) {
-    const os = require('os')
+    const os = require('node:os')
     const home = process.env.HOME || os.homedir()
     return home + path.slice(1)
   }
@@ -24,7 +24,7 @@ module.exports = {
       name: 'atlas-icloud-sync',
       script: '/opt/homebrew/bin/bun',
       args: ['run', 'src/cli.ts', 'start', '--icloud', ICLOUD_PATH, '--repo', REPO_PATH],
-      cwd: __dirname,
-    },
-  ],
+      cwd: __dirname
+    }
+  ]
 }

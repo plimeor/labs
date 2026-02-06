@@ -34,7 +34,7 @@ const DEFAULT_TIME_TOLERANCE_MS = 1000
  */
 export function isApproximatelyNow(
   timestamp: Date | number | null | undefined,
-  toleranceMs = DEFAULT_TIME_TOLERANCE_MS,
+  toleranceMs = DEFAULT_TIME_TOLERANCE_MS
 ): boolean {
   if (timestamp == null) return false
   const time = typeof timestamp === 'number' ? timestamp : timestamp.getTime()
@@ -47,7 +47,7 @@ export function isApproximatelyNow(
 export function isApproximatelyEqual(
   actual: Date | number | null | undefined,
   expected: Date | number,
-  toleranceMs = DEFAULT_TIME_TOLERANCE_MS,
+  toleranceMs = DEFAULT_TIME_TOLERANCE_MS
 ): boolean {
   if (actual == null) return false
   const actualTime = typeof actual === 'number' ? actual : actual.getTime()
@@ -61,7 +61,7 @@ export function isApproximatelyEqual(
 export function isAtOrAfter(
   timestamp: Date | number | null | undefined,
   reference: Date | number,
-  toleranceMs = DEFAULT_TIME_TOLERANCE_MS,
+  toleranceMs = DEFAULT_TIME_TOLERANCE_MS
 ): boolean {
   if (timestamp == null) return false
   const time = typeof timestamp === 'number' ? timestamp : timestamp.getTime()

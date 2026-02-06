@@ -6,46 +6,44 @@ import * as qmd from '../services/qmd.service'
 export const memoryToolDefinitions: Anthropic.Tool[] = [
   {
     name: 'search_memory',
-    description:
-      'Search your memories and notes using hybrid search (BM25 + vector + LLM reranking).',
+    description: 'Search your memories and notes using hybrid search (BM25 + vector + LLM reranking).',
     input_schema: {
       type: 'object',
       properties: {
         query: {
           type: 'string',
-          description: 'What to search for',
+          description: 'What to search for'
         },
         maxResults: {
           type: 'number',
-          description: 'Max results (default: 6)',
-        },
+          description: 'Max results (default: 6)'
+        }
       },
-      required: ['query'],
-    },
+      required: ['query']
+    }
   },
   {
     name: 'get_memory',
-    description:
-      'Read full content from a memory file. Use after search_memory for complete context.',
+    description: 'Read full content from a memory file. Use after search_memory for complete context.',
     input_schema: {
       type: 'object',
       properties: {
         path: {
           type: 'string',
-          description: 'File path (from search results)',
+          description: 'File path (from search results)'
         },
         from: {
           type: 'number',
-          description: 'Start line number (1-indexed)',
+          description: 'Start line number (1-indexed)'
         },
         lines: {
           type: 'number',
-          description: 'Number of lines (default: 50)',
-        },
+          description: 'Number of lines (default: 50)'
+        }
       },
-      required: ['path'],
-    },
-  },
+      required: ['path']
+    }
+  }
 ]
 
 // Tool handler interface (internal)
@@ -110,7 +108,7 @@ export function createMemoryTools(agentName: string):
         const message = error instanceof Error ? error.message : String(error)
         return `Failed to read memory file: ${message}`
       }
-    },
+    }
   }
 
   async function handleToolCall(toolName: string, args: Record<string, unknown>): Promise<string> {
@@ -125,6 +123,6 @@ export function createMemoryTools(agentName: string):
 
   return {
     tools: memoryToolDefinitions,
-    handleToolCall,
+    handleToolCall
   }
 }

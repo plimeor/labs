@@ -1,5 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk'
-import { scheduledTasks, type NewScheduledTask } from '@db/tasks'
+import { type NewScheduledTask, scheduledTasks } from '@db/tasks'
 import { CronExpressionParser } from 'cron-parser'
 import { eq } from 'drizzle-orm'
 
@@ -26,63 +26,62 @@ SCHEDULE TYPE:
       properties: {
         prompt: {
           type: 'string',
-          description: 'The task prompt to execute',
+          description: 'The task prompt to execute'
         },
         scheduleType: {
           type: 'string',
           enum: ['cron', 'interval', 'once'],
-          description: 'Type of schedule',
+          description: 'Type of schedule'
         },
         scheduleValue: {
           type: 'string',
-          description: 'Cron expression, milliseconds, or ISO timestamp',
+          description: 'Cron expression, milliseconds, or ISO timestamp'
         },
         contextMode: {
           type: 'string',
           enum: ['isolated', 'main'],
           default: 'isolated',
-          description: 'Session context mode',
+          description: 'Session context mode'
         },
         name: {
           type: 'string',
-          description: 'Human-readable task name',
-        },
+          description: 'Human-readable task name'
+        }
       },
-      required: ['prompt', 'scheduleType', 'scheduleValue'],
-    },
+      required: ['prompt', 'scheduleType', 'scheduleValue']
+    }
   },
   {
     name: 'send_to_agent',
-    description:
-      'Send a message to another agent. The message will appear in their inbox on their next session.',
+    description: 'Send a message to another agent. The message will appear in their inbox on their next session.',
     input_schema: {
       type: 'object',
       properties: {
         targetAgent: {
           type: 'string',
-          description: 'Name of the target agent',
+          description: 'Name of the target agent'
         },
         message: {
           type: 'string',
-          description: 'Message content',
+          description: 'Message content'
         },
         messageType: {
           type: 'string',
           enum: ['request', 'response'],
           default: 'request',
-          description: 'Type of message',
-        },
+          description: 'Type of message'
+        }
       },
-      required: ['targetAgent', 'message'],
-    },
+      required: ['targetAgent', 'message']
+    }
   },
   {
     name: 'list_tasks',
     description: 'List all scheduled tasks for this agent.',
     input_schema: {
       type: 'object',
-      properties: {},
-    },
+      properties: {}
+    }
   },
   {
     name: 'pause_task',
@@ -92,11 +91,11 @@ SCHEDULE TYPE:
       properties: {
         taskId: {
           type: 'number',
-          description: 'Task ID to pause',
-        },
+          description: 'Task ID to pause'
+        }
       },
-      required: ['taskId'],
-    },
+      required: ['taskId']
+    }
   },
   {
     name: 'resume_task',
@@ -106,11 +105,11 @@ SCHEDULE TYPE:
       properties: {
         taskId: {
           type: 'number',
-          description: 'Task ID to resume',
-        },
+          description: 'Task ID to resume'
+        }
       },
-      required: ['taskId'],
-    },
+      required: ['taskId']
+    }
   },
   {
     name: 'cancel_task',
@@ -120,12 +119,12 @@ SCHEDULE TYPE:
       properties: {
         taskId: {
           type: 'number',
-          description: 'Task ID to cancel',
-        },
+          description: 'Task ID to cancel'
+        }
       },
-      required: ['taskId'],
-    },
-  },
+      required: ['taskId']
+    }
+  }
 ]
 
 // Tool handler interface
@@ -149,10 +148,7 @@ export interface OrbitToolHandler {
 }
 
 /** @internal Exported for testing */
-export function calculateNextRun(
-  scheduleType: 'cron' | 'interval' | 'once',
-  scheduleValue: string,
-): Date | undefined {
+export function calculateNextRun(scheduleType: 'cron' | 'interval' | 'once', scheduleValue: string): Date | undefined {
   if (scheduleType === 'cron') {
     try {
       const interval = CronExpressionParser.parse(scheduleValue)
@@ -162,7 +158,7 @@ export function calculateNextRun(
     }
   } else if (scheduleType === 'interval') {
     const ms = parseInt(scheduleValue, 10)
-    if (isNaN(ms)) {
+    if (Number.isNaN(ms)) {
       return undefined
     }
     return new Date(Date.now() + ms)
@@ -190,7 +186,7 @@ export function createOrbitTools(agentName: string, agentId: number) {
         scheduleValue,
         contextMode,
         status: 'active',
-        nextRun,
+        nextRun
       }
 
       const result = await db.insert(scheduledTasks).values(newTask).returning()
@@ -208,11 +204,7 @@ export function createOrbitTools(agentName: string, agentId: number) {
     },
 
     async list_tasks() {
-      const tasks = await db
-        .select()
-        .from(scheduledTasks)
-        .where(eq(scheduledTasks.agentId, agentId))
-        .all()
+      const tasks = await db.select().from(scheduledTasks).where(eq(scheduledTasks.agentId, agentId)).all()
 
       if (tasks.length === 0) {
         return 'No scheduled tasks found.'
@@ -258,15 +250,9 @@ export function createOrbitTools(agentName: string, agentId: number) {
       }
 
       // Recalculate next run
-      const nextRun = calculateNextRun(
-        task.scheduleType as 'cron' | 'interval' | 'once',
-        task.scheduleValue,
-      )
+      const nextRun = calculateNextRun(task.scheduleType as 'cron' | 'interval' | 'once', task.scheduleValue)
 
-      await db
-        .update(scheduledTasks)
-        .set({ status: 'active', nextRun })
-        .where(eq(scheduledTasks.id, taskId))
+      await db.update(scheduledTasks).set({ status: 'active', nextRun }).where(eq(scheduledTasks.id, taskId))
 
       return `Task ${taskId} resumed. Next run: ${nextRun?.toISOString() || 'N/A'}`
     },
@@ -287,13 +273,13 @@ export function createOrbitTools(agentName: string, agentId: number) {
       await db.delete(scheduledTasks).where(eq(scheduledTasks.id, taskId))
 
       return `Task ${taskId} cancelled and deleted`
-    },
+    }
   }
 
   async function handleToolCall(
     toolName: keyof OrbitToolHandler,
     args: Record<string, unknown>,
-    _workingDir: string,
+    _workingDir: string
   ): Promise<string> {
     const handler = handlers[toolName]
     if (!handler) {
@@ -310,6 +296,6 @@ export function createOrbitTools(agentName: string, agentId: number) {
 
   return {
     tools: orbitToolDefinitions,
-    handleToolCall,
+    handleToolCall
   }
 }

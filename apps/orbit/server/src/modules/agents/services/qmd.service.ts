@@ -1,9 +1,9 @@
-import { homedir } from 'os'
-import { resolve } from 'path'
+import { unlink } from 'node:fs/promises'
+import { homedir } from 'node:os'
+import { resolve } from 'node:path'
+import { $ } from 'bun'
 
 import { logger } from '@plimeor-labs/logger'
-import { $ } from 'bun'
-import { unlink } from 'fs/promises'
 
 import { getQmdConfig } from '@/core/config/qmd.config'
 
@@ -94,7 +94,7 @@ async function addCollectionIfNotExists(
   indexPath: string,
   path: string,
   name: string,
-  existing: Set<string>,
+  existing: Set<string>
 ): Promise<void> {
   if (existing.has(name)) {
     return
@@ -109,7 +109,7 @@ async function addContextIfNotExists(
   indexPath: string,
   uri: string,
   description: string,
-  existing: Set<string>,
+  existing: Set<string>
 ): Promise<void> {
   if (existing.has(uri)) {
     return
@@ -135,22 +135,12 @@ export async function initializeIndex(agentName: string): Promise<void> {
   // Fetch existing collections and contexts once
   const [existingCollections, existingContexts] = await Promise.all([
     getExistingCollections(indexPath),
-    getExistingContexts(indexPath),
+    getExistingContexts(indexPath)
   ])
 
   // Add default collections
-  await addCollectionIfNotExists(
-    indexPath,
-    resolve(workspace, 'memory'),
-    'memory',
-    existingCollections,
-  )
-  await addCollectionIfNotExists(
-    indexPath,
-    resolve(workspace, 'workspace'),
-    'workspace',
-    existingCollections,
-  )
+  await addCollectionIfNotExists(indexPath, resolve(workspace, 'memory'), 'memory', existingCollections)
+  await addCollectionIfNotExists(indexPath, resolve(workspace, 'workspace'), 'workspace', existingCollections)
 
   // Add extra collections from config
   const extraCollections = config.collections[agentName] ?? []
@@ -161,17 +151,12 @@ export async function initializeIndex(agentName: string): Promise<void> {
   }
 
   // Add context for better retrieval
-  await addContextIfNotExists(
-    indexPath,
-    'qmd://memory',
-    'Agent daily memories and long-term notes',
-    existingContexts,
-  )
+  await addContextIfNotExists(indexPath, 'qmd://memory', 'Agent daily memories and long-term notes', existingContexts)
   await addContextIfNotExists(
     indexPath,
     'qmd://workspace',
     'Files and documents created by the agent',
-    existingContexts,
+    existingContexts
   )
 
   // Generate initial embeddings
@@ -202,8 +187,7 @@ export async function search(options: SearchOptions, query: string): Promise<Sea
   const maxResults = options.maxResults ?? 6
 
   // Use 'query' command for hybrid search with reranking
-  const result =
-    await $`INDEX_PATH=${indexPath} qmd query ${query} --limit ${maxResults} --format json`.json()
+  const result = await $`INDEX_PATH=${indexPath} qmd query ${query} --limit ${maxResults} --format json`.json()
 
   return (result as unknown[]).map((item: unknown) => {
     const record = item as Record<string, unknown>
@@ -213,7 +197,7 @@ export async function search(options: SearchOptions, query: string): Promise<Sea
       score: Number(record.score ?? 0),
       title: String(record.title ?? ''),
       snippet: String(record.snippet ?? ''),
-      lines: record.lines as { start: number; end: number } | undefined,
+      lines: record.lines as { start: number; end: number } | undefined
     }
   })
 }
@@ -226,7 +210,7 @@ export async function search(options: SearchOptions, query: string): Promise<Sea
 export async function getDocument(
   agentName: string,
   path: string,
-  options?: { from?: number; lines?: number },
+  options?: { from?: number; lines?: number }
 ): Promise<string> {
   const indexPath = getIndexPath(agentName)
 

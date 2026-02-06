@@ -8,23 +8,23 @@
  * These tests use mocked QMD service
  */
 
-import { describe, it, expect, beforeEach } from 'bun:test'
+import { beforeEach, describe, expect, it } from 'bun:test'
 
-import {
-  resetMockQmd,
-  setQmdAvailable,
-  setIndexExists,
-  setSearchResults,
-  setDocument,
-  createMockSearchResult,
-  createMockSearchResults,
-  getMockQmdState,
-} from '../mocks/qmd.mock'
 // ============================================================
 // Memory Tool Handlers (inline using mocked QMD)
 // ============================================================
 // Import mock functions directly
 import * as mockQmd from '../mocks/qmd.mock'
+import {
+  createMockSearchResult,
+  createMockSearchResults,
+  getMockQmdState,
+  resetMockQmd,
+  setDocument,
+  setIndexExists,
+  setQmdAvailable,
+  setSearchResults
+} from '../mocks/qmd.mock'
 
 interface MemoryToolHandlers {
   search_memory: (args: { query: string; maxResults?: number }) => Promise<string>
@@ -82,7 +82,7 @@ function createMemoryToolHandlers(agentName: string): MemoryToolHandlers | undef
         const message = error instanceof Error ? error.message : String(error)
         return `Failed to read memory file: ${message}`
       }
-    },
+    }
   }
 }
 
@@ -109,8 +109,8 @@ describe('Memory Tools', () => {
       setQmdAvailable(true)
       const handlers = createMemoryToolHandlers('test-agent')
       expect(handlers).toBeDefined()
-      expect(handlers!.search_memory).toBeDefined()
-      expect(handlers!.get_memory).toBeDefined()
+      expect(handlers?.search_memory).toBeDefined()
+      expect(handlers?.get_memory).toBeDefined()
     })
   })
 
@@ -126,12 +126,12 @@ describe('Memory Tools', () => {
           path: '/memory/2025-02-05.md',
           score: 0.95,
           title: 'Daily Memory - 2025-02-05',
-          snippet: 'Discussion about project planning...',
-        }),
+          snippet: 'Discussion about project planning...'
+        })
       ])
 
       const handlers = createMemoryToolHandlers('memory-agent')
-      const result = await handlers!.search_memory({ query: 'project planning' })
+      const result = await handlers?.search_memory({ query: 'project planning' })
 
       expect(result).toContain('/memory/2025-02-05.md')
       expect(result).toContain('0.95')
@@ -145,7 +145,7 @@ describe('Memory Tools', () => {
       setSearchResults('empty-agent', [])
 
       const handlers = createMemoryToolHandlers('empty-agent')
-      const result = await handlers!.search_memory({ query: 'nonexistent topic' })
+      const result = await handlers?.search_memory({ query: 'nonexistent topic' })
 
       expect(result).toBe('No relevant memories found.')
     })
@@ -156,7 +156,7 @@ describe('Memory Tools', () => {
       setSearchResults('new-agent', [])
 
       const handlers = createMemoryToolHandlers('new-agent')
-      await handlers!.search_memory({ query: 'test' })
+      await handlers?.search_memory({ query: 'test' })
 
       const state = getMockQmdState()
       expect(state.initializedAgents.has('new-agent')).toBe(true)
@@ -169,7 +169,7 @@ describe('Memory Tools', () => {
       setSearchResults('many-memories', createMockSearchResults(10))
 
       const handlers = createMemoryToolHandlers('many-memories')
-      const result = await handlers!.search_memory({ query: 'test', maxResults: 3 })
+      const result = await handlers?.search_memory({ query: 'test', maxResults: 3 })
 
       const resultCount = (result.match(/^\d+\./gm) || []).length
       expect(resultCount).toBe(3)
@@ -184,12 +184,12 @@ describe('Memory Tools', () => {
           score: 0.9,
           title: 'Daily Memory',
           snippet: 'Important content here...',
-          lines: { start: 10, end: 25 },
-        }),
+          lines: { start: 10, end: 25 }
+        })
       ])
 
       const handlers = createMemoryToolHandlers('line-agent')
-      const result = await handlers!.search_memory({ query: 'test' })
+      const result = await handlers?.search_memory({ query: 'test' })
 
       expect(result).toContain(':10-25')
     })
@@ -200,13 +200,12 @@ describe('Memory Tools', () => {
   // ----------------------------------------------------------
   describe('Feature: get_memory Tool', () => {
     it('should return full document content', async () => {
-      const content =
-        '# Daily Memory - 2025-02-05\n\n## 09:00 - chat\n\n**Prompt:** User asked about testing'
+      const content = '# Daily Memory - 2025-02-05\n\n## 09:00 - chat\n\n**Prompt:** User asked about testing'
       setQmdAvailable(true)
       setDocument('doc-agent', '/memory/2025-02-05.md', content)
 
       const handlers = createMemoryToolHandlers('doc-agent')
-      const result = await handlers!.get_memory({ path: '/memory/2025-02-05.md' })
+      const result = await handlers?.get_memory({ path: '/memory/2025-02-05.md' })
 
       expect(result).toBe(content)
     })
@@ -215,7 +214,7 @@ describe('Memory Tools', () => {
       setQmdAvailable(true)
 
       const handlers = createMemoryToolHandlers('missing-doc-agent')
-      const result = await handlers!.get_memory({ path: '/nonexistent.md' })
+      const result = await handlers?.get_memory({ path: '/nonexistent.md' })
 
       expect(result).toContain('Failed to read memory file')
     })
@@ -225,7 +224,7 @@ describe('Memory Tools', () => {
       setDocument('empty-doc-agent', '/memory/empty.md', '')
 
       const handlers = createMemoryToolHandlers('empty-doc-agent')
-      const result = await handlers!.get_memory({ path: '/memory/empty.md' })
+      const result = await handlers?.get_memory({ path: '/memory/empty.md' })
 
       expect(result).toContain('File is empty')
     })
@@ -239,14 +238,10 @@ describe('Memory Tools', () => {
       setQmdAvailable(true)
 
       setIndexExists('agent-a', true)
-      setSearchResults('agent-a', [
-        createMockSearchResult({ path: '/memory/a-mem.md', title: 'Agent A Memory' }),
-      ])
+      setSearchResults('agent-a', [createMockSearchResult({ path: '/memory/a-mem.md', title: 'Agent A Memory' })])
 
       setIndexExists('agent-b', true)
-      setSearchResults('agent-b', [
-        createMockSearchResult({ path: '/memory/b-mem.md', title: 'Agent B Memory' }),
-      ])
+      setSearchResults('agent-b', [createMockSearchResult({ path: '/memory/b-mem.md', title: 'Agent B Memory' })])
 
       setDocument('agent-a', '/doc-a.md', 'Content for A')
       setDocument('agent-b', '/doc-b.md', 'Content for B')
@@ -254,10 +249,10 @@ describe('Memory Tools', () => {
       const handlersA = createMemoryToolHandlers('agent-a')
       const handlersB = createMemoryToolHandlers('agent-b')
 
-      const resultA = await handlersA!.search_memory({ query: 'test' })
-      const resultB = await handlersB!.search_memory({ query: 'test' })
-      const docA = await handlersA!.get_memory({ path: '/doc-a.md' })
-      const docB = await handlersB!.get_memory({ path: '/doc-b.md' })
+      const resultA = await handlersA?.search_memory({ query: 'test' })
+      const resultB = await handlersB?.search_memory({ query: 'test' })
+      const docA = await handlersA?.get_memory({ path: '/doc-a.md' })
+      const docB = await handlersB?.get_memory({ path: '/doc-b.md' })
 
       expect(resultA).toContain('Agent A Memory')
       expect(resultA).not.toContain('Agent B Memory')

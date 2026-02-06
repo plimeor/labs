@@ -1,5 +1,5 @@
 import { Send } from 'lucide-react'
-import { useState, useCallback, type KeyboardEvent } from 'react'
+import { type KeyboardEvent, useCallback, useState } from 'react'
 
 interface ChatInputProps {
   onSend: (message: string) => void
@@ -7,11 +7,7 @@ interface ChatInputProps {
   placeholder?: string
 }
 
-export function ChatInput({
-  onSend,
-  disabled = false,
-  placeholder = 'Type a message...',
-}: ChatInputProps) {
+export function ChatInput({ onSend, disabled = false, placeholder = 'Type a message...' }: ChatInputProps) {
   const [input, setInput] = useState('')
 
   const handleSend = useCallback(() => {
@@ -28,7 +24,7 @@ export function ChatInput({
         handleSend()
       }
     },
-    [handleSend],
+    [handleSend]
   )
 
   return (
@@ -46,7 +42,7 @@ export function ChatInput({
       <button
         onClick={handleSend}
         disabled={disabled || !input.trim()}
-        className="flex h-11 w-11 items-center justify-center rounded-lg bg-blue-500 text-white transition-colors hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+        className="flex h-11 w-11 items-center justify-center rounded-lg bg-blue-500 text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-300"
       >
         <Send className="h-5 w-5" />
       </button>

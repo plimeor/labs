@@ -1,6 +1,6 @@
 import { agents } from '@db/agents'
-import { agentInbox, type AgentInboxMessage, type NewAgentInboxMessage } from '@db/inbox'
-import { eq, and, inArray } from 'drizzle-orm'
+import { type AgentInboxMessage, agentInbox, type NewAgentInboxMessage } from '@db/inbox'
+import { and, eq, inArray } from 'drizzle-orm'
 
 import { db } from '@/core/db'
 
@@ -8,14 +8,14 @@ export async function sendToAgent(
   fromAgentId: number,
   toAgentId: number,
   message: string,
-  messageType: 'request' | 'response' = 'request',
+  messageType: 'request' | 'response' = 'request'
 ): Promise<AgentInboxMessage> {
   const newMessage: NewAgentInboxMessage = {
     fromAgentId,
     toAgentId,
     message,
     messageType,
-    status: 'pending',
+    status: 'pending'
   }
 
   const result = await db.insert(agentInbox).values(newMessage).returning()
@@ -26,7 +26,7 @@ export async function sendToAgentByName(
   fromAgentName: string,
   toAgentName: string,
   message: string,
-  messageType: 'request' | 'response' = 'request',
+  messageType: 'request' | 'response' = 'request'
 ): Promise<AgentInboxMessage> {
   const fromAgent = await db.select().from(agents).where(eq(agents.name, fromAgentName)).get()
   const toAgent = await db.select().from(agents).where(eq(agents.name, toAgentName)).get()
@@ -60,10 +60,7 @@ export async function checkInboxByName(agentName: string): Promise<AgentInboxMes
 export async function markInboxRead(messageIds: number[]): Promise<void> {
   if (messageIds.length === 0) return
 
-  await db
-    .update(agentInbox)
-    .set({ status: 'read', readAt: new Date() })
-    .where(inArray(agentInbox.id, messageIds))
+  await db.update(agentInbox).set({ status: 'read', readAt: new Date() }).where(inArray(agentInbox.id, messageIds))
 }
 
 export async function archiveInboxMessages(messageIds: number[]): Promise<void> {

@@ -4,7 +4,7 @@ import { Elysia } from 'elysia'
 
 import { syncAgentsWithWorkspaces } from './modules/agents/services/agent.service'
 import { ensureOrbitDirs } from './modules/agents/services/workspace.service'
-import { chatController, agentsController } from './modules/chat'
+import { agentsController, chatController } from './modules/chat'
 import { corsPlugin } from './modules/plugins/cors'
 import { swaggerPlugin } from './modules/plugins/swagger'
 import { startScheduler, stopScheduler } from './modules/scheduler'
