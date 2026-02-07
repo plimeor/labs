@@ -10,15 +10,7 @@ interface HookResult {
   reason?: string
 }
 
-const READ_ONLY_TOOLS = new Set([
-  'Read',
-  'Glob',
-  'Grep',
-  'WebFetch',
-  'WebSearch',
-  'TaskList',
-  'TaskGet',
-])
+const READ_ONLY_TOOLS = new Set(['Read', 'Glob', 'Grep', 'WebFetch', 'WebSearch', 'TaskList', 'TaskGet'])
 
 export function createPermissionHook(mode: PermissionMode): (input: HookInput) => HookResult {
   return (input: HookInput): HookResult => {
@@ -27,10 +19,7 @@ export function createPermissionHook(mode: PermissionMode): (input: HookInput) =
     }
 
     // MCP tools (orbit-tools, memory-tools) are always allowed
-    if (
-      input.toolName.startsWith('mcp__orbit-tools__') ||
-      input.toolName.startsWith('mcp__memory-tools__')
-    ) {
+    if (input.toolName.startsWith('mcp__orbit-tools__') || input.toolName.startsWith('mcp__memory-tools__')) {
       return { decision: 'allow' }
     }
 

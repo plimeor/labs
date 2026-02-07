@@ -1,7 +1,6 @@
 import { existsSync } from 'fs'
-import { join } from 'path'
-
 import { readdir, readFile } from 'fs/promises'
+import { join } from 'path'
 
 interface StdioSourceConfig {
   type: 'mcp'
@@ -30,7 +29,7 @@ interface McpServerConfig {
 
 export async function buildSourceServers(
   basePath: string,
-  agentName: string,
+  agentName: string
 ): Promise<Record<string, McpServerConfig>> {
   const sourcesDir = join(basePath, 'agents', agentName, 'sources')
   if (!existsSync(sourcesDir)) return {}
@@ -52,13 +51,13 @@ export async function buildSourceServers(
       servers[entry.name] = {
         command: stdioConfig.command,
         args: stdioConfig.args,
-        env: stdioConfig.env,
+        env: stdioConfig.env
       }
     } else if (config.transport === 'http' || config.transport === 'sse') {
       const httpConfig = config as HttpSourceConfig
       servers[entry.name] = {
         url: httpConfig.url,
-        headers: httpConfig.headers,
+        headers: httpConfig.headers
       }
     }
   }

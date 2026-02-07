@@ -1,20 +1,17 @@
 import { query, type SDKMessage } from '@anthropic-ai/claude-agent-sdk'
 import { logger } from '@plimeor-labs/logger'
 
-import { buildSourceServers } from '@/agent/source-builder'
-import { createMemoryMcpServer } from '@/mcp/memory-tools.mcp'
-import { createOrbitMcpServer } from '@/mcp/orbit-tools.mcp'
-import {
-  composeSystemPrompt,
-  type InboxMessage,
-  type SessionType,
-} from '@/modules/agents/services/context.service'
-import { appendDailyMemory } from '@/modules/agents/services/memory.service'
-import * as qmd from '@/modules/agents/services/qmd.service'
+import { createMemoryMcpServer } from '@/modules/mcp/memory-tools.mcp'
+import { createOrbitMcpServer } from '@/modules/mcp/orbit-tools.mcp'
 import type { AgentStore } from '@/stores/agent.store'
 import type { InboxStore } from '@/stores/inbox.store'
 import type { SessionStore } from '@/stores/session.store'
 import type { TaskStore } from '@/stores/task.store'
+
+import { composeSystemPrompt, type InboxMessage, type SessionType } from './services/context.service'
+import { appendDailyMemory } from './services/memory.service'
+import * as qmd from './services/qmd.service'
+import { buildSourceServers } from './source-builder'
 
 export interface OrbitAgentDeps {
   basePath: string
@@ -45,8 +42,8 @@ export class OrbitAgent {
     const servers: Record<string, any> = {
       'orbit-tools': createOrbitMcpServer(this.name, {
         taskStore: this.deps.taskStore,
-        inboxStore: this.deps.inboxStore,
-      }),
+        inboxStore: this.deps.inboxStore
+      })
     }
 
     if (qmd.isQmdAvailable()) {
@@ -68,7 +65,7 @@ export class OrbitAgent {
     const inboxMessages: InboxMessage[] = pendingMessages.map(m => ({
       id: typeof m.id === 'string' ? parseInt(m.id, 10) || 0 : 0,
       fromAgent: m.fromAgent,
-      message: m.message,
+      message: m.message
     }))
 
     // Compose system prompt (reuses existing context.service)
@@ -86,7 +83,7 @@ export class OrbitAgent {
       systemPrompt: {
         type: 'preset' as const,
         preset: 'claude_code' as const,
-        append: systemPrompt,
+        append: systemPrompt
       },
       tools: { type: 'preset' as const, preset: 'claude_code' as const },
       mcpServers,
@@ -94,7 +91,7 @@ export class OrbitAgent {
       permissionMode: 'bypassPermissions' as const,
       allowDangerouslySkipPermissions: true,
       maxTurns: 50,
-      abortController: this.abortController,
+      abortController: this.abortController
     }
 
     let result = ''
@@ -121,7 +118,7 @@ export class OrbitAgent {
       if (pendingMessages.length > 0) {
         await this.deps.inboxStore.markRead(
           this.name,
-          pendingMessages.map(m => m.id),
+          pendingMessages.map(m => m.id)
         )
       }
 
@@ -133,7 +130,7 @@ export class OrbitAgent {
         sessionType,
         prompt,
         result,
-        timestamp: new Date(),
+        timestamp: new Date()
       })
 
       // Trigger async QMD index update
