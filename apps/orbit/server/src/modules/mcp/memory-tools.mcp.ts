@@ -1,7 +1,7 @@
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk'
 import { z } from 'zod/v4'
 
-import * as qmd from '@/modules/agents/services/qmd.service'
+import * as qmd from '@/modules/agent/services/qmd.service'
 
 export function createMemoryMcpServer(agentName: string) {
   return createSdkMcpServer({
@@ -13,7 +13,7 @@ export function createMemoryMcpServer(agentName: string) {
         'Search your memories and notes using hybrid search (BM25 + vector + LLM reranking).',
         {
           query: z.string().describe('What to search for'),
-          maxResults: z.number().optional().default(6).describe('Max results (default: 6)'),
+          maxResults: z.number().optional().default(6).describe('Max results (default: 6)')
         },
         async args => {
           try {
@@ -38,10 +38,10 @@ export function createMemoryMcpServer(agentName: string) {
           } catch (error) {
             const message = error instanceof Error ? error.message : String(error)
             return {
-              content: [{ type: 'text' as const, text: `Memory search failed: ${message}` }],
+              content: [{ type: 'text' as const, text: `Memory search failed: ${message}` }]
             }
           }
-        },
+        }
       ),
 
       tool(
@@ -50,13 +50,13 @@ export function createMemoryMcpServer(agentName: string) {
         {
           path: z.string().describe('File path (from search results)'),
           from: z.number().optional().describe('Start line number (1-indexed)'),
-          lines: z.number().optional().default(50).describe('Number of lines (default: 50)'),
+          lines: z.number().optional().default(50).describe('Number of lines (default: 50)')
         },
         async args => {
           try {
             const content = await qmd.getDocument(agentName, args.path, {
               from: args.from,
-              lines: args.lines,
+              lines: args.lines
             })
 
             if (!content) {
@@ -67,11 +67,11 @@ export function createMemoryMcpServer(agentName: string) {
           } catch (error) {
             const message = error instanceof Error ? error.message : String(error)
             return {
-              content: [{ type: 'text' as const, text: `Failed to read memory file: ${message}` }],
+              content: [{ type: 'text' as const, text: `Failed to read memory file: ${message}` }]
             }
           }
-        },
-      ),
-    ],
+        }
+      )
+    ]
   })
 }

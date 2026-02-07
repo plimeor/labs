@@ -10,10 +10,7 @@ export interface OrbitMcpDeps {
   inboxStore: InboxStore
 }
 
-function calculateNextRun(
-  scheduleType: 'cron' | 'interval' | 'once',
-  scheduleValue: string,
-): string | undefined {
+function calculateNextRun(scheduleType: 'cron' | 'interval' | 'once', scheduleValue: string): string | undefined {
   if (scheduleType === 'cron') {
     try {
       const interval = CronExpressionParser.parse(scheduleValue)
@@ -54,19 +51,14 @@ SCHEDULE TYPE:
           prompt: z.string().describe('The task prompt to execute'),
           scheduleType: z.enum(['cron', 'interval', 'once']).describe('Type of schedule'),
           scheduleValue: z.string().describe('Cron expression, milliseconds, or ISO timestamp'),
-          contextMode: z
-            .enum(['isolated', 'main'])
-            .default('isolated')
-            .describe('Session context mode'),
-          name: z.string().optional().describe('Human-readable task name'),
+          contextMode: z.enum(['isolated', 'main']).default('isolated').describe('Session context mode'),
+          name: z.string().optional().describe('Human-readable task name')
         },
         async args => {
           const nextRun = calculateNextRun(args.scheduleType, args.scheduleValue)
           if (!nextRun) {
             return {
-              content: [
-                { type: 'text' as const, text: 'Error: Could not calculate next run time' },
-              ],
+              content: [{ type: 'text' as const, text: 'Error: Could not calculate next run time' }]
             }
           }
 
@@ -75,7 +67,7 @@ SCHEDULE TYPE:
             scheduleType: args.scheduleType,
             scheduleValue: args.scheduleValue,
             contextMode: args.contextMode,
-            name: args.name,
+            name: args.name
           })
 
           await taskStore.update(agentName, task.id, { nextRun })
@@ -84,11 +76,11 @@ SCHEDULE TYPE:
             content: [
               {
                 type: 'text' as const,
-                text: `Task scheduled successfully (ID: ${task.id}). Next run: ${nextRun}`,
-              },
-            ],
+                text: `Task scheduled successfully (ID: ${task.id}). Next run: ${nextRun}`
+              }
+            ]
           }
-        },
+        }
       ),
 
       tool(
@@ -97,28 +89,25 @@ SCHEDULE TYPE:
         {
           targetAgent: z.string().describe('Name of the target agent'),
           message: z.string().describe('Message content'),
-          messageType: z
-            .enum(['request', 'response'])
-            .default('request')
-            .describe('Type of message'),
+          messageType: z.enum(['request', 'response']).default('request').describe('Type of message')
         },
         async args => {
           const msg = await inboxStore.send({
             fromAgent: agentName,
             toAgent: args.targetAgent,
             message: args.message,
-            messageType: args.messageType,
+            messageType: args.messageType
           })
 
           return {
             content: [
               {
                 type: 'text' as const,
-                text: `Message sent to ${args.targetAgent} (ID: ${msg.id})`,
-              },
-            ],
+                text: `Message sent to ${args.targetAgent} (ID: ${msg.id})`
+              }
+            ]
           }
-        },
+        }
       ),
 
       tool('list_tasks', 'List all scheduled tasks for this agent.', {}, async () => {
@@ -134,7 +123,7 @@ SCHEDULE TYPE:
         })
 
         return {
-          content: [{ type: 'text' as const, text: `Scheduled tasks:\n${taskList.join('\n')}` }],
+          content: [{ type: 'text' as const, text: `Scheduled tasks:\n${taskList.join('\n')}` }]
         }
       }),
 
@@ -146,13 +135,13 @@ SCHEDULE TYPE:
           const task = await taskStore.get(agentName, args.taskId)
           if (!task) {
             return {
-              content: [{ type: 'text' as const, text: `Error: Task ${args.taskId} not found` }],
+              content: [{ type: 'text' as const, text: `Error: Task ${args.taskId} not found` }]
             }
           }
 
           await taskStore.update(agentName, args.taskId, { status: 'paused' })
           return { content: [{ type: 'text' as const, text: `Task ${args.taskId} paused` }] }
-        },
+        }
       ),
 
       tool(
@@ -163,25 +152,25 @@ SCHEDULE TYPE:
           const task = await taskStore.get(agentName, args.taskId)
           if (!task) {
             return {
-              content: [{ type: 'text' as const, text: `Error: Task ${args.taskId} not found` }],
+              content: [{ type: 'text' as const, text: `Error: Task ${args.taskId} not found` }]
             }
           }
 
           const nextRun = calculateNextRun(task.scheduleType, task.scheduleValue)
           await taskStore.update(agentName, args.taskId, {
             status: 'active',
-            nextRun: nextRun ?? null,
+            nextRun: nextRun ?? null
           })
 
           return {
             content: [
               {
                 type: 'text' as const,
-                text: `Task ${args.taskId} resumed. Next run: ${nextRun ?? 'N/A'}`,
-              },
-            ],
+                text: `Task ${args.taskId} resumed. Next run: ${nextRun ?? 'N/A'}`
+              }
+            ]
           }
-        },
+        }
       ),
 
       tool(
@@ -192,16 +181,16 @@ SCHEDULE TYPE:
           const task = await taskStore.get(agentName, args.taskId)
           if (!task) {
             return {
-              content: [{ type: 'text' as const, text: `Error: Task ${args.taskId} not found` }],
+              content: [{ type: 'text' as const, text: `Error: Task ${args.taskId} not found` }]
             }
           }
 
           await taskStore.delete(agentName, args.taskId)
           return {
-            content: [{ type: 'text' as const, text: `Task ${args.taskId} cancelled and deleted` }],
+            content: [{ type: 'text' as const, text: `Task ${args.taskId} cancelled and deleted` }]
           }
-        },
-      ),
-    ],
+        }
+      )
+    ]
   })
 }
