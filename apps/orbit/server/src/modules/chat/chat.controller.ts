@@ -3,7 +3,9 @@ import { Elysia, t } from 'elysia'
 
 import type { AgentPool } from '@/modules/agent'
 import type { AgentStore } from '@/stores/agent.store'
+import type { InboxStore } from '@/stores/inbox.store'
 import type { SessionStore } from '@/stores/session.store'
+import type { TaskStore } from '@/stores/task.store'
 
 export function createChatController(deps: {
   agentPool: AgentPool
@@ -25,8 +27,20 @@ export function createChatController(deps: {
           // Ensure agent exists
           await agentStore.ensure(agentName)
 
-          // Get or create agent instance
-          const agent = await agentPool.get(agentName)
+          // Resolve or create session
+          let session: Awaited<ReturnType<typeof sessionStore.get>>
+          if (sessionId) {
+            session = await sessionStore.get(agentName, sessionId)
+            if (!session) {
+              set.status = 404
+              return { error: `Session not found: ${sessionId}` }
+            }
+          } else {
+            session = await sessionStore.create(agentName, {})
+          }
+
+          // Get agent instance for this session
+          const agent = await agentPool.get(agentName, session.id)
 
           // Create readable stream for SSE
           const stream = new ReadableStream({
@@ -39,16 +53,13 @@ export function createChatController(deps: {
               }
 
               try {
-                // Create session
-                const session = await sessionStore.create(agentName, {})
-
                 sendEvent('system', { session_id: session.id })
 
                 // Stream agent responses
                 let resultText = ''
                 for await (const msg of agent.chat(message, {
                   sessionType: 'chat',
-                  sessionId,
+                  sessionId: session.id,
                   model
                 })) {
                   sendEvent(msg.type, msg)
@@ -102,12 +113,24 @@ export function createChatController(deps: {
           const { agentName, message, sessionId, model } = body
 
           await agentStore.ensure(agentName)
-          const agent = await agentPool.get(agentName)
+
+          // Resolve or create session
+          let session: Awaited<ReturnType<typeof sessionStore.get>>
+          if (sessionId) {
+            session = await sessionStore.get(agentName, sessionId)
+            if (!session) {
+              return { error: `Session not found: ${sessionId}` }
+            }
+          } else {
+            session = await sessionStore.create(agentName, {})
+          }
+
+          const agent = await agentPool.get(agentName, session.id)
 
           let result = ''
           for await (const msg of agent.chat(message, {
             sessionType: 'chat',
-            sessionId,
+            sessionId: session.id,
             model
           })) {
             if (msg.type === 'result') {
@@ -116,7 +139,6 @@ export function createChatController(deps: {
             }
           }
 
-          const session = await sessionStore.create(agentName, {})
           await sessionStore.appendMessage(agentName, session.id, {
             role: 'user',
             content: message
@@ -202,6 +224,21 @@ export function createAgentsController(deps: { agentStore: AgentStore }) {
         params: t.Object({ name: t.String() })
       }
     )
+    .put(
+      '/:name',
+      async ({ params, body }) => {
+        const agent = await agentStore.update(params.name, body)
+        return { agent }
+      },
+      {
+        params: t.Object({ name: t.String() }),
+        body: t.Object({
+          model: t.Optional(t.String()),
+          permissionMode: t.Optional(t.Union([t.Literal('safe'), t.Literal('ask'), t.Literal('allow-all')])),
+          status: t.Optional(t.Union([t.Literal('active'), t.Literal('inactive')]))
+        })
+      }
+    )
     .delete(
       '/:name',
       async ({ params }) => {
@@ -210,6 +247,162 @@ export function createAgentsController(deps: { agentStore: AgentStore }) {
       },
       {
         params: t.Object({ name: t.String() })
+      }
+    )
+}
+
+export function createSessionsController(deps: { sessionStore: SessionStore; agentStore: AgentStore }) {
+  const { sessionStore, agentStore } = deps
+
+  return new Elysia({ prefix: '/api/agents' })
+    .post(
+      '/:name/sessions',
+      async ({ params, body }) => {
+        await agentStore.ensure(params.name)
+        const session = await sessionStore.create(params.name, body ?? {})
+        return { session }
+      },
+      {
+        params: t.Object({ name: t.String() }),
+        body: t.Optional(
+          t.Object({
+            title: t.Optional(t.String()),
+            model: t.Optional(t.String())
+          })
+        )
+      }
+    )
+    .get(
+      '/:name/sessions',
+      async ({ params }) => {
+        const sessions = await sessionStore.listByAgent(params.name)
+        return { sessions }
+      },
+      {
+        params: t.Object({ name: t.String() })
+      }
+    )
+    .get(
+      '/:name/sessions/:id',
+      async ({ params }) => {
+        const session = await sessionStore.get(params.name, params.id)
+        if (!session) return { error: 'Session not found' }
+        const messages = await sessionStore.getMessages(params.name, params.id)
+        return { session, messages }
+      },
+      {
+        params: t.Object({ name: t.String(), id: t.String() })
+      }
+    )
+    .put(
+      '/:name/sessions/:id',
+      async ({ params, body }) => {
+        const session = await sessionStore.update(params.name, params.id, body)
+        return { session }
+      },
+      {
+        params: t.Object({ name: t.String(), id: t.String() }),
+        body: t.Object({
+          title: t.Optional(t.String())
+        })
+      }
+    )
+    .delete(
+      '/:name/sessions/:id',
+      async ({ params }) => {
+        await sessionStore.delete(params.name, params.id)
+        return { success: true }
+      },
+      {
+        params: t.Object({ name: t.String(), id: t.String() })
+      }
+    )
+}
+
+export function createInboxController(deps: { inboxStore: InboxStore }) {
+  const { inboxStore } = deps
+
+  return new Elysia({ prefix: '/api/agents' })
+    .get(
+      '/:name/inbox',
+      async ({ params }) => {
+        const messages = await inboxStore.getPending(params.name)
+        return { messages }
+      },
+      {
+        params: t.Object({ name: t.String() })
+      }
+    )
+    .delete(
+      '/:name/inbox/:msgId',
+      async ({ params }) => {
+        await inboxStore.markRead(params.name, [params.msgId])
+        return { success: true }
+      },
+      {
+        params: t.Object({ name: t.String(), msgId: t.String() })
+      }
+    )
+}
+
+export function createTasksController(deps: { taskStore: TaskStore }) {
+  const { taskStore } = deps
+
+  return new Elysia()
+    .get('/api/tasks', async () => {
+      const allTasks = await taskStore.findAllTasks()
+      return { tasks: allTasks }
+    })
+    .get(
+      '/api/agents/:name/tasks',
+      async ({ params }) => {
+        const tasks = await taskStore.listByAgent(params.name)
+        return { tasks }
+      },
+      {
+        params: t.Object({ name: t.String() })
+      }
+    )
+    .post(
+      '/api/agents/:name/tasks',
+      async ({ params, body }) => {
+        const task = await taskStore.create(params.name, body)
+        return { task }
+      },
+      {
+        params: t.Object({ name: t.String() }),
+        body: t.Object({
+          prompt: t.String(),
+          scheduleType: t.Union([t.Literal('cron'), t.Literal('interval'), t.Literal('once')]),
+          scheduleValue: t.String(),
+          contextMode: t.Union([t.Literal('isolated'), t.Literal('main')]),
+          name: t.Optional(t.String())
+        })
+      }
+    )
+    .put(
+      '/api/agents/:name/tasks/:id',
+      async ({ params, body }) => {
+        const task = await taskStore.update(params.name, params.id, body)
+        return { task }
+      },
+      {
+        params: t.Object({ name: t.String(), id: t.String() }),
+        body: t.Object({
+          status: t.Optional(t.Union([t.Literal('active'), t.Literal('paused')])),
+          prompt: t.Optional(t.String()),
+          name: t.Optional(t.String())
+        })
+      }
+    )
+    .delete(
+      '/api/agents/:name/tasks/:id',
+      async ({ params }) => {
+        await taskStore.delete(params.name, params.id)
+        return { success: true }
+      },
+      {
+        params: t.Object({ name: t.String(), id: t.String() })
       }
     )
 }

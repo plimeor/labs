@@ -1,7 +1,6 @@
 import { existsSync } from 'fs'
-import { join } from 'path'
-
 import { mkdir, readdir, readFile, rm, writeFile } from 'fs/promises'
+import { join } from 'path'
 
 export interface CreateTaskParams {
   prompt: string
@@ -78,7 +77,7 @@ export class TaskStore {
       status: 'active',
       nextRun: null,
       lastRun: null,
-      createdAt: new Date().toISOString(),
+      createdAt: new Date().toISOString()
     }
 
     await mkdir(this.tasksDir(agentName), { recursive: true })
@@ -104,7 +103,7 @@ export class TaskStore {
       jsonFiles.map(async file => {
         const content = await readFile(join(dir, file), 'utf-8')
         return JSON.parse(content) as TaskData
-      }),
+      })
     )
 
     return tasks
@@ -125,6 +124,17 @@ export class TaskStore {
     await rm(path)
   }
 
+  async findAllTasks(): Promise<TaskData[]> {
+    if (!existsSync(this.agentsPath)) return []
+
+    const agentDirs = await readdir(this.agentsPath, { withFileTypes: true })
+    const agentTaskLists = await Promise.all(
+      agentDirs.filter(dir => dir.isDirectory()).map(agentDir => this.listByAgent(agentDir.name))
+    )
+
+    return agentTaskLists.flat()
+  }
+
   async findDueTasks(): Promise<DueTask[]> {
     if (!existsSync(this.agentsPath)) return []
 
@@ -137,15 +147,13 @@ export class TaskStore {
         .map(async agentDir => {
           const tasks = await this.listByAgent(agentDir.name)
           return tasks
-            .filter(
-              task => task.status === 'active' && task.nextRun && new Date(task.nextRun) <= now,
-            )
+            .filter(task => task.status === 'active' && task.nextRun && new Date(task.nextRun) <= now)
             .map(task => ({
               agentName: agentDir.name,
               task,
-              filePath: this.taskPath(agentDir.name, task.id),
+              filePath: this.taskPath(agentDir.name, task.id)
             }))
-        }),
+        })
     )
 
     return agentTaskLists.flat()

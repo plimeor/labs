@@ -1,1 +1,7 @@
-export { createChatController, createAgentsController } from './chat.controller'
+export {
+  createAgentsController,
+  createChatController,
+  createInboxController,
+  createSessionsController,
+  createTasksController
+} from './chat.controller'
