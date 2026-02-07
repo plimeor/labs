@@ -4,6 +4,14 @@ import type { ChatMessage, Session } from '@/lib/api'
 import { api, streamChat } from '@/lib/api'
 import { useUIStore } from '@/stores/ui.store'
 
+function generateSessionTitle(message: string): string {
+  const max = 50
+  if (message.length <= max) return message
+  const truncated = message.slice(0, max)
+  const lastSpace = truncated.lastIndexOf(' ')
+  return lastSpace > 20 ? truncated.slice(0, lastSpace) : truncated
+}
+
 export interface ToolEvent {
   id: string
   name: string
@@ -172,6 +180,29 @@ export const useSessionStore = create<SessionState>((set, get) => ({
                 }
               }
             })
+
+            // Auto-generate session title from first user message
+            if (resolvedSessionId) {
+              const state = get()
+              const agentSessions = state.sessions[agentName] || []
+              const currentSession = agentSessions.find(s => s.id === resolvedSessionId)
+              if (currentSession && !currentSession.title) {
+                const title = generateSessionTitle(message)
+                api.sessions
+                  .update(agentName, resolvedSessionId, { title })
+                  .then(() => {
+                    set(s => ({
+                      sessions: {
+                        ...s.sessions,
+                        [agentName]: (s.sessions[agentName] || []).map(sess =>
+                          sess.id === resolvedSessionId ? { ...sess, title } : sess
+                        )
+                      }
+                    }))
+                  })
+                  .catch(() => {})
+              }
+            }
           },
           onError: error => {
             set({ error, streaming: null, isStreaming: false, abortController: null })
