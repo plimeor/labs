@@ -1,7 +1,6 @@
 import { existsSync } from 'fs'
-import { join } from 'path'
-
 import { mkdir, readdir, readFile, unlink, writeFile } from 'fs/promises'
+import { join } from 'path'
 
 export interface InboxMessage {
   id: string
@@ -11,6 +10,8 @@ export interface InboxMessage {
   messageType: 'request' | 'response'
   requestId?: string
   status: 'pending' | 'read' | 'archived'
+  claimedBy?: string
+  claimedAt?: string
   createdAt: string
   readAt: string | null
 }
@@ -53,7 +54,7 @@ export class InboxStore {
       requestId: params.requestId,
       status: 'pending',
       createdAt: new Date().toISOString(),
-      readAt: null,
+      readAt: null
     }
 
     const dir = this.pendingDir(params.toAgent)
@@ -73,10 +74,30 @@ export class InboxStore {
       jsonFiles.map(async file => {
         const content = await readFile(join(dir, file), 'utf-8')
         return JSON.parse(content) as InboxMessage
-      }),
+      })
     )
 
     return messages.toSorted((a, b) => a.createdAt.localeCompare(b.createdAt))
+  }
+
+  async claimMessage(agentName: string, messageId: string, sessionId: string): Promise<boolean> {
+    const filePath = join(this.pendingDir(agentName), `${messageId}.json`)
+    if (!existsSync(filePath)) return false
+
+    const content = await readFile(filePath, 'utf-8')
+    const msg = JSON.parse(content) as InboxMessage
+
+    if (msg.claimedBy) return false
+
+    msg.claimedBy = sessionId
+    msg.claimedAt = new Date().toISOString()
+    await writeFile(filePath, JSON.stringify(msg, null, 2))
+    return true
+  }
+
+  async getPendingUnclaimed(agentName: string): Promise<InboxMessage[]> {
+    const pending = await this.getPending(agentName)
+    return pending.filter(m => !m.claimedBy)
   }
 
   async markRead(agentName: string, messageIds: string[]): Promise<void> {
@@ -96,7 +117,7 @@ export class InboxStore {
 
         await writeFile(join(archivePath, `${id}.json`), JSON.stringify(msg, null, 2))
         await unlink(src)
-      }),
+      })
     )
   }
 }

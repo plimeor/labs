@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
-import { rmSync, mkdirSync } from 'fs'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import { mkdirSync, rmSync } from 'fs'
 import { join } from 'path'
 
 const TEST_CONFIG_PATH = '/tmp/orbit-inbox-test'
@@ -28,7 +28,7 @@ describe('InboxStore', () => {
         fromAgent: 'bot-a',
         toAgent: 'bot-b',
         message: 'Hello from A',
-        messageType: 'request',
+        messageType: 'request'
       })
 
       expect(msg.id).toBeDefined()
@@ -44,13 +44,13 @@ describe('InboxStore', () => {
         fromAgent: 'bot-a',
         toAgent: 'bot-b',
         message: 'Msg 1',
-        messageType: 'request',
+        messageType: 'request'
       })
       await store.send({
         fromAgent: 'bot-a',
         toAgent: 'bot-b',
         message: 'Msg 2',
-        messageType: 'request',
+        messageType: 'request'
       })
 
       const pending = await store.getPending('bot-b')
@@ -63,13 +63,56 @@ describe('InboxStore', () => {
     })
   })
 
+  describe('claimMessage', () => {
+    it('should claim an unclaimed message', async () => {
+      const msg = await store.send({
+        fromAgent: 'bot-a',
+        toAgent: 'bot-b',
+        message: 'hello',
+        messageType: 'request'
+      })
+
+      const claimed = await store.claimMessage('bot-b', msg.id, 'session-1')
+      expect(claimed).toBe(true)
+
+      const pending = await store.getPending('bot-b')
+      expect(pending[0]!.claimedBy).toBe('session-1')
+      expect(pending[0]!.claimedAt).toBeDefined()
+    })
+
+    it('should reject claiming an already-claimed message', async () => {
+      const msg = await store.send({
+        fromAgent: 'bot-a',
+        toAgent: 'bot-b',
+        message: 'hello',
+        messageType: 'request'
+      })
+
+      await store.claimMessage('bot-b', msg.id, 'session-1')
+      const claimed = await store.claimMessage('bot-b', msg.id, 'session-2')
+      expect(claimed).toBe(false)
+    })
+  })
+
+  describe('getPendingUnclaimed', () => {
+    it('should only return unclaimed messages', async () => {
+      await store.send({ fromAgent: 'bot-a', toAgent: 'bot-b', message: 'm1', messageType: 'request' })
+      const msg2 = await store.send({ fromAgent: 'bot-a', toAgent: 'bot-b', message: 'm2', messageType: 'request' })
+      await store.claimMessage('bot-b', msg2.id, 'session-1')
+
+      const unclaimed = await store.getPendingUnclaimed('bot-b')
+      expect(unclaimed).toHaveLength(1)
+      expect(unclaimed[0]!.message).toBe('m1')
+    })
+  })
+
   describe('markRead', () => {
     it('should move message from pending to archive', async () => {
       const msg = await store.send({
         fromAgent: 'bot-a',
         toAgent: 'bot-b',
         message: 'Hello',
-        messageType: 'request',
+        messageType: 'request'
       })
 
       await store.markRead('bot-b', [msg.id])
