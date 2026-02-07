@@ -1,10 +1,10 @@
 import { existsSync } from 'fs'
+import { appendFile, mkdir, readdir, readFile, rm, writeFile } from 'fs/promises'
 import { join } from 'path'
-
-import { appendFile, mkdir, readdir, readFile, writeFile } from 'fs/promises'
 
 export interface SessionMetadata {
   id: string
+  title?: string
   sdkSessionId?: string
   model?: string
   permissionMode?: string
@@ -14,6 +14,7 @@ export interface SessionMetadata {
 }
 
 export interface SessionMessage {
+  // FIXME 改成 enum 枚举
   role: 'user' | 'assistant'
   content: string
   timestamp: string
@@ -64,7 +65,7 @@ export class SessionStore {
       permissionMode: params.permissionMode,
       createdAt: new Date().toISOString(),
       lastMessageAt: null,
-      messageCount: 0,
+      messageCount: 0
     }
 
     await writeFile(this.sessionJsonPath(agentName, id), JSON.stringify(metadata, null, 2))
@@ -79,14 +80,10 @@ export class SessionStore {
     return JSON.parse(content) as SessionMetadata
   }
 
-  async appendMessage(
-    agentName: string,
-    sessionId: string,
-    message: Omit<SessionMessage, 'timestamp'>,
-  ): Promise<void> {
+  async appendMessage(agentName: string, sessionId: string, message: Omit<SessionMessage, 'timestamp'>): Promise<void> {
     const msg: SessionMessage = {
       ...message,
-      timestamp: new Date().toISOString(),
+      timestamp: new Date().toISOString()
     }
 
     await appendFile(this.messagesPath(agentName, sessionId), JSON.stringify(msg) + '\n')
@@ -126,5 +123,19 @@ export class SessionStore {
     }
 
     return sessions.sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+  }
+
+  async delete(agentName: string, sessionId: string): Promise<void> {
+    const dir = this.sessionDir(agentName, sessionId)
+    if (!existsSync(dir)) throw new Error(`Session not found: ${sessionId}`)
+    await rm(dir, { recursive: true })
+  }
+
+  async update(agentName: string, sessionId: string, updates: Partial<SessionMetadata>): Promise<SessionMetadata> {
+    const metadata = await this.get(agentName, sessionId)
+    if (!metadata) throw new Error(`Session not found: ${sessionId}`)
+    const updated = { ...metadata, ...updates }
+    await writeFile(this.sessionJsonPath(agentName, sessionId), JSON.stringify(updated, null, 2))
+    return updated
   }
 }

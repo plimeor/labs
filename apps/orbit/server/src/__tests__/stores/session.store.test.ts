@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
-import { rmSync, mkdirSync } from 'fs'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import { mkdirSync, rmSync } from 'fs'
 import { join } from 'path'
 
 const TEST_CONFIG_PATH = '/tmp/orbit-session-test'
@@ -45,11 +45,11 @@ describe('SessionStore', () => {
 
       await store.appendMessage(agentName, session.id, {
         role: 'user',
-        content: 'Hello',
+        content: 'Hello'
       })
       await store.appendMessage(agentName, session.id, {
         role: 'assistant',
-        content: 'Hi there!',
+        content: 'Hi there!'
       })
 
       const messages = await store.getMessages(agentName, session.id)
@@ -66,6 +66,30 @@ describe('SessionStore', () => {
 
       const sessions = await store.listByAgent(agentName)
       expect(sessions.length).toBe(2)
+    })
+  })
+
+  describe('delete', () => {
+    it('should delete a session directory', async () => {
+      const session = await store.create(agentName, {})
+      await store.delete(agentName, session.id)
+      const result = await store.get(agentName, session.id)
+      expect(result).toBeUndefined()
+    })
+
+    it('should throw when deleting non-existent session', async () => {
+      await expect(store.delete(agentName, 'nonexistent')).rejects.toThrow()
+    })
+  })
+
+  describe('update', () => {
+    it('should update session metadata fields', async () => {
+      const session = await store.create(agentName, {})
+      const updated = await store.update(agentName, session.id, { title: 'My Chat' })
+      expect(updated.title).toBe('My Chat')
+
+      const fetched = await store.get(agentName, session.id)
+      expect(fetched?.title).toBe('My Chat')
     })
   })
 })
