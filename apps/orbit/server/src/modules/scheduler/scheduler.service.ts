@@ -2,12 +2,14 @@ import { logger } from '@plimeor-labs/logger'
 import { CronExpressionParser } from 'cron-parser'
 
 import type { AgentPool } from '@/modules/agent'
+import type { SessionStore } from '@/stores/session.store'
 import type { TaskData, TaskStore } from '@/stores/task.store'
 
 const DEFAULT_POLL_INTERVAL = 30000
 
 export interface SchedulerDeps {
   taskStore: TaskStore
+  sessionStore: SessionStore
   agentPool: AgentPool
 }
 
@@ -76,18 +78,31 @@ export class SchedulerService {
     const startedAt = new Date()
 
     try {
-      const agent = await this.deps.agentPool.get(agentName)
+      // Create fresh session for this task execution
+      const session = await this.deps.sessionStore.create(agentName, {})
+
+      const agent = await this.deps.agentPool.get(agentName, session.id)
 
       let result = ''
       for await (const message of agent.chat(task.prompt, {
         sessionType: task.contextMode === 'main' ? 'chat' : 'cron',
-        sessionId: task.contextMode === 'main' ? undefined : `cron-${task.id}`
+        sessionId: session.id
       })) {
         if (message.type === 'result') {
           const resultMsg = message as unknown as { result?: string }
           result = resultMsg.result ?? ''
         }
       }
+
+      // Store messages in the session
+      await this.deps.sessionStore.appendMessage(agentName, session.id, {
+        role: 'user',
+        content: task.prompt
+      })
+      await this.deps.sessionStore.appendMessage(agentName, session.id, {
+        role: 'assistant',
+        content: result
+      })
 
       // Write run record
       await this.deps.taskStore.writeRun(agentName, {
@@ -134,7 +149,7 @@ export class SchedulerService {
       }
     } else if (task.scheduleType === 'interval') {
       const ms = parseInt(task.scheduleValue, 10)
-      if (isNaN(ms)) {
+      if (Number.isNaN(ms)) {
         logger.error(`Invalid interval for task ${task.id}`, { value: task.scheduleValue })
         return undefined
       }
