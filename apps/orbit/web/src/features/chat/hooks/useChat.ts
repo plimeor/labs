@@ -1,66 +1,56 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo } from 'react'
 
-import { type ChatMessage, sendMessage } from '../api/chat.api'
+import type { ChatMessage } from '@/lib/api'
+import type { ToolEvent } from '@/stores/session.store'
+import { useSessionStore } from '@/stores/session.store'
+import { useUIStore } from '@/stores/ui.store'
+
+const EMPTY_MESSAGES: ChatMessage[] = []
+const EMPTY_TOOL_EVENTS: ToolEvent[] = []
 
 export function useChat(agentName: string) {
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [sessionId, setSessionId] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const sessionId = useUIStore(s => s.activeSessionId)
+  const msgKey = sessionId || `pending-${agentName}`
+  const messages = useSessionStore(s => s.messages[msgKey] ?? EMPTY_MESSAGES)
+  const streaming = useSessionStore(s => s.streaming)
+  const isStreaming = useSessionStore(s => s.isStreaming)
+  const error = useSessionStore(s => s.error)
+  const toolEvents = useSessionStore(s => s.toolEvents[msgKey] ?? EMPTY_TOOL_EVENTS)
+  const sendMessage = useSessionStore(s => s.sendMessage)
+  const abortStream = useSessionStore(s => s.abortStream)
+  const clearError = useSessionStore(s => s.clearError)
 
   const send = useCallback(
     async (content: string) => {
       if (!content.trim()) return
-
-      setIsLoading(true)
-      setError(null)
-
-      // Add user message immediately
-      const userMessage: ChatMessage = {
-        role: 'user',
-        content,
-        timestamp: new Date().toISOString()
-      }
-      setMessages(prev => [...prev, userMessage])
-
-      try {
-        const response = await sendMessage(agentName, content, sessionId || undefined)
-
-        // Update session ID
-        if (!sessionId) {
-          setSessionId(response.sessionId)
-        }
-
-        // Add assistant message
-        const assistantMessage: ChatMessage = {
-          role: 'assistant',
-          content: response.response,
-          timestamp: new Date().toISOString()
-        }
-        setMessages(prev => [...prev, assistantMessage])
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to send message')
-        // Remove the user message on error
-        setMessages(prev => prev.slice(0, -1))
-      } finally {
-        setIsLoading(false)
+      const resolvedSessionId = await sendMessage(agentName, sessionId, content)
+      if (resolvedSessionId && resolvedSessionId !== sessionId) {
+        useUIStore.getState().setActiveSession(resolvedSessionId)
       }
     },
-    [agentName, sessionId]
+    [agentName, sessionId, sendMessage]
   )
 
-  const clearChat = useCallback(() => {
-    setMessages([])
-    setSessionId(null)
-    setError(null)
-  }, [])
+  const allMessages: ChatMessage[] = useMemo(() => {
+    if (!streaming) return messages
+    return [
+      ...messages,
+      {
+        role: 'assistant' as const,
+        content: streaming,
+        timestamp: new Date().toISOString()
+      }
+    ]
+  }, [messages, streaming])
 
   return {
-    messages,
-    sessionId,
-    isLoading,
+    messages: allMessages,
+    streaming,
+    isStreaming,
+    toolEvents,
     error,
     send,
-    clearChat
+    abort: abortStream,
+    clearError
   }
 }

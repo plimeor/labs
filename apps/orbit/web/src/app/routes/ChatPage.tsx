@@ -1,36 +1,36 @@
-import { Bot, Settings } from 'lucide-react'
+import { useEffect, useRef } from 'react'
 import { useParams } from 'react-router'
 
-import { ChatWindow } from '../../features/chat'
+import { ChatWindow } from '@/features/chat'
+import { useSessionStore } from '@/stores/session.store'
+import { useUIStore } from '@/stores/ui.store'
 
 const DEFAULT_AGENT = 'main'
 
 export function ChatPage() {
-  const { agentName } = useParams<{ agentName: string }>()
+  const { agentName, sessionId } = useParams<{
+    agentName?: string
+    sessionId?: string
+  }>()
   const agent = agentName || DEFAULT_AGENT
 
-  return (
-    <div className="flex h-screen flex-col bg-gray-100">
-      {/* Header */}
-      <header className="flex items-center justify-between border-b bg-white px-4 py-3 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-700">
-            <Bot className="h-6 w-6 text-white" />
-          </div>
-          <div>
-            <h1 className="font-semibold text-gray-900">{agent}</h1>
-            <p className="text-gray-500 text-xs">Personal AI Assistant</p>
-          </div>
-        </div>
-        <button className="rounded-lg p-2 text-gray-500 hover:bg-gray-100">
-          <Settings className="h-5 w-5" />
-        </button>
-      </header>
+  const prevAgent = useRef<string | null>(null)
+  const prevSession = useRef<string | null>(null)
 
-      {/* Chat */}
-      <main className="flex-1 overflow-hidden">
-        <ChatWindow agentName={agent} />
-      </main>
-    </div>
-  )
+  useEffect(() => {
+    if (prevAgent.current !== agent) {
+      prevAgent.current = agent
+      useUIStore.setState({ view: 'chat', activeAgent: agent })
+    }
+  }, [agent])
+
+  useEffect(() => {
+    if (sessionId && prevSession.current !== sessionId) {
+      prevSession.current = sessionId
+      useUIStore.setState({ activeSessionId: sessionId })
+      useSessionStore.getState().fetchMessages(agent, sessionId)
+    }
+  }, [sessionId, agent])
+
+  return <ChatWindow agentName={agent} />
 }
