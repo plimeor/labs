@@ -30,5 +30,10 @@
     "*.{js,jsx,ts,tsx,mjs,cjs,json,md,css}": [
       "biome check --write --no-errors-on-unmatched"
     ]
+  },
+  "dependencies": {
+    "@radix-ui/react-alert-dialog": "^1.1.15",
+    "@radix-ui/react-label": "^2.1.8",
+    "@radix-ui/react-select": "^2.2.6"
   }
 }
