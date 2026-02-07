@@ -1,3 +1,4 @@
+import { ActionIcon, Badge, Group, Textarea } from '@mantine/core'
 import { motion } from 'framer-motion'
 import { Send } from 'lucide-react'
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react'
@@ -13,13 +14,10 @@ export function ChatInput({ onSend, disabled = false, placeholder = 'Type a mess
   const [input, setInput] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: input triggers resize recalculation
+  // Focus the textarea on mount
   useEffect(() => {
-    const el = textareaRef.current
-    if (!el) return
-    el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, 200)}px`
-  }, [input])
+    textareaRef.current?.focus()
+  }, [])
 
   const handleSend = useCallback(() => {
     if (input.trim() && !disabled) {
@@ -41,38 +39,47 @@ export function ChatInput({ onSend, disabled = false, placeholder = 'Type a mess
   const hasInput = input.trim().length > 0
 
   return (
-    <div className="px-4 pt-2 pb-4">
-      <div className="mx-auto max-w-3xl rounded-2xl bg-surface-elevated p-3 shadow-[var(--shadow-middle)]">
-        <textarea
+    <div className="px-6 pt-3 pb-4">
+      <div className="mx-auto max-w-3xl rounded-2xl border border-border-subtle/50 bg-surface-elevated p-3 shadow-[var(--shadow-minimal)] transition-shadow focus-within:border-accent/30 focus-within:shadow-[var(--shadow-tinted)]">
+        <Textarea
           ref={textareaRef}
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           disabled={disabled}
-          rows={1}
-          className="w-full resize-none bg-transparent px-1 py-1 text-[14px] text-text-primary placeholder:text-text-tertiary focus:outline-none disabled:opacity-50"
-          style={{ minHeight: '36px', maxHeight: '200px' }}
+          autosize
+          minRows={1}
+          maxRows={6}
+          variant="unstyled"
+          size="sm"
+          styles={{
+            input: {
+              padding: '4px'
+            }
+          }}
         />
-        <div className="mt-1 flex items-center justify-between">
+        <Group mt={4} justify="space-between">
           <div>
             {agentName && (
-              <span className="rounded-lg bg-accent-light px-2 py-0.5 font-medium text-[12px] text-accent">
+              <Badge size="sm" variant="light" radius="md">
                 {agentName}
-              </span>
+              </Badge>
             )}
           </div>
-          <motion.button
-            onClick={handleSend}
-            disabled={disabled || !hasInput}
-            whileTap={{ scale: 0.95 }}
-            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors disabled:cursor-not-allowed ${
-              hasInput ? 'bg-accent text-white hover:bg-accent-hover' : 'bg-surface-secondary text-text-tertiary'
-            }`}
-          >
-            <Send className="h-4 w-4" />
-          </motion.button>
-        </div>
+          <motion.div whileTap={{ scale: 0.95 }}>
+            <ActionIcon
+              variant={hasInput ? 'filled' : 'default'}
+              size="lg"
+              radius="xl"
+              onClick={handleSend}
+              disabled={disabled || !hasInput}
+              aria-label="Send message"
+            >
+              <Send className="h-4 w-4" />
+            </ActionIcon>
+          </motion.div>
+        </Group>
       </div>
     </div>
   )

@@ -5,41 +5,46 @@ import ReactMarkdown from 'react-markdown'
 import rehypeRaw from 'rehype-raw'
 import remarkGfm from 'remark-gfm'
 
-// Singleton highlighter + LRU cache
+import { useTheme } from '@/shared/theme/ThemeProvider'
+
+// Singleton highlighters + LRU cache
 let highlighterPromise: Promise<unknown> | null = null
 const highlightCache = new Map<string, string>()
 const MAX_CACHE = 50
 
-async function highlightCode(code: string, lang: string): Promise<string> {
-  const key = `${lang}:${code.slice(0, 100)}`
-  const cached = highlightCache.get(key)
-  if (cached) return cached
-
+async function getHighlighter() {
   if (!highlighterPromise) {
     highlighterPromise = import('shiki').then(({ createHighlighter }) =>
-      createHighlighter({ themes: ['github-light'], langs: [lang] })
+      createHighlighter({
+        themes: ['github-light', 'github-dark'],
+        langs: ['typescript', 'javascript', 'json', 'bash', 'css', 'html', 'tsx', 'jsx', 'markdown', 'python', 'yaml']
+      })
     )
   }
-
-  const highlighter = (await highlighterPromise) as {
+  return highlighterPromise as Promise<{
     getLoadedLanguages: () => string[]
     loadLanguage: (lang: string) => Promise<void>
     codeToHtml: (code: string, opts: { lang: string; theme: string }) => string
-  }
+  }>
+}
 
-  // Load language if not already loaded
+async function highlightCode(code: string, lang: string, theme: string): Promise<string> {
+  const key = `${theme}:${lang}:${code.slice(0, 100)}`
+  const cached = highlightCache.get(key)
+  if (cached) return cached
+
+  const highlighter = await getHighlighter()
+
   if (!highlighter.getLoadedLanguages().includes(lang)) {
     try {
       await highlighter.loadLanguage(lang)
     } catch {
-      // Language not supported, fall back to plaintext
       return ''
     }
   }
 
-  const html = highlighter.codeToHtml(code, { lang, theme: 'github-light' })
+  const html = highlighter.codeToHtml(code, { lang, theme })
 
-  // LRU eviction
   if (highlightCache.size >= MAX_CACHE) {
     const firstKey = highlightCache.keys().next().value
     if (firstKey !== undefined) highlightCache.delete(firstKey)
@@ -50,20 +55,22 @@ async function highlightCode(code: string, lang: string): Promise<string> {
 }
 
 function CodeBlock({ code, lang }: { code: string; lang: string }) {
+  const { resolvedTheme } = useTheme()
   const [html, setHtml] = useState('')
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     let cancelled = false
+    const shikiTheme = resolvedTheme === 'dark' ? 'github-dark' : 'github-light'
     if (lang) {
-      highlightCode(code, lang).then(result => {
+      highlightCode(code, lang, shikiTheme).then(result => {
         if (!cancelled) setHtml(result)
       })
     }
     return () => {
       cancelled = true
     }
-  }, [code, lang])
+  }, [code, lang, resolvedTheme])
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(code)
@@ -72,7 +79,7 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
   }, [code])
 
   return (
-    <div className="group relative my-3">
+    <div className="group relative -mx-4 my-3">
       <div className="flex items-center justify-between rounded-t-xl bg-surface-secondary px-4 py-2 text-[12px] text-text-tertiary">
         <span>{lang || 'text'}</span>
         <button
@@ -99,7 +106,6 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
 
 const components: Components = {
   pre({ children }) {
-    // Extract code element from pre
     const child = children as React.ReactElement<{
       className?: string
       children?: string
@@ -113,7 +119,6 @@ const components: Components = {
     return <pre>{children}</pre>
   },
   code({ children, className }) {
-    // Inline code only (block code is handled by pre)
     if (className) return <code className={className}>{children}</code>
     return <code className="rounded bg-surface-secondary px-1.5 py-0.5 font-mono text-[13px]">{children}</code>
   },

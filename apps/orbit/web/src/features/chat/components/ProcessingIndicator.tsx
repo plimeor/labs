@@ -1,5 +1,6 @@
+import { Group, Text } from '@mantine/core'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Loader2 } from 'lucide-react'
+import { Bot } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 const STATUS_MESSAGES = ['Thinking...', 'Processing...', 'Analyzing...', 'Reasoning...', 'Working on it...']
@@ -30,21 +31,51 @@ export function ProcessingIndicator() {
   }, [])
 
   return (
-    <div className="flex items-center gap-3 px-4 py-3">
-      <Loader2 className="h-4 w-4 animate-spin text-accent" />
-      <AnimatePresence mode="wait">
-        <motion.span
-          key={messageIndex}
-          initial={{ opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -4 }}
-          transition={{ duration: 0.2 }}
-          className="text-sm text-text-secondary"
-        >
-          {STATUS_MESSAGES[messageIndex]}
-        </motion.span>
-      </AnimatePresence>
-      <span className="text-[12px] text-text-tertiary">&middot; {formatElapsed(elapsed)}</span>
-    </div>
+    <motion.div
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2 }}
+      className="flex items-start gap-2.5 self-start"
+    >
+      {/* Avatar — matches assistant message */}
+      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border-subtle bg-surface-secondary">
+        <Bot className="h-3.5 w-3.5 text-text-secondary" />
+      </div>
+
+      <div className="rounded-2xl rounded-tl-md border border-border-subtle bg-surface-elevated px-4 py-2.5 shadow-[var(--shadow-soft)]">
+        <Group gap="sm">
+          {/* Animated dots */}
+          <div className="flex items-center gap-1">
+            <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-accent" style={{ animationDelay: '0ms' }} />
+            <span
+              className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-accent"
+              style={{ animationDelay: '300ms' }}
+            />
+            <span
+              className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-accent"
+              style={{ animationDelay: '600ms' }}
+            />
+          </div>
+
+          <AnimatePresence mode="wait">
+            <motion.span
+              key={messageIndex}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Text size="sm" c="dimmed">
+                {STATUS_MESSAGES[messageIndex]}
+              </Text>
+            </motion.span>
+          </AnimatePresence>
+
+          <Text size="xs" c="dimmed">
+            &middot; {formatElapsed(elapsed)}
+          </Text>
+        </Group>
+      </div>
+    </motion.div>
   )
 }

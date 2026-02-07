@@ -1,5 +1,6 @@
 export { ChatInput } from './ChatInput'
 export { ChatMessage } from './ChatMessage'
 export { ChatWindow } from './ChatWindow'
+export { FullscreenOverlay } from './FullscreenOverlay'
 export { ProcessingIndicator } from './ProcessingIndicator'
 export { TurnCard } from './TurnCard'
