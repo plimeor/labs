@@ -1,5 +1,5 @@
 import { logger } from '@plimeor-labs/logger'
-import { Elysia, t } from 'elysia'
+import { Elysia, sse, t } from 'elysia'
 
 import type { AgentPool } from '@/modules/agent'
 import type { AgentStore } from '@/stores/agent.store'
@@ -19,7 +19,7 @@ export function createChatController(deps: {
       // SSE streaming chat endpoint
       .post(
         '/',
-        async ({ body, set }) => {
+        async function* ({ body, set }) {
           const { agentName, message, sessionId, model } = body
 
           logger.info('Chat request received', { agentName, sessionId })
@@ -33,7 +33,7 @@ export function createChatController(deps: {
             session = await sessionStore.get(agentName, sessionId)
             if (!session) {
               set.status = 404
-              return { error: `Session not found: ${sessionId}` }
+              return
             }
           } else {
             session = await sessionStore.create(agentName, {})
@@ -42,59 +42,42 @@ export function createChatController(deps: {
           // Get agent instance for this session
           const agent = await agentPool.get(agentName, session.id)
 
-          // Create readable stream for SSE
-          const stream = new ReadableStream({
-            async start(controller) {
-              const encoder = new TextEncoder()
+          try {
+            yield sse({ data: { type: 'system', session_id: session.id } })
 
-              function sendEvent(type: string, data: unknown) {
-                const payload = JSON.stringify({ type, ...(data as Record<string, unknown>) })
-                controller.enqueue(encoder.encode(`data: ${payload}\n\n`))
-              }
+            // Stream agent responses
+            let resultText = ''
+            for await (const msg of agent.chat(message, {
+              sessionType: 'chat',
+              sessionId: session.id,
+              model
+            })) {
+              yield sse({ data: { type: msg.type, ...(msg as Record<string, unknown>) } })
 
-              try {
-                sendEvent('system', { session_id: session.id })
-
-                // Stream agent responses
-                let resultText = ''
-                for await (const msg of agent.chat(message, {
-                  sessionType: 'chat',
-                  sessionId: session.id,
-                  model
-                })) {
-                  sendEvent(msg.type, msg)
-
-                  if (msg.type === 'result') {
-                    const resultMsg = msg as unknown as { result?: string }
-                    resultText = resultMsg.result ?? ''
-                  }
-                }
-
-                // Store messages
-                await sessionStore.appendMessage(agentName, session.id, {
-                  role: 'user',
-                  content: message
-                })
-                await sessionStore.appendMessage(agentName, session.id, {
-                  role: 'assistant',
-                  content: resultText
-                })
-              } catch (error) {
-                logger.error('Chat stream error', { error, agentName })
-                sendEvent('error', {
-                  message: error instanceof Error ? error.message : 'Unknown error'
-                })
-              } finally {
-                controller.close()
+              if (msg.type === 'result') {
+                const resultMsg = msg as unknown as { result?: string }
+                resultText = resultMsg.result ?? ''
               }
             }
-          })
 
-          set.headers['Content-Type'] = 'text/event-stream'
-          set.headers['Cache-Control'] = 'no-cache'
-          set.headers['Connection'] = 'keep-alive'
-
-          return stream
+            // Store messages
+            await sessionStore.appendMessage(agentName, session.id, {
+              role: 'user',
+              content: message
+            })
+            await sessionStore.appendMessage(agentName, session.id, {
+              role: 'assistant',
+              content: resultText
+            })
+          } catch (error) {
+            logger.error('Chat stream error', { error, agentName })
+            yield sse({
+              data: {
+                type: 'error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+              }
+            })
+          }
         },
         {
           body: t.Object({

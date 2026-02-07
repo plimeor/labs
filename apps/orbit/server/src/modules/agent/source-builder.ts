@@ -1,6 +1,6 @@
-import { existsSync } from 'fs'
-import { readdir, readFile } from 'fs/promises'
-import { join } from 'path'
+import { existsSync } from 'node:fs'
+import { readdir, readFile } from 'node:fs/promises'
+import { join } from 'node:path'
 
 interface StdioSourceConfig {
   type: 'mcp'

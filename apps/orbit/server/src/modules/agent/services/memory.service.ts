@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { format } from 'date-fns'
 
 import { type SessionType } from './context.service'
-import { getAgentWorkspacePath } from './workspace.service'
+import { getAgentWorkspacePath, WorkspaceFile } from './workspace.service'
 
 export interface MemoryEntry {
   sessionType: SessionType
@@ -56,7 +56,7 @@ export async function readDailyMemory(agentName: string, date: Date): Promise<st
 
 export async function readLongTermMemory(agentName: string): Promise<string | undefined> {
   const workspacePath = getAgentWorkspacePath(agentName)
-  const filePath = join(workspacePath, 'MEMORY.md')
+  const filePath = join(workspacePath, WorkspaceFile.MEMORY)
 
   if (!existsSync(filePath)) {
     return undefined
@@ -67,14 +67,14 @@ export async function readLongTermMemory(agentName: string): Promise<string | un
 
 export async function updateLongTermMemory(agentName: string, content: string): Promise<void> {
   const workspacePath = getAgentWorkspacePath(agentName)
-  const filePath = join(workspacePath, 'MEMORY.md')
+  const filePath = join(workspacePath, WorkspaceFile.MEMORY)
 
   await writeFile(filePath, content)
 }
 
 export async function appendLongTermMemory(agentName: string, entry: string): Promise<void> {
   const workspacePath = getAgentWorkspacePath(agentName)
-  const filePath = join(workspacePath, 'MEMORY.md')
+  const filePath = join(workspacePath, WorkspaceFile.MEMORY)
 
   const timestamp = format(new Date(), 'yyyy-MM-dd HH:mm')
   const entryText = `\n## ${timestamp}\n\n${entry}\n`

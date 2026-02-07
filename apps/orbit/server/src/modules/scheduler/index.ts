@@ -1,1 +1,1 @@
-export { SchedulerService, createSchedulerService, type SchedulerDeps } from './scheduler.service'
+export { createSchedulerService, type SchedulerDeps, SchedulerService } from './scheduler.service'

@@ -4,7 +4,7 @@ import { join } from 'node:path'
 
 import { format, subDays } from 'date-fns'
 
-import { getAgentWorkspacePath } from './workspace.service'
+import { getAgentWorkspacePath, WorkspaceFile } from './workspace.service'
 
 const MAX_FILE_LENGTH = 50_000
 
@@ -47,13 +47,13 @@ export async function composeSystemPrompt(
 
   // Load core personality files
   const [agents, soul, identity, user, tools, heartbeat, bootstrap] = await Promise.all([
-    readFileWithTruncation(join(workspacePath, 'AGENTS.md')),
-    readFileWithTruncation(join(workspacePath, 'SOUL.md')),
-    readFileWithTruncation(join(workspacePath, 'IDENTITY.md')),
-    readFileWithTruncation(join(workspacePath, 'USER.md')),
-    readFileWithTruncation(join(workspacePath, 'TOOLS.md')),
-    readFileWithTruncation(join(workspacePath, 'HEARTBEAT.md')),
-    readFileWithTruncation(join(workspacePath, 'BOOTSTRAP.md'))
+    readFileWithTruncation(join(workspacePath, WorkspaceFile.AGENTS)),
+    readFileWithTruncation(join(workspacePath, WorkspaceFile.SOUL)),
+    readFileWithTruncation(join(workspacePath, WorkspaceFile.IDENTITY)),
+    readFileWithTruncation(join(workspacePath, WorkspaceFile.USER)),
+    readFileWithTruncation(join(workspacePath, WorkspaceFile.TOOLS)),
+    readFileWithTruncation(join(workspacePath, WorkspaceFile.HEARTBEAT)),
+    readFileWithTruncation(join(workspacePath, WorkspaceFile.BOOTSTRAP))
   ])
 
   // Load recent memory
@@ -63,7 +63,7 @@ export async function composeSystemPrompt(
   const [memoryToday, memoryYesterday, longTerm] = await Promise.all([
     readFileWithTruncation(join(workspacePath, 'memory', `${today}.md`)),
     readFileWithTruncation(join(workspacePath, 'memory', `${yesterday}.md`)),
-    readFileWithTruncation(join(workspacePath, 'MEMORY.md'))
+    readFileWithTruncation(join(workspacePath, WorkspaceFile.MEMORY))
   ])
 
   // Build system prompt
