@@ -1,7 +1,7 @@
 import { logger } from '@plimeor-labs/logger'
 import { Elysia, t } from 'elysia'
 
-import type { AgentPool } from '@/agent/agent-pool'
+import type { AgentPool } from '@/modules/agent'
 import type { AgentStore } from '@/stores/agent.store'
 import type { SessionStore } from '@/stores/session.store'
 
@@ -49,7 +49,7 @@ export function createChatController(deps: {
                 for await (const msg of agent.chat(message, {
                   sessionType: 'chat',
                   sessionId,
-                  model,
+                  model
                 })) {
                   sendEvent(msg.type, msg)
 
@@ -62,21 +62,21 @@ export function createChatController(deps: {
                 // Store messages
                 await sessionStore.appendMessage(agentName, session.id, {
                   role: 'user',
-                  content: message,
+                  content: message
                 })
                 await sessionStore.appendMessage(agentName, session.id, {
                   role: 'assistant',
-                  content: resultText,
+                  content: resultText
                 })
               } catch (error) {
                 logger.error('Chat stream error', { error, agentName })
                 sendEvent('error', {
-                  message: error instanceof Error ? error.message : 'Unknown error',
+                  message: error instanceof Error ? error.message : 'Unknown error'
                 })
               } finally {
                 controller.close()
               }
-            },
+            }
           })
 
           set.headers['Content-Type'] = 'text/event-stream'
@@ -90,9 +90,9 @@ export function createChatController(deps: {
             agentName: t.String(),
             message: t.String(),
             sessionId: t.Optional(t.String()),
-            model: t.Optional(t.String()),
-          }),
-        },
+            model: t.Optional(t.String())
+          })
+        }
       )
 
       // Legacy non-streaming endpoint (backward compatibility)
@@ -108,7 +108,7 @@ export function createChatController(deps: {
           for await (const msg of agent.chat(message, {
             sessionType: 'chat',
             sessionId,
-            model,
+            model
           })) {
             if (msg.type === 'result') {
               const resultMsg = msg as unknown as { result?: string }
@@ -119,11 +119,11 @@ export function createChatController(deps: {
           const session = await sessionStore.create(agentName, {})
           await sessionStore.appendMessage(agentName, session.id, {
             role: 'user',
-            content: message,
+            content: message
           })
           await sessionStore.appendMessage(agentName, session.id, {
             role: 'assistant',
-            content: result,
+            content: result
           })
 
           return { response: result, sessionId: session.id }
@@ -133,9 +133,9 @@ export function createChatController(deps: {
             agentName: t.String(),
             message: t.String(),
             sessionId: t.Optional(t.String()),
-            model: t.Optional(t.String()),
-          }),
-        },
+            model: t.Optional(t.String())
+          })
+        }
       )
 
       // Get chat history
@@ -151,21 +151,21 @@ export function createChatController(deps: {
                 session: {
                   id: session.id,
                   createdAt: session.createdAt,
-                  messageCount: session.messageCount,
+                  messageCount: session.messageCount
                 },
                 messages: msgs.map(m => ({
                   role: m.role,
                   content: m.content,
-                  timestamp: m.timestamp,
-                })),
+                  timestamp: m.timestamp
+                }))
               }
             }
           }
           return { messages: [] }
         },
         {
-          params: t.Object({ sessionId: t.String() }),
-        },
+          params: t.Object({ sessionId: t.String() })
+        }
       )
   )
 }
@@ -187,9 +187,9 @@ export function createAgentsController(deps: { agentStore: AgentStore }) {
       {
         body: t.Object({
           name: t.String(),
-          description: t.Optional(t.String()),
-        }),
-      },
+          description: t.Optional(t.String())
+        })
+      }
     )
     .get(
       '/:name',
@@ -199,8 +199,8 @@ export function createAgentsController(deps: { agentStore: AgentStore }) {
         return { agent }
       },
       {
-        params: t.Object({ name: t.String() }),
-      },
+        params: t.Object({ name: t.String() })
+      }
     )
     .delete(
       '/:name',
@@ -209,7 +209,7 @@ export function createAgentsController(deps: { agentStore: AgentStore }) {
         return { success: true }
       },
       {
-        params: t.Object({ name: t.String() }),
-      },
+        params: t.Object({ name: t.String() })
+      }
     )
 }

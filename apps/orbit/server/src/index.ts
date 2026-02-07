@@ -2,7 +2,7 @@ import { logger } from '@plimeor-labs/logger'
 
 import { app } from './app.js'
 import { env } from './core/env.js'
-import { checkQmdAvailability } from './modules/agents/services/qmd.service.js'
+import { checkQmdAvailability } from './modules/agent/services/qmd.service.js'
 
 await logger.setup({ name: 'orbit', level: 'debug' })
 

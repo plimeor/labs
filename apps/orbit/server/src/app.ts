@@ -2,9 +2,8 @@ import { API_ROUTES } from '@orbit/shared/constants'
 import { logger } from '@plimeor-labs/logger'
 import { Elysia } from 'elysia'
 
-import { AgentPool } from '@/agent/agent-pool'
-import { ensureOrbitDirs, getOrbitBasePath } from '@/modules/agents/services/workspace.service'
-import { createChatController, createAgentsController } from '@/modules/chat'
+import { AgentPool, ensureOrbitDirs, getOrbitBasePath } from '@/modules/agent'
+import { createAgentsController, createChatController } from '@/modules/chat'
 import { corsPlugin } from '@/modules/plugins/cors'
 import { swaggerPlugin } from '@/modules/plugins/swagger'
 import { createSchedulerService } from '@/modules/scheduler'
@@ -26,7 +25,7 @@ const agentPool = new AgentPool({
   agentStore,
   taskStore,
   inboxStore,
-  sessionStore,
+  sessionStore
 })
 
 // Initialize scheduler

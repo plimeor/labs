@@ -1,8 +1,8 @@
 import { logger } from '@plimeor-labs/logger'
 import { CronExpressionParser } from 'cron-parser'
 
-import type { AgentPool } from '@/agent/agent-pool'
-import type { TaskStore, TaskData } from '@/stores/task.store'
+import type { AgentPool } from '@/modules/agent'
+import type { TaskData, TaskStore } from '@/stores/task.store'
 
 const DEFAULT_POLL_INTERVAL = 30000
 
@@ -81,7 +81,7 @@ export class SchedulerService {
       let result = ''
       for await (const message of agent.chat(task.prompt, {
         sessionType: task.contextMode === 'main' ? 'chat' : 'cron',
-        sessionId: task.contextMode === 'main' ? undefined : `cron-${task.id}`,
+        sessionId: task.contextMode === 'main' ? undefined : `cron-${task.id}`
       })) {
         if (message.type === 'result') {
           const resultMsg = message as unknown as { result?: string }
@@ -96,7 +96,7 @@ export class SchedulerService {
         result,
         startedAt: startedAt.toISOString(),
         completedAt: new Date().toISOString(),
-        durationMs: Date.now() - startedAt.getTime(),
+        durationMs: Date.now() - startedAt.getTime()
       })
 
       // Calculate next run
@@ -105,7 +105,7 @@ export class SchedulerService {
       await this.deps.taskStore.update(agentName, task.id, {
         lastRun: new Date().toISOString(),
         nextRun,
-        status: nextRun ? 'active' : 'completed',
+        status: nextRun ? 'active' : 'completed'
       })
 
       logger.info(`Task ${task.id} completed`, { nextRun: nextRun ?? 'none' })
@@ -118,7 +118,7 @@ export class SchedulerService {
         error: error instanceof Error ? error.message : String(error),
         startedAt: startedAt.toISOString(),
         completedAt: new Date().toISOString(),
-        durationMs: Date.now() - startedAt.getTime(),
+        durationMs: Date.now() - startedAt.getTime()
       })
     }
   }
@@ -144,9 +144,6 @@ export class SchedulerService {
   }
 }
 
-export function createSchedulerService(
-  deps: SchedulerDeps,
-  pollInterval?: number,
-): SchedulerService {
+export function createSchedulerService(deps: SchedulerDeps, pollInterval?: number): SchedulerService {
   return new SchedulerService(deps, pollInterval)
 }
