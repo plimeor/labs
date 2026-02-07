@@ -2,32 +2,16 @@ import { existsSync } from 'fs'
 import { appendFile, mkdir, readdir, readFile, rm, writeFile } from 'fs/promises'
 import { join } from 'path'
 
-export interface SessionMetadata {
-  id: string
+import type { MessageRole, SessionMessage, SessionMetadata } from '@orbit/shared/types'
+import { generateId } from '@orbit/shared/utils'
+
+export type { SessionMessage, SessionMetadata } from '@orbit/shared/types'
+
+export interface CreateSessionParams {
   title?: string
   sdkSessionId?: string
   model?: string
   permissionMode?: string
-  createdAt: string
-  lastMessageAt: string | null
-  messageCount: number
-}
-
-export interface SessionMessage {
-  // FIXME 改成 enum 枚举
-  role: 'user' | 'assistant'
-  content: string
-  timestamp: string
-}
-
-export interface CreateSessionParams {
-  sdkSessionId?: string
-  model?: string
-  permissionMode?: string
-}
-
-function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
 export class SessionStore {
@@ -60,6 +44,7 @@ export class SessionStore {
 
     const metadata: SessionMetadata = {
       id,
+      title: params.title,
       sdkSessionId: params.sdkSessionId,
       model: params.model,
       permissionMode: params.permissionMode,
@@ -80,7 +65,11 @@ export class SessionStore {
     return JSON.parse(content) as SessionMetadata
   }
 
-  async appendMessage(agentName: string, sessionId: string, message: Omit<SessionMessage, 'timestamp'>): Promise<void> {
+  async appendMessage(
+    agentName: string,
+    sessionId: string,
+    message: { role: MessageRole; content: string }
+  ): Promise<void> {
     const msg: SessionMessage = {
       ...message,
       timestamp: new Date().toISOString()
@@ -94,6 +83,16 @@ export class SessionStore {
       metadata.lastMessageAt = msg.timestamp
       await writeFile(this.sessionJsonPath(agentName, sessionId), JSON.stringify(metadata, null, 2))
     }
+  }
+
+  async appendConversation(
+    agentName: string,
+    sessionId: string,
+    userContent: string,
+    assistantContent: string
+  ): Promise<void> {
+    await this.appendMessage(agentName, sessionId, { role: 'user', content: userContent })
+    await this.appendMessage(agentName, sessionId, { role: 'assistant', content: assistantContent })
   }
 
   async getMessages(agentName: string, sessionId: string): Promise<SessionMessage[]> {

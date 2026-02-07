@@ -1,9 +1,10 @@
 import { logger } from '@plimeor-labs/logger'
-import { CronExpressionParser } from 'cron-parser'
 
 import type { AgentPool } from '@/modules/agent'
 import type { SessionStore } from '@/stores/session.store'
 import type { TaskData, TaskStore } from '@/stores/task.store'
+import { calculateNextRun } from '@/utils/schedule'
+import { extractResultText } from '@/utils/sdk'
 
 const DEFAULT_POLL_INTERVAL = 30000
 
@@ -88,21 +89,12 @@ export class SchedulerService {
         sessionType: task.contextMode === 'main' ? 'chat' : 'cron',
         sessionId: session.id
       })) {
-        if (message.type === 'result') {
-          const resultMsg = message as unknown as { result?: string }
-          result = resultMsg.result ?? ''
-        }
+        const text = extractResultText(message)
+        if (text !== undefined) result = text
       }
 
       // Store messages in the session
-      await this.deps.sessionStore.appendMessage(agentName, session.id, {
-        role: 'user',
-        content: task.prompt
-      })
-      await this.deps.sessionStore.appendMessage(agentName, session.id, {
-        role: 'assistant',
-        content: result
-      })
+      await this.deps.sessionStore.appendConversation(agentName, session.id, task.prompt, result)
 
       // Write run record
       await this.deps.taskStore.writeRun(agentName, {
@@ -114,8 +106,8 @@ export class SchedulerService {
         durationMs: Date.now() - startedAt.getTime()
       })
 
-      // Calculate next run
-      const nextRun = this.calculateNextRun(task)
+      // Calculate next run using shared utility
+      const nextRun = calculateNextRun(task.scheduleType, task.scheduleValue)
 
       await this.deps.taskStore.update(agentName, task.id, {
         lastRun: new Date().toISOString(),
@@ -136,26 +128,6 @@ export class SchedulerService {
         durationMs: Date.now() - startedAt.getTime()
       })
     }
-  }
-
-  private calculateNextRun(task: TaskData): string | undefined {
-    if (task.scheduleType === 'cron') {
-      try {
-        const interval = CronExpressionParser.parse(task.scheduleValue)
-        return interval.next().toDate().toISOString()
-      } catch {
-        logger.error(`Invalid cron expression for task ${task.id}`, { value: task.scheduleValue })
-        return undefined
-      }
-    } else if (task.scheduleType === 'interval') {
-      const ms = parseInt(task.scheduleValue, 10)
-      if (Number.isNaN(ms)) {
-        logger.error(`Invalid interval for task ${task.id}`, { value: task.scheduleValue })
-        return undefined
-      }
-      return new Date(Date.now() + ms).toISOString()
-    }
-    return undefined
   }
 }
 

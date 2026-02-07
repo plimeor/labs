@@ -1,52 +1,20 @@
 // API client for Orbit server
 // Uses Vite proxy: /api -> localhost:3001
 
-export interface Agent {
-  name: string
-  status: string
-  createdAt: string
-  lastActiveAt: string | null
-}
+import type {
+  AgentMetadata,
+  SessionMessage,
+  SessionMetadata,
+  InboxMessage as SharedInboxMessage,
+  TaskData
+} from '@orbit/shared/types'
 
-export interface Session {
-  id: string
-  title?: string
-  sdkSessionId?: string
-  model?: string
-  createdAt: string
-  lastMessageAt: string
-  messageCount: number
-}
-
-export interface ChatMessage {
-  role: 'user' | 'assistant'
-  content: string
-  timestamp?: string
-}
-
-export interface InboxMessage {
-  id: string
-  fromAgent: string
-  toAgent: string
-  message: string
-  messageType: string
-  status: string
-  claimedBy?: string
-  createdAt: string
-}
-
-export interface Task {
-  id: string
-  agentName: string
-  name: string
-  prompt: string
-  scheduleType: 'cron' | 'interval' | 'once'
-  scheduleValue: string
-  contextMode: 'isolated' | 'main'
-  status: string
-  nextRun?: string
-  lastRun?: string
-}
+// Re-export shared types with frontend aliases for backward compatibility
+export type Agent = AgentMetadata
+export type Session = SessionMetadata
+export type ChatMessage = SessionMessage
+export type InboxMessage = SharedInboxMessage
+export type Task = TaskData
 
 // SSE streaming helper
 export async function streamChat(

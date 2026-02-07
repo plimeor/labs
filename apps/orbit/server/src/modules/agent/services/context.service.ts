@@ -33,7 +33,7 @@ async function readFileWithTruncation(filePath: string): Promise<string | undefi
 export type SessionType = 'chat' | 'heartbeat' | 'cron'
 
 export interface InboxMessage {
-  id: number
+  id: string
   fromAgent: string
   message: string
 }
