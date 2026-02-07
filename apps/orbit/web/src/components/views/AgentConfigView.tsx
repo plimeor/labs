@@ -1,3 +1,18 @@
+import {
+  ActionIcon,
+  Badge,
+  Button,
+  Divider,
+  Group,
+  Modal,
+  Paper,
+  Select,
+  Stack,
+  Text,
+  TextInput,
+  Title,
+  Tooltip
+} from '@mantine/core'
 import { ArrowLeft, Save, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
@@ -14,10 +29,11 @@ export function AgentConfigView() {
 
   const [agent, setAgent] = useState<Agent | null>(null)
   const [model, setModel] = useState('')
-  const [permissionMode, setPermissionMode] = useState('')
+  const [permissionMode, setPermissionMode] = useState('default')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   useEffect(() => {
     useUIStore.getState().setView('agent-config')
@@ -47,7 +63,7 @@ export function AgentConfigView() {
     try {
       const body: Record<string, string> = {}
       if (model) body.model = model
-      if (permissionMode) body.permissionMode = permissionMode
+      if (permissionMode && permissionMode !== 'default') body.permissionMode = permissionMode
       await api.agents.update(name, body)
       setMessage('Saved successfully')
       await fetchAgents()
@@ -60,7 +76,6 @@ export function AgentConfigView() {
 
   const handleDelete = async () => {
     if (!name) return
-    if (!window.confirm(`Delete agent "${name}"? This cannot be undone.`)) return
     try {
       await api.agents.delete(name)
       await fetchAgents()
@@ -71,93 +86,140 @@ export function AgentConfigView() {
   }
 
   if (loading) {
-    return <div className="flex h-full items-center justify-center text-text-secondary">Loading...</div>
+    return (
+      <div className="flex h-full items-center justify-center">
+        <Text size="sm" c="dimmed">
+          Loading...
+        </Text>
+      </div>
+    )
   }
 
   if (!agent) {
-    return <div className="flex h-full items-center justify-center text-text-secondary">Agent not found</div>
+    return (
+      <div className="flex h-full items-center justify-center">
+        <Text size="sm" c="dimmed">
+          Agent not found
+        </Text>
+      </div>
+    )
   }
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-6">
-      <button
-        onClick={() => navigate('/agents')}
-        className="mb-4 flex items-center gap-1 text-sm text-text-tertiary transition-colors hover:text-accent"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to agents
-      </button>
+      <Tooltip label="Return to agents list" position="bottom" offset={6} openDelay={200}>
+        <Button
+          variant="subtle"
+          size="compact-sm"
+          leftSection={<ArrowLeft className="h-4 w-4" />}
+          onClick={() => navigate('/agents')}
+          className="mb-4"
+        >
+          Back to agents
+        </Button>
+      </Tooltip>
 
-      <h1 className="mb-6 font-semibold text-text-primary text-xl">{agent.name}</h1>
+      <Title order={2} className="mb-6">
+        {agent.name}
+      </Title>
 
-      <div className="space-y-6">
-        <div>
-          <label className="mb-1 block font-medium text-sm text-text-secondary">Status</label>
-          <p className="text-sm text-text-secondary">{agent.status}</p>
-        </div>
+      <Stack gap="lg">
+        <Paper shadow="xs" p="md" radius="md">
+          <Stack gap="sm">
+            <Group gap="sm">
+              <Text size="sm" fw={500} c="dimmed">
+                Status
+              </Text>
+              <Badge variant="light" color={agent.status === 'active' ? 'green' : 'gray'} size="sm">
+                {agent.status}
+              </Badge>
+            </Group>
 
-        <div>
-          <label className="mb-1 block font-medium text-sm text-text-secondary">Created</label>
-          <p className="text-sm text-text-secondary">{new Date(agent.createdAt).toLocaleString()}</p>
-        </div>
+            <Group gap="sm">
+              <Text size="sm" fw={500} c="dimmed">
+                Created
+              </Text>
+              <Text size="sm">{new Date(agent.createdAt).toLocaleString()}</Text>
+            </Group>
 
-        <div>
-          <label className="mb-1 block font-medium text-sm text-text-secondary">Last Active</label>
-          <p className="text-sm text-text-secondary">
-            {agent.lastActiveAt ? new Date(agent.lastActiveAt).toLocaleString() : 'Never'}
-          </p>
-        </div>
+            <Group gap="sm">
+              <Text size="sm" fw={500} c="dimmed">
+                Last Active
+              </Text>
+              <Text size="sm">{agent.lastActiveAt ? new Date(agent.lastActiveAt).toLocaleString() : 'Never'}</Text>
+            </Group>
+          </Stack>
+        </Paper>
 
-        <hr className="border-border-subtle" />
+        <Divider />
 
-        <div>
-          <label className="mb-1 block font-medium text-sm text-text-secondary">Model</label>
-          <input
-            type="text"
-            value={model}
-            onChange={e => setModel(e.target.value)}
-            placeholder="e.g. claude-sonnet-4-20250514"
-            className="w-full rounded-lg border border-border-default bg-surface-elevated px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
-          />
-        </div>
+        <Paper shadow="xs" p="md" radius="md">
+          <Stack gap="md">
+            <TextInput
+              label="Model"
+              value={model}
+              onChange={e => setModel(e.target.value)}
+              placeholder="e.g. claude-sonnet-4-20250514"
+            />
 
-        <div>
-          <label className="mb-1 block font-medium text-sm text-text-secondary">Permission Mode</label>
-          <select
-            value={permissionMode}
-            onChange={e => setPermissionMode(e.target.value)}
-            className="w-full rounded-lg border border-border-default bg-surface-elevated px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
-          >
-            <option value="">Default</option>
-            <option value="auto">Auto</option>
-            <option value="manual">Manual</option>
-          </select>
-        </div>
+            <Select
+              label="Permission Mode"
+              value={permissionMode}
+              onChange={val => val && setPermissionMode(val)}
+              data={[
+                { value: 'default', label: 'Default' },
+                { value: 'auto', label: 'Auto' },
+                { value: 'manual', label: 'Manual' }
+              ]}
+            />
+          </Stack>
+        </Paper>
 
         {message && (
-          <p className={`text-sm ${message.includes('Failed') ? 'text-status-error' : 'text-status-success'}`}>
+          <Text size="sm" c={message.includes('Failed') ? 'red' : 'green'}>
             {message}
-          </p>
+          </Text>
         )}
 
-        <div className="flex items-center justify-between pt-2">
-          <button
-            onClick={handleDelete}
-            className="flex items-center gap-1 rounded-lg px-3 py-2 text-sm text-status-error transition-colors hover:bg-status-error/10"
+        <Group justify="space-between" pt="xs">
+          <Tooltip label="Permanently delete this agent" position="bottom" offset={6} openDelay={200}>
+            <Button
+              variant="subtle"
+              color="red"
+              leftSection={<Trash2 className="h-4 w-4" />}
+              onClick={() => setDeleteOpen(true)}
+            >
+              Delete Agent
+            </Button>
+          </Tooltip>
+
+          <Modal
+            opened={deleteOpen}
+            onClose={() => setDeleteOpen(false)}
+            title={`Delete agent ${name}?`}
+            centered
+            withCloseButton={false}
           >
-            <Trash2 className="h-4 w-4" />
-            Delete Agent
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex items-center gap-1 rounded-lg bg-accent px-4 py-2 font-medium text-sm text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
-          >
-            <Save className="h-4 w-4" />
-            {saving ? 'Saving...' : 'Save Changes'}
-          </button>
-        </div>
-      </div>
+            <Text size="sm" c="dimmed">
+              This action cannot be undone. This will permanently delete the agent and all its data.
+            </Text>
+            <Group justify="flex-end" mt="lg" gap="sm">
+              <Button variant="subtle" onClick={() => setDeleteOpen(false)}>
+                Cancel
+              </Button>
+              <Button color="red" onClick={handleDelete}>
+                Delete
+              </Button>
+            </Group>
+          </Modal>
+
+          <Tooltip label="Save configuration changes" position="bottom" offset={6} openDelay={200}>
+            <Button leftSection={<Save className="h-4 w-4" />} onClick={handleSave} disabled={saving} loading={saving}>
+              Save Changes
+            </Button>
+          </Tooltip>
+        </Group>
+      </Stack>
     </div>
   )
 }

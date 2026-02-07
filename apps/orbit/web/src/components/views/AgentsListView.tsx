@@ -1,4 +1,18 @@
-import { Bot, Plus, RefreshCw, X } from 'lucide-react'
+import {
+  ActionIcon,
+  Badge,
+  Button,
+  Group,
+  Modal,
+  Paper,
+  ScrollArea,
+  Stack,
+  Text,
+  TextInput,
+  Title,
+  Tooltip
+} from '@mantine/core'
+import { Bot, Plus, RefreshCw } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 
@@ -46,127 +60,104 @@ export function AgentsListView() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-border-default border-b px-6 py-4">
-        <div className="flex items-center gap-2">
+      <Group justify="space-between" className="border-border-default border-b px-6 py-4">
+        <Group gap="sm">
           <Bot className="h-5 w-5 text-accent" />
-          <h1 className="font-semibold text-lg text-text-primary">Agents</h1>
-          <span className="rounded-full bg-accent-light px-2 py-0.5 font-medium text-accent text-xs">
+          <Title order={3}>Agents</Title>
+          <Badge variant="light" size="sm">
             {agents.length}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 font-medium text-sm text-white transition-colors hover:bg-accent-hover"
-          >
-            <Plus className="h-3.5 w-3.5" />
+          </Badge>
+        </Group>
+        <Group gap="sm">
+          <Button leftSection={<Plus className="h-3.5 w-3.5" />} size="sm" onClick={() => setShowCreate(true)}>
             New Agent
-          </button>
-          <button
-            onClick={fetchAgents}
-            disabled={loading}
-            className="rounded-lg p-2 text-text-tertiary transition-colors hover:bg-surface-secondary hover:text-text-secondary disabled:opacity-50"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
-      </div>
+          </Button>
+          <Tooltip label="Refresh agents" position="bottom" offset={8}>
+            <ActionIcon variant="subtle" onClick={fetchAgents} disabled={loading} loading={loading}>
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            </ActionIcon>
+          </Tooltip>
+        </Group>
+      </Group>
 
-      <div className="flex-1 overflow-y-auto p-6">
-        {agents.length === 0 ? (
-          <div className="flex h-full items-center justify-center">
-            <div className="text-center">
-              <div className="mb-3 inline-block rounded-2xl bg-accent-light p-4">
-                <Bot className="h-8 w-8 text-accent-muted" />
-              </div>
-              <p className="text-sm text-text-secondary">No agents configured</p>
-              <button
-                onClick={() => setShowCreate(true)}
-                className="mt-2 font-medium text-accent text-sm hover:text-accent-hover"
-              >
-                Create one
-              </button>
+      <ScrollArea scrollbarSize={6} type="hover" className="min-h-0 flex-1">
+        <div className="h-full w-full p-6">
+          {agents.length === 0 ? (
+            <div className="flex h-full items-center justify-center">
+              <Stack align="center" gap="sm">
+                <div className="inline-block rounded-2xl bg-accent-light p-4">
+                  <Bot className="h-8 w-8 text-accent-muted" />
+                </div>
+                <Text size="sm" c="dimmed">
+                  No agents configured
+                </Text>
+                <Button variant="subtle" size="compact-sm" onClick={() => setShowCreate(true)}>
+                  Create one
+                </Button>
+              </Stack>
             </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-            {agents.map(agent => (
-              <div
-                key={agent.name}
-                onClick={() => handleAgentClick(agent.name)}
-                className="cursor-pointer rounded-xl border border-border-default bg-surface-elevated p-4 transition-all hover:border-border-default/70 hover:shadow-[var(--shadow-card)]"
-              >
-                <div className="mb-3 flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-light">
-                    <Bot className="h-5 w-5 text-accent" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-text-primary">{agent.name}</h3>
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className={`h-2 w-2 rounded-full ${
-                          agent.status === 'active' ? 'bg-status-success' : 'bg-border-default'
-                        }`}
-                      />
-                      <span className="text-text-tertiary text-xs">{agent.status}</span>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {agents.map(agent => (
+                <Paper
+                  key={agent.name}
+                  shadow="xs"
+                  p="md"
+                  radius="md"
+                  onClick={() => handleAgentClick(agent.name)}
+                  className="cursor-pointer transition-all hover:shadow-md"
+                  withBorder
+                >
+                  <Group gap="md" mb="sm">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-light">
+                      <Bot className="h-5 w-5 text-accent" />
                     </div>
-                  </div>
-                </div>
-                <div className="space-y-1 text-text-tertiary text-xs">
-                  <p>Created: {formatDate(agent.createdAt)}</p>
-                  <p>Last active: {formatDate(agent.lastActiveAt)}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="w-full max-w-md rounded-2xl bg-surface-elevated p-6 shadow-[var(--shadow-elevated)]">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-semibold text-lg text-text-primary">Create Agent</h2>
-              <button
-                onClick={() => setShowCreate(false)}
-                className="rounded-lg p-1 text-text-tertiary transition-colors hover:bg-surface-secondary hover:text-text-secondary"
-              >
-                <X className="h-5 w-5" />
-              </button>
+                    <div>
+                      <Text fw={500}>{agent.name}</Text>
+                      <Group gap={6}>
+                        <Badge variant="light" color={agent.status === 'active' ? 'green' : 'gray'} size="xs">
+                          {agent.status}
+                        </Badge>
+                      </Group>
+                    </div>
+                  </Group>
+                  <Stack gap={4}>
+                    <Text size="xs" c="dimmed">
+                      Created: {formatDate(agent.createdAt)}
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      Last active: {formatDate(agent.lastActiveAt)}
+                    </Text>
+                  </Stack>
+                </Paper>
+              ))}
             </div>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div>
-                <label className="mb-1 block font-medium text-sm text-text-secondary">Agent Name</label>
-                <input
-                  type="text"
-                  value={newName}
-                  onChange={e => setNewName(e.target.value)}
-                  className="w-full rounded-lg border border-border-default bg-surface-elevated px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
-                  placeholder="e.g. researcher"
-                  required
-                  autoFocus
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowCreate(false)}
-                  className="rounded-lg px-4 py-2 text-sm text-text-secondary transition-colors hover:bg-surface-secondary"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={creating || !newName.trim()}
-                  className="rounded-lg bg-accent px-4 py-2 font-medium text-sm text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
-                >
-                  {creating ? 'Creating...' : 'Create'}
-                </button>
-              </div>
-            </form>
-          </div>
+          )}
         </div>
-      )}
+      </ScrollArea>
+
+      <Modal opened={showCreate} onClose={() => setShowCreate(false)} title="Create Agent" centered>
+        <form onSubmit={handleCreate}>
+          <Stack gap="md">
+            <TextInput
+              label="Agent Name"
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+              placeholder="e.g. researcher"
+              required
+              autoFocus
+            />
+            <Group justify="flex-end" gap="sm">
+              <Button variant="subtle" onClick={() => setShowCreate(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={creating || !newName.trim()} loading={creating}>
+                Create
+              </Button>
+            </Group>
+          </Stack>
+        </form>
+      </Modal>
     </div>
   )
 }
