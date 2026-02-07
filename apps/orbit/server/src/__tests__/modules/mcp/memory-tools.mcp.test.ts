@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 
-import { createMemoryMcpServer } from '@/mcp/memory-tools.mcp'
+import { createMemoryMcpServer } from '@/modules/mcp/memory-tools.mcp'
 
 describe('memory-tools MCP server', () => {
   it('should create MCP server with memory tools', () => {

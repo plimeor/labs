@@ -1,11 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { rmSync, writeFileSync } from 'fs'
 import { join } from 'path'
 
 const TEST_CONFIG_PATH = '/tmp/orbit-agent-test'
 
-import { AgentPool } from '@/agent/agent-pool'
-import { OrbitAgent } from '@/agent/orbit-agent'
+import { AgentPool } from '@/modules/agent/agent-pool'
+import { OrbitAgent } from '@/modules/agent/orbit-agent'
 import { AgentStore } from '@/stores/agent.store'
 import { InboxStore } from '@/stores/inbox.store'
 import { SessionStore } from '@/stores/session.store'
@@ -26,10 +26,7 @@ describe('OrbitAgent', () => {
 
     // Create an agent workspace with IDENTITY.md
     await agentStore.create({ name: 'test-bot' })
-    writeFileSync(
-      join(TEST_CONFIG_PATH, 'agents', 'test-bot', 'IDENTITY.md'),
-      '# Test Bot\n\nA test agent.',
-    )
+    writeFileSync(join(TEST_CONFIG_PATH, 'agents', 'test-bot', 'IDENTITY.md'), '# Test Bot\n\nA test agent.')
   })
 
   afterEach(() => {
@@ -42,7 +39,7 @@ describe('OrbitAgent', () => {
       agentStore,
       taskStore,
       inboxStore,
-      sessionStore,
+      sessionStore
     })
 
     expect(agent.name).toBe('test-bot')
@@ -54,7 +51,7 @@ describe('OrbitAgent', () => {
       agentStore,
       taskStore,
       inboxStore,
-      sessionStore,
+      sessionStore
     })
 
     const servers = await agent.buildMcpServers()
@@ -79,7 +76,7 @@ describe('AgentPool', () => {
       agentStore,
       taskStore,
       inboxStore,
-      sessionStore,
+      sessionStore
     })
 
     await agentStore.create({ name: 'bot-a' })

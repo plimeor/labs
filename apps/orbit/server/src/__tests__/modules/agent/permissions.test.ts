@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 
-import { createPermissionHook } from '@/agent/permissions'
+import { createPermissionHook } from '@/modules/agent/permissions'
 
 describe('Permission Hook', () => {
   describe('allow-all mode', () => {
@@ -25,25 +25,25 @@ describe('Permission Hook', () => {
       const hook = createPermissionHook('safe')
       expect(hook({ toolName: 'Write', toolInput: {} })).toEqual({
         decision: 'deny',
-        reason: 'Safe mode: write operations not allowed',
+        reason: 'Safe mode: write operations not allowed'
       })
       expect(hook({ toolName: 'Edit', toolInput: {} })).toEqual({
         decision: 'deny',
-        reason: 'Safe mode: write operations not allowed',
+        reason: 'Safe mode: write operations not allowed'
       })
       expect(hook({ toolName: 'Bash', toolInput: {} })).toEqual({
         decision: 'deny',
-        reason: 'Safe mode: write operations not allowed',
+        reason: 'Safe mode: write operations not allowed'
       })
     })
 
     it('should allow MCP tools (orbit-tools, memory-tools)', () => {
       const hook = createPermissionHook('safe')
       expect(hook({ toolName: 'mcp__orbit-tools__schedule_task', toolInput: {} })).toEqual({
-        decision: 'allow',
+        decision: 'allow'
       })
       expect(hook({ toolName: 'mcp__memory-tools__search_memory', toolInput: {} })).toEqual({
-        decision: 'allow',
+        decision: 'allow'
       })
     })
   })

@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
-import { rmSync, mkdirSync, writeFileSync } from 'fs'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import { mkdirSync, rmSync, writeFileSync } from 'fs'
 import { join } from 'path'
 
 const TEST_CONFIG_PATH = '/tmp/orbit-mcp-test'
 
-import { createOrbitMcpServer } from '@/mcp/orbit-tools.mcp'
+import { createOrbitMcpServer } from '@/modules/mcp/orbit-tools.mcp'
 import { InboxStore } from '@/stores/inbox.store'
 import { TaskStore } from '@/stores/task.store'
 
@@ -26,8 +26,8 @@ describe('orbit-tools MCP server', () => {
         name: 'other-bot',
         status: 'active',
         createdAt: new Date().toISOString(),
-        lastActiveAt: null,
-      }),
+        lastActiveAt: null
+      })
     )
     taskStore = new TaskStore(TEST_CONFIG_PATH)
     inboxStore = new InboxStore(TEST_CONFIG_PATH)

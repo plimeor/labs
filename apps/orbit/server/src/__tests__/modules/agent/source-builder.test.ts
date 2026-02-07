@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
-import { rmSync, mkdirSync, writeFileSync } from 'fs'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import { mkdirSync, rmSync, writeFileSync } from 'fs'
 import { join } from 'path'
 
 const TEST_CONFIG_PATH = '/tmp/orbit-source-test'
 
-import { buildSourceServers } from '@/agent/source-builder'
+import { buildSourceServers } from '@/modules/agent/source-builder'
 
 describe('Source Builder', () => {
   beforeEach(() => {
@@ -31,8 +31,8 @@ describe('Source Builder', () => {
         transport: 'stdio',
         command: 'npx',
         args: ['-y', '@modelcontextprotocol/server-github'],
-        env: { GITHUB_TOKEN: 'test-token' },
-      }),
+        env: { GITHUB_TOKEN: 'test-token' }
+      })
     )
 
     const servers = await buildSourceServers(TEST_CONFIG_PATH, 'test-bot')
@@ -49,8 +49,8 @@ describe('Source Builder', () => {
       JSON.stringify({
         type: 'mcp',
         transport: 'http',
-        url: 'https://mcp.example.com/search',
-      }),
+        url: 'https://mcp.example.com/search'
+      })
     )
 
     const servers = await buildSourceServers(TEST_CONFIG_PATH, 'test-bot')
