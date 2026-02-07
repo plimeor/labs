@@ -7,6 +7,7 @@ import type { AgentStore } from '@/stores/agent.store'
 import type { InboxStore } from '@/stores/inbox.store'
 import type { SessionStore } from '@/stores/session.store'
 import type { TaskStore } from '@/stores/task.store'
+import { extractResultText } from '@/utils/sdk'
 
 import { composeSystemPrompt, type InboxMessage, type SessionType } from './services/context.service'
 import { appendDailyMemory } from './services/memory.service'
@@ -70,12 +71,14 @@ export class OrbitAgent {
 
     // Claim unclaimed inbox messages for this session
     const unclaimed = await this.deps.inboxStore.getPendingUnclaimed(this.name)
+    const claimedIds: string[] = []
     const claimedMessages: InboxMessage[] = []
     for (const msg of unclaimed) {
       const ok = await this.deps.inboxStore.claimMessage(this.name, msg.id, this.sessionId)
       if (ok) {
+        claimedIds.push(msg.id)
         claimedMessages.push({
-          id: typeof msg.id === 'string' ? Number.parseInt(msg.id, 10) || 0 : 0,
+          id: msg.id,
           fromAgent: msg.fromAgent,
           message: msg.message
         })
@@ -125,23 +128,13 @@ export class OrbitAgent {
         }
 
         // Capture result text
-        if (message.type === 'result') {
-          const resultMsg = message as unknown as { result?: string }
-          if (resultMsg.result) result = resultMsg.result
-        }
+        const text = extractResultText(message)
+        if (text !== undefined) result = text
 
         yield message
       }
     } finally {
-      // Mark claimed messages as read
-      const claimedIds: string[] = []
-      for (const msg of unclaimed) {
-        const pending = await this.deps.inboxStore.getPending(this.name)
-        const found = pending.find(p => p.id === msg.id)
-        if (found?.claimedBy === this.sessionId) {
-          claimedIds.push(msg.id)
-        }
-      }
+      // Mark claimed messages as read (use pre-collected IDs, no re-querying)
       if (claimedIds.length > 0) {
         await this.deps.inboxStore.markRead(this.name, claimedIds)
       }

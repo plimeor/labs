@@ -1,16 +1,10 @@
 import { existsSync } from 'fs'
+import { mkdir, readdir, readFile, rm, writeFile } from 'fs/promises'
 import { join } from 'path'
 
-import { mkdir, readdir, readFile, rm, writeFile } from 'fs/promises'
+export type { AgentMetadata } from '@orbit/shared/types'
 
-export interface AgentMetadata {
-  name: string
-  status: 'active' | 'inactive'
-  model?: string
-  permissionMode?: 'safe' | 'ask' | 'allow-all'
-  createdAt: string
-  lastActiveAt: string | null
-}
+import type { AgentMetadata } from '@orbit/shared/types'
 
 export interface CreateAgentParams {
   name: string
@@ -50,10 +44,11 @@ export class AgentStore {
 
     const metadata: AgentMetadata = {
       name: params.name,
+      description: params.description,
       status: 'active',
       model: params.model,
       createdAt: new Date().toISOString(),
-      lastActiveAt: null,
+      lastActiveAt: null
     }
 
     await writeFile(this.agentJsonPath(params.name), JSON.stringify(metadata, null, 2))

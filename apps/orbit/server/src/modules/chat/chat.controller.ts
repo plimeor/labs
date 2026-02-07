@@ -1,3 +1,4 @@
+import { isValidAgentName } from '@orbit/shared/utils'
 import { logger } from '@plimeor-labs/logger'
 import { Elysia, sse, t } from 'elysia'
 
@@ -6,6 +7,9 @@ import type { AgentStore } from '@/stores/agent.store'
 import type { InboxStore } from '@/stores/inbox.store'
 import type { SessionStore } from '@/stores/session.store'
 import type { TaskStore } from '@/stores/task.store'
+import { calculateNextRun } from '@/utils/schedule'
+import { extractResultText } from '@/utils/sdk'
+import { resolveOrCreateSession } from '@/utils/session'
 
 export function createChatController(deps: {
   agentPool: AgentPool
@@ -22,21 +26,17 @@ export function createChatController(deps: {
         async function* ({ body, set }) {
           const { agentName, message, sessionId, model } = body
 
+          if (!isValidAgentName(agentName)) {
+            set.status = 400
+            return
+          }
+
           logger.info('Chat request received', { agentName, sessionId })
 
-          // Ensure agent exists
-          await agentStore.ensure(agentName)
-
-          // Resolve or create session
-          let session: Awaited<ReturnType<typeof sessionStore.get>>
-          if (sessionId) {
-            session = await sessionStore.get(agentName, sessionId)
-            if (!session) {
-              set.status = 404
-              return
-            }
-          } else {
-            session = await sessionStore.create(agentName, {})
+          const session = await resolveOrCreateSession(agentStore, sessionStore, agentName, sessionId)
+          if (!session) {
+            set.status = 404
+            return
           }
 
           // Get agent instance for this session
@@ -54,21 +54,12 @@ export function createChatController(deps: {
             })) {
               yield sse({ data: { type: msg.type, ...(msg as Record<string, unknown>) } })
 
-              if (msg.type === 'result') {
-                const resultMsg = msg as unknown as { result?: string }
-                resultText = resultMsg.result ?? ''
-              }
+              const text = extractResultText(msg)
+              if (text !== undefined) resultText = text
             }
 
             // Store messages
-            await sessionStore.appendMessage(agentName, session.id, {
-              role: 'user',
-              content: message
-            })
-            await sessionStore.appendMessage(agentName, session.id, {
-              role: 'assistant',
-              content: resultText
-            })
+            await sessionStore.appendConversation(agentName, session.id, message, resultText)
           } catch (error) {
             logger.error('Chat stream error', { error, agentName })
             yield sse({
@@ -92,20 +83,18 @@ export function createChatController(deps: {
       // Legacy non-streaming endpoint (backward compatibility)
       .post(
         '/sync',
-        async ({ body }) => {
+        async ({ body, set }) => {
           const { agentName, message, sessionId, model } = body
 
-          await agentStore.ensure(agentName)
+          if (!isValidAgentName(agentName)) {
+            set.status = 400
+            return { error: 'Invalid agent name' }
+          }
 
-          // Resolve or create session
-          let session: Awaited<ReturnType<typeof sessionStore.get>>
-          if (sessionId) {
-            session = await sessionStore.get(agentName, sessionId)
-            if (!session) {
-              return { error: `Session not found: ${sessionId}` }
-            }
-          } else {
-            session = await sessionStore.create(agentName, {})
+          const session = await resolveOrCreateSession(agentStore, sessionStore, agentName, sessionId)
+          if (!session) {
+            set.status = 404
+            return { error: `Session not found: ${sessionId}` }
           }
 
           const agent = await agentPool.get(agentName, session.id)
@@ -116,20 +105,11 @@ export function createChatController(deps: {
             sessionId: session.id,
             model
           })) {
-            if (msg.type === 'result') {
-              const resultMsg = msg as unknown as { result?: string }
-              result = resultMsg.result ?? ''
-            }
+            const text = extractResultText(msg)
+            if (text !== undefined) result = text
           }
 
-          await sessionStore.appendMessage(agentName, session.id, {
-            role: 'user',
-            content: message
-          })
-          await sessionStore.appendMessage(agentName, session.id, {
-            role: 'assistant',
-            content: result
-          })
+          await sessionStore.appendConversation(agentName, session.id, message, result)
 
           return { response: result, sessionId: session.id }
         },
@@ -185,7 +165,11 @@ export function createAgentsController(deps: { agentStore: AgentStore }) {
     })
     .post(
       '/',
-      async ({ body }) => {
+      async ({ body, set }) => {
+        if (!isValidAgentName(body.name)) {
+          set.status = 400
+          return { error: 'Invalid agent name. Only alphanumeric, hyphens, and underscores allowed.' }
+        }
         const agent = await agentStore.create(body)
         return { agent }
       },
@@ -198,9 +182,12 @@ export function createAgentsController(deps: { agentStore: AgentStore }) {
     )
     .get(
       '/:name',
-      async ({ params }) => {
+      async ({ params, set }) => {
         const agent = await agentStore.get(params.name)
-        if (!agent) return { error: 'Agent not found' }
+        if (!agent) {
+          set.status = 404
+          return { error: 'Agent not found' }
+        }
         return { agent }
       },
       {
@@ -216,6 +203,7 @@ export function createAgentsController(deps: { agentStore: AgentStore }) {
       {
         params: t.Object({ name: t.String() }),
         body: t.Object({
+          description: t.Optional(t.String()),
           model: t.Optional(t.String()),
           permissionMode: t.Optional(t.Union([t.Literal('safe'), t.Literal('ask'), t.Literal('allow-all')])),
           status: t.Optional(t.Union([t.Literal('active'), t.Literal('inactive')]))
@@ -267,9 +255,12 @@ export function createSessionsController(deps: { sessionStore: SessionStore; age
     )
     .get(
       '/:name/sessions/:id',
-      async ({ params }) => {
+      async ({ params, set }) => {
         const session = await sessionStore.get(params.name, params.id)
-        if (!session) return { error: 'Session not found' }
+        if (!session) {
+          set.status = 404
+          return { error: 'Session not found' }
+        }
         const messages = await sessionStore.getMessages(params.name, params.id)
         return { session, messages }
       },
@@ -348,8 +339,15 @@ export function createTasksController(deps: { taskStore: TaskStore }) {
     )
     .post(
       '/api/agents/:name/tasks',
-      async ({ params, body }) => {
-        const task = await taskStore.create(params.name, body)
+      async ({ params, body, set }) => {
+        // Validate schedule value
+        const nextRun = calculateNextRun(body.scheduleType, body.scheduleValue)
+        if (!nextRun) {
+          set.status = 400
+          return { error: 'Invalid schedule value. Could not calculate next run time.' }
+        }
+
+        const task = await taskStore.create(params.name, { ...body, nextRun })
         return { task }
       },
       {
@@ -365,8 +363,20 @@ export function createTasksController(deps: { taskStore: TaskStore }) {
     )
     .put(
       '/api/agents/:name/tasks/:id',
-      async ({ params, body }) => {
-        const task = await taskStore.update(params.name, params.id, body)
+      async ({ params, body, set }) => {
+        const existing = await taskStore.get(params.name, params.id)
+        if (!existing) {
+          set.status = 404
+          return { error: 'Task not found' }
+        }
+
+        // Recalculate nextRun when resuming a task
+        const updates: Record<string, unknown> = { ...body }
+        if (body.status === 'active' && existing.status === 'paused') {
+          updates.nextRun = calculateNextRun(existing.scheduleType, existing.scheduleValue) ?? null
+        }
+
+        const task = await taskStore.update(params.name, params.id, updates)
         return { task }
       },
       {

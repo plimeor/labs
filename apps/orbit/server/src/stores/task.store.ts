@@ -2,26 +2,18 @@ import { existsSync } from 'fs'
 import { mkdir, readdir, readFile, rm, writeFile } from 'fs/promises'
 import { join } from 'path'
 
+import type { ContextMode, ScheduleType, TaskData } from '@orbit/shared/types'
+import { generateId } from '@orbit/shared/utils'
+
+export type { TaskData } from '@orbit/shared/types'
+
 export interface CreateTaskParams {
   prompt: string
-  scheduleType: 'cron' | 'interval' | 'once'
+  scheduleType: ScheduleType
   scheduleValue: string
-  contextMode: 'isolated' | 'main'
+  contextMode: ContextMode
   name?: string
-}
-
-export interface TaskData {
-  id: string
-  agentName: string
-  name: string | null
-  prompt: string
-  scheduleType: 'cron' | 'interval' | 'once'
-  scheduleValue: string
-  contextMode: 'isolated' | 'main'
-  status: 'active' | 'paused' | 'completed'
-  nextRun: string | null
-  lastRun: string | null
-  createdAt: string
+  nextRun?: string
 }
 
 export interface DueTask {
@@ -39,10 +31,6 @@ export interface TaskRunData {
   startedAt: string
   completedAt?: string
   durationMs?: number
-}
-
-function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
 export class TaskStore {
@@ -75,7 +63,7 @@ export class TaskStore {
       scheduleValue: params.scheduleValue,
       contextMode: params.contextMode,
       status: 'active',
-      nextRun: null,
+      nextRun: params.nextRun ?? null,
       lastRun: null,
       createdAt: new Date().toISOString()
     }

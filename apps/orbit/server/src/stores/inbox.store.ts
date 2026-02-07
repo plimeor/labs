@@ -2,19 +2,10 @@ import { existsSync } from 'fs'
 import { mkdir, readdir, readFile, unlink, writeFile } from 'fs/promises'
 import { join } from 'path'
 
-export interface InboxMessage {
-  id: string
-  fromAgent: string
-  toAgent: string
-  message: string
-  messageType: 'request' | 'response'
-  requestId?: string
-  status: 'pending' | 'read' | 'archived'
-  claimedBy?: string
-  claimedAt?: string
-  createdAt: string
-  readAt: string | null
-}
+import type { InboxMessage } from '@orbit/shared/types'
+import { generateId } from '@orbit/shared/utils'
+
+export type { InboxMessage } from '@orbit/shared/types'
 
 export interface SendMessageParams {
   fromAgent: string
@@ -22,10 +13,6 @@ export interface SendMessageParams {
   message: string
   messageType: 'request' | 'response'
   requestId?: string
-}
-
-function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
 export class InboxStore {
@@ -82,17 +69,37 @@ export class InboxStore {
 
   async claimMessage(agentName: string, messageId: string, sessionId: string): Promise<boolean> {
     const filePath = join(this.pendingDir(agentName), `${messageId}.json`)
-    if (!existsSync(filePath)) return false
+    const lockPath = join(this.pendingDir(agentName), `${messageId}.lock`)
 
-    const content = await readFile(filePath, 'utf-8')
-    const msg = JSON.parse(content) as InboxMessage
+    // Atomic claim via exclusive lock file creation (O_EXCL)
+    try {
+      await writeFile(lockPath, sessionId, { flag: 'wx' })
+    } catch {
+      return false // Lock already exists, another process claimed it
+    }
 
-    if (msg.claimedBy) return false
+    try {
+      if (!existsSync(filePath)) {
+        await unlink(lockPath).catch(() => {})
+        return false
+      }
 
-    msg.claimedBy = sessionId
-    msg.claimedAt = new Date().toISOString()
-    await writeFile(filePath, JSON.stringify(msg, null, 2))
-    return true
+      const content = await readFile(filePath, 'utf-8')
+      const msg = JSON.parse(content) as InboxMessage
+
+      if (msg.claimedBy) {
+        await unlink(lockPath).catch(() => {})
+        return false
+      }
+
+      msg.claimedBy = sessionId
+      msg.claimedAt = new Date().toISOString()
+      await writeFile(filePath, JSON.stringify(msg, null, 2))
+      return true
+    } catch {
+      await unlink(lockPath).catch(() => {})
+      return false
+    }
   }
 
   async getPendingUnclaimed(agentName: string): Promise<InboxMessage[]> {
@@ -117,6 +124,10 @@ export class InboxStore {
 
         await writeFile(join(archivePath, `${id}.json`), JSON.stringify(msg, null, 2))
         await unlink(src)
+
+        // Clean up lock file if it exists
+        const lockPath = join(pendingPath, `${id}.lock`)
+        await unlink(lockPath).catch(() => {})
       })
     )
   }

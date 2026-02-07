@@ -1,31 +1,13 @@
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk'
-import { CronExpressionParser } from 'cron-parser'
 import { z } from 'zod'
 
 import type { InboxStore } from '@/stores/inbox.store'
 import type { TaskStore } from '@/stores/task.store'
+import { calculateNextRun } from '@/utils/schedule'
 
 export interface OrbitMcpDeps {
   taskStore: TaskStore
   inboxStore: InboxStore
-}
-
-function calculateNextRun(scheduleType: 'cron' | 'interval' | 'once', scheduleValue: string): string | undefined {
-  if (scheduleType === 'cron') {
-    try {
-      const interval = CronExpressionParser.parse(scheduleValue)
-      return interval.next().toDate().toISOString()
-    } catch {
-      return undefined
-    }
-  } else if (scheduleType === 'interval') {
-    const ms = parseInt(scheduleValue, 10)
-    if (isNaN(ms)) return undefined
-    return new Date(Date.now() + ms).toISOString()
-  } else if (scheduleType === 'once') {
-    return new Date(scheduleValue).toISOString()
-  }
-  return undefined
 }
 
 export function createOrbitMcpServer(agentName: string, deps: OrbitMcpDeps) {
@@ -58,7 +40,9 @@ SCHEDULE TYPE:
           const nextRun = calculateNextRun(args.scheduleType, args.scheduleValue)
           if (!nextRun) {
             return {
-              content: [{ type: 'text' as const, text: 'Error: Could not calculate next run time' }]
+              content: [
+                { type: 'text' as const, text: 'Error: Could not calculate next run time. Check your schedule value.' }
+              ]
             }
           }
 
@@ -67,10 +51,9 @@ SCHEDULE TYPE:
             scheduleType: args.scheduleType,
             scheduleValue: args.scheduleValue,
             contextMode: args.contextMode,
-            name: args.name
+            name: args.name,
+            nextRun
           })
-
-          await taskStore.update(agentName, task.id, { nextRun })
 
           return {
             content: [
