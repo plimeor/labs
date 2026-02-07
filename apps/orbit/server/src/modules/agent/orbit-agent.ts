@@ -29,12 +29,14 @@ export interface ChatOptions {
 
 export class OrbitAgent {
   readonly name: string
+  readonly sessionId: string
   private deps: OrbitAgentDeps
   private sdkSessionId?: string
   private abortController?: AbortController
 
-  constructor(name: string, deps: OrbitAgentDeps) {
+  constructor(name: string, sessionId: string, deps: OrbitAgentDeps) {
     this.name = name
+    this.sessionId = sessionId
     this.deps = deps
   }
 
@@ -60,16 +62,28 @@ export class OrbitAgent {
   async *chat(prompt: string, opts: ChatOptions): AsyncGenerator<SDKMessage> {
     const { sessionType } = opts
 
-    // Check inbox for pending messages
-    const pendingMessages = await this.deps.inboxStore.getPending(this.name)
-    const inboxMessages: InboxMessage[] = pendingMessages.map(m => ({
-      id: typeof m.id === 'string' ? parseInt(m.id, 10) || 0 : 0,
-      fromAgent: m.fromAgent,
-      message: m.message
-    }))
+    // Try to load SDK session ID from store for resume
+    if (!this.sdkSessionId) {
+      const session = await this.deps.sessionStore.get(this.name, this.sessionId)
+      this.sdkSessionId = session?.sdkSessionId
+    }
+
+    // Claim unclaimed inbox messages for this session
+    const unclaimed = await this.deps.inboxStore.getPendingUnclaimed(this.name)
+    const claimedMessages: InboxMessage[] = []
+    for (const msg of unclaimed) {
+      const ok = await this.deps.inboxStore.claimMessage(this.name, msg.id, this.sessionId)
+      if (ok) {
+        claimedMessages.push({
+          id: typeof msg.id === 'string' ? Number.parseInt(msg.id, 10) || 0 : 0,
+          fromAgent: msg.fromAgent,
+          message: msg.message
+        })
+      }
+    }
 
     // Compose system prompt (reuses existing context.service)
-    const systemPrompt = await composeSystemPrompt(this.name, sessionType, inboxMessages)
+    const systemPrompt = await composeSystemPrompt(this.name, sessionType, claimedMessages)
 
     // Build Agent SDK options
     const agentWorkspacePath = this.deps.agentStore.getWorkingDir(this.name)
@@ -102,7 +116,12 @@ export class OrbitAgent {
       for await (const message of q) {
         // Capture SDK session ID from system message
         if (message.type === 'system') {
-          this.sdkSessionId = (message as unknown as { sessionId?: string }).sessionId
+          const newSdkId = (message as unknown as { sessionId?: string }).sessionId
+          if (newSdkId) {
+            this.sdkSessionId = newSdkId
+            // Persist SDK session ID to store
+            await this.deps.sessionStore.update(this.name, this.sessionId, { sdkSessionId: newSdkId })
+          }
         }
 
         // Capture result text
@@ -114,12 +133,17 @@ export class OrbitAgent {
         yield message
       }
     } finally {
-      // Mark inbox messages as read
-      if (pendingMessages.length > 0) {
-        await this.deps.inboxStore.markRead(
-          this.name,
-          pendingMessages.map(m => m.id)
-        )
+      // Mark claimed messages as read
+      const claimedIds: string[] = []
+      for (const msg of unclaimed) {
+        const pending = await this.deps.inboxStore.getPending(this.name)
+        const found = pending.find(p => p.id === msg.id)
+        if (found?.claimedBy === this.sessionId) {
+          claimedIds.push(msg.id)
+        }
+      }
+      if (claimedIds.length > 0) {
+        await this.deps.inboxStore.markRead(this.name, claimedIds)
       }
 
       // Update last active timestamp
