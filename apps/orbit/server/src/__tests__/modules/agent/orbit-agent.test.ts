@@ -33,8 +33,8 @@ describe('OrbitAgent', () => {
     rmSync(TEST_CONFIG_PATH, { recursive: true, force: true })
   })
 
-  it('should construct OrbitAgent with name and config', () => {
-    const agent = new OrbitAgent('test-bot', {
+  it('should accept sessionId in constructor', () => {
+    const agent = new OrbitAgent('test-bot', 'session-123', {
       basePath: TEST_CONFIG_PATH,
       agentStore,
       taskStore,
@@ -43,10 +43,11 @@ describe('OrbitAgent', () => {
     })
 
     expect(agent.name).toBe('test-bot')
+    expect(agent.sessionId).toBe('session-123')
   })
 
   it('should build MCP server configs', async () => {
-    const agent = new OrbitAgent('test-bot', {
+    const agent = new OrbitAgent('test-bot', 'session-123', {
       basePath: TEST_CONFIG_PATH,
       agentStore,
       taskStore,
@@ -87,27 +88,31 @@ describe('AgentPool', () => {
     rmSync(TEST_CONFIG_PATH, { recursive: true, force: true })
   })
 
-  it('should create agent on first get', async () => {
-    const agent = await pool.get('bot-a')
-    expect(agent.name).toBe('bot-a')
+  it('should create separate instances for different sessions', async () => {
+    const a1 = await pool.get('bot-a', 'session-1')
+    const a2 = await pool.get('bot-a', 'session-2')
+    expect(a1).not.toBe(a2)
+    expect(pool.size()).toBe(2)
   })
 
-  it('should return same instance on second get', async () => {
-    const agent1 = await pool.get('bot-a')
-    const agent2 = await pool.get('bot-a')
-    expect(agent1).toBe(agent2)
+  it('should return same instance for same agent+session', async () => {
+    const a1 = await pool.get('bot-a', 'session-1')
+    const a2 = await pool.get('bot-a', 'session-1')
+    expect(a1).toBe(a2)
+    expect(pool.size()).toBe(1)
   })
 
-  it('should release agent from pool', async () => {
-    await pool.get('bot-a')
-    expect(pool.has('bot-a')).toBe(true)
-    pool.release('bot-a')
-    expect(pool.has('bot-a')).toBe(false)
+  it('should release by agent+session key', async () => {
+    await pool.get('bot-a', 'session-1')
+    await pool.get('bot-a', 'session-2')
+    pool.release('bot-a', 'session-1')
+    expect(pool.size()).toBe(1)
+    expect(pool.has('bot-a', 'session-2')).toBe(true)
   })
 
   it('should track pool size', async () => {
     expect(pool.size()).toBe(0)
-    await pool.get('bot-a')
+    await pool.get('bot-a', 'session-1')
     expect(pool.size()).toBe(1)
   })
 })

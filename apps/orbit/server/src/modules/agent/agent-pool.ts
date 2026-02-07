@@ -10,31 +10,40 @@ export class AgentPool {
     this.deps = deps
   }
 
-  async get(name: string): Promise<OrbitAgent> {
-    let agent = this.agents.get(name)
+  private key(name: string, sessionId: string): string {
+    return `${name}:${sessionId}`
+  }
+
+  async get(name: string, sessionId: string): Promise<OrbitAgent> {
+    const k = this.key(name, sessionId)
+    let agent = this.agents.get(k)
     if (!agent) {
-      agent = new OrbitAgent(name, this.deps)
-      this.agents.set(name, agent)
+      agent = new OrbitAgent(name, sessionId, this.deps)
+      this.agents.set(k, agent)
     }
-    this.lastAccess.set(name, Date.now())
+    this.lastAccess.set(k, Date.now())
     return agent
   }
 
-  release(name: string): void {
-    const agent = this.agents.get(name)
+  release(name: string, sessionId: string): void {
+    const k = this.key(name, sessionId)
+    const agent = this.agents.get(k)
     if (agent) {
       agent.abort()
-      this.agents.delete(name)
-      this.lastAccess.delete(name)
+      this.agents.delete(k)
+      this.lastAccess.delete(k)
     }
   }
 
   startEviction(ttlMs: number = 10 * 60 * 1000): void {
     this.evictionTimer = setInterval(() => {
       const now = Date.now()
-      for (const [name, lastAccess] of this.lastAccess.entries()) {
+      for (const [k, lastAccess] of this.lastAccess.entries()) {
         if (now - lastAccess > ttlMs) {
-          this.release(name)
+          const agent = this.agents.get(k)
+          if (agent) agent.abort()
+          this.agents.delete(k)
+          this.lastAccess.delete(k)
         }
       }
     }, ttlMs / 2)
@@ -47,8 +56,8 @@ export class AgentPool {
     }
   }
 
-  has(name: string): boolean {
-    return this.agents.has(name)
+  has(name: string, sessionId: string): boolean {
+    return this.agents.has(this.key(name, sessionId))
   }
 
   size(): number {
