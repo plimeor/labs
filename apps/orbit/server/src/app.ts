@@ -3,7 +3,13 @@ import { logger } from '@plimeor-labs/logger'
 import { Elysia } from 'elysia'
 
 import { AgentPool, ensureOrbitDirs, getOrbitBasePath } from '@/modules/agent'
-import { createAgentsController, createChatController } from '@/modules/chat'
+import {
+  createAgentsController,
+  createChatController,
+  createInboxController,
+  createSessionsController,
+  createTasksController
+} from '@/modules/chat'
 import { corsPlugin } from '@/modules/plugins/cors'
 import { swaggerPlugin } from '@/modules/plugins/swagger'
 import { createSchedulerService } from '@/modules/scheduler'
@@ -29,11 +35,14 @@ const agentPool = new AgentPool({
 })
 
 // Initialize scheduler
-const scheduler = createSchedulerService({ taskStore, agentPool })
+const scheduler = createSchedulerService({ taskStore, sessionStore, agentPool })
 
 // Build controllers
 const chatController = createChatController({ agentPool, agentStore, sessionStore })
 const agentsController = createAgentsController({ agentStore })
+const sessionsController = createSessionsController({ sessionStore, agentStore })
+const inboxController = createInboxController({ inboxStore })
+const tasksController = createTasksController({ taskStore })
 
 // Build app
 const baseApp = new Elysia().use(corsPlugin)
@@ -41,6 +50,9 @@ const baseApp = new Elysia().use(corsPlugin)
 export const app = (swaggerPlugin ? baseApp.use(swaggerPlugin) : baseApp)
   .use(chatController)
   .use(agentsController)
+  .use(sessionsController)
+  .use(inboxController)
+  .use(tasksController)
   .get(API_ROUTES.HEALTH, () => {
     return { status: 'ok', timestamp: new Date().toISOString() }
   })
