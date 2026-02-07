@@ -15,7 +15,7 @@ All state is stored as JSON files on the filesystem (no database). Each store ma
 - `InboxStore` - Agent-to-agent messages (`agents/<name>/inbox/`)
 - `SessionStore` - Chat sessions and message history (`agents/<name>/sessions/`)
 
-**OrbitAgent** (`src/agent/orbit-agent.ts`)
+**OrbitAgent** (`src/modules/agent/orbit-agent.ts`)
 
 Wraps the `@anthropic-ai/claude-agent-sdk` to run Claude with:
 
@@ -25,22 +25,22 @@ Wraps the `@anthropic-ai/claude-agent-sdk` to run Claude with:
 - Session resume via SDK session ID
 - Async generator streaming (`chat()` yields `SDKMessage`)
 
-**AgentPool** (`src/agent/agent-pool.ts`)
+**AgentPool** (`src/modules/agent/agent-pool.ts`)
 
 Manages OrbitAgent instances with LRU eviction. Agents are created on first use and cached for reuse across chat and scheduler calls.
 
-**MCP Servers** (`src/mcp/`)
+**MCP Servers** (`src/modules/mcp/`)
 
 In-process MCP servers providing tools to agents:
 
 - `orbit-tools.mcp` - schedule_task, send_to_agent, list_tasks, pause/resume/cancel task
 - `memory-tools.mcp` - QMD-based semantic memory (add, search, list collections)
 
-**Permission System** (`src/agent/permissions.ts`)
+**Permission System** (`src/modules/agent/permissions.ts`)
 
 Three modes: `safe` (read-only tools), `ask` (interactive approval), `allow-all` (unrestricted). MCP tools (orbit-tools, memory-tools) are always allowed.
 
-**Source Builder** (`src/agent/source-builder.ts`)
+**Source Builder** (`src/modules/agent/source-builder.ts`)
 
 Reads `sources/<name>/config.json` files to discover external MCP servers (stdio or HTTP/SSE transport) and adds them to the agent's MCP server list.
 
@@ -71,26 +71,31 @@ Polls filesystem-based TaskStore every 30 seconds for due tasks. Executes agents
 ```
 apps/orbit/server/
 ├── src/
+│   ├── modules/
+│   │   ├── agent/              # Agent module (execution + services)
+│   │   │   ├── orbit-agent.ts      # Agent SDK wrapper
+│   │   │   ├── agent-pool.ts       # LRU agent cache
+│   │   │   ├── permissions.ts      # Permission hook
+│   │   │   ├── source-builder.ts   # External MCP discovery
+│   │   │   ├── index.ts            # Barrel export
+│   │   │   └── services/
+│   │   │       ├── context.service.ts   # System prompt composition
+│   │   │       ├── memory.service.ts    # Daily memory read/write
+│   │   │       ├── workspace.service.ts # Workspace dir management
+│   │   │       └── qmd.service.ts       # QMD semantic search
+│   │   ├── mcp/                # In-process MCP servers
+│   │   │   ├── orbit-tools.mcp.ts  # Orbit tools MCP server
+│   │   │   ├── memory-tools.mcp.ts # Memory tools MCP server
+│   │   │   └── index.ts            # Barrel export
+│   │   ├── chat/               # SSE chat controller + agents API
+│   │   ├── scheduler/          # Filesystem-based scheduler
+│   │   └── plugins/            # CORS, Swagger
 │   ├── stores/
 │   │   ├── agent.store.ts      # Agent CRUD (filesystem)
 │   │   ├── task.store.ts       # Task CRUD + due task finder
 │   │   ├── inbox.store.ts      # Inbox message CRUD
 │   │   ├── session.store.ts    # Session + message CRUD
 │   │   └── index.ts            # Barrel export
-│   ├── agent/
-│   │   ├── orbit-agent.ts      # Agent SDK wrapper
-│   │   ├── agent-pool.ts       # LRU agent cache
-│   │   ├── permissions.ts      # Permission hook
-│   │   ├── source-builder.ts   # External MCP discovery
-│   │   └── index.ts            # Barrel export
-│   ├── mcp/
-│   │   ├── orbit-tools.mcp.ts  # Orbit tools MCP server
-│   │   └── memory-tools.mcp.ts # Memory tools MCP server
-│   ├── modules/
-│   │   ├── agents/services/    # Workspace, context, memory, QMD
-│   │   ├── chat/               # SSE chat controller + agents API
-│   │   ├── scheduler/          # Filesystem-based scheduler
-│   │   └── plugins/            # CORS, Swagger
 │   ├── core/                   # Config, env
 │   ├── __tests__/              # Unit + integration tests
 │   ├── app.ts                  # Main app setup
@@ -169,18 +174,18 @@ bun run type-check
 
 **Test Structure**: Tests are in `src/__tests__/` mirroring the source layout:
 
+- `modules/agent/` - OrbitAgent, permissions, source-builder tests
+- `modules/mcp/` - MCP server tests
+- `modules/chat/` - Chat controller tests
 - `stores/` - Store unit tests
-- `mcp/` - MCP server tests
-- `agent/` - OrbitAgent, permissions, source-builder tests
-- `controllers/` - Chat controller tests
 - `integration/` - Smoke tests
 
 ### Adding New Tools
 
-1. Add tool definition in `src/mcp/orbit-tools.mcp.ts`
+1. Add tool definition in `src/modules/mcp/orbit-tools.mcp.ts`
 2. Implement handler in the same file
 3. Update `templates/TOOLS.md` documentation
-4. Add tests in `src/__tests__/mcp/`
+4. Add tests in `src/__tests__/modules/mcp/`
 
 ### Adding External MCP Sources
 
