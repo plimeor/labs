@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "scope": "project",
+  "sources": [
+    {
+      "skills": "all",
+      "source": "plimeor/agent-skills"
+    }
+  ]
+}

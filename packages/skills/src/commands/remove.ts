@@ -1,0 +1,104 @@
+import { consola } from 'consola'
+import { z } from 'incur'
+
+import { removeInstalledSkill } from '../installer.js'
+import { Lock } from '../lock.js'
+import { Manifest } from '../manifest.js'
+import { formatDisplayPath, resolveScope } from '../scope.js'
+
+export const removeArgsSchema = z.object({ target: z.string().optional() })
+export const removeOptionsSchema = z.object({
+  global: z.boolean().optional()
+})
+
+export type RemoveCommandContext = {
+  args: z.infer<typeof removeArgsSchema>
+  options: z.infer<typeof removeOptionsSchema>
+}
+
+export async function removeCommand(context: RemoveCommandContext) {
+  const skillName = parseSkillName(context)
+  const scope = resolveScope(context.options.global ?? false)
+  consola.start(`Removing ${skillName} from ${formatScope(scope)} skills state`)
+  let manifest = await Manifest.read(scope)
+  let lock = await Lock.ensure(scope)
+
+  manifest = removeManifestSkill(manifest, lock, skillName)
+  lock = Lock.removeSkill(lock, skillName)
+
+  await removeInstalledSkill(skillName, scope)
+  await Manifest.write(scope, manifest)
+  await Lock.write(scope, lock)
+  consola.success(
+    `Removed ${skillName} and updated ${formatDisplayPath(scope.manifestPath)} plus ${formatDisplayPath(
+      scope.lockPath
+    )}`
+  )
+}
+
+function parseSkillName(context: RemoveCommandContext): string {
+  const skillName = context.args.target?.trim()
+  if (!skillName) {
+    throw new Error('remove requires a skill name')
+  }
+
+  return skillName
+}
+
+function formatScope(scope: ReturnType<typeof resolveScope>): string {
+  return scope.scope === 'global'
+    ? `global (${formatDisplayPath(scope.globalDir)})`
+    : `project (${formatDisplayPath(process.cwd())})`
+}
+
+function removeManifestSkill(manifest: Manifest.Document, lock: Lock.Document, skillName: string): Manifest.Document {
+  const lockedSkill = lock.skills[skillName]
+  if (!lockedSkill) {
+    return Manifest.removeSkill(manifest, skillName)
+  }
+
+  const allSource = manifest.sources?.find(source => source.skills === 'all' && matchesAllSource(source, lockedSkill))
+  if (!allSource) {
+    return Manifest.removeSkill(manifest, skillName)
+  }
+
+  const nextSources = (manifest.sources ?? []).flatMap(source => {
+    if (source !== allSource) {
+      return [source]
+    }
+
+    const skills = Object.entries(lock.skills)
+      .filter(([name, skill]) => name !== skillName && matchesAllSource(source, skill))
+      .map(([name, skill]) => ({
+        name,
+        path: skill.path
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+
+    return skills.length === 0 ? [] : [{ ...source, skills }]
+  })
+
+  consola.info(`Converted all-skills source ${allSource.source} to an explicit list without ${skillName}`)
+  return {
+    schemaVersion: manifest.schemaVersion,
+    scope: manifest.scope,
+    skills: [],
+    sources: nextSources
+  }
+}
+
+function matchesAllSource(source: Manifest.Source, skill: Lock.Entry): boolean {
+  if (skill.source !== source.source) {
+    return false
+  }
+
+  if (source.commit) {
+    return skill.commit === source.commit
+  }
+
+  if (source.ref) {
+    return skill.ref === source.ref
+  }
+
+  return !skill.ref
+}

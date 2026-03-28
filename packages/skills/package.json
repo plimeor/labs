@@ -1,0 +1,21 @@
+{
+  "name": "@plimeor/skills",
+  "type": "module",
+  "version": "0.1.0",
+  "bin": {
+    "skills": "./dist/cli.js"
+  },
+  "dependencies": {
+    "consola": "^3.4.2",
+    "incur": "^0.4.4",
+    "zx": "^8.8.5"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "rm -rf dist && bun build src/cli.ts --target bun --format esm --packages external --outdir dist",
+    "lint": "biome check src test",
+    "test": "bun test test"
+  }
+}

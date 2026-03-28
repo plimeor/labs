@@ -1,0 +1,13 @@
+{
+  "exclude": ["node_modules", "**/dist"],
+  "include": ["apps/*/src/**/*.ts", "apps/*/src/**/*.tsx", "packages/*/src/**/*.ts", "packages/*/src/**/*.tsx"],
+  "references": [],
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "module": "Preserve",
+    "moduleResolution": "bundler",
+    "skipLibCheck": true,
+    "types": ["bun"],
+    "verbatimModuleSyntax": true
+  }
+}
