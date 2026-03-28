@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "verbatimModuleSyntax": true,
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "target": "ESNext",
+    "types": ["bun"],
+    "skipLibCheck": true
+  },
+  "exclude": ["node_modules", "dist"]
+}
