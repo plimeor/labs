@@ -4,6 +4,7 @@ import { dirname, join, resolve } from 'node:path'
 import { consola } from 'consola'
 import { z } from 'incur'
 
+import { isNotFound } from '../json.js'
 import { Lock } from '../lock.js'
 import { Manifest } from '../manifest.js'
 import { formatDisplayPath, resolveScope, type Scope } from '../scope.js'
@@ -31,7 +32,12 @@ export async function migrateCommand(context: MigrateCommandContext) {
   const outputPath = context.options.output ? resolve(cwd, context.options.output) : scope.manifestPath
   const lockPath = context.options.output ? join(dirname(outputPath), 'skills.lock.json') : scope.lockPath
   consola.start(`Reading legacy lock from ${formatDisplayPath(inputPath)}`)
-  const legacyLock = JSON.parse(await readFile(inputPath, 'utf-8'))
+  const legacyLock = await readLegacyLock(inputPath)
+  if (!legacyLock) {
+    consola.info(`No legacy lock found at ${formatDisplayPath(inputPath)}; nothing to migrate`)
+    return
+  }
+
   const migrated = migrateLegacyLock(legacyLock, scope)
 
   consola.start(`Writing ${formatScope(scope)} manifest to ${formatDisplayPath(outputPath)}`)
@@ -40,6 +46,18 @@ export async function migrateCommand(context: MigrateCommandContext) {
   consola.success(
     `Migrated ${migrated.manifest.skills.length} skills to ${formatDisplayPath(outputPath)} and ${formatDisplayPath(lockPath)}`
   )
+}
+
+async function readLegacyLock(path: string): Promise<unknown | undefined> {
+  try {
+    return JSON.parse(await readFile(path, 'utf-8'))
+  } catch (error) {
+    if (isNotFound(error)) {
+      return undefined
+    }
+
+    throw error
+  }
 }
 
 function resolveMigrateInputPath(options: { cwd: string; global: boolean; globalDir: string; input?: string }): string {

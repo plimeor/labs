@@ -1,10 +1,10 @@
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
-import { dirname } from 'node:path'
+import { readFile } from 'node:fs/promises'
 
 import type { Checkout } from './checkout.js'
 import { isNotFound, isRecord, omitUndefined, optionalText, requireText } from './json.js'
 import type { Manifest } from './manifest.js'
 import type { Scope } from './scope.js'
+import { writeTextFilePreservingFile } from './state-file.js'
 
 export namespace Lock {
   export type Entry = {
@@ -104,10 +104,7 @@ export namespace Lock {
     const path = resolvePath(location)
     const expectedScope = typeof location === 'string' ? undefined : location.scope
     const document = assertExpectedScope(normalize(lock), expectedScope)
-    await mkdir(dirname(path), { recursive: true })
-    const tempPath = `${path}.${process.pid}.${Date.now()}.tmp`
-    await writeFile(tempPath, serialize(document), 'utf-8')
-    await rename(tempPath, path)
+    await writeTextFilePreservingFile(path, serialize(document))
   }
 
   export function setSkill(lock: Document, skillName: string, lockedSkill: Entry): Document {
