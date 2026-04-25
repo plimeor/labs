@@ -37,7 +37,7 @@ export async function listCommand(context: ListCommandContext) {
     return
   }
 
-  consola.info(`Installed ${entries.length} ${entries.length === 1 ? 'skill' : 'skills'} in ${formatScope(scope)}`)
+  consola.info(`Installed ${entries.length} skills in ${formatScope(scope)}`)
   process.stdout.write(`${formatList(entries)}\n`)
 }
 
@@ -66,12 +66,8 @@ function formatList(entries: ListEntry[]): string {
   return [...groups.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .flatMap(([source, skills]) => [
-      bold(formatDisplayPath(source)),
+      `\u001B[1m${formatDisplayPath(source)}\u001B[22m`,
       ...skills.sort((a, b) => a.localeCompare(b)).map(skill => `  - ${skill}`)
     ])
     .join('\n')
-}
-
-function bold(value: string): string {
-  return `\u001B[1m${value}\u001B[22m`
 }

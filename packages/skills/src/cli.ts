@@ -17,6 +17,7 @@ export function createCli() {
     description: 'Manage agent skills from a stable manifest and lock file'
   })
     .command('add', {
+      aliases: ['a'],
       args: addArgsSchema,
       description: 'Install skills and update skills.json plus skills.lock.json',
       options: addOptionsSchema,
@@ -26,6 +27,7 @@ export function createCli() {
       }
     })
     .command('remove', {
+      aliases: ['rm'],
       args: removeArgsSchema,
       description: 'Remove installed skills and update state files',
       options: removeOptionsSchema,
@@ -35,6 +37,7 @@ export function createCli() {
       }
     })
     .command('update', {
+      aliases: ['upgrade'],
       description: 'Refresh lock entries and reinstall manifest skills',
       options: updateOptionsSchema,
       run: updateCommand,
@@ -51,6 +54,7 @@ export function createCli() {
       }
     })
     .command('list', {
+      aliases: ['ls'],
       description: 'List installed skills from skills.lock.json',
       options: listOptionsSchema,
       run: listCommand,
@@ -71,23 +75,5 @@ export function createCli() {
 
 if (import.meta.main) {
   const argv = process.argv.slice(2)
-  const didRunListCommand = await runListCommand(argv)
-  if (!didRunListCommand) {
-    await createCli().serve(argv)
-  }
-}
-
-async function runListCommand(argv: string[]): Promise<boolean> {
-  const [command, ...args] = argv
-  if (command !== 'list' && command !== 'ls') {
-    return false
-  }
-
-  await listCommand({
-    options: {
-      global: args.some(arg => arg === '-g' || arg === '--global'),
-      json: args.includes('--json')
-    }
-  })
-  return true
+  await createCli().serve(argv)
 }

@@ -30,7 +30,7 @@ export async function syncCommand(context: SyncCommandContext) {
   const rawManifest = await Manifest.read(scope)
   const allSources = Manifest.allSourceRequests(rawManifest)
   if (!context.options.dryRun && allSources.length > 0) {
-    consola.start(`Resolving ${plural(allSources.length, 'all-skills source')}`)
+    consola.start(`Resolving ${allSources.length} all-skills sources`)
   }
   const manifest = await resolveAllSources(rawManifest, lock, context.options.locked ?? false)
   const syncPlan = SyncPlan.plan(manifest, lock, {
@@ -48,10 +48,7 @@ export async function syncCommand(context: SyncCommandContext) {
     consola.success('Skills are already in sync')
   } else {
     consola.info(
-      `Applying ${plural(plannedChanges, 'change')}: ${plural(
-        syncPlan.pruneNames.length,
-        'removal'
-      )}, ${plural(syncPlan.installSkills.length, 'install')}`
+      `Applying ${plannedChanges} changes: ${syncPlan.pruneNames.length} removals, ${syncPlan.installSkills.length} installs`
     )
 
     for (const skillName of syncPlan.pruneNames) {
@@ -198,18 +195,15 @@ function formatScope(scope: ReturnType<typeof resolveScope>): string {
 }
 
 function formatCheckoutTarget(request: Checkout.Request): string {
-  const target = request.commit ? `commit ${shortCommit(request.commit)}` : request.ref ? `ref ${request.ref}` : 'HEAD'
-  return `${formatDisplayPath(request.source)} at ${target}`
+  const source = formatDisplayPath(request.source)
+  if (request.commit) {
+    const commit = request.commit === 'local' ? request.commit : request.commit.slice(0, 7)
+    return `${source} at commit ${commit}`
+  }
+
+  return request.ref ? `${source} at ref ${request.ref}` : `${source} at HEAD`
 }
 
 function uniqueCheckoutRequests(requests: Checkout.Request[]): Checkout.Request[] {
   return [...new Map(requests.map(request => [Checkout.key(request), request])).values()]
-}
-
-function shortCommit(commit: string): string {
-  return commit === 'local' ? commit : commit.slice(0, 7)
-}
-
-function plural(count: number, singular: string, pluralForm = `${singular}s`): string {
-  return `${count} ${count === 1 ? singular : pluralForm}`
 }

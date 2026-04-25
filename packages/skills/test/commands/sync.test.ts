@@ -135,8 +135,8 @@ describe('sync command', () => {
     )
 
     expect(output).toBe(`checkout repo at ref main
-install a to ${home}/.agents/skills
-install b to ${home}/.agents/skills
+install a to ~/.agents/skills
+install b to ~/.agents/skills
 `)
   })
 

@@ -38,13 +38,16 @@ Rejected inputs:
 After the package is resolved, the command runs in this order:
 
 ```bash
-bun install --filter @plimeor/<name>
-bun run --filter @plimeor/<name> build
+bun install --filter <workspace-package-path>
+bun run build    # if the package defines it
+bun run prepack  # otherwise, if the package defines it
 cd <resolved-package-directory>
 bun link
 ```
 
 The command intentionally runs `bun link` from the package directory. Bun's package-directory `bun link` registers the current package as linkable; `bun link --global` is not used.
+The install filter uses the resolved workspace package path because Bun's
+`install --filter` may not match the package name consistently across versions.
 
 ## Implementation Notes
 
@@ -66,4 +69,4 @@ bun run link-package missing
 bun run link-package skills
 ```
 
-The first two commands should fail before running install, build, or link. The final command should install the target workspace dependencies, build the package, and register it with Bun link.
+The first two commands should fail before running install, prepare, or link. The final command should install the target workspace dependencies, run the package's available preparation script, and register it with Bun link.

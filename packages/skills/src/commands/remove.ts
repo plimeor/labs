@@ -17,32 +17,36 @@ export type RemoveCommandContext = {
 }
 
 export async function removeCommand(context: RemoveCommandContext) {
-  const skillName = parseSkillName(context)
+  const skillNames = parseSkillNames(context)
   const scope = resolveScope(context.options.global ?? false)
-  consola.start(`Removing ${skillName} from ${formatScope(scope)} skills state`)
+  consola.start(`Removing ${skillNames.join(', ')} from ${formatScope(scope)} skills state`)
   let manifest = await Manifest.read(scope)
   let lock = await Lock.ensure(scope)
 
-  manifest = removeManifestSkill(manifest, lock, skillName)
-  lock = Lock.removeSkill(lock, skillName)
+  for (const skillName of skillNames) {
+    manifest = removeManifestSkill(manifest, lock, skillName)
+    lock = Lock.removeSkill(lock, skillName)
+  }
 
-  await removeInstalledSkill(skillName, scope)
+  for (const skillName of skillNames) {
+    await removeInstalledSkill(skillName, scope)
+  }
   await Manifest.write(scope, manifest)
   await Lock.write(scope, lock)
   consola.success(
-    `Removed ${skillName} and updated ${formatDisplayPath(scope.manifestPath)} plus ${formatDisplayPath(
-      scope.lockPath
-    )}`
+    `Removed ${skillNames.length} skills and updated ${formatDisplayPath(
+      scope.manifestPath
+    )} plus ${formatDisplayPath(scope.lockPath)}`
   )
 }
 
-function parseSkillName(context: RemoveCommandContext): string {
-  const skillName = context.args.target?.trim()
-  if (!skillName) {
+function parseSkillNames(context: RemoveCommandContext): string[] {
+  const skillNames = [...new Set((context.args.target?.split(',') ?? []).map(value => value.trim()).filter(Boolean))]
+  if (skillNames.length === 0) {
     throw new Error('remove requires a skill name')
   }
 
-  return skillName
+  return skillNames
 }
 
 function formatScope(scope: ReturnType<typeof resolveScope>): string {

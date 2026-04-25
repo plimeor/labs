@@ -38,6 +38,10 @@ skills migrate -g
 
 `add --all` records the source group as `skills: "all"` instead of freezing the currently discovered skill list. Later `sync` and `update` therefore add newly appearing skills and prune skills that disappeared from that source.
 
+`migrate` converts a legacy lock into both `skills.json` and `skills.lock.json`
+so `list` works immediately after migration. A normal `sync` can then refresh
+the lock with exact resolved commits from the new manifest.
+
 ## `skills.json`
 
 `skills.json` is desired state. It is deterministic, human-editable, and excludes install timestamps or generated hashes.

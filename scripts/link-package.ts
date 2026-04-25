@@ -1,5 +1,5 @@
 import { readdir, readFile } from 'node:fs/promises'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { $ } from 'zx'
@@ -8,6 +8,7 @@ const PACKAGE_SCOPE = '@plimeor/'
 
 type PackageJson = {
   name?: string
+  scripts?: Record<string, string>
   workspaces?: string[] | { packages?: string[] }
 }
 
@@ -27,9 +28,20 @@ async function main() {
     throw new UsageError(`Workspace package not found: ${targetPackageName}`)
   }
 
-  await $({ cwd: rootDir, stdio: 'inherit' })`bun install --filter ${workspacePackage.name}`
-  await $({ cwd: rootDir, stdio: 'inherit' })`bun run --filter ${workspacePackage.name} build`
+  await $({ cwd: rootDir, stdio: 'inherit' })`bun install --filter ${workspaceFilter(rootDir, workspacePackage.dir)}`
+  await runPrepareScript(workspacePackage.dir)
   await $({ cwd: workspacePackage.dir, stdio: 'inherit' })`bun link`
+}
+
+async function runPrepareScript(packageDir: string): Promise<void> {
+  const packageJson = await readPackageJson(join(packageDir, 'package.json'))
+  const scriptName = packageJson.scripts?.build ? 'build' : packageJson.scripts?.prepack ? 'prepack' : undefined
+
+  if (!scriptName) {
+    return
+  }
+
+  await $({ cwd: packageDir, stdio: 'inherit' })`bun run ${scriptName}`
 }
 
 function normalizeTargetPackageName(args: string[]): string {
@@ -108,6 +120,10 @@ async function expandWorkspacePattern(rootDir: string, pattern: string): Promise
 
 async function readPackageJson(path: string): Promise<PackageJson> {
   return JSON.parse(await readFile(path, 'utf-8')) as PackageJson
+}
+
+function workspaceFilter(rootDir: string, packageDir: string): string {
+  return relative(rootDir, packageDir)
 }
 
 main().catch(error => {

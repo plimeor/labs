@@ -5,10 +5,10 @@ root `AGENTS.md`; keep this file limited to stable rules for this package.
 
 ## Commands
 
-- Build: `bun run --filter @plimeor/skills build`
 - Lint: `bun run --filter @plimeor/skills lint`
+- Pack smoke: `bun run --filter @plimeor/skills prepack`
 - Test: `bun run --filter @plimeor/skills test`
-- Manual dry-run: `packages/skills/dist/cli.js sync -g --dry-run`
+- Manual dry-run: `bun packages/skills/src/cli.ts sync -g --dry-run`
 
 The test command exists, but follow the root project rule: do not add test
 cases or run test commands unless the user explicitly asks for them.
@@ -16,8 +16,10 @@ cases or run test commands unless the user explicitly asks for them.
 ## Conventions
 
 - This package is `@plimeor/skills`; its executable name is `skills`.
-- Source code lives in `src/`; tests live in `test/`; `dist/` is build output
-  and should not be treated as the source editing target.
+- This package is Bun-only. The published `skills` binary points at
+  `src/cli.ts`; do not introduce a generated `dist/` runtime target unless a
+  spec explicitly changes the runtime contract.
+- Source code lives in `src/`; tests live in `test/`.
 - `skills.json` is the human-maintained desired state file.
 - `skills.lock.json` is resolved install state and contains generated install
   metadata.
@@ -50,4 +52,3 @@ cases or run test commands unless the user explicitly asks for them.
   delegate reusable state and install logic to sibling modules.
 - Integration-style tests use temporary directories and helpers in
   `test/helpers/`; add new tests only when explicitly requested.
-

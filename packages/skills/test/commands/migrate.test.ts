@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { migrateCommand } from '../../src/commands/migrate.js'
@@ -11,7 +11,22 @@ describe('migrate command', () => {
     const cwd = await tempDir('skills-migrate-')
     const input = join(cwd, 'custom-lock.json')
     const output = join(cwd, 'skills.json')
-    const lock = JSON.stringify({ skills: { a: { source: 'repo' } }, version: 3 }, null, 2)
+    const outputLock = join(cwd, 'skills.lock.json')
+    const lock = JSON.stringify(
+      {
+        version: 3,
+        skills: {
+          a: {
+            commit: 'abc123',
+            installedAt: '2026-04-25T00:00:00.000Z',
+            installedPath: '/tmp/a',
+            source: 'repo'
+          }
+        }
+      },
+      null,
+      2
+    )
     await writeFile(input, lock)
 
     await withCwd(cwd, () =>
@@ -23,18 +38,47 @@ describe('migrate command', () => {
     expect(((await readJson(output)) as { sources: unknown[] }).sources).toEqual([
       { skills: [{ name: 'a', path: 'skills/a' }], source: 'repo' }
     ])
+    expect(await readJson(outputLock)).toEqual({
+      schemaVersion: 1,
+      scope: 'project',
+      skills: {
+        a: {
+          commit: 'abc123',
+          installedAt: '2026-04-25T00:00:00.000Z',
+          installPath: '/tmp/a',
+          method: 'copy',
+          path: 'skills/a',
+          source: 'repo'
+        }
+      }
+    })
   })
 
   test('defaults to ./skills-lock.json when no input is provided', async () => {
     const cwd = await tempDir('skills-migrate-default-')
-    const output = join(cwd, 'skills.json')
+    const realCwd = await realpath(cwd)
+    const output = join(cwd, '.agents', 'skills.json')
     await writeFile(join(cwd, 'skills-lock.json'), JSON.stringify({ skills: { a: { source: 'repo' } } }))
 
-    await withCwd(cwd, () => migrateCommand({ args: {}, options: { output: 'skills.json' } }))
+    await withCwd(cwd, () => migrateCommand({ args: {}, options: {} }))
 
     expect(((await readJson(output)) as { sources: unknown[] }).sources).toEqual([
       { skills: [{ name: 'a', path: 'skills/a' }], source: 'repo' }
     ])
+    expect(await readJson(join(cwd, '.agents', 'skills.lock.json'))).toEqual({
+      schemaVersion: 1,
+      scope: 'project',
+      skills: {
+        a: {
+          commit: 'HEAD',
+          installedAt: expect.any(String),
+          installPath: join(realCwd, '.agents', 'skills', 'a'),
+          method: 'copy',
+          path: 'skills/a',
+          source: 'repo'
+        }
+      }
+    })
   })
 
   test('defaults to ~/.agents/.skill-lock.json in global mode', async () => {
@@ -51,5 +95,19 @@ describe('migrate command', () => {
     expect(((await readJson(output)) as { sources: unknown[] }).sources).toEqual([
       { skills: [{ name: 'a', path: 'skills/a' }], source: 'repo' }
     ])
+    expect(await readJson(join(cwd, 'skills.lock.json'))).toEqual({
+      schemaVersion: 1,
+      scope: 'global',
+      skills: {
+        a: {
+          commit: 'HEAD',
+          installedAt: expect.any(String),
+          installPath: join(home, '.agents', 'skills', 'a'),
+          method: 'copy',
+          path: 'skills/a',
+          source: 'repo'
+        }
+      }
+    })
   })
 })

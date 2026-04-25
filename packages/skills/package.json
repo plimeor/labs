@@ -4,7 +4,7 @@
   "type": "module",
   "version": "0.1.1",
   "bin": {
-    "skills": "./dist/cli.js"
+    "skills": "./src/cli.ts"
   },
   "bugs": {
     "url": "https://github.com/plimeor/labs/issues"
@@ -15,7 +15,7 @@
     "zx": "^8.8.5"
   },
   "files": [
-    "dist"
+    "src"
   ],
   "publishConfig": {
     "access": "public"
@@ -26,9 +26,8 @@
     "url": "git+https://github.com/plimeor/labs.git"
   },
   "scripts": {
-    "build": "rm -rf dist && bun build src/cli.ts --target bun --format esm --packages external --outdir dist",
     "lint": "biome check src test",
-    "prepack": "bun run build",
+    "prepack": "bun src/cli.ts --help >/dev/null",
     "test": "bun test test"
   }
 }

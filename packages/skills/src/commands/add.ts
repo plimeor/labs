@@ -45,7 +45,7 @@ export async function addCommand(context: AddCommandContext) {
   await Checkout.withAll([request], async checkouts => {
     const checkout = Checkout.requireResult(checkouts, request, context.args.source)
     const skills = await resolveSkills(context, checkout.dir)
-    consola.info(`Installing ${plural(skills.length, 'skill')} into ${formatDisplayPath(scope.installDir)}`)
+    consola.info(`Installing ${skills.length} skills into ${formatDisplayPath(scope.installDir)}`)
     for (const skill of skills) {
       const result = await installSkillWithContext(skill, checkout, scope)
       consola.success(`Installed ${formatDisplayPath(result.installPath)}`)
@@ -128,14 +128,11 @@ function formatScope(scope: ReturnType<typeof resolveScope>): string {
 }
 
 function formatCheckoutTarget(request: Checkout.Request): string {
-  const target = request.commit ? `commit ${shortCommit(request.commit)}` : request.ref ? `ref ${request.ref}` : 'HEAD'
-  return `${formatDisplayPath(request.source)} at ${target}`
-}
+  const source = formatDisplayPath(request.source)
+  if (request.commit) {
+    const commit = request.commit === 'local' ? request.commit : request.commit.slice(0, 7)
+    return `${source} at commit ${commit}`
+  }
 
-function shortCommit(commit: string): string {
-  return commit === 'local' ? commit : commit.slice(0, 7)
-}
-
-function plural(count: number, singular: string, pluralForm = `${singular}s`): string {
-  return `${count} ${count === 1 ? singular : pluralForm}`
+  return request.ref ? `${source} at ref ${request.ref}` : `${source} at HEAD`
 }

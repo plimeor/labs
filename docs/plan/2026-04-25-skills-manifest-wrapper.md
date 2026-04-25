@@ -34,7 +34,7 @@ Replace the upstream-wrapper implementation with a native installer that manages
 - Rewrite `remove` to remove installed directories and state entries.
 - Rewrite `list` to read `skills.lock.json`.
 - Rewrite `update` as default `sync`.
-- Keep `migrate` as an old-lock-to-new-manifest conversion command.
+- Keep `migrate` as an old-lock-to-new-manifest-and-lock conversion command.
 
 ### Phase 4: Cleanup
 
