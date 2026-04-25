@@ -6,11 +6,25 @@ The executable is `skills`. It uses `skills.json` as desired state,
 `skills.lock.json` as resolved install state, and installs skill directories
 into `.agents/skills`.
 
+## Installation
+
+The CLI is built for Bun. Install Bun first, then install the package globally:
+
+```bash
+npm install -g @plimeor/skills
+skills --help
+```
+
+For one-off usage without a global install:
+
+```bash
+bunx @plimeor/skills sync -g --dry-run
+```
+
 ## Quick Start
 
 ```bash
-bun run --filter @plimeor/skills build
-packages/skills/dist/cli.js sync -g --dry-run
+skills sync -g --dry-run
 ```
 
 Use `-g` or `--global` for `~/.agents`. Without it, commands use `./.agents`

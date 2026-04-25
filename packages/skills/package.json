@@ -1,21 +1,34 @@
 {
+  "homepage": "https://github.com/plimeor/labs/tree/main/packages/skills",
   "name": "@plimeor/skills",
   "type": "module",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "bin": {
     "skills": "./dist/cli.js"
+  },
+  "bugs": {
+    "url": "https://github.com/plimeor/labs/issues"
   },
   "dependencies": {
     "consola": "^3.4.2",
     "incur": "^0.4.4",
     "zx": "^8.8.5"
   },
+  "files": [
+    "dist"
+  ],
   "publishConfig": {
     "access": "public"
+  },
+  "repository": {
+    "directory": "packages/skills",
+    "type": "git",
+    "url": "git+https://github.com/plimeor/labs.git"
   },
   "scripts": {
     "build": "rm -rf dist && bun build src/cli.ts --target bun --format esm --packages external --outdir dist",
     "lint": "biome check src test",
+    "prepack": "bun run build",
     "test": "bun test test"
   }
 }
