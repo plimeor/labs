@@ -9,17 +9,20 @@
 ## Conventions
 
 - Files under `docs/specs/` are living implementation specs and must use stable topic names: `<topic>.md`.
+- Files under `docs/ideas/` are ideation snapshots and must use a date-prefixed name: `YYYY-MM-DD-description.md`.
 - Files under `docs/plan/` are one-time implementation plans and must use a date-prefixed name: `YYYY-MM-DD-description.md`.
 - Files under `docs/decisions/` are historical decision records and must use a date-prefixed name: `YYYY-MM-DD-description.md`.
-- Keep specs, plans, and decisions scoped to the project or feature they describe; do not mix temporary task notes into project rules.
+- Keep specs, ideas, plans, and decisions scoped to the project or feature they describe; do not mix temporary task notes into project rules.
 
 ## Docs Maintenance
 
 - Update `docs/specs/` when a change affects CLI commands, arguments, output, errors, state file schemas, package metadata, workspace contracts, install/sync/publish behavior, package boundaries, or cross-module interfaces.
 - Do not update specs for pure internal refactors, bug fixes with no contract change, temporary research, execution logs, failed attempts, or already superseded historical notes.
+- Do not maintain `docs/ideas/` as living specs. After an idea becomes active implementation work, create or update the relevant `docs/specs/` or `docs/plan/` file instead.
 - Maintain `docs/plan/` only while its task is active; after implementation, do not keep old plans synchronized with later code changes except to mark `Implemented`, `Abandoned`, or `Superseded` when useful.
 - Use `docs/decisions/` only for significant, traceable decisions that are expensive to reverse; preserve them as historical records and supersede them with a new decision record instead of rewriting history.
 - Update README for user-facing entrypoints and current usage. Update AGENTS.md for long-lived repo rules. Do not put single-feature implementation details in either file.
+- Update the root `README.md` package list when adding, removing, renaming, or materially changing the purpose of a package under `packages/`.
 
 ## Packages
 
