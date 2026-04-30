@@ -10,6 +10,8 @@ export const listOptionsSchema = z.object({
 })
 
 export type ListCommandContext = {
+  format?: string
+  formatExplicit?: boolean
   options: z.infer<typeof listOptionsSchema>
 }
 
@@ -26,6 +28,10 @@ export async function listCommand(context: ListCommandContext) {
       source: skill.source
     }))
     .sort((a, b) => a.name.localeCompare(b.name))
+
+  if (context.formatExplicit && context.format === 'json') {
+    return entries
+  }
 
   if (context.options.json) {
     process.stdout.write(`${JSON.stringify(entries, null, 2)}\n`)
