@@ -2,7 +2,6 @@ import { readFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 
 import { log, tasks } from '@clack/prompts'
-import type { OutputMode } from '@plimeor/command-kit'
 import { type Static, Type } from '@sinclair/typebox'
 
 import { isNotFound } from '../json.js'
@@ -14,14 +13,12 @@ export const migrateArgsSchema = Type.Object({
   input: Type.Optional(Type.String())
 })
 export const migrateOptionsSchema = Type.Object({
-  global: Type.Optional(Type.Boolean()),
-  json: Type.Optional(Type.Boolean()),
-  output: Type.Optional(Type.String())
+  global: Type.Optional(Type.Boolean({ description: 'Use the global legacy lock and output state' })),
+  output: Type.Optional(Type.String({ description: 'Manifest path to write instead of the default path' }))
 })
 
 export type MigrateCommandContext = {
   args: Static<typeof migrateArgsSchema>
-  format?: OutputMode
   options: Static<typeof migrateOptionsSchema>
 }
 
@@ -36,37 +33,27 @@ export async function migrateCommand(context: MigrateCommandContext) {
   })
   const outputPath = context.options.output ? resolve(cwd, context.options.output) : scope.manifestPath
   const lockPath = context.options.output ? join(dirname(outputPath), 'skills.lock.json') : scope.lockPath
-  const legacyLock =
-    context.format === 'json' ? await readLegacyLock(inputPath) : await readLegacyLockWithProgress(inputPath)
+  const legacyLock = await readLegacyLockWithProgress(inputPath)
   if (!legacyLock) {
-    if (context.format !== 'json') {
-      log.info(`No legacy lock found at ${formatDisplayPath(inputPath)}; nothing to migrate`)
-    }
+    log.info(`No legacy lock found at ${formatDisplayPath(inputPath)}; nothing to migrate`)
     return { lockPath, manifestPath: outputPath, migrated: 0 }
   }
 
   const migrated = migrateLegacyLock(legacyLock, scope)
 
-  if (context.format === 'json') {
-    await Manifest.write(outputPath, migrated.manifest)
-    await Lock.write(lockPath, migrated.lock)
-  } else {
-    await tasks([
-      {
-        title: `Writing ${formatScope(scope)} state`,
-        task: async () => {
-          await Manifest.write(outputPath, migrated.manifest)
-          await Lock.write(lockPath, migrated.lock)
-          return `Wrote ${formatDisplayPath(outputPath)} and ${formatDisplayPath(lockPath)}`
-        }
+  await tasks([
+    {
+      title: `Writing ${formatScope(scope)} state`,
+      task: async () => {
+        await Manifest.write(outputPath, migrated.manifest)
+        await Lock.write(lockPath, migrated.lock)
+        return `Wrote ${formatDisplayPath(outputPath)} and ${formatDisplayPath(lockPath)}`
       }
-    ])
-  }
-  if (context.format !== 'json') {
-    log.success(
-      `Migrated ${migrated.manifest.skills.length} skills to ${formatDisplayPath(outputPath)} and ${formatDisplayPath(lockPath)}`
-    )
-  }
+    }
+  ])
+  log.success(
+    `Migrated ${migrated.manifest.skills.length} skills to ${formatDisplayPath(outputPath)} and ${formatDisplayPath(lockPath)}`
+  )
   return { lockPath, manifestPath: outputPath, migrated: migrated.manifest.skills.length }
 }
 

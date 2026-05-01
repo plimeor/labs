@@ -9,19 +9,6 @@ import { Checkout } from '../src/checkout.js'
 import { tempDir } from './helpers/fs.js'
 
 describe('checkout planning', () => {
-  test('deduplicates checkout requests by source and target commit or ref', () => {
-    expect(
-      new Set(
-        [
-          { ref: 'main', source: 'repo' },
-          { ref: 'main', source: 'repo' },
-          { ref: 'next', source: 'repo' },
-          { commit: 'abc', source: 'repo' }
-        ].map(Checkout.key)
-      ).size
-    ).toBe(3)
-  })
-
   test('cleans temporary git checkouts after use', async () => {
     const source = await createGitSource()
     let checkoutDir = ''

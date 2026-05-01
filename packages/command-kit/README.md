@@ -25,7 +25,7 @@ const cli = defineCli({
       }),
       description: 'Add items from a source',
       options: Type.Object({
-        json: Type.Optional(Type.Boolean())
+        json: Type.Optional(Type.Boolean({ description: 'Write a JSON result envelope' }))
       }),
       positionals: [{ name: 'source' }, { name: 'items', rest: true }],
       run: context => ({

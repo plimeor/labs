@@ -2,7 +2,6 @@ import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { cancel, isCancel, log, multiselect, tasks } from '@clack/prompts'
-import type { OutputMode } from '@plimeor/command-kit'
 import { type Static, Type } from '@sinclair/typebox'
 
 import { Checkout } from '../checkout.js'
@@ -16,64 +15,48 @@ export const addArgsSchema = Type.Object({
   source: Type.String()
 })
 export const addOptionsSchema = Type.Object({
-  all: Type.Optional(Type.Boolean()),
-  commit: Type.Optional(Type.String()),
-  global: Type.Optional(Type.Boolean()),
-  json: Type.Optional(Type.Boolean()),
-  ref: Type.Optional(Type.String()),
-  skill: Type.Optional(Type.Array(Type.String()))
+  all: Type.Optional(Type.Boolean({ description: 'Install every skill from the source repository' })),
+  commit: Type.Optional(Type.String({ description: 'Git commit to install from' })),
+  global: Type.Optional(Type.Boolean({ description: 'Use the global skills manifest and lock file' })),
+  ref: Type.Optional(Type.String({ description: 'Git ref to install from' })),
+  skill: Type.Optional(Type.Array(Type.String(), { description: 'Skill name to install; can be repeated' }))
 })
 
 export type AddCommandContext = {
   args: Static<typeof addArgsSchema>
-  format?: OutputMode
   options: Static<typeof addOptionsSchema>
 }
 
 export async function addCommand(context: AddCommandContext) {
   validateAddRequest(context)
   const scope = resolveScope(context.options.global ?? false)
-  if (context.format !== 'json') {
-    log.step(`Using ${formatScope(scope)} skills state`)
-  }
+  log.step(`Using ${formatScope(scope)} skills state`)
 
   const request = checkoutRequest(context)
-  if (context.format !== 'json') {
-    log.step(`Resolving ${formatCheckoutTarget(request)}`)
-  }
+  log.step(`Resolving ${formatCheckoutTarget(request)}`)
   return Checkout.withAll([request], async checkouts => {
     const checkout = Checkout.requireResult(checkouts, request, context.args.source)
     const selectionLock = await readLockOrEmpty(scope)
     const skills = await resolveSkills(context, checkout.dir, selectionLock)
     if (skills.length === 0) {
-      if (context.format !== 'json') {
-        log.info('No new skills selected.')
-      }
+      log.info('No new skills selected.')
       return { installed: [], lockPath: scope.lockPath, manifestPath: scope.manifestPath }
     }
 
     let manifest = await Manifest.ensure(scope)
     let lock = await Lock.ensure(scope)
-    if (context.format !== 'json') {
-      log.info(`Installing ${skills.length} skills into ${formatDisplayPath(scope.installDir)}`)
-    }
+    log.info(`Installing ${skills.length} skills into ${formatDisplayPath(scope.installDir)}`)
     const installResults = new Map<string, InstallResult>()
-    if (context.format === 'json') {
-      for (const skill of skills) {
-        installResults.set(skill.name, await installSkillWithContext(skill, checkout, scope))
-      }
-    } else {
-      await tasks(
-        skills.map(skill => ({
-          title: `Install ${skill.name}`,
-          task: async () => {
-            const result = await installSkillWithContext(skill, checkout, scope)
-            installResults.set(skill.name, result)
-            return `Installed ${formatDisplayPath(result.installPath)}`
-          }
-        }))
-      )
-    }
+    await tasks(
+      skills.map(skill => ({
+        title: `Install ${skill.name}`,
+        task: async () => {
+          const result = await installSkillWithContext(skill, checkout, scope)
+          installResults.set(skill.name, result)
+          return `Installed ${formatDisplayPath(result.installPath)}`
+        }
+      }))
+    )
     for (const skill of skills) {
       const result = installResults.get(skill.name)
       if (!result) {
@@ -97,9 +80,7 @@ export async function addCommand(context: AddCommandContext) {
 
     await Manifest.write(scope, manifest)
     await Lock.write(scope, lock)
-    if (context.format !== 'json') {
-      log.success(`Updated ${formatDisplayPath(scope.manifestPath)} and ${formatDisplayPath(scope.lockPath)}`)
-    }
+    log.success(`Updated ${formatDisplayPath(scope.manifestPath)} and ${formatDisplayPath(scope.lockPath)}`)
     return {
       installed: skills.map(skill => skill.name),
       lockPath: scope.lockPath,

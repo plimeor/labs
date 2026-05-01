@@ -3,10 +3,10 @@ import { join } from 'node:path'
 
 import { listCommand } from '../../src/commands/list.js'
 import { tempDir, writeProjectLock } from '../helpers/fs.js'
-import { captureStdout, withCwd } from '../helpers/process.js'
+import { withCwd } from '../helpers/process.js'
 
 describe('list command', () => {
-  test('prints installed skills as sorted JSON from the lock file', async () => {
+  test('returns installed skills from the lock file for JSON output', async () => {
     const cwd = await tempDir('skills-list-')
     await writeProjectLock(cwd, {
       schemaVersion: 1,
@@ -29,11 +29,9 @@ describe('list command', () => {
       }
     })
 
-    const output = await captureStdout(async () => {
-      await withCwd(cwd, () => listCommand({ options: { json: true } }))
-    })
+    const entries = await withCwd(cwd, () => listCommand({ options: { json: true } }))
 
-    expect(JSON.parse(output)).toEqual([
+    expect(entries).toEqual([
       {
         commit: 'aaa',
         name: 'a',

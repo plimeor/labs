@@ -209,7 +209,18 @@ function formatOptions(command: CommandDefinition): string | undefined {
     return undefined
   }
 
-  const lines = entries.map(([name, schema]) => `  ${formatOptionName(name, command)}${formatOptionValue(schema)}`)
+  const formatted = entries.map(([name, schema]) => ({
+    description: formatDescription(schema),
+    usage: `${formatOptionName(name, command)}${formatOptionValue(schema)}`
+  }))
+  const width = Math.max(...formatted.map(option => option.usage.length))
+  const lines = formatted.map(option => {
+    if (!option.description) {
+      return `  ${option.usage}`
+    }
+
+    return `  ${option.usage.padEnd(width)}  ${option.description}`
+  })
   return `Options:\n${lines.join('\n')}`
 }
 
@@ -229,6 +240,10 @@ function formatOptionValue(schema: TSchema): string {
   }
 
   return ' <string>'
+}
+
+function formatDescription(schema: TSchema): string | undefined {
+  return typeof schema.description === 'string' && schema.description.length > 0 ? schema.description : undefined
 }
 
 export const emptyArgsSchema = Type.Object({})

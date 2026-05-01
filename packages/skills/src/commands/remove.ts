@@ -1,5 +1,4 @@
 import { log, tasks } from '@clack/prompts'
-import type { OutputMode } from '@plimeor/command-kit'
 import { type Static, Type } from '@sinclair/typebox'
 
 import { removeInstalledSkill } from '../installer.js'
@@ -11,22 +10,18 @@ export const removeArgsSchema = Type.Object({
   skills: Type.Array(Type.String({ minLength: 1 }), { minItems: 1 })
 })
 export const removeOptionsSchema = Type.Object({
-  global: Type.Optional(Type.Boolean()),
-  json: Type.Optional(Type.Boolean())
+  global: Type.Optional(Type.Boolean({ description: 'Use the global skills manifest and lock file' }))
 })
 
 export type RemoveCommandContext = {
   args: Static<typeof removeArgsSchema>
-  format?: OutputMode
   options: Static<typeof removeOptionsSchema>
 }
 
 export async function removeCommand(context: RemoveCommandContext) {
   const skillNames = parseSkillNames(context)
   const scope = resolveScope(context.options.global ?? false)
-  if (context.format !== 'json') {
-    log.step(`Removing ${skillNames.join(', ')} from ${formatScope(scope)} skills state`)
-  }
+  log.step(`Removing ${skillNames.join(', ')} from ${formatScope(scope)} skills state`)
   let manifest = await Manifest.read(scope)
   let lock = await Lock.ensure(scope)
 
@@ -35,30 +30,22 @@ export async function removeCommand(context: RemoveCommandContext) {
     lock = Lock.removeSkill(lock, skillName)
   }
 
-  if (context.format === 'json') {
-    for (const skillName of skillNames) {
-      await removeInstalledSkill(skillName, scope)
-    }
-  } else {
-    await tasks(
-      skillNames.map(skillName => ({
-        title: `Remove ${skillName}`,
-        task: async () => {
-          await removeInstalledSkill(skillName, scope)
-          return `Removed ${skillName}`
-        }
-      }))
-    )
-  }
+  await tasks(
+    skillNames.map(skillName => ({
+      title: `Remove ${skillName}`,
+      task: async () => {
+        await removeInstalledSkill(skillName, scope)
+        return `Removed ${skillName}`
+      }
+    }))
+  )
   await Manifest.write(scope, manifest)
   await Lock.write(scope, lock)
-  if (context.format !== 'json') {
-    log.success(
-      `Removed ${skillNames.length} skills and updated ${formatDisplayPath(
-        scope.manifestPath
-      )} plus ${formatDisplayPath(scope.lockPath)}`
-    )
-  }
+  log.success(
+    `Removed ${skillNames.length} skills and updated ${formatDisplayPath(
+      scope.manifestPath
+    )} plus ${formatDisplayPath(scope.lockPath)}`
+  )
   return { lockPath: scope.lockPath, manifestPath: scope.manifestPath, removed: skillNames }
 }
 

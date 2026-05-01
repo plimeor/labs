@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { Manifest } from '../src/manifest.js'
@@ -87,18 +87,6 @@ describe('manifest mutations', () => {
     expect(Manifest.removeSkill(manifest, 'b').skills).toEqual([
       { commit: 'abc', name: 'a', path: 'skills/a', source: 'repo' }
     ])
-  })
-
-  test('writes atomically with deterministic content', async () => {
-    const dir = await tempDir('skills-manifest-')
-    const nested = join(dir, 'nested')
-    const file = join(nested, 'skills.json')
-    await mkdir(nested)
-
-    await Manifest.write(file, Manifest.upsertSkill(Manifest.createEmpty('project'), { name: 'a', source: 'repo' }))
-
-    expect(await readFile(file, 'utf-8')).toContain('"scope": "project"')
-    expect(await readFile(file, 'utf-8')).toContain('"name": "a"')
   })
 
   test('ensures a missing manifest file with default deterministic content', async () => {

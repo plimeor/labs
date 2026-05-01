@@ -135,26 +135,6 @@ describe('add command', () => {
     expect(await readFile(join(home, '.agents', 'skills', 'b', 'SKILL.md'), 'utf-8')).toContain('name: b')
   })
 
-  test('CLI writes a json envelope when the command declares --json', async () => {
-    const home = await tempDir('skills-add-cli-json-home-')
-    const source = await tempDir('skills-add-cli-json-source-')
-    await writeSkill(source, 'demo')
-
-    const result = await $({
-      env: { ...process.env, HOME: home },
-      quiet: true
-    })`bun ${cliPath()} add ${source} demo -g --json`
-
-    expect(JSON.parse(result.stdout)).toEqual({
-      ok: true,
-      data: {
-        installed: ['demo'],
-        lockPath: join(home, '.agents', 'skills.lock.json'),
-        manifestPath: join(home, '.agents', 'skills.json')
-      }
-    })
-  })
-
   test('prompts for uninstalled skills and installs selected skills', async () => {
     const home = await tempDir('skills-add-prompt-home-')
     const source = await tempDir('skills-add-prompt-source-')

@@ -280,8 +280,8 @@ describe('command runtime', () => {
           }),
           description: 'Add items',
           options: Type.Object({
-            global: Type.Optional(Type.Boolean()),
-            skill: Type.Optional(Type.Array(Type.String()))
+            global: Type.Optional(Type.Boolean({ description: 'Use global state' })),
+            skill: Type.Optional(Type.Array(Type.String(), { description: 'Item to add; can be repeated' }))
           }),
           positionals: [{ name: 'source' }, { name: 'items', rest: true }],
           optionAliases: {
@@ -304,6 +304,8 @@ describe('command runtime', () => {
     expect(output).toContain('items...')
     expect(output).toContain('Options:')
     expect(output).toContain('--global, -g')
+    expect(output).toContain('Use global state')
     expect(output).toContain('--skill <array>')
+    expect(output).toContain('Item to add; can be repeated')
   })
 })

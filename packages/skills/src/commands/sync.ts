@@ -2,7 +2,6 @@ import { readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { log, tasks } from '@clack/prompts'
-import type { OutputMode } from '@plimeor/command-kit'
 import { type Static, Type } from '@sinclair/typebox'
 
 import { Checkout } from '../checkout.js'
@@ -14,27 +13,25 @@ import { SyncPlan } from '../sync-plan.js'
 
 export const syncArgsSchema = Type.Object({})
 export const syncOptionsSchema = Type.Object({
-  dryRun: Type.Optional(Type.Boolean()),
-  global: Type.Optional(Type.Boolean()),
-  json: Type.Optional(Type.Boolean()),
-  locked: Type.Optional(Type.Boolean())
+  dryRun: Type.Optional(Type.Boolean({ description: 'Print the planned changes without writing state' })),
+  global: Type.Optional(Type.Boolean({ description: 'Use the global skills manifest and lock file' })),
+  locked: Type.Optional(Type.Boolean({ description: 'Use locked commits instead of resolving sources' }))
 })
 
 export type SyncCommandContext = {
-  format?: OutputMode
   options: Static<typeof syncOptionsSchema>
 }
 
 export async function syncCommand(context: SyncCommandContext) {
   const scope = resolveScope(context.options.global ?? false)
-  if (!context.options.dryRun && context.format !== 'json') {
+  if (!context.options.dryRun) {
     log.step(`Using ${formatScope(scope)} skills state`)
   }
   const lock = context.options.locked ? await Lock.read(scope) : await Lock.ensure(scope)
   const rawManifest = await Manifest.read(scope)
   const allSources = Manifest.allSourceRequests(rawManifest)
   let manifest: Manifest.Document
-  if (!context.options.dryRun && allSources.length > 0 && context.format !== 'json') {
+  if (!context.options.dryRun && allSources.length > 0) {
     manifest = rawManifest
     await tasks([
       {
@@ -54,9 +51,7 @@ export async function syncCommand(context: SyncCommandContext) {
 
   if (context.options.dryRun) {
     const dryRunPlan = SyncPlan.formatDryRun(syncPlan, scope)
-    if (context.format !== 'json') {
-      process.stdout.write(dryRunPlan)
-    }
+    process.stdout.write(dryRunPlan)
     return {
       dryRunPlan,
       installs: syncPlan.installSkills.length,
@@ -69,39 +64,27 @@ export async function syncCommand(context: SyncCommandContext) {
   let nextLock = lock
   const plannedChanges = syncPlan.pruneNames.length + syncPlan.installSkills.length
   if (plannedChanges === 0) {
-    if (context.format !== 'json') {
-      log.success('Skills are already in sync')
-    }
+    log.success('Skills are already in sync')
   } else {
-    if (context.format !== 'json') {
-      log.info(
-        `Applying ${plannedChanges} changes: ${syncPlan.pruneNames.length} removals, ${syncPlan.installSkills.length} installs`
-      )
-    }
+    log.info(
+      `Applying ${plannedChanges} changes: ${syncPlan.pruneNames.length} removals, ${syncPlan.installSkills.length} installs`
+    )
 
-    if (context.format === 'json') {
-      for (const skillName of syncPlan.pruneNames) {
-        await removeInstalledSkill(skillName, scope)
-      }
-    } else {
-      await tasks(
-        syncPlan.pruneNames.map(skillName => ({
-          title: `Remove ${skillName}`,
-          task: async () => {
-            await removeInstalledSkill(skillName, scope)
-            return `Removed ${skillName}`
-          }
-        }))
-      )
-    }
+    await tasks(
+      syncPlan.pruneNames.map(skillName => ({
+        title: `Remove ${skillName}`,
+        task: async () => {
+          await removeInstalledSkill(skillName, scope)
+          return `Removed ${skillName}`
+        }
+      }))
+    )
     for (const skillName of syncPlan.pruneNames) {
       nextLock = Lock.removeSkill(nextLock, skillName)
     }
 
     for (const request of uniqueCheckoutRequests(syncPlan.installRequests)) {
-      if (context.format !== 'json') {
-        log.step(`Resolving ${formatCheckoutTarget(request)}`)
-      }
+      log.step(`Resolving ${formatCheckoutTarget(request)}`)
     }
 
     await Checkout.withAll(syncPlan.installRequests, async checkouts => {
@@ -114,27 +97,18 @@ export async function syncCommand(context: SyncCommandContext) {
         }
       >()
 
-      if (context.format === 'json') {
-        for (const skill of syncPlan.installSkills) {
-          const request = syncPlan.installRequestsBySkillName[skill.name]
-          const checkout = Checkout.requireResult(checkouts, request, skill.name)
-          const result = await installSkillWithContext(skill, checkout, scope)
-          installResults.set(skill.name, { checkout, result, skill })
-        }
-      } else {
-        await tasks(
-          syncPlan.installSkills.map(skill => ({
-            title: `Install ${skill.name}`,
-            task: async () => {
-              const request = syncPlan.installRequestsBySkillName[skill.name]
-              const checkout = Checkout.requireResult(checkouts, request, skill.name)
-              const result = await installSkillWithContext(skill, checkout, scope)
-              installResults.set(skill.name, { checkout, result, skill })
-              return `Installed ${formatDisplayPath(result.installPath)}`
-            }
-          }))
-        )
-      }
+      await tasks(
+        syncPlan.installSkills.map(skill => ({
+          title: `Install ${skill.name}`,
+          task: async () => {
+            const request = syncPlan.installRequestsBySkillName[skill.name]
+            const checkout = Checkout.requireResult(checkouts, request, skill.name)
+            const result = await installSkillWithContext(skill, checkout, scope)
+            installResults.set(skill.name, { checkout, result, skill })
+            return `Installed ${formatDisplayPath(result.installPath)}`
+          }
+        }))
+      )
 
       for (const skill of syncPlan.installSkills) {
         const installed = installResults.get(skill.name)
@@ -151,7 +125,7 @@ export async function syncCommand(context: SyncCommandContext) {
   }
 
   await Lock.write(scope, nextLock)
-  if (plannedChanges > 0 && context.format !== 'json') {
+  if (plannedChanges > 0) {
     log.success(`Updated ${formatDisplayPath(scope.lockPath)}`)
   }
   return {

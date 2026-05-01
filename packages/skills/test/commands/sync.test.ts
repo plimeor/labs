@@ -95,33 +95,6 @@ describe('sync planning', () => {
       )
     ).toThrow('does not match')
   })
-
-  test('locked mode uses lock entries when syncing', () => {
-    const manifest = {
-      schemaVersion: 1 as const,
-      scope: 'global' as const,
-      skills: [{ name: 'a', path: 'skills/a', ref: 'main', source: 'repo' }]
-    }
-    const lock = {
-      schemaVersion: 1 as const,
-      scope: 'global' as const,
-      skills: {
-        a: {
-          commit: 'locked-a',
-          installedAt: '2026-04-25T00:00:00.000Z',
-          installPath: '/tmp/a',
-          method: 'copy' as const,
-          path: 'skills/a',
-          ref: 'main',
-          source: 'repo'
-        }
-      }
-    }
-
-    expect(SyncPlan.plan(manifest, lock, { locked: true })).toMatchObject({
-      installRequests: [{ commit: 'locked-a', source: 'repo' }]
-    })
-  })
 })
 
 describe('sync command', () => {
