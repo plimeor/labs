@@ -1,18 +1,20 @@
 import { log } from '@clack/prompts'
-import { z } from 'incur'
+import type { OutputMode } from '@plimeor/command-kit'
+import { type Static, Type } from '@sinclair/typebox'
 
 import { Lock } from '../lock.js'
 import { formatDisplayPath, resolveScope } from '../scope.js'
 
-export const listOptionsSchema = z.object({
-  global: z.boolean().optional(),
-  json: z.boolean().optional()
+export const listArgsSchema = Type.Object({})
+export const listOptionsSchema = Type.Object({
+  global: Type.Optional(Type.Boolean()),
+  json: Type.Optional(Type.Boolean())
 })
 
 export type ListCommandContext = {
-  format?: string
+  format?: OutputMode
   formatExplicit?: boolean
-  options: z.infer<typeof listOptionsSchema>
+  options: Static<typeof listOptionsSchema>
 }
 
 export async function listCommand(context: ListCommandContext) {
@@ -35,16 +37,21 @@ export async function listCommand(context: ListCommandContext) {
 
   if (context.options.json) {
     process.stdout.write(`${JSON.stringify(entries, null, 2)}\n`)
-    return
+    return entries
   }
 
   if (entries.length === 0) {
-    log.info(`No skills installed in ${formatScope(scope)}.`)
-    return
+    if (context.format !== 'json') {
+      log.info(`No skills installed in ${formatScope(scope)}.`)
+    }
+    return []
   }
 
-  log.info(`Installed ${entries.length} skills in ${formatScope(scope)}`)
-  process.stdout.write(`${formatList(entries)}\n`)
+  if (context.format !== 'json') {
+    log.info(`Installed ${entries.length} skills in ${formatScope(scope)}`)
+    process.stdout.write(`${formatList(entries)}\n`)
+  }
+  return entries
 }
 
 type ListEntry = {

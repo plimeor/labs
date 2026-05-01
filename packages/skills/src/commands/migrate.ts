@@ -2,22 +2,27 @@ import { readFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 
 import { log, tasks } from '@clack/prompts'
-import { z } from 'incur'
+import type { OutputMode } from '@plimeor/command-kit'
+import { type Static, Type } from '@sinclair/typebox'
 
 import { isNotFound } from '../json.js'
 import { Lock } from '../lock.js'
 import { Manifest } from '../manifest.js'
 import { formatDisplayPath, resolveScope, type Scope } from '../scope.js'
 
-export const migrateArgsSchema = z.object({ input: z.string().optional() })
-export const migrateOptionsSchema = z.object({
-  global: z.boolean().optional(),
-  output: z.string().optional()
+export const migrateArgsSchema = Type.Object({
+  input: Type.Optional(Type.String())
+})
+export const migrateOptionsSchema = Type.Object({
+  global: Type.Optional(Type.Boolean()),
+  json: Type.Optional(Type.Boolean()),
+  output: Type.Optional(Type.String())
 })
 
 export type MigrateCommandContext = {
-  args: z.infer<typeof migrateArgsSchema>
-  options: z.infer<typeof migrateOptionsSchema>
+  args: Static<typeof migrateArgsSchema>
+  format?: OutputMode
+  options: Static<typeof migrateOptionsSchema>
 }
 
 export async function migrateCommand(context: MigrateCommandContext) {
@@ -31,40 +36,56 @@ export async function migrateCommand(context: MigrateCommandContext) {
   })
   const outputPath = context.options.output ? resolve(cwd, context.options.output) : scope.manifestPath
   const lockPath = context.options.output ? join(dirname(outputPath), 'skills.lock.json') : scope.lockPath
-  let legacyLock: unknown | undefined
-  await tasks([
-    {
-      title: `Reading legacy lock from ${formatDisplayPath(inputPath)}`,
-      task: async () => {
-        legacyLock = await readLegacyLock(inputPath)
-        if (!legacyLock) {
-          return 'No legacy lock found'
-        }
-
-        return `Read legacy lock from ${formatDisplayPath(inputPath)}`
-      }
-    }
-  ])
+  const legacyLock =
+    context.format === 'json' ? await readLegacyLock(inputPath) : await readLegacyLockWithProgress(inputPath)
   if (!legacyLock) {
-    log.info(`No legacy lock found at ${formatDisplayPath(inputPath)}; nothing to migrate`)
-    return
+    if (context.format !== 'json') {
+      log.info(`No legacy lock found at ${formatDisplayPath(inputPath)}; nothing to migrate`)
+    }
+    return { lockPath, manifestPath: outputPath, migrated: 0 }
   }
 
   const migrated = migrateLegacyLock(legacyLock, scope)
 
+  if (context.format === 'json') {
+    await Manifest.write(outputPath, migrated.manifest)
+    await Lock.write(lockPath, migrated.lock)
+  } else {
+    await tasks([
+      {
+        title: `Writing ${formatScope(scope)} state`,
+        task: async () => {
+          await Manifest.write(outputPath, migrated.manifest)
+          await Lock.write(lockPath, migrated.lock)
+          return `Wrote ${formatDisplayPath(outputPath)} and ${formatDisplayPath(lockPath)}`
+        }
+      }
+    ])
+  }
+  if (context.format !== 'json') {
+    log.success(
+      `Migrated ${migrated.manifest.skills.length} skills to ${formatDisplayPath(outputPath)} and ${formatDisplayPath(lockPath)}`
+    )
+  }
+  return { lockPath, manifestPath: outputPath, migrated: migrated.manifest.skills.length }
+}
+
+async function readLegacyLockWithProgress(path: string): Promise<unknown | undefined> {
+  let legacyLock: unknown | undefined
   await tasks([
     {
-      title: `Writing ${formatScope(scope)} state`,
+      title: `Reading legacy lock from ${formatDisplayPath(path)}`,
       task: async () => {
-        await Manifest.write(outputPath, migrated.manifest)
-        await Lock.write(lockPath, migrated.lock)
-        return `Wrote ${formatDisplayPath(outputPath)} and ${formatDisplayPath(lockPath)}`
+        legacyLock = await readLegacyLock(path)
+        if (!legacyLock) {
+          return 'No legacy lock found'
+        }
+
+        return `Read legacy lock from ${formatDisplayPath(path)}`
       }
     }
   ])
-  log.success(
-    `Migrated ${migrated.manifest.skills.length} skills to ${formatDisplayPath(outputPath)} and ${formatDisplayPath(lockPath)}`
-  )
+  return legacyLock
 }
 
 async function readLegacyLock(path: string): Promise<unknown | undefined> {

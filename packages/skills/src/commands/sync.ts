@@ -2,7 +2,8 @@ import { readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { log, tasks } from '@clack/prompts'
-import { z } from 'incur'
+import type { OutputMode } from '@plimeor/command-kit'
+import { type Static, Type } from '@sinclair/typebox'
 
 import { Checkout } from '../checkout.js'
 import { type InstallResult, installSkill, removeInstalledSkill } from '../installer.js'
@@ -11,26 +12,29 @@ import { Manifest } from '../manifest.js'
 import { formatDisplayPath, resolveScope } from '../scope.js'
 import { SyncPlan } from '../sync-plan.js'
 
-export const syncOptionsSchema = z.object({
-  dryRun: z.boolean().optional(),
-  global: z.boolean().optional(),
-  locked: z.boolean().optional()
+export const syncArgsSchema = Type.Object({})
+export const syncOptionsSchema = Type.Object({
+  dryRun: Type.Optional(Type.Boolean()),
+  global: Type.Optional(Type.Boolean()),
+  json: Type.Optional(Type.Boolean()),
+  locked: Type.Optional(Type.Boolean())
 })
 
 export type SyncCommandContext = {
-  options: z.infer<typeof syncOptionsSchema>
+  format?: OutputMode
+  options: Static<typeof syncOptionsSchema>
 }
 
 export async function syncCommand(context: SyncCommandContext) {
   const scope = resolveScope(context.options.global ?? false)
-  if (!context.options.dryRun) {
+  if (!context.options.dryRun && context.format !== 'json') {
     log.step(`Using ${formatScope(scope)} skills state`)
   }
   const lock = context.options.locked ? await Lock.read(scope) : await Lock.ensure(scope)
   const rawManifest = await Manifest.read(scope)
   const allSources = Manifest.allSourceRequests(rawManifest)
   let manifest: Manifest.Document
-  if (!context.options.dryRun && allSources.length > 0) {
+  if (!context.options.dryRun && allSources.length > 0 && context.format !== 'json') {
     manifest = rawManifest
     await tasks([
       {
@@ -49,34 +53,55 @@ export async function syncCommand(context: SyncCommandContext) {
   })
 
   if (context.options.dryRun) {
-    process.stdout.write(SyncPlan.formatDryRun(syncPlan, scope))
-    return
+    const dryRunPlan = SyncPlan.formatDryRun(syncPlan, scope)
+    if (context.format !== 'json') {
+      process.stdout.write(dryRunPlan)
+    }
+    return {
+      dryRunPlan,
+      installs: syncPlan.installSkills.length,
+      lockPath: scope.lockPath,
+      plannedChanges: syncPlan.pruneNames.length + syncPlan.installSkills.length,
+      removals: syncPlan.pruneNames.length
+    }
   }
 
   let nextLock = lock
   const plannedChanges = syncPlan.pruneNames.length + syncPlan.installSkills.length
   if (plannedChanges === 0) {
-    log.success('Skills are already in sync')
+    if (context.format !== 'json') {
+      log.success('Skills are already in sync')
+    }
   } else {
-    log.info(
-      `Applying ${plannedChanges} changes: ${syncPlan.pruneNames.length} removals, ${syncPlan.installSkills.length} installs`
-    )
+    if (context.format !== 'json') {
+      log.info(
+        `Applying ${plannedChanges} changes: ${syncPlan.pruneNames.length} removals, ${syncPlan.installSkills.length} installs`
+      )
+    }
 
-    await tasks(
-      syncPlan.pruneNames.map(skillName => ({
-        title: `Remove ${skillName}`,
-        task: async () => {
-          await removeInstalledSkill(skillName, scope)
-          return `Removed ${skillName}`
-        }
-      }))
-    )
+    if (context.format === 'json') {
+      for (const skillName of syncPlan.pruneNames) {
+        await removeInstalledSkill(skillName, scope)
+      }
+    } else {
+      await tasks(
+        syncPlan.pruneNames.map(skillName => ({
+          title: `Remove ${skillName}`,
+          task: async () => {
+            await removeInstalledSkill(skillName, scope)
+            return `Removed ${skillName}`
+          }
+        }))
+      )
+    }
     for (const skillName of syncPlan.pruneNames) {
       nextLock = Lock.removeSkill(nextLock, skillName)
     }
 
     for (const request of uniqueCheckoutRequests(syncPlan.installRequests)) {
-      log.step(`Resolving ${formatCheckoutTarget(request)}`)
+      if (context.format !== 'json') {
+        log.step(`Resolving ${formatCheckoutTarget(request)}`)
+      }
     }
 
     await Checkout.withAll(syncPlan.installRequests, async checkouts => {
@@ -89,18 +114,27 @@ export async function syncCommand(context: SyncCommandContext) {
         }
       >()
 
-      await tasks(
-        syncPlan.installSkills.map(skill => ({
-          title: `Install ${skill.name}`,
-          task: async () => {
-            const request = syncPlan.installRequestsBySkillName[skill.name]
-            const checkout = Checkout.requireResult(checkouts, request, skill.name)
-            const result = await installSkillWithContext(skill, checkout, scope)
-            installResults.set(skill.name, { checkout, result, skill })
-            return `Installed ${formatDisplayPath(result.installPath)}`
-          }
-        }))
-      )
+      if (context.format === 'json') {
+        for (const skill of syncPlan.installSkills) {
+          const request = syncPlan.installRequestsBySkillName[skill.name]
+          const checkout = Checkout.requireResult(checkouts, request, skill.name)
+          const result = await installSkillWithContext(skill, checkout, scope)
+          installResults.set(skill.name, { checkout, result, skill })
+        }
+      } else {
+        await tasks(
+          syncPlan.installSkills.map(skill => ({
+            title: `Install ${skill.name}`,
+            task: async () => {
+              const request = syncPlan.installRequestsBySkillName[skill.name]
+              const checkout = Checkout.requireResult(checkouts, request, skill.name)
+              const result = await installSkillWithContext(skill, checkout, scope)
+              installResults.set(skill.name, { checkout, result, skill })
+              return `Installed ${formatDisplayPath(result.installPath)}`
+            }
+          }))
+        )
+      }
 
       for (const skill of syncPlan.installSkills) {
         const installed = installResults.get(skill.name)
@@ -117,8 +151,14 @@ export async function syncCommand(context: SyncCommandContext) {
   }
 
   await Lock.write(scope, nextLock)
-  if (plannedChanges > 0) {
+  if (plannedChanges > 0 && context.format !== 'json') {
     log.success(`Updated ${formatDisplayPath(scope.lockPath)}`)
+  }
+  return {
+    installs: syncPlan.installSkills.length,
+    lockPath: scope.lockPath,
+    plannedChanges,
+    removals: syncPlan.pruneNames.length
   }
 }
 
