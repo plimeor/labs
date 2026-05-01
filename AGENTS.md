@@ -37,3 +37,7 @@
 
 - Use `docs/specs/<topic>.md` for living implementation specs before coding multi-file changes.
 - Avoid nested ternary expressions. Use guard clauses, named helpers, or explicit `if` branches when conditional logic has more than one decision point.
+- For CLI packages and commands, prefer `incur` for command routing, argument parsing, help output, and typed handlers.
+- For terminal interaction, prefer `@clack/prompts` for prompts, task progress, and interactive feedback.
+- Use `es-toolkit` as the default general-purpose utility library before adding one-off helpers or alternative utility dependencies.
+- Use `effect` for genuinely complex logic or workflows that need explicit control over errors, retries, concurrency, resource management, or dependency flow; keep simple linear code plain.
