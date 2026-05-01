@@ -1,0 +1,36 @@
+{
+  "description": "Bun-first command declaration runtime for CLI and agent tools",
+  "homepage": "https://github.com/plimeor/labs/tree/main/packages/command-kit",
+  "name": "@plimeor/command-kit",
+  "type": "module",
+  "types": "./src/index.ts",
+  "version": "0.1.0",
+  "bugs": {
+    "url": "https://github.com/plimeor/labs/issues"
+  },
+  "devDependencies": {
+    "@sinclair/typebox": "catalog:"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "peerDependencies": {
+    "@sinclair/typebox": "catalog:"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "directory": "packages/command-kit",
+    "type": "git",
+    "url": "git+https://github.com/plimeor/labs.git"
+  },
+  "scripts": {
+    "lint": "biome check src test",
+    "prepack": "bun test test",
+    "test": "bun test test"
+  }
+}

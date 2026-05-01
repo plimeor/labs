@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, mock, test } from 'bun:test'
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+import { $ } from 'zx'
 
 import { readJson, tempDir, writeGlobalLock } from '../helpers/fs.js'
 import { withHome } from '../helpers/process.js'
@@ -58,7 +61,7 @@ describe('add command', () => {
 
     await withHome(home, () =>
       addCommand({
-        args: { source },
+        args: { skills: [], source },
         options: { global: true, skill: ['demo'] }
       })
     )
@@ -93,7 +96,7 @@ describe('add command', () => {
 
     await withHome(home, () =>
       addCommand({
-        args: { source },
+        args: { skills: [], source },
         options: { all: true, global: true }
       })
     )
@@ -104,6 +107,51 @@ describe('add command', () => {
       schemaVersion: 1,
       scope: 'global',
       sources: [{ source, skills: 'all' }]
+    })
+  })
+
+  test('CLI binds source plus skill rest arguments', async () => {
+    const home = await tempDir('skills-add-cli-home-')
+    const source = await tempDir('skills-add-cli-source-')
+    await writeSkill(source, 'b')
+    await writeSkill(source, 'a')
+
+    await $({ env: { ...process.env, HOME: home }, quiet: true })`bun ${cliPath()} add ${source} b a -g`
+
+    expect(await readJson(join(home, '.agents', 'skills.json'))).toEqual({
+      schemaVersion: 1,
+      scope: 'global',
+      sources: [
+        {
+          source,
+          skills: [
+            { name: 'a', path: 'skills/a' },
+            { name: 'b', path: 'skills/b' }
+          ]
+        }
+      ]
+    })
+    expect(await readFile(join(home, '.agents', 'skills', 'a', 'SKILL.md'), 'utf-8')).toContain('name: a')
+    expect(await readFile(join(home, '.agents', 'skills', 'b', 'SKILL.md'), 'utf-8')).toContain('name: b')
+  })
+
+  test('CLI writes a json envelope when the command declares --json', async () => {
+    const home = await tempDir('skills-add-cli-json-home-')
+    const source = await tempDir('skills-add-cli-json-source-')
+    await writeSkill(source, 'demo')
+
+    const result = await $({
+      env: { ...process.env, HOME: home },
+      quiet: true
+    })`bun ${cliPath()} add ${source} demo -g --json`
+
+    expect(JSON.parse(result.stdout)).toEqual({
+      ok: true,
+      data: {
+        installed: ['demo'],
+        lockPath: join(home, '.agents', 'skills.lock.json'),
+        manifestPath: join(home, '.agents', 'skills.json')
+      }
     })
   })
 
@@ -131,7 +179,7 @@ describe('add command', () => {
 
     await withHome(home, () =>
       addCommand({
-        args: { source },
+        args: { skills: [], source },
         options: { global: true }
       })
     )
@@ -179,7 +227,7 @@ describe('add command', () => {
 
     await withHome(home, () =>
       addCommand({
-        args: { source },
+        args: { skills: [], source },
         options: { global: true }
       })
     )
@@ -227,4 +275,8 @@ async function fileExists(path: string): Promise<boolean> {
 
     throw error
   }
+}
+
+function cliPath(): string {
+  return fileURLToPath(new URL('../../src/cli.ts', import.meta.url))
 }

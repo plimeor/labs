@@ -34,7 +34,7 @@ describe('remove command', () => {
     await mkdir(join(cwd, '.agents', 'skills', 'demo'), { recursive: true })
     await writeFile(join(cwd, '.agents', 'skills', 'demo', 'SKILL.md'), '---\nname: demo\ndescription: Demo\n---\n')
 
-    await withCwd(cwd, () => removeCommand({ args: { target: 'demo' }, options: {} }))
+    await withCwd(cwd, () => removeCommand({ args: { skills: ['demo'] }, options: {} }))
 
     expect(await readJson(join(cwd, '.agents', 'skills.json'))).toEqual({
       schemaVersion: 1,
@@ -73,7 +73,7 @@ describe('remove command', () => {
     await writeInstalledSkill(cwd, 'b')
     await writeInstalledSkill(cwd, 'c')
 
-    await $({ cwd, quiet: true })`bun ${cliPath()} remove a,c`
+    await $({ cwd, quiet: true })`bun ${cliPath()} remove a c`
 
     expect(await readJson(join(cwd, '.agents', 'skills.json'))).toEqual({
       schemaVersion: 1,

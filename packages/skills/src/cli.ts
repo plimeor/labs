@@ -1,73 +1,82 @@
 #!/usr/bin/env bun
 
-import { Cli } from 'incur'
+import { defineCli, defineCommand } from '@plimeor/command-kit'
 
 import { addArgsSchema, addCommand, addOptionsSchema } from './commands/add.js'
-import { listCommand, listOptionsSchema } from './commands/list.js'
+import { listArgsSchema, listCommand, listOptionsSchema } from './commands/list.js'
 import { migrateArgsSchema, migrateCommand, migrateOptionsSchema } from './commands/migrate.js'
 import { removeArgsSchema, removeCommand, removeOptionsSchema } from './commands/remove.js'
-import { syncCommand, syncOptionsSchema } from './commands/sync.js'
-import { updateCommand, updateOptionsSchema } from './commands/update.js'
+import { syncArgsSchema, syncCommand, syncOptionsSchema } from './commands/sync.js'
+import { updateArgsSchema, updateCommand, updateOptionsSchema } from './commands/update.js'
 
 export function createCli() {
-  return Cli.create('skills', {
-    description: 'Manage agent skills from a stable manifest and lock file'
+  return defineCli({
+    description: 'Manage agent skills from a stable manifest and lock file',
+    name: 'skills',
+    commands: [
+      defineCommand('add', {
+        aliases: ['a'],
+        args: addArgsSchema,
+        description: 'Install skills and update skills.json plus skills.lock.json',
+        options: addOptionsSchema,
+        positionals: [{ name: 'source' }, { name: 'skills', optional: true, rest: true }],
+        run: addCommand,
+        optionAliases: {
+          global: 'g'
+        }
+      }),
+      defineCommand('remove', {
+        aliases: ['rm'],
+        args: removeArgsSchema,
+        description: 'Remove installed skills and update state files',
+        options: removeOptionsSchema,
+        positionals: [{ name: 'skills', rest: true }],
+        run: removeCommand,
+        optionAliases: {
+          global: 'g'
+        }
+      }),
+      defineCommand('update', {
+        aliases: ['upgrade'],
+        args: updateArgsSchema,
+        description: 'Refresh lock entries and reinstall manifest skills',
+        options: updateOptionsSchema,
+        run: updateCommand,
+        optionAliases: {
+          global: 'g'
+        }
+      }),
+      defineCommand('sync', {
+        args: syncArgsSchema,
+        description: 'Converge installed skills to skills.json',
+        options: syncOptionsSchema,
+        run: syncCommand,
+        optionAliases: {
+          global: 'g'
+        }
+      }),
+      defineCommand('list', {
+        aliases: ['ls'],
+        args: listArgsSchema,
+        description: 'List installed skills from skills.lock.json',
+        options: listOptionsSchema,
+        run: listCommand,
+        optionAliases: {
+          global: 'g'
+        }
+      }),
+      defineCommand('migrate', {
+        args: migrateArgsSchema,
+        description: 'Convert an old skills lock file into skills.json',
+        options: migrateOptionsSchema,
+        positionals: [{ name: 'input', optional: true }],
+        run: migrateCommand,
+        optionAliases: {
+          global: 'g'
+        }
+      })
+    ]
   })
-    .command('add', {
-      aliases: ['a'],
-      args: addArgsSchema,
-      description: 'Install skills and update skills.json plus skills.lock.json',
-      options: addOptionsSchema,
-      run: addCommand,
-      alias: {
-        global: 'g'
-      }
-    })
-    .command('remove', {
-      aliases: ['rm'],
-      args: removeArgsSchema,
-      description: 'Remove installed skills and update state files',
-      options: removeOptionsSchema,
-      run: removeCommand,
-      alias: {
-        global: 'g'
-      }
-    })
-    .command('update', {
-      aliases: ['upgrade'],
-      description: 'Refresh lock entries and reinstall manifest skills',
-      options: updateOptionsSchema,
-      run: updateCommand,
-      alias: {
-        global: 'g'
-      }
-    })
-    .command('sync', {
-      description: 'Converge installed skills to skills.json',
-      options: syncOptionsSchema,
-      run: syncCommand,
-      alias: {
-        global: 'g'
-      }
-    })
-    .command('list', {
-      aliases: ['ls'],
-      description: 'List installed skills from skills.lock.json',
-      options: listOptionsSchema,
-      run: listCommand,
-      alias: {
-        global: 'g'
-      }
-    })
-    .command('migrate', {
-      args: migrateArgsSchema,
-      description: 'Convert an old skills lock file into skills.json',
-      options: migrateOptionsSchema,
-      run: migrateCommand,
-      alias: {
-        global: 'g'
-      }
-    })
 }
 
 if (import.meta.main) {

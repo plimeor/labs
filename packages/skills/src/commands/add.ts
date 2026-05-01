@@ -2,7 +2,8 @@ import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { cancel, isCancel, log, multiselect, tasks } from '@clack/prompts'
-import { z } from 'incur'
+import type { OutputMode } from '@plimeor/command-kit'
+import { type Static, Type } from '@sinclair/typebox'
 
 import { Checkout } from '../checkout.js'
 import { type InstallResult, installSkill } from '../installer.js'
@@ -10,56 +11,69 @@ import { Lock } from '../lock.js'
 import { Manifest } from '../manifest.js'
 import { formatDisplayPath, resolveScope } from '../scope.js'
 
-export const addArgsSchema = z.object({ source: z.string() })
-export const addOptionsSchema = z
-  .object({
-    all: z.boolean().optional(),
-    commit: z.string().optional(),
-    global: z.boolean().optional(),
-    ref: z.string().optional(),
-    skill: z.array(z.string()).optional()
-  })
-  .refine(options => !options.commit || !options.ref, {
-    message: 'add cannot specify both --commit and --ref'
-  })
-  .refine(options => !options.all || normalizeSkills(options.skill ?? []).length === 0, {
-    message: 'add cannot specify both --all and --skill'
-  })
+export const addArgsSchema = Type.Object({
+  skills: Type.Array(Type.String()),
+  source: Type.String()
+})
+export const addOptionsSchema = Type.Object({
+  all: Type.Optional(Type.Boolean()),
+  commit: Type.Optional(Type.String()),
+  global: Type.Optional(Type.Boolean()),
+  json: Type.Optional(Type.Boolean()),
+  ref: Type.Optional(Type.String()),
+  skill: Type.Optional(Type.Array(Type.String()))
+})
 
 export type AddCommandContext = {
-  args: z.infer<typeof addArgsSchema>
-  options: z.infer<typeof addOptionsSchema>
+  args: Static<typeof addArgsSchema>
+  format?: OutputMode
+  options: Static<typeof addOptionsSchema>
 }
 
 export async function addCommand(context: AddCommandContext) {
+  validateAddRequest(context)
   const scope = resolveScope(context.options.global ?? false)
-  log.step(`Using ${formatScope(scope)} skills state`)
+  if (context.format !== 'json') {
+    log.step(`Using ${formatScope(scope)} skills state`)
+  }
 
   const request = checkoutRequest(context)
-  log.step(`Resolving ${formatCheckoutTarget(request)}`)
-  await Checkout.withAll([request], async checkouts => {
+  if (context.format !== 'json') {
+    log.step(`Resolving ${formatCheckoutTarget(request)}`)
+  }
+  return Checkout.withAll([request], async checkouts => {
     const checkout = Checkout.requireResult(checkouts, request, context.args.source)
     const selectionLock = await readLockOrEmpty(scope)
     const skills = await resolveSkills(context, checkout.dir, selectionLock)
     if (skills.length === 0) {
-      log.info('No new skills selected.')
-      return
+      if (context.format !== 'json') {
+        log.info('No new skills selected.')
+      }
+      return { installed: [], lockPath: scope.lockPath, manifestPath: scope.manifestPath }
     }
 
     let manifest = await Manifest.ensure(scope)
     let lock = await Lock.ensure(scope)
-    log.info(`Installing ${skills.length} skills into ${formatDisplayPath(scope.installDir)}`)
+    if (context.format !== 'json') {
+      log.info(`Installing ${skills.length} skills into ${formatDisplayPath(scope.installDir)}`)
+    }
     const installResults = new Map<string, InstallResult>()
-    await tasks(
-      skills.map(skill => ({
-        title: `Install ${skill.name}`,
-        task: async () => {
-          const result = await installSkillWithContext(skill, checkout, scope)
-          installResults.set(skill.name, result)
-          return `Installed ${formatDisplayPath(result.installPath)}`
-        }
-      }))
-    )
+    if (context.format === 'json') {
+      for (const skill of skills) {
+        installResults.set(skill.name, await installSkillWithContext(skill, checkout, scope))
+      }
+    } else {
+      await tasks(
+        skills.map(skill => ({
+          title: `Install ${skill.name}`,
+          task: async () => {
+            const result = await installSkillWithContext(skill, checkout, scope)
+            installResults.set(skill.name, result)
+            return `Installed ${formatDisplayPath(result.installPath)}`
+          }
+        }))
+      )
+    }
     for (const skill of skills) {
       const result = installResults.get(skill.name)
       if (!result) {
@@ -83,8 +97,28 @@ export async function addCommand(context: AddCommandContext) {
 
     await Manifest.write(scope, manifest)
     await Lock.write(scope, lock)
-    log.success(`Updated ${formatDisplayPath(scope.manifestPath)} and ${formatDisplayPath(scope.lockPath)}`)
+    if (context.format !== 'json') {
+      log.success(`Updated ${formatDisplayPath(scope.manifestPath)} and ${formatDisplayPath(scope.lockPath)}`)
+    }
+    return {
+      installed: skills.map(skill => skill.name),
+      lockPath: scope.lockPath,
+      manifestPath: scope.manifestPath
+    }
   })
+}
+
+function validateAddRequest(context: AddCommandContext): void {
+  if (context.options.commit && context.options.ref) {
+    throw new Error('add cannot specify both --commit and --ref')
+  }
+
+  if (
+    context.options.all &&
+    normalizeSkills([...(context.args.skills ?? []), ...(context.options.skill ?? [])]).length > 0
+  ) {
+    throw new Error('add cannot specify both --all and skill names')
+  }
 }
 
 function checkoutRequest({ args, options }: AddCommandContext): Checkout.Request {
@@ -100,7 +134,7 @@ async function resolveSkills(
   checkoutDir: string,
   lock: Lock.Document
 ): Promise<Manifest.Skill[]> {
-  const skillNames = await resolveSkillNames(options, checkoutDir, lock)
+  const skillNames = await resolveSkillNames(args, options, checkoutDir, lock)
   return skillNames.map(name => ({
     commit: options.commit,
     name,
@@ -111,6 +145,7 @@ async function resolveSkills(
 }
 
 async function resolveSkillNames(
+  args: AddCommandContext['args'],
   options: AddCommandContext['options'],
   checkoutDir: string,
   lock: Lock.Document
@@ -119,7 +154,7 @@ async function resolveSkillNames(
     return discoverSkillNames(checkoutDir)
   }
 
-  const explicitSkillNames = normalizeSkills(options.skill ?? [])
+  const explicitSkillNames = normalizeSkills([...(args.skills ?? []), ...(options.skill ?? [])])
   if (explicitSkillNames.length > 0) {
     return explicitSkillNames
   }

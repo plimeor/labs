@@ -28,8 +28,8 @@ agent-facing tools.
 
 1. The runtime is for the user and local agents first; it does not need a
    publication-ready external API in the next six months.
-2. The first implementation lives inside `packages/skills` unless a later plan
-   explicitly authorizes a package boundary change.
+2. The command runtime lives in the standalone workspace package
+   `packages/command-kit` and is consumed by `packages/skills`.
 3. TypeBox is the only schema system in scope for the first version.
 4. Bun is the primary runtime target. The implementation may use Node-compatible
    APIs that Bun supports, but it does not need to optimize for direct Node.js
@@ -47,8 +47,8 @@ agent-facing tools.
 - Validation: TypeBox value checking or compilation from the TypeBox ecosystem.
 - Terminal interaction: keep using `@clack/prompts` for human progress output
   inside command handlers.
-- Existing package context: `packages/skills` currently uses `incur`; this spec
-  authorizes replacing that command layer for this feature.
+- Existing package context: `packages/skills` previously used `incur`; this spec
+  authorizes replacing that command layer with `@plimeor/command-kit`.
 
 The runtime should assume Bun execution semantics for the CLI entrypoint,
 subprocess behavior, filesystem behavior, package scripts, and test runner.
@@ -83,37 +83,40 @@ Target structure for the first implementation:
 
 ```text
 packages/skills/src/cli.ts
-  CLI executable entrypoint. Creates the skills CLI with the new runtime.
+  CLI executable entrypoint. Creates the skills CLI with @plimeor/command-kit.
 
-packages/skills/src/command-runtime/
-  Small TypeBox-first command runtime.
+packages/command-kit/src/
+  Bun-first command declaration runtime package.
 
-packages/skills/src/command-runtime/define.ts
+packages/command-kit/src/define.ts
   Public declaration helpers such as defineCommand and defineCli.
 
-packages/skills/src/command-runtime/argv.ts
+packages/command-kit/src/argv.ts
   argv tokenization, option parsing, positional binding, and unknown argument errors.
 
-packages/skills/src/command-runtime/schema.ts
+packages/command-kit/src/schema.ts
   TypeBox validation and error normalization.
 
-packages/skills/src/command-runtime/output.ts
+packages/command-kit/src/output.ts
   Result envelopes, output modes, and stdout/stderr rendering.
 
 packages/skills/src/commands/
   Existing command handlers adapted to the new context shape.
 
-packages/skills/test/command-runtime/
+packages/command-kit/test/
   Runtime-level tests, if implementation testing is authorized.
 ```
 
-This structure is intentionally internal to `packages/skills`. Creating a shared
-workspace package is a separate package-boundary decision and is out of scope for
-the first version.
+`@plimeor/command-kit` is a publishable package name. The first implementation
+still stays TypeBox-only and Bun-first; the package name intentionally describes
+the command declaration function rather than the schema implementation detail.
 
 ## Public Interface
 
 The core declaration API should be small enough to read at the call site:
+
+`defineCommand` takes the command name as the first argument and the command
+contract as the second argument.
 
 ```ts
 import { Type, type Static } from '@sinclair/typebox'
@@ -127,23 +130,16 @@ const addOptions = Type.Object({
   all: Type.Optional(Type.Boolean()),
   global: Type.Optional(Type.Boolean()),
   ref: Type.Optional(Type.String()),
-  commit: Type.Optional(Type.String())
+  commit: Type.Optional(Type.String()),
+  json: Type.Optional(Type.Boolean())
 })
 
-const addOutput = Type.Object({
-  installed: Type.Array(Type.String()),
-  manifestPath: Type.String(),
-  lockPath: Type.String()
-})
-
-export const addCommand = defineCommand({
-  name: 'add',
+export const addCommand = defineCommand('add', {
   aliases: ['a'],
   description: 'Install skills and update skills.json plus skills.lock.json',
   args: addArgs,
   positionals: [{ name: 'source' }, { name: 'skills', rest: true }],
   options: addOptions,
-  output: addOutput,
   optionAliases: {
     global: 'g'
   },
@@ -162,10 +158,9 @@ export const addCommand = defineCommand({
 
 type AddArgs = Static<typeof addArgs>
 type AddOptions = Static<typeof addOptions>
-type AddOutput = Static<typeof addOutput>
 ```
 
-`args`, `options`, and `output` are TypeBox schemas. `positionals` defines how
+`args` and `options` are TypeBox schemas. `positionals` defines how
 raw argv values map into the `args` object. TypeBox describes the final data
 shape; it does not describe CLI argv binding by itself.
 
@@ -245,14 +240,13 @@ use stable machine-readable codes:
 - `COMMAND_NOT_FOUND`
 - `INVALID_ARGUMENTS`
 - `INVALID_OPTIONS`
-- `INVALID_OUTPUT`
 - `UNKNOWN_OPTION`
 - `UNKNOWN_ARGUMENT`
 - `MISSING_ARGUMENT`
 - `COMMAND_FAILED`
 
-The `output` schema validates only successful command data. Error envelopes use
-the runtime's `CommandError` shape.
+The runtime does not validate command output. Command handlers own the shape of
+their returned data.
 
 ## Output Modes
 
@@ -264,10 +258,10 @@ The runtime must support two first-version modes:
 - `json`: machine and agent mode. stdout contains only the result envelope as
   formatted JSON. Progress logs must not be written to stdout in this mode.
 
-The mode may be selected by a runtime-level `--format json` option or by command
-metadata that marks an existing option as JSON output. `skills list --json`
-should continue to be supported for compatibility, but the runtime-level format
-path is the preferred direction.
+The mode is selected by command-owned JSON options. If a command declares a
+boolean `json` option in its TypeBox option schema, `--json` switches that
+command into JSON envelope output. Commands that do not declare `json` reject
+`--json` as an unknown option. There is no global `--format json` option.
 
 Agent-friendly output means JSON envelope output. A separate agent protocol,
 MCP server, or tool registry is out of scope.
@@ -281,17 +275,13 @@ const removeArgs = Type.Object({
   skills: Type.Array(Type.String({ minLength: 1 }), { minItems: 1 })
 })
 
-export const removeCommand = defineCommand({
-  name: 'remove',
+export const removeCommand = defineCommand('remove', {
   aliases: ['rm'],
   description: 'Remove installed skills and update state files',
   args: removeArgs,
   positionals: [{ name: 'skills', rest: true }],
   options: Type.Object({
     global: Type.Optional(Type.Boolean())
-  }),
-  output: Type.Object({
-    removed: Type.Array(Type.String())
   }),
   async run(ctx) {
     const skillNames = ctx.args.skills
@@ -303,8 +293,7 @@ export const removeCommand = defineCommand({
 
 Conventions:
 
-- Keep schemas named after the command surface: `addArgs`, `addOptions`,
-  `addOutput`.
+- Keep schemas named after the command surface: `addArgs`, `addOptions`.
 - Prefer explicit `if` branches over nested ternary expressions.
 - Keep argv parsing and TypeBox validation in the runtime, not in individual
   command handlers.
@@ -323,7 +312,7 @@ Runtime-level coverage should focus on:
 - Positional binding, especially first positional plus rest array.
 - Missing, extra, and unknown arguments.
 - Boolean, string, alias, and repeatable option parsing.
-- TypeBox validation errors for args, options, and output.
+- TypeBox validation errors for args and options.
 - JSON mode producing only the result envelope on stdout.
 - Existing `packages/skills` command compatibility after replacement.
 
@@ -346,17 +335,16 @@ runtime and affected command compatibility unless separately requested.
 Always:
 
 - Treat Bun as the primary runtime and verification target.
-- Use TypeBox as the only schema source for args, options, and output.
+- Use TypeBox as the only schema source for args and options.
 - Validate external CLI input at the runtime boundary before calling handlers.
 - Preserve existing `packages/skills` business behavior unless this spec names a
   CLI contract change.
 - Keep output envelopes stable in JSON mode.
-- Keep the first implementation inside `packages/skills` unless a later plan
-  authorizes extracting it.
+- Keep command runtime code in `packages/command-kit`; `packages/skills` should
+  consume it as a workspace dependency.
 
 Ask first:
 
-- Creating a new workspace package for the runtime.
 - Publishing the runtime as a standalone package.
 - Adding Node.js-first compatibility requirements or a dual-runtime support
   matrix.
@@ -382,6 +370,8 @@ The spec is implemented when all of these are true:
 
 - `packages/skills` no longer depends on `incur` for command routing, argument
   parsing, or typed handlers.
+- `packages/skills` depends on `@plimeor/command-kit` for command declaration,
+  argv parsing, validation, and output envelopes.
 - Commands are declared through the TypeBox-first runtime.
 - The runtime is executed and verified primarily through Bun commands, including
   the `#!/usr/bin/env bun` CLI entrypoint path.
@@ -390,22 +380,16 @@ The spec is implemented when all of these are true:
   `['code-scope-gate', 'writing-blog']`.
 - `skills remove code-scope-gate writing-blog` binds all skill names as an array
   instead of requiring comma splitting.
-- `ctx.args`, `ctx.options`, and successful output data are inferred from
-  TypeBox schemas at command call sites.
+- `ctx.args` and `ctx.options` are inferred from TypeBox schemas at command
+  call sites.
 - JSON mode returns `{ ok: true, data }` for successful commands and
   `{ ok: false, error }` for failures.
-- Output data is validated against the command's `output` schema before a
-  success envelope is emitted.
+- Command output is not schema-validated by `@plimeor/command-kit`.
 - Existing `packages/skills` commands still support their documented command
   names and aliases unless a later migration spec changes them.
 
 ## Open Questions
 
-- Should `--format json` become a global runtime option for every command, or
-  should existing command-specific JSON flags remain the only public surface in
-  `packages/skills`?
 - Should pretty mode print a final success envelope anywhere, or should it
   remain purely human-facing with Clack progress and summaries?
-- Should command handlers be allowed to return `void` for pretty-only commands,
-  or should every command define an explicit output schema?
 - Should runtime errors preserve original stack traces behind a debug flag?
