@@ -87,6 +87,7 @@ These are explicitly out of the first implementation path:
 
 - Runtime: Bun.
 - Language: TypeScript.
+- File IO: Effect Platform `FileSystem` provided by `@effect/platform-bun`.
 - Package location: `packages/code-wiki`.
 - State format: Markdown plus JSON metadata.
 - Agent runtime: local CLI adapter, with Codex as the first verified adapter.

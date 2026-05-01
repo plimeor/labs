@@ -11,6 +11,7 @@ standalone demos can live under `apps/`.
 
 | Package | Purpose | Stack |
 | ------- | ------- | ----- |
+| [`@plimeor/code-wiki`](packages/code-wiki) | PRD review-first code wiki CLI. It registers code projects, scans them into Markdown wikis with routing indexes, and reviews PRDs against selected project context through a local runtime. | TypeScript, Bun |
 | [`@plimeor/skills`](packages/skills) | Manifest-based CLI for installing and syncing agent skills. It keeps `skills.json` as desired state, `skills.lock.json` as resolved state, and installs skills into global or project-local `.agents/skills` directories. | TypeScript, Bun |
 
 ## Quick Start
