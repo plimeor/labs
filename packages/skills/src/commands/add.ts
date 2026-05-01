@@ -34,13 +34,13 @@ export async function addCommand(context: AddCommandContext) {
 
   const request = checkoutRequest(context)
   log.step(`Resolving ${formatCheckoutTarget(request)}`)
-  return Checkout.withAll([request], async checkouts => {
+  await Checkout.withAll([request], async checkouts => {
     const checkout = Checkout.requireResult(checkouts, request, context.args.source)
     const selectionLock = await readLockOrEmpty(scope)
     const skills = await resolveSkills(context, checkout.dir, selectionLock)
     if (skills.length === 0) {
       log.info('No new skills selected.')
-      return { installed: [], lockPath: scope.lockPath, manifestPath: scope.manifestPath }
+      return
     }
 
     let manifest = await Manifest.ensure(scope)
@@ -81,11 +81,6 @@ export async function addCommand(context: AddCommandContext) {
     await Manifest.write(scope, manifest)
     await Lock.write(scope, lock)
     log.success(`Updated ${formatDisplayPath(scope.manifestPath)} and ${formatDisplayPath(scope.lockPath)}`)
-    return {
-      installed: skills.map(skill => skill.name),
-      lockPath: scope.lockPath,
-      manifestPath: scope.manifestPath
-    }
   })
 }
 

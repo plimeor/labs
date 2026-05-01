@@ -15,7 +15,6 @@ export type ListCommandContext = {
 }
 
 export async function listCommand(context: ListCommandContext) {
-  const json = context.options.json === true
   const scope = resolveScope(context.options.global ?? false)
   const lock = await Lock.ensure(scope)
 
@@ -30,16 +29,12 @@ export async function listCommand(context: ListCommandContext) {
     .sort((a, b) => a.name.localeCompare(b.name))
 
   if (entries.length === 0) {
-    if (!json) {
-      log.info(`No skills installed in ${formatScope(scope)}.`)
-    }
-    return []
+    log.info(`No skills installed in ${formatScope(scope)}.`)
+    return entries
   }
 
-  if (!json) {
-    log.info(`Installed ${entries.length} skills in ${formatScope(scope)}`)
-    process.stdout.write(`${formatList(entries)}\n`)
-  }
+  log.info(`Installed ${entries.length} skills in ${formatScope(scope)}`)
+  process.stdout.write(`${formatList(entries)}\n`)
   return entries
 }
 

@@ -46,7 +46,6 @@ export async function removeCommand(context: RemoveCommandContext) {
       scope.manifestPath
     )} plus ${formatDisplayPath(scope.lockPath)}`
   )
-  return { lockPath: scope.lockPath, manifestPath: scope.manifestPath, removed: skillNames }
 }
 
 function parseSkillNames(context: RemoveCommandContext): string[] {

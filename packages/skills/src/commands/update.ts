@@ -17,7 +17,7 @@ export async function updateCommand(context: UpdateCommandContext) {
   if (!context.options.dryRun) {
     log.step('Updating skills from manifest')
   }
-  return syncCommand({
+  await syncCommand({
     options: {
       dryRun: context.options.dryRun,
       global: context.options.global

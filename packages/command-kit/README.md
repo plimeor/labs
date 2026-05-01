@@ -42,3 +42,8 @@ await cli.serve(process.argv.slice(2))
 ```bash
 bun example.ts add repo item-a item-b --json
 ```
+
+When a command declares a boolean `json` option, command-kit writes the JSON
+envelope and suppresses handler stdout/stderr while the handler runs. Commands
+that may prompt can call `context.assertInteractive()` before the prompt to
+reject `--json` with a clear error.

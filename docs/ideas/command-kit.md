@@ -36,7 +36,8 @@ changes later.
 - Declarative command definition with `defineCommand(name, config)`.
 - Positional binding, including first positional plus rest-array positional.
 - Help output for root commands, subcommands, missing arguments, and `--help`.
-- JSON result envelopes only when a command explicitly declares `--json`.
+- JSON result envelopes only when a command explicitly declares `--json`; the
+  runtime owns envelope writing and hides pretty/log output in that mode.
 - No command output schema validation.
 
 ## Non-Goals
