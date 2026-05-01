@@ -1,6 +1,5 @@
 #!/usr/bin/env bun
 
-import { consola } from 'consola'
 import { Cli } from 'incur'
 
 import { addArgsSchema, addCommand, addOptionsSchema } from './commands/add.js'
@@ -9,8 +8,6 @@ import { migrateArgsSchema, migrateCommand, migrateOptionsSchema } from './comma
 import { removeArgsSchema, removeCommand, removeOptionsSchema } from './commands/remove.js'
 import { syncCommand, syncOptionsSchema } from './commands/sync.js'
 import { updateCommand, updateOptionsSchema } from './commands/update.js'
-
-consola.options.formatOptions.date = false
 
 export function createCli() {
   return Cli.create('skills', {

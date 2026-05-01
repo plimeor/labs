@@ -1,11 +1,11 @@
 import { readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { consola } from 'consola'
+import { log, tasks } from '@clack/prompts'
 import { z } from 'incur'
 
 import { Checkout } from '../checkout.js'
-import { installSkill, removeInstalledSkill } from '../installer.js'
+import { type InstallResult, installSkill, removeInstalledSkill } from '../installer.js'
 import { Lock } from '../lock.js'
 import { Manifest } from '../manifest.js'
 import { formatDisplayPath, resolveScope } from '../scope.js'
@@ -24,15 +24,26 @@ export type SyncCommandContext = {
 export async function syncCommand(context: SyncCommandContext) {
   const scope = resolveScope(context.options.global ?? false)
   if (!context.options.dryRun) {
-    consola.start(`Using ${formatScope(scope)} skills state`)
+    log.step(`Using ${formatScope(scope)} skills state`)
   }
   const lock = context.options.locked ? await Lock.read(scope) : await Lock.ensure(scope)
   const rawManifest = await Manifest.read(scope)
   const allSources = Manifest.allSourceRequests(rawManifest)
+  let manifest: Manifest.Document
   if (!context.options.dryRun && allSources.length > 0) {
-    consola.start(`Resolving ${allSources.length} all-skills sources`)
+    manifest = rawManifest
+    await tasks([
+      {
+        title: `Resolving ${allSources.length} all-skills sources`,
+        task: async () => {
+          manifest = await resolveAllSources(rawManifest, lock, context.options.locked ?? false)
+          return `Resolved ${allSources.length} all-skills sources`
+        }
+      }
+    ])
+  } else {
+    manifest = await resolveAllSources(rawManifest, lock, context.options.locked ?? false)
   }
-  const manifest = await resolveAllSources(rawManifest, lock, context.options.locked ?? false)
   const syncPlan = SyncPlan.plan(manifest, lock, {
     locked: context.options.locked ?? false
   })
@@ -45,41 +56,69 @@ export async function syncCommand(context: SyncCommandContext) {
   let nextLock = lock
   const plannedChanges = syncPlan.pruneNames.length + syncPlan.installSkills.length
   if (plannedChanges === 0) {
-    consola.success('Skills are already in sync')
+    log.success('Skills are already in sync')
   } else {
-    consola.info(
+    log.info(
       `Applying ${plannedChanges} changes: ${syncPlan.pruneNames.length} removals, ${syncPlan.installSkills.length} installs`
     )
 
+    await tasks(
+      syncPlan.pruneNames.map(skillName => ({
+        title: `Remove ${skillName}`,
+        task: async () => {
+          await removeInstalledSkill(skillName, scope)
+          return `Removed ${skillName}`
+        }
+      }))
+    )
     for (const skillName of syncPlan.pruneNames) {
-      consola.start(`Removing ${skillName}`)
-      await removeInstalledSkill(skillName, scope)
       nextLock = Lock.removeSkill(nextLock, skillName)
-      consola.success(`Removed ${skillName}`)
     }
 
     for (const request of uniqueCheckoutRequests(syncPlan.installRequests)) {
-      consola.start(`Resolving ${formatCheckoutTarget(request)}`)
+      log.step(`Resolving ${formatCheckoutTarget(request)}`)
     }
 
     await Checkout.withAll(syncPlan.installRequests, async checkouts => {
+      const installResults = new Map<
+        string,
+        {
+          checkout: Checkout.Result
+          result: InstallResult
+          skill: Manifest.Skill
+        }
+      >()
+
+      await tasks(
+        syncPlan.installSkills.map(skill => ({
+          title: `Install ${skill.name}`,
+          task: async () => {
+            const request = syncPlan.installRequestsBySkillName[skill.name]
+            const checkout = Checkout.requireResult(checkouts, request, skill.name)
+            const result = await installSkillWithContext(skill, checkout, scope)
+            installResults.set(skill.name, { checkout, result, skill })
+            return `Installed ${formatDisplayPath(result.installPath)}`
+          }
+        }))
+      )
+
       for (const skill of syncPlan.installSkills) {
-        const request = syncPlan.installRequestsBySkillName[skill.name]
-        const checkout = Checkout.requireResult(checkouts, request, skill.name)
-        const result = await installSkillWithContext(skill, checkout, scope)
+        const installed = installResults.get(skill.name)
+        if (!installed) {
+          throw new Error(`Missing install result for ${skill.name}`)
+        }
         nextLock = Lock.setSkill(
           nextLock,
-          skill.name,
-          Lock.createEntry(skill, checkout, result.installPath, new Date().toISOString())
+          installed.skill.name,
+          Lock.createEntry(installed.skill, installed.checkout, installed.result.installPath, new Date().toISOString())
         )
-        consola.success(`Installed ${formatDisplayPath(result.installPath)}`)
       }
     })
   }
 
   await Lock.write(scope, nextLock)
   if (plannedChanges > 0) {
-    consola.success(`Updated ${formatDisplayPath(scope.lockPath)}`)
+    log.success(`Updated ${formatDisplayPath(scope.lockPath)}`)
   }
 }
 

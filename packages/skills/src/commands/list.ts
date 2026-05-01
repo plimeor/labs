@@ -1,4 +1,4 @@
-import { consola } from 'consola'
+import { log } from '@clack/prompts'
 import { z } from 'incur'
 
 import { Lock } from '../lock.js'
@@ -39,11 +39,11 @@ export async function listCommand(context: ListCommandContext) {
   }
 
   if (entries.length === 0) {
-    consola.info(`No skills installed in ${formatScope(scope)}.`)
+    log.info(`No skills installed in ${formatScope(scope)}.`)
     return
   }
 
-  consola.info(`Installed ${entries.length} skills in ${formatScope(scope)}`)
+  log.info(`Installed ${entries.length} skills in ${formatScope(scope)}`)
   process.stdout.write(`${formatList(entries)}\n`)
 }
 

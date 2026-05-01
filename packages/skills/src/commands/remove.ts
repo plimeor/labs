@@ -1,4 +1,4 @@
-import { consola } from 'consola'
+import { log, tasks } from '@clack/prompts'
 import { z } from 'incur'
 
 import { removeInstalledSkill } from '../installer.js'
@@ -19,7 +19,7 @@ export type RemoveCommandContext = {
 export async function removeCommand(context: RemoveCommandContext) {
   const skillNames = parseSkillNames(context)
   const scope = resolveScope(context.options.global ?? false)
-  consola.start(`Removing ${skillNames.join(', ')} from ${formatScope(scope)} skills state`)
+  log.step(`Removing ${skillNames.join(', ')} from ${formatScope(scope)} skills state`)
   let manifest = await Manifest.read(scope)
   let lock = await Lock.ensure(scope)
 
@@ -28,12 +28,18 @@ export async function removeCommand(context: RemoveCommandContext) {
     lock = Lock.removeSkill(lock, skillName)
   }
 
-  for (const skillName of skillNames) {
-    await removeInstalledSkill(skillName, scope)
-  }
+  await tasks(
+    skillNames.map(skillName => ({
+      title: `Remove ${skillName}`,
+      task: async () => {
+        await removeInstalledSkill(skillName, scope)
+        return `Removed ${skillName}`
+      }
+    }))
+  )
   await Manifest.write(scope, manifest)
   await Lock.write(scope, lock)
-  consola.success(
+  log.success(
     `Removed ${skillNames.length} skills and updated ${formatDisplayPath(
       scope.manifestPath
     )} plus ${formatDisplayPath(scope.lockPath)}`
@@ -82,7 +88,7 @@ function removeManifestSkill(manifest: Manifest.Document, lock: Lock.Document, s
     return skills.length === 0 ? [] : [{ ...source, skills }]
   })
 
-  consola.info(`Converted all-skills source ${allSource.source} to an explicit list without ${skillName}`)
+  log.info(`Converted all-skills source ${allSource.source} to an explicit list without ${skillName}`)
   return {
     schemaVersion: manifest.schemaVersion,
     scope: manifest.scope,

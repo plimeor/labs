@@ -1,11 +1,11 @@
-import { readdir } from 'node:fs/promises'
+import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { consola } from 'consola'
+import { cancel, isCancel, log, multiselect, tasks } from '@clack/prompts'
 import { z } from 'incur'
 
 import { Checkout } from '../checkout.js'
-import { installSkill } from '../installer.js'
+import { type InstallResult, installSkill } from '../installer.js'
 import { Lock } from '../lock.js'
 import { Manifest } from '../manifest.js'
 import { formatDisplayPath, resolveScope } from '../scope.js'
@@ -22,9 +22,6 @@ export const addOptionsSchema = z
   .refine(options => !options.commit || !options.ref, {
     message: 'add cannot specify both --commit and --ref'
   })
-  .refine(options => options.all || normalizeSkills(options.skill ?? []).length > 0, {
-    message: 'add requires --skill or --all'
-  })
   .refine(options => !options.all || normalizeSkills(options.skill ?? []).length === 0, {
     message: 'add cannot specify both --all and --skill'
   })
@@ -36,19 +33,38 @@ export type AddCommandContext = {
 
 export async function addCommand(context: AddCommandContext) {
   const scope = resolveScope(context.options.global ?? false)
-  consola.start(`Using ${formatScope(scope)} skills state`)
-  let manifest = await Manifest.ensure(scope)
-  let lock = await Lock.ensure(scope)
+  log.step(`Using ${formatScope(scope)} skills state`)
 
   const request = checkoutRequest(context)
-  consola.start(`Resolving ${formatCheckoutTarget(request)}`)
+  log.step(`Resolving ${formatCheckoutTarget(request)}`)
   await Checkout.withAll([request], async checkouts => {
     const checkout = Checkout.requireResult(checkouts, request, context.args.source)
-    const skills = await resolveSkills(context, checkout.dir)
-    consola.info(`Installing ${skills.length} skills into ${formatDisplayPath(scope.installDir)}`)
+    const selectionLock = await readLockOrEmpty(scope)
+    const skills = await resolveSkills(context, checkout.dir, selectionLock)
+    if (skills.length === 0) {
+      log.info('No new skills selected.')
+      return
+    }
+
+    let manifest = await Manifest.ensure(scope)
+    let lock = await Lock.ensure(scope)
+    log.info(`Installing ${skills.length} skills into ${formatDisplayPath(scope.installDir)}`)
+    const installResults = new Map<string, InstallResult>()
+    await tasks(
+      skills.map(skill => ({
+        title: `Install ${skill.name}`,
+        task: async () => {
+          const result = await installSkillWithContext(skill, checkout, scope)
+          installResults.set(skill.name, result)
+          return `Installed ${formatDisplayPath(result.installPath)}`
+        }
+      }))
+    )
     for (const skill of skills) {
-      const result = await installSkillWithContext(skill, checkout, scope)
-      consola.success(`Installed ${formatDisplayPath(result.installPath)}`)
+      const result = installResults.get(skill.name)
+      if (!result) {
+        throw new Error(`Missing install result for ${skill.name}`)
+      }
       lock = Lock.setSkill(
         lock,
         skill.name,
@@ -64,11 +80,11 @@ export async function addCommand(context: AddCommandContext) {
           source: context.args.source
         })
       : skills.reduce((nextManifest, skill) => Manifest.upsertSkill(nextManifest, skill), manifest)
-  })
 
-  await Manifest.write(scope, manifest)
-  await Lock.write(scope, lock)
-  consola.success(`Updated ${formatDisplayPath(scope.manifestPath)} and ${formatDisplayPath(scope.lockPath)}`)
+    await Manifest.write(scope, manifest)
+    await Lock.write(scope, lock)
+    log.success(`Updated ${formatDisplayPath(scope.manifestPath)} and ${formatDisplayPath(scope.lockPath)}`)
+  })
 }
 
 function checkoutRequest({ args, options }: AddCommandContext): Checkout.Request {
@@ -79,8 +95,12 @@ function checkoutRequest({ args, options }: AddCommandContext): Checkout.Request
   }
 }
 
-async function resolveSkills({ args, options }: AddCommandContext, checkoutDir: string): Promise<Manifest.Skill[]> {
-  const skillNames = options.all ? await discoverSkillNames(checkoutDir) : normalizeSkills(options.skill ?? [])
+async function resolveSkills(
+  { args, options }: AddCommandContext,
+  checkoutDir: string,
+  lock: Lock.Document
+): Promise<Manifest.Skill[]> {
+  const skillNames = await resolveSkillNames(options, checkoutDir, lock)
   return skillNames.map(name => ({
     commit: options.commit,
     name,
@@ -90,7 +110,45 @@ async function resolveSkills({ args, options }: AddCommandContext, checkoutDir: 
   }))
 }
 
+async function resolveSkillNames(
+  options: AddCommandContext['options'],
+  checkoutDir: string,
+  lock: Lock.Document
+): Promise<string[]> {
+  if (options.all) {
+    return discoverSkillNames(checkoutDir)
+  }
+
+  const explicitSkillNames = normalizeSkills(options.skill ?? [])
+  if (explicitSkillNames.length > 0) {
+    return explicitSkillNames
+  }
+
+  return promptSkillNames(checkoutDir, lock)
+}
+
+async function readLockOrEmpty(scope: ReturnType<typeof resolveScope>): Promise<Lock.Document> {
+  try {
+    return await Lock.read(scope)
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      return { schemaVersion: 1, scope: scope.scope, skills: {} }
+    }
+
+    throw error
+  }
+}
+
 async function discoverSkillNames(checkoutDir: string): Promise<string[]> {
+  return (await discoverSkills(checkoutDir, 'add --all')).map(skill => skill.name)
+}
+
+type DiscoveredSkill = {
+  description?: string
+  name: string
+}
+
+async function discoverSkills(checkoutDir: string, label: string): Promise<DiscoveredSkill[]> {
   const skillsDir = join(checkoutDir, 'skills')
   const entries = await readdir(skillsDir, { withFileTypes: true })
   const skillNames = entries
@@ -98,10 +156,126 @@ async function discoverSkillNames(checkoutDir: string): Promise<string[]> {
     .map(entry => entry.name)
     .sort((a, b) => a.localeCompare(b))
   if (skillNames.length === 0) {
-    throw new Error('add --all found no skills')
+    throw new Error(`${label} found no skills`)
   }
 
-  return skillNames
+  return Promise.all(
+    skillNames.map(async name => ({
+      description: await readSkillDescription(join(skillsDir, name, 'SKILL.md')),
+      name
+    }))
+  )
+}
+
+async function promptSkillNames(checkoutDir: string, lock: Lock.Document): Promise<string[]> {
+  const skills = await discoverSkills(checkoutDir, 'add')
+  const installedNames = new Set(Object.keys(lock.skills))
+  const installableSkills = skills.filter(skill => !installedNames.has(skill.name))
+  if (installableSkills.length === 0) {
+    log.info('All skills from this source are already installed. Run skills sync if you need to refresh them.')
+    return []
+  }
+
+  const selected = await multiselect({
+    message: 'Select skills to install',
+    options: sortPromptSkills(skills, installedNames).map(skill => ({
+      disabled: installedNames.has(skill.name),
+      hint: skill.description,
+      label: formatSkillLabel(skill, installedNames.has(skill.name)),
+      value: skill.name
+    })),
+    required: false
+  })
+
+  if (isCancel(selected)) {
+    cancel('No skills selected.')
+    return []
+  }
+
+  return normalizeSkills(selected.filter(skillName => !installedNames.has(skillName)))
+}
+
+function sortPromptSkills(skills: DiscoveredSkill[], installedNames: Set<string>): DiscoveredSkill[] {
+  return [...skills].sort((a, b) => {
+    const aInstalled = installedNames.has(a.name)
+    const bInstalled = installedNames.has(b.name)
+    if (aInstalled !== bInstalled) {
+      return aInstalled ? 1 : -1
+    }
+
+    return a.name.localeCompare(b.name)
+  })
+}
+
+async function readSkillDescription(skillFile: string): Promise<string | undefined> {
+  try {
+    return parseFrontmatterDescription(await readFile(skillFile, 'utf-8'))
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      return undefined
+    }
+
+    throw error
+  }
+}
+
+function parseFrontmatterDescription(markdown: string): string | undefined {
+  const lines = markdown.split(/\r?\n/)
+  if (lines[0]?.trim() !== '---') {
+    return undefined
+  }
+
+  const frontmatter: string[] = []
+  for (const line of lines.slice(1)) {
+    if (line.trim() === '---') {
+      break
+    }
+    frontmatter.push(line)
+  }
+
+  for (let index = 0; index < frontmatter.length; index++) {
+    const match = frontmatter[index]?.match(/^description:\s*(.*)$/)
+    if (!match) {
+      continue
+    }
+
+    const value = match[1].trim()
+    if (value === '>' || value === '>-' || value === '|' || value === '|-') {
+      const blockLines: string[] = []
+      for (const line of frontmatter.slice(index + 1)) {
+        if (/^[A-Za-z0-9_-]+:\s*/.test(line)) {
+          break
+        }
+        blockLines.push(line.trim())
+      }
+      return normalizeDescription(blockLines.join(value.startsWith('>') ? ' ' : '\n'))
+    }
+
+    return normalizeDescription(unquote(value))
+  }
+
+  return undefined
+}
+
+function formatSkillLabel(skill: DiscoveredSkill, installed: boolean): string {
+  return installed ? `${skill.name} (installed)` : skill.name
+}
+
+function normalizeDescription(value: string): string | undefined {
+  const description = value.replace(/\s+/g, ' ').trim()
+  return description || undefined
+}
+
+function unquote(value: string): string {
+  if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+    return value.slice(1, -1)
+  }
+
+  return value
+}
+
+function isNotFoundError(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT'
 }
 
 function normalizeSkills(values: string[]): string[] {

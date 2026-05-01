@@ -89,7 +89,13 @@ export namespace SyncPlan {
   }
 
   function formatRequest(request: Checkout.Request): string {
-    const target = request.commit ? `commit ${request.commit}` : request.ref ? `ref ${request.ref}` : 'default ref'
+    let target = 'default ref'
+    if (request.commit) {
+      target = `commit ${request.commit}`
+    } else if (request.ref) {
+      target = `ref ${request.ref}`
+    }
+
     return `${formatDisplayPath(request.source)} at ${target}`
   }
 

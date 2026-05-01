@@ -36,3 +36,4 @@
 ## Patterns
 
 - Use `docs/specs/<topic>.md` for living implementation specs before coding multi-file changes.
+- Avoid nested ternary expressions. Use guard clauses, named helpers, or explicit `if` branches when conditional logic has more than one decision point.

@@ -1,4 +1,4 @@
-import { consola } from 'consola'
+import { log } from '@clack/prompts'
 import { z } from 'incur'
 
 import { syncCommand } from './sync.js'
@@ -14,7 +14,7 @@ export type UpdateCommandContext = {
 
 export async function updateCommand(context: UpdateCommandContext) {
   if (!context.options.dryRun) {
-    consola.start('Updating skills from manifest')
+    log.step('Updating skills from manifest')
   }
   await syncCommand({
     options: {

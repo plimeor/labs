@@ -23,6 +23,7 @@ The package must not call the upstream npm package `skills`. It owns installatio
 ## Commands
 
 ```bash
+skills add plimeor/agent-skills -g
 skills add plimeor/agent-skills --skill code-scope-gate -g
 skills add plimeor/agent-skills --skill code-scope-gate --ref main -g
 skills add plimeor/agent-skills --skill code-scope-gate --commit abc123 -g
@@ -36,11 +37,28 @@ skills update -g
 skills migrate -g
 ```
 
+`add <source>` without `--skill` or `--all` prompts for one or more skills from
+the source repository's `skills/` directory. The prompt shows each skill name
+with its `SKILL.md` frontmatter description as a hint. Already installed skills
+from the current scope lock file are shown as `<skill-name> (installed)` and are
+disabled. If every skill from the source is already installed, `add` exits
+before opening the prompt and tells the user to run `sync` if they need to
+refresh installed copies. If the user selects no new skills or cancels the
+prompt, `add` exits without installing skills or writing state files.
+
 `add --all` records the source group as `skills: "all"` instead of freezing the currently discovered skill list. Later `sync` and `update` therefore add newly appearing skills and prune skills that disappeared from that source.
 
 `migrate` converts a legacy lock into both `skills.json` and `skills.lock.json`
 so `list` works immediately after migration. A normal `sync` can then refresh
 the lock with exact resolved commits from the new manifest.
+
+## CLI Output
+
+Human-facing command progress uses Clack logs, spinners, and task groups.
+Machine-readable output remains undecorated:
+
+- `skills list --json` writes only formatted JSON to stdout.
+- `skills sync --dry-run` writes only the dry-run plan to stdout.
 
 ## `skills.json`
 
@@ -161,6 +179,5 @@ Never:
 Out of scope for this version:
 
 - Multi-agent fan-out beyond `.agents/skills`.
-- Interactive discovery.
 - Search / `find`.
 - Skill template creation / `init`.

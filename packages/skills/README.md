@@ -91,6 +91,7 @@ After migration, keep `skills.json` under version control or dotfile sync. Treat
 ## Commands
 
 ```bash
+skills add plimeor/agent-skills -g
 skills add plimeor/agent-skills --skill code-scope-gate -g
 skills add plimeor/agent-skills --all -g
 skills sync -g
@@ -120,6 +121,12 @@ Supported sources:
 - Local paths: `/path`, `./path`, `../path`
 
 ## Common Workflows
+
+Choose global skills from an interactive prompt:
+
+```bash
+skills add plimeor/agent-skills -g
+```
 
 Install one global skill:
 
@@ -180,6 +187,11 @@ skills remove code-scope-gate,writing-blog -g
   generated metadata live in `skills.lock.json`.
 - **Source grouping**: manifest entries are grouped by source so the file stays
   readable when many skills come from the same repository.
+- **Prompted source install**: `skills add <source>` lists skills from the
+  source `skills/` directory, shows `SKILL.md` descriptions, labels already
+  installed skills as `(installed)`, and installs only newly selected skills. If
+  every skill from the source is already installed, it exits before prompting and
+  points users to `sync` for refreshes.
 - **Live `--all` subscription**: `skills add <source> --all` stores
   `skills: "all"` instead of freezing the current skill list. Later `sync` and
   `update` can add new skills and prune removed ones from that source.
@@ -201,19 +213,18 @@ and authoring UX:
   installing, listing, removing, and experimental sync across specific agent
   directories. This CLI installs into one scope-owned `.agents/skills` directory
   and has no per-agent target model.
-- **Interactive discovery**: Vercel has `skills find [query]` and `skills add
-  --list` for searching or listing skills before installation. This CLI requires
-  a known source plus explicit `--skill` names or `--all`.
+- **Open-ended discovery**: Vercel has `skills find [query]` and `skills add
+  --list` for searching or listing skills before installation. This CLI can
+  prompt within a known source, but it does not search across unknown sources.
 - **Skill authoring scaffold**: Vercel has `skills init [name]` to create a
   `SKILL.md` skeleton. This CLI only installs existing skills.
 - **Node package workflow**: Vercel includes `experimental_sync` from
   `node_modules` and `experimental_install` from `skills-lock.json`. This CLI
   uses native `skills.json` / `skills.lock.json` state instead and only provides
   `migrate` for moving an old lock file into the manifest format.
-- **Prompted UX and scope auto-selection**: Vercel supports confirmation prompts,
-  `--yes`, `--project`, and update-scope auto-detection. This CLI is
-  non-interactive: project scope is the default, and `-g` explicitly selects the
-  global scope.
+- **Scope auto-selection and confirmation flags**: Vercel supports confirmation
+  prompts, `--yes`, `--project`, and update-scope auto-detection. This CLI keeps
+  project scope as the default, and `-g` explicitly selects the global scope.
 - **Partial update and all-scope removal**: Vercel accepts `update [skills...]`
   and can remove all skills through `--skill`, `--agent`, and `--all`. This CLI
   updates the whole manifest and supports comma-separated batch removal only for

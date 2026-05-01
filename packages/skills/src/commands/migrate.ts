@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 
-import { consola } from 'consola'
+import { log, tasks } from '@clack/prompts'
 import { z } from 'incur'
 
 import { isNotFound } from '../json.js'
@@ -31,19 +31,38 @@ export async function migrateCommand(context: MigrateCommandContext) {
   })
   const outputPath = context.options.output ? resolve(cwd, context.options.output) : scope.manifestPath
   const lockPath = context.options.output ? join(dirname(outputPath), 'skills.lock.json') : scope.lockPath
-  consola.start(`Reading legacy lock from ${formatDisplayPath(inputPath)}`)
-  const legacyLock = await readLegacyLock(inputPath)
+  let legacyLock: unknown | undefined
+  await tasks([
+    {
+      title: `Reading legacy lock from ${formatDisplayPath(inputPath)}`,
+      task: async () => {
+        legacyLock = await readLegacyLock(inputPath)
+        if (!legacyLock) {
+          return 'No legacy lock found'
+        }
+
+        return `Read legacy lock from ${formatDisplayPath(inputPath)}`
+      }
+    }
+  ])
   if (!legacyLock) {
-    consola.info(`No legacy lock found at ${formatDisplayPath(inputPath)}; nothing to migrate`)
+    log.info(`No legacy lock found at ${formatDisplayPath(inputPath)}; nothing to migrate`)
     return
   }
 
   const migrated = migrateLegacyLock(legacyLock, scope)
 
-  consola.start(`Writing ${formatScope(scope)} manifest to ${formatDisplayPath(outputPath)}`)
-  await Manifest.write(outputPath, migrated.manifest)
-  await Lock.write(lockPath, migrated.lock)
-  consola.success(
+  await tasks([
+    {
+      title: `Writing ${formatScope(scope)} state`,
+      task: async () => {
+        await Manifest.write(outputPath, migrated.manifest)
+        await Lock.write(lockPath, migrated.lock)
+        return `Wrote ${formatDisplayPath(outputPath)} and ${formatDisplayPath(lockPath)}`
+      }
+    }
+  ])
+  log.success(
     `Migrated ${migrated.manifest.skills.length} skills to ${formatDisplayPath(outputPath)} and ${formatDisplayPath(lockPath)}`
   )
 }
