@@ -1,17 +1,18 @@
 import { log } from '@clack/prompts'
-import { type Static, Type } from '@sinclair/typebox'
+import * as v from 'valibot'
 
 import { Lock } from '../lock.js'
 import { formatDisplayPath, resolveScope } from '../scope.js'
+import { emptyArgsSchema, optionalBoolean } from './schemas.js'
 
-export const listArgsSchema = Type.Object({})
-export const listOptionsSchema = Type.Object({
-  global: Type.Optional(Type.Boolean({ description: 'Use the global skills manifest and lock file' })),
-  json: Type.Optional(Type.Boolean({ description: 'Write a JSON result envelope' }))
+export const listArgsSchema = emptyArgsSchema
+export const listOptionsSchema = v.object({
+  global: optionalBoolean('Use the global skills manifest and lock file'),
+  json: optionalBoolean('Write a JSON result envelope')
 })
 
 export type ListCommandContext = {
-  options: Static<typeof listOptionsSchema>
+  options: v.InferOutput<typeof listOptionsSchema>
 }
 
 export async function listCommand(context: ListCommandContext) {

@@ -2,17 +2,19 @@
 
 import { defineCli, defineCommand } from '@plimeor/command-kit'
 
-import { addArgsSchema, addCommand, addOptionsSchema } from './commands/add.js'
+import { addArgsSchema, addCommand, addOptionsSchema, addRequestSchema } from './commands/add.js'
 import { listArgsSchema, listCommand, listOptionsSchema } from './commands/list.js'
 import { migrateArgsSchema, migrateCommand, migrateOptionsSchema } from './commands/migrate.js'
 import { removeArgsSchema, removeCommand, removeOptionsSchema } from './commands/remove.js'
 import { syncArgsSchema, syncCommand, syncOptionsSchema } from './commands/sync.js'
 import { updateArgsSchema, updateCommand, updateOptionsSchema } from './commands/update.js'
+import { toStandardJsonSchema } from './schema-adapter.js'
 
 export function createCli() {
   return defineCli({
     description: 'Manage agent skills from a stable manifest and lock file',
     name: 'skills',
+    schemaAdapter: { toStandardJsonSchema },
     commands: [
       defineCommand('add', {
         aliases: ['a'],
@@ -21,6 +23,7 @@ export function createCli() {
         options: addOptionsSchema,
         positionals: [{ name: 'source' }, { name: 'skills', optional: true, rest: true }],
         run: addCommand,
+        validate: addRequestSchema,
         optionAliases: {
           global: 'g'
         }

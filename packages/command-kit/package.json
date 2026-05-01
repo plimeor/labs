@@ -8,8 +8,8 @@
   "bugs": {
     "url": "https://github.com/plimeor/labs/issues"
   },
-  "devDependencies": {
-    "@sinclair/typebox": "catalog:"
+  "dependencies": {
+    "@standard-schema/spec": "catalog:"
   },
   "exports": {
     ".": "./src/index.ts"
@@ -17,9 +17,6 @@
   "files": [
     "src"
   ],
-  "peerDependencies": {
-    "@sinclair/typebox": "catalog:"
-  },
   "publishConfig": {
     "access": "public"
   },

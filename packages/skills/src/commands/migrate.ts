@@ -2,24 +2,25 @@ import { readFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 
 import { log, tasks } from '@clack/prompts'
-import { type Static, Type } from '@sinclair/typebox'
+import * as v from 'valibot'
 
 import { isNotFound } from '../json.js'
 import { Lock } from '../lock.js'
 import { Manifest } from '../manifest.js'
 import { formatDisplayPath, resolveScope, type Scope } from '../scope.js'
+import { nonBlankString, optionalBoolean, optionalString } from './schemas.js'
 
-export const migrateArgsSchema = Type.Object({
-  input: Type.Optional(Type.String())
+export const migrateArgsSchema = v.object({
+  input: v.optional(nonBlankString('Legacy lock file path to read'))
 })
-export const migrateOptionsSchema = Type.Object({
-  global: Type.Optional(Type.Boolean({ description: 'Use the global legacy lock and output state' })),
-  output: Type.Optional(Type.String({ description: 'Manifest path to write instead of the default path' }))
+export const migrateOptionsSchema = v.object({
+  global: optionalBoolean('Use the global legacy lock and output state'),
+  output: optionalString('Manifest path to write instead of the default path')
 })
 
 export type MigrateCommandContext = {
-  args: Static<typeof migrateArgsSchema>
-  options: Static<typeof migrateOptionsSchema>
+  args: v.InferOutput<typeof migrateArgsSchema>
+  options: v.InferOutput<typeof migrateOptionsSchema>
 }
 
 export async function migrateCommand(context: MigrateCommandContext) {

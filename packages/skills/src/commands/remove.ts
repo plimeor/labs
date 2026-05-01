@@ -1,21 +1,22 @@
 import { log, tasks } from '@clack/prompts'
-import { type Static, Type } from '@sinclair/typebox'
+import * as v from 'valibot'
 
 import { removeInstalledSkill } from '../installer.js'
 import { Lock } from '../lock.js'
 import { Manifest } from '../manifest.js'
 import { formatDisplayPath, resolveScope } from '../scope.js'
+import { nonEmptyStringArray, optionalBoolean } from './schemas.js'
 
-export const removeArgsSchema = Type.Object({
-  skills: Type.Array(Type.String({ minLength: 1 }), { minItems: 1 })
+export const removeArgsSchema = v.object({
+  skills: nonEmptyStringArray('Skill names to remove')
 })
-export const removeOptionsSchema = Type.Object({
-  global: Type.Optional(Type.Boolean({ description: 'Use the global skills manifest and lock file' }))
+export const removeOptionsSchema = v.object({
+  global: optionalBoolean('Use the global skills manifest and lock file')
 })
 
 export type RemoveCommandContext = {
-  args: Static<typeof removeArgsSchema>
-  options: Static<typeof removeOptionsSchema>
+  args: v.InferOutput<typeof removeArgsSchema>
+  options: v.InferOutput<typeof removeOptionsSchema>
 }
 
 export async function removeCommand(context: RemoveCommandContext) {
@@ -49,12 +50,7 @@ export async function removeCommand(context: RemoveCommandContext) {
 }
 
 function parseSkillNames(context: RemoveCommandContext): string[] {
-  const skillNames = [...new Set((context.args.skills ?? []).map(value => value.trim()).filter(Boolean))]
-  if (skillNames.length === 0) {
-    throw new Error('remove requires a skill name')
-  }
-
-  return skillNames
+  return [...new Set(context.args.skills.map(value => value.trim()))]
 }
 
 function formatScope(scope: ReturnType<typeof resolveScope>): string {

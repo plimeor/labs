@@ -5,219 +5,172 @@
 Build `@plimeor/command-kit`, a Bun-runtime-first command declaration package
 for repo-local CLI and agent tools.
 
-The first user is this repository: `command-kit` must support a full replacement
-of the current `packages/skills` command layer. It is also intended for agent
-execution, where structured result envelopes are more useful than ad hoc stdout.
-
-The main problem is positional argument modeling. The current `incur` usage does
-not naturally support commands such as:
+The first production user is `packages/skills`. The runtime must replace that
+package's command layer while preserving its business behavior and fixing the
+positional argument model that blocked the old command stack:
 
 ```bash
 skills add plimeor/agent-skills code-scope-gate writing-blog
 ```
 
-`command-kit` must bind `plimeor/agent-skills` to the first positional argument
-and bind the remaining values to a second rest-array argument. This must be
-expressed declaratively and reflected in the inferred `run(ctx)` types.
+`plimeor/agent-skills` binds to `ctx.args.source`; every following positional
+binds to `ctx.args.skills` as an array.
 
-This is not a general CLI framework. It is a small command runtime for the
-concrete needs of Bun-executed `packages/skills` commands and adjacent
-agent-facing tools.
+## Current Scope
 
-## Assumptions
+- Bun first, TypeScript, ESM.
+- Command declarations through `defineCommand(name, config)`.
+- CLI declarations through `defineCli({ ..., schemaAdapter })`.
+- `args` and `options` schemas use `StandardSchemaV1` from
+  `@standard-schema/spec`.
+- Help metadata may use `StandardJSONSchemaV1` from `@standard-schema/spec`.
+- `packages/skills` uses Valibot for validation and `@valibot/to-json-schema`
+  for help metadata conversion.
+- Command output is not schema-validated by `command-kit`.
 
-1. The runtime is for the user and local agents first. It may become public
-   later, but v1 should validate the local `packages/skills` use case before
-   widening the API for external users.
-2. The command package lives in the standalone workspace package
-   `packages/command-kit` and is consumed by `packages/skills`.
-3. TypeBox is the only schema system in scope for the first version.
-4. Bun is the primary runtime target. The implementation may use Node-compatible
-   APIs that Bun supports, but it does not need to optimize for direct Node.js
-   execution in the first version.
-5. `incur` is no longer the target command-routing layer for `packages/skills`
-   because the required positional model is a known blocker.
-6. Existing business behavior of `packages/skills` should remain unchanged
-   except where command argument syntax, structured output, or error formatting
-   is explicitly changed by this spec.
+## Non-Goals
 
-## Tech Stack
+- Replacing full-featured CLI frameworks.
+- Building a custom schema DSL.
+- Automatic MCP server generation.
+- Shell completion.
+- OpenAPI mounting.
+- Global `--format json`.
+- A plugin system.
 
-- Runtime: Bun first, TypeScript, ESM.
-- Schema: `@sinclair/typebox`.
-- Validation: TypeBox value checking or compilation from the TypeBox ecosystem.
-- Terminal interaction: keep using `@clack/prompts` for human progress output
-  inside command handlers.
-- Existing package context: `packages/skills` previously used `incur`; this spec
-  authorizes replacing that command layer with `@plimeor/command-kit`.
+## Dependencies
 
-The runtime should assume Bun execution semantics for the CLI entrypoint,
-subprocess behavior, filesystem behavior, package scripts, and test runner.
-Node.js compatibility is not a first-version success criterion.
+`packages/command-kit` depends on:
 
-No other schema libraries are in scope for the first version.
+- `@standard-schema/spec`
 
-## Commands
+`packages/skills` depends on:
 
-Repository commands remain:
+- `@plimeor/command-kit`
+- `valibot`
+- `@valibot/to-json-schema`
+- `@clack/prompts`
 
-```bash
-bun run check
-bun run lint
-bun run format
-```
-
-Package-level verification commands remain:
-
-```bash
-bun --cwd packages/skills test
-bun --cwd packages/skills lint
-bun --cwd packages/skills src/cli.ts --help
-```
-
-Do not run or add tests during specification-only work. Test execution belongs
-to an implementation task where the user has authorized verification.
-
-## Project Structure
-
-Target structure for the first implementation:
-
-```text
-packages/skills/src/cli.ts
-  CLI executable entrypoint. Creates the skills CLI with @plimeor/command-kit.
-
-packages/command-kit/src/
-  Bun-first command declaration runtime package.
-
-packages/command-kit/src/define.ts
-  Public declaration helpers such as defineCommand and defineCli.
-
-packages/command-kit/src/argv.ts
-  argv tokenization, option parsing, positional binding, and unknown argument errors.
-
-packages/command-kit/src/schema.ts
-  TypeBox validation and error normalization.
-
-packages/command-kit/src/output.ts
-  Result envelopes, output modes, and stdout/stderr rendering.
-
-packages/skills/src/commands/
-  Existing command handlers adapted to the new context shape.
-
-packages/command-kit/test/
-  Runtime-level tests, if implementation testing is authorized.
-```
-
-`@plimeor/command-kit` is the package name. The first implementation still stays
-TypeBox-only and Bun-first; the package name intentionally describes the command
-declaration function rather than the schema implementation detail.
+TypeBox is not part of the current command-kit or skills command contract.
 
 ## Public Interface
 
-The core declaration API should be small enough to read at the call site:
-
-`defineCommand` takes the command name as the first argument and the command
-contract as the second argument.
-
 ```ts
-import { Type, type Static } from '@sinclair/typebox'
+import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec'
 
-const addArgs = Type.Object({
-  source: Type.String(),
-  skills: Type.Array(Type.String())
-})
+type SchemaAdapter = {
+  toStandardJsonSchema: (schema: StandardSchemaV1) => StandardJSONSchemaV1 | undefined
+}
 
-const addOptions = Type.Object({
-  all: Type.Optional(Type.Boolean({ description: 'Install every skill from the source repository' })),
-  global: Type.Optional(Type.Boolean({ description: 'Use the global skills manifest and lock file' })),
-  ref: Type.Optional(Type.String({ description: 'Git ref to install from' })),
-  commit: Type.Optional(Type.String({ description: 'Git commit to install from' }))
-})
+type CommandConfig<ArgsSchema extends StandardSchemaV1, OptionsSchema extends StandardSchemaV1> = {
+  aliases?: string[]
+  args: ArgsSchema
+  description: string
+  optionAliases?: Record<string, string>
+  options: OptionsSchema
+  positionals?: PositionalSpec[]
+  run: (ctx: CommandContext<ArgsSchema, OptionsSchema>) => unknown | Promise<unknown>
+  validate?: StandardSchemaV1
+}
 
-export const addCommand = defineCommand('add', {
-  aliases: ['a'],
-  description: 'Install skills and update skills.json plus skills.lock.json',
-  args: addArgs,
-  positionals: [{ name: 'source' }, { name: 'skills', rest: true }],
-  options: addOptions,
-  optionAliases: {
-    global: 'g'
-  },
-  async run(ctx) {
-    const source: string = ctx.args.source
-    const skills: string[] = ctx.args.skills
-    const global: boolean | undefined = ctx.options.global
+function defineCommand(name: string, config: CommandConfig): CommandDefinition
 
-    await installSkills({ global, skills, source })
-  }
-})
-
-type AddArgs = Static<typeof addArgs>
-type AddOptions = Static<typeof addOptions>
+function defineCli(definition: {
+  commands: CommandDefinition[]
+  description: string
+  name: string
+  schemaAdapter?: SchemaAdapter
+}): CliDefinition & { serve(argv: string[]): Promise<void> }
 ```
 
-`args` and `options` are TypeBox schemas. `positionals` defines how
-raw argv values map into the `args` object. TypeBox describes the final data
-shape; it does not describe CLI argv binding by itself.
+`ctx.args` and `ctx.options` are inferred from
+`StandardSchemaV1.InferOutput<typeof schema>`.
+
+`validate`, when present, validates `{ args, options }` after the individual
+`args` and `options` schemas pass. It exists for cross-field and cross-schema
+rules such as `skills add --all <skill>`.
+
+## Standard Schema Validation
+
+The runtime validates user input with:
+
+```ts
+await schema['~standard'].validate(value)
+```
+
+Success uses `result.value`; failure normalizes `result.issues` into a
+`CommandRuntimeError`.
+
+Validation stages:
+
+1. Parse raw argv into an args object and options object.
+2. Validate args with the command's `args` `StandardSchemaV1`.
+3. Validate options with the command's `options` `StandardSchemaV1`.
+4. Validate `{ args, options }` with optional command `validate` schema.
+5. Call `run(ctx)` only after all validation succeeds.
+
+## JSON Schema Metadata
+
+Standard Schema does not provide runtime introspection for option names, option
+kinds, or descriptions. `command-kit` therefore uses JSON Schema metadata when
+available.
+
+Resolution order:
+
+1. If the schema itself implements `StandardJSONSchemaV1`, use it.
+2. Otherwise, if `defineCli` provides `schemaAdapter.toStandardJsonSchema`, use
+   that adapter.
+3. If conversion is unavailable or throws, proceed without field descriptions.
+
+Help output reads `description` from JSON Schema object properties for both
+positional arguments and options. If JSON Schema is unavailable, field
+descriptions are omitted.
+
+Option parsing also uses JSON Schema metadata for declared option names and basic
+kinds:
+
+- boolean
+- string
+- array
+
+Commands with options should provide either schemas that implement
+`StandardJSONSchemaV1` or a CLI-level adapter.
 
 ## Positional Arguments
 
-The runtime must support these positional forms:
+Supported forms:
 
 ```ts
 positionals: [{ name: 'source' }]
 positionals: [{ name: 'input', optional: true }]
-positionals: [{ name: 'source' }, { name: 'skills', rest: true }]
+positionals: [{ name: 'source' }, { name: 'skills', optional: true, rest: true }]
 ```
 
 Rules:
 
-- A positional entry maps to a property in the `args` TypeBox object.
+- A positional entry maps to a property in the `args` schema output.
 - A non-rest positional consumes exactly one raw argument.
-- A rest positional consumes all remaining raw arguments and must map to a
-  TypeBox array property.
+- A rest positional consumes all remaining raw arguments.
 - Only the final positional may use `rest: true`.
-- Missing required positionals are validation errors.
+- Missing required positionals fail before command execution.
 - Extra positionals without a rest binding are unknown argument errors.
-- Positional binding happens before TypeBox validation, so validation sees the
-  final object shape.
-
-The `skills add` target syntax is:
-
-```bash
-skills add <source> [skill...]
-```
-
-Examples:
-
-```bash
-skills add plimeor/agent-skills
-# args = { source: 'plimeor/agent-skills', skills: [] }
-
-skills add plimeor/agent-skills code-scope-gate writing-blog
-# args = { source: 'plimeor/agent-skills', skills: ['code-scope-gate', 'writing-blog'] }
-```
+- Final validation belongs to the `args` Standard Schema.
 
 ## Options
 
-The runtime must support:
+Supported forms:
 
-- Long boolean options: `--global`, `--dry-run`, `--locked`.
-- Short aliases: `-g`.
-- Long string options: `--ref main`, `--commit abc123`, `--output path`.
-- Repeatable string options when the TypeBox option property is an array.
-- Negated booleans are out of scope for the first version.
+- `--global`, `--dry-run`, `--locked`
+- `-g` through `optionAliases`
+- `--ref main`, `--commit abc123`, `--output path`
+- repeatable string options when the JSON Schema property is an array
 
-Unknown options fail before command execution. Option values are validated against
-the TypeBox `options` schema after parsing.
+Unknown options fail before command execution. Parsed values are validated
+against the `options` Standard Schema.
 
-Command help should read option descriptions from each TypeBox property schema's
-JSON Schema `description` annotation. Do not add a parallel option-description
-DSL unless TypeBox metadata stops being sufficient.
+Negated boolean options are out of scope.
 
 ## Output Model
-
-Every command execution returns a result envelope:
 
 ```ts
 type CommandResult<T> =
@@ -231,11 +184,12 @@ type CommandError = {
 }
 ```
 
-`run(ctx)` may return either raw output data or a full success envelope. The
-runtime normalizes successful values into `{ ok: true, data }`.
+`run(ctx)` may return raw data or a full success envelope. The runtime normalizes
+successful values into `{ ok: true, data }`.
 
-Thrown errors are normalized into `{ ok: false, error }`. Validation errors must
-use stable machine-readable codes:
+Thrown errors normalize into `{ ok: false, error }`.
+
+Stable error codes:
 
 - `COMMAND_NOT_FOUND`
 - `INVALID_ARGUMENTS`
@@ -245,93 +199,49 @@ use stable machine-readable codes:
 - `MISSING_ARGUMENT`
 - `COMMAND_FAILED`
 
-The runtime does not validate command output. Command handlers own the shape of
-their returned data, and should return structured data only when that command has
-a real JSON output contract.
+## JSON Mode
 
-## Output Modes
+There is no global JSON mode. A command opts in by declaring a boolean `json`
+option. If a command does not declare `json`, `--json` is an unknown option.
 
-The runtime must support two first-version modes:
+In JSON mode:
 
-- `pretty`: human-facing mode. Command handlers may use `@clack/prompts` for
-  progress. Final structured data does not need to be printed unless the command
-  already has a human-facing summary.
-- `json`: machine and agent mode. stdout contains only the result envelope as
-  formatted JSON. The runtime suppresses command stdout/stderr while the handler
-  runs, so `@clack/prompts` progress logs and pretty summaries do not leak into
-  the envelope stream.
+- stdout contains only the JSON result envelope.
+- command stdout/stderr is suppressed while validation and `run(ctx)` execute.
+- command handlers do not inspect a runtime format field.
+- commands that may prompt call `ctx.assertInteractive()` before prompting; in
+  JSON mode this throws an error telling the caller to remove `--json`.
 
-The mode is selected by command-owned JSON options. If a command declares a
-boolean `json` option in its TypeBox option schema, `--json` switches that
-command into JSON envelope output. Commands that do not declare `json` reject
-`--json` as an unknown option. There is no global `--format json` option.
+For the first skills migration, only `skills list` declares `--json`.
 
-In the first `packages/skills` migration, only `skills list` should declare and
-return data for `--json`. Other `skills` commands should reject `--json` until
-they have a real JSON output contract.
+## Skills Migration Contract
 
-Handlers must not branch on `ctx.format` or inspect runtime output mode. The
-runtime decides whether to write the returned value as JSON. Commands that may
-enter an interactive prompt can call `ctx.assertInteractive()` immediately before
-the prompt; in JSON mode this fails with guidance to remove `--json`.
+`packages/skills` uses Valibot schemas for args, options, and request-level
+validation:
 
-Agent-friendly output means JSON envelope output. A separate agent protocol,
-MCP server, or tool registry is out of scope.
+- Field shape and type validation live in Valibot object schemas.
+- Parameter constraints use `v.check`.
+- Cross-field rules use a command-level `validate` schema over `{ args, options }`.
+- Help descriptions use Valibot `v.description`.
+- The CLI passes `schemaAdapter: { toStandardJsonSchema }` to `defineCli`.
 
-## Code Style
-
-Command declarations should keep the interface contract near the handler:
-
-```ts
-const removeArgs = Type.Object({
-  skills: Type.Array(Type.String({ minLength: 1 }), { minItems: 1 })
-})
-
-export const removeCommand = defineCommand('remove', {
-  aliases: ['rm'],
-  description: 'Remove installed skills and update state files',
-  args: removeArgs,
-  positionals: [{ name: 'skills', rest: true }],
-  options: Type.Object({
-    global: Type.Optional(Type.Boolean({ description: 'Use the global skills manifest and lock file' }))
-  }),
-  async run(ctx) {
-    const skillNames = ctx.args.skills
-    // Existing business logic stays in the command module.
-    await removeSkills(skillNames, ctx.options)
-  }
-})
-```
-
-Conventions:
-
-- Keep schemas named after the command surface: `addArgs`, `addOptions`.
-- Put option help text in each TypeBox property schema's `description`.
-- Prefer explicit `if` branches over nested ternary expressions.
-- Keep argv parsing and TypeBox validation in the runtime, not in individual
-  command handlers.
-- Command handlers should receive already validated `ctx.args` and
-  `ctx.options`.
-- Pretty command handlers may keep writing human output; command-kit suppresses
-  that output automatically when a declared `--json` option is active.
-- Do not add a schema adapter abstraction until another schema system is
-  actually authorized.
+Because Valibot `check` actions are validation logic rather than JSON Schema, the
+skills adapter converts schemas for help with `@valibot/to-json-schema` while
+ignoring `check` actions. Runtime validation still uses Valibot through Standard
+Schema.
 
 ## Testing Strategy
 
-If implementation testing is authorized, use `bun test` under
-`packages/skills/test`.
+Runtime tests should focus on public behavior:
 
-Runtime-level coverage should focus on:
+- first positional plus rest-array binding
+- missing, extra, and unknown arguments
+- boolean, string, alias, and repeatable options
+- Standard Schema validation failures for args, options, and request validation
+- help descriptions derived from JSON Schema metadata
+- JSON mode suppressing command output and writing only the envelope
 
-- Positional binding, especially first positional plus rest array.
-- Missing, extra, and unknown arguments.
-- Boolean, string, alias, and repeatable option parsing.
-- TypeBox validation errors for args and options.
-- JSON mode producing only the result envelope on stdout.
-- Existing `packages/skills` command compatibility after replacement.
-
-Command-level compatibility checks should cover at least:
+Skills tests should cover only affected command compatibility:
 
 ```bash
 skills add plimeor/agent-skills
@@ -342,73 +252,19 @@ skills sync -g --dry-run
 skills migrate -g
 ```
 
-The implementation should not add broad end-to-end coverage beyond the command
-runtime and affected command compatibility unless separately requested.
-
-## Boundaries
-
-Always:
-
-- Treat Bun as the primary runtime and verification target.
-- Use TypeBox as the only schema source for args and options.
-- Validate external CLI input at the runtime boundary before calling handlers.
-- Preserve existing `packages/skills` business behavior unless this spec names a
-  CLI contract change.
-- Keep output envelopes stable in JSON mode.
-- Keep command runtime code in `packages/command-kit`; `packages/skills` should
-  consume it as a workspace dependency.
-
-Ask first:
-
-- Publishing the runtime as a standalone package.
-- Adding Node.js-first compatibility requirements or a dual-runtime support
-  matrix.
-- Adding support for Zod, Valibot, ArkType, Standard Schema, or another schema
-  abstraction.
-- Changing state file schemas, install/sync semantics, or package boundaries.
-- Removing existing command aliases or user-facing command names.
-- Adding shell completion, MCP server support, OpenAPI generation, or plugin
-  loading.
-
-Never:
-
-- Implement a custom schema DSL.
-- Keep `incur` in the command path if it blocks the required positional model.
-- Print non-JSON progress logs to stdout in JSON mode.
-- Let command handlers hand-parse positional arrays that the runtime should bind.
-- Treat generated or timestamped runtime data as desired state in
-  `skills.json`.
-
 ## Success Criteria
 
-The spec is implemented when all of these are true:
-
-- `packages/skills` no longer depends on `incur` for command routing, argument
-  parsing, or typed handlers.
-- `packages/skills` depends on `@plimeor/command-kit` for command declaration,
-  argv parsing, validation, and output envelopes.
-- Commands are declared through `@plimeor/command-kit` with TypeBox schemas for
-  args and options.
-- The runtime is executed and verified primarily through Bun commands, including
-  the `#!/usr/bin/env bun` CLI entrypoint path.
-- `skills add plimeor/agent-skills code-scope-gate writing-blog` binds
-  `ctx.args.source` to `plimeor/agent-skills` and `ctx.args.skills` to
-  `['code-scope-gate', 'writing-blog']`.
-- `skills remove code-scope-gate writing-blog` binds all skill names as an array
-  instead of requiring comma splitting.
-- `ctx.args` and `ctx.options` are inferred from TypeBox schemas at command
-  call sites.
-- JSON mode returns `{ ok: true, data }` for successful commands and
-  `{ ok: false, error }` for failures.
-- JSON mode suppresses command stdout/stderr and writes only the envelope.
-- `ctx.assertInteractive()` rejects interactive prompts in JSON mode with a
-  message that tells the user to remove `--json`.
-- Command output is not schema-validated by `@plimeor/command-kit`.
-- Existing `packages/skills` commands still support their documented command
-  names and aliases unless a later migration spec changes them.
-
-## Open Questions
-
-- Should pretty mode print a final success envelope anywhere, or should it
-  remain purely human-facing with Clack progress and summaries?
-- Should runtime errors preserve original stack traces behind a debug flag?
+- `packages/command-kit` has no TypeBox dependency or TypeBox-specific API.
+- `packages/command-kit` accepts `StandardSchemaV1` for args and options.
+- `defineCli` accepts optional `schemaAdapter.toStandardJsonSchema`.
+- Help output shows field descriptions when JSON Schema metadata is available
+  and omits them when it is not.
+- `packages/skills` uses Valibot instead of TypeBox.
+- `packages/skills` parameter validation rules are implemented with Valibot
+  `check`.
+- `skills add plimeor/agent-skills code-scope-gate writing-blog` binds source
+  and skills correctly.
+- `skills remove code-scope-gate writing-blog` binds skill names as an array.
+- Only `skills list` accepts `--json`.
+- JSON mode writes only the result envelope.
+- `bun run check`, `bun run lint`, and relevant Bun tests pass.

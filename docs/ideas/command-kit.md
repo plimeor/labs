@@ -25,14 +25,13 @@ Use `@plimeor/command-kit`.
 
 The name should describe the package's job: declaring commands, parsing argv,
 validating inputs, rendering help, and normalizing results. It should not encode
-the current schema implementation detail. TypeBox is the first supported schema
-source, but the package name should still make sense if that internal choice
-changes later.
+any schema implementation detail.
 
 ## First-Version Scope
 
 - Bun runtime first.
-- TypeBox schemas for command args and options.
+- Standard Schema schemas for command args and options.
+- Optional Standard JSON Schema adapter for help metadata.
 - Declarative command definition with `defineCommand(name, config)`.
 - Positional binding, including first positional plus rest-array positional.
 - Help output for root commands, subcommands, missing arguments, and `--help`.
@@ -43,7 +42,7 @@ changes later.
 ## Non-Goals
 
 - Replacing full-featured CLI frameworks.
-- Supporting multiple schema systems in v1.
+- Binding to a specific schema library.
 - Providing a plugin system.
 - Generating an MCP server.
 - Shell completion.

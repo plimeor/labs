@@ -2,7 +2,7 @@ import { readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { log, tasks } from '@clack/prompts'
-import { type Static, Type } from '@sinclair/typebox'
+import * as v from 'valibot'
 
 import { Checkout } from '../checkout.js'
 import { type InstallResult, installSkill, removeInstalledSkill } from '../installer.js'
@@ -10,16 +10,17 @@ import { Lock } from '../lock.js'
 import { Manifest } from '../manifest.js'
 import { formatDisplayPath, resolveScope } from '../scope.js'
 import { SyncPlan } from '../sync-plan.js'
+import { emptyArgsSchema, optionalBoolean } from './schemas.js'
 
-export const syncArgsSchema = Type.Object({})
-export const syncOptionsSchema = Type.Object({
-  dryRun: Type.Optional(Type.Boolean({ description: 'Print the planned changes without writing state' })),
-  global: Type.Optional(Type.Boolean({ description: 'Use the global skills manifest and lock file' })),
-  locked: Type.Optional(Type.Boolean({ description: 'Use locked commits instead of resolving sources' }))
+export const syncArgsSchema = emptyArgsSchema
+export const syncOptionsSchema = v.object({
+  dryRun: optionalBoolean('Print the planned changes without writing state'),
+  global: optionalBoolean('Use the global skills manifest and lock file'),
+  locked: optionalBoolean('Use locked commits instead of resolving sources')
 })
 
 export type SyncCommandContext = {
-  options: Static<typeof syncOptionsSchema>
+  options: v.InferOutput<typeof syncOptionsSchema>
 }
 
 export async function syncCommand(context: SyncCommandContext) {

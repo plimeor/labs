@@ -12,7 +12,8 @@
   "dependencies": {
     "@clack/prompts": "^1.3.0",
     "@plimeor/command-kit": "workspace:*",
-    "@sinclair/typebox": "catalog:",
+    "@valibot/to-json-schema": "catalog:",
+    "valibot": "catalog:",
     "zx": "^8.8.5"
   },
   "files": [

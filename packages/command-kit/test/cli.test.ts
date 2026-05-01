@@ -1,8 +1,100 @@
 import { describe, expect, test } from 'bun:test'
 
-import { Type } from '@sinclair/typebox'
+import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec'
 
 import { defineCli, defineCommand } from '../src/index.js'
+
+type TestJsonSchemaProperty = {
+  description?: string
+  items?: TestJsonSchemaProperty
+  type: 'array' | 'boolean' | 'object' | 'string'
+}
+
+type TestSchema<T extends Record<string, unknown>> = StandardSchemaV1<unknown, T> & StandardJSONSchemaV1<unknown, T>
+
+function objectSchema<T extends Record<string, unknown>>(
+  properties: Record<string, TestJsonSchemaProperty>,
+  validate?: (value: T) => StandardSchemaV1.Issue[]
+): TestSchema<T> {
+  const jsonSchema = {
+    properties,
+    type: 'object'
+  }
+
+  return {
+    '~standard': {
+      vendor: 'command-kit-test',
+      version: 1,
+      jsonSchema: {
+        input: () => jsonSchema,
+        output: () => jsonSchema
+      },
+      validate(value) {
+        if (!isRecord(value)) {
+          return { issues: [{ message: 'Expected object' }] }
+        }
+
+        const issues = validateTypes(value, properties)
+        if (issues.length > 0) {
+          return { issues }
+        }
+
+        const customIssues = validate?.(value as T) ?? []
+        if (customIssues.length > 0) {
+          return { issues: customIssues }
+        }
+
+        return { value: value as T }
+      }
+    }
+  }
+}
+
+function standardOnlySchema<T extends Record<string, unknown>>(schema: TestSchema<T>): StandardSchemaV1<unknown, T> {
+  return {
+    '~standard': {
+      validate: schema['~standard'].validate,
+      vendor: 'command-kit-test',
+      version: 1
+    }
+  }
+}
+
+function validateTypes(
+  value: Record<string, unknown>,
+  properties: Record<string, TestJsonSchemaProperty>
+): StandardSchemaV1.Issue[] {
+  return Object.entries(properties).flatMap(([name, property]) => {
+    const field = value[name]
+    if (field === undefined) {
+      return []
+    }
+
+    if (property.type === 'array' && Array.isArray(field)) {
+      return []
+    }
+
+    if (property.type === 'object' && isRecord(field)) {
+      return []
+    }
+
+    if (property.type !== 'array' && typeof field === property.type) {
+      return []
+    }
+
+    return [{ message: `Expected ${property.type}`, path: [name] }]
+  })
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+const emptySchema = objectSchema<Record<string, never>>({})
+
+const jsonOptionSchema = objectSchema<{ json?: boolean }>({
+  json: { type: 'boolean' }
+})
 
 async function captureStdout(callback: () => Promise<void>): Promise<string> {
   let output = ''
@@ -45,14 +137,12 @@ describe('command runtime', () => {
       name: 'test',
       commands: [
         defineCommand('add', {
-          args: Type.Object({
-            skills: Type.Array(Type.String()),
-            source: Type.String()
+          args: objectSchema<{ skills: string[]; source: string }>({
+            skills: { items: { type: 'string' }, type: 'array' },
+            source: { type: 'string' }
           }),
           description: 'Add skills',
-          options: Type.Object({
-            json: Type.Optional(Type.Boolean())
-          }),
+          options: jsonOptionSchema,
           positionals: [{ name: 'source' }, { name: 'skills', rest: true }],
           run: context => ({
             skills: context.args.skills,
@@ -81,12 +171,12 @@ describe('command runtime', () => {
       name: 'test',
       commands: [
         defineCommand('sync', {
-          args: Type.Object({}),
+          args: emptySchema,
           description: 'Sync',
-          options: Type.Object({
-            dryRun: Type.Optional(Type.Boolean()),
-            global: Type.Optional(Type.Boolean()),
-            json: Type.Optional(Type.Boolean())
+          options: objectSchema<{ dryRun?: boolean; global?: boolean; json?: boolean }>({
+            dryRun: { type: 'boolean' },
+            global: { type: 'boolean' },
+            json: { type: 'boolean' }
           }),
           optionAliases: {
             global: 'g'
@@ -118,11 +208,9 @@ describe('command runtime', () => {
       name: 'test',
       commands: [
         defineCommand('bad', {
-          args: Type.Object({}),
+          args: emptySchema,
           description: 'Bad output',
-          options: Type.Object({
-            json: Type.Optional(Type.Boolean())
-          }),
+          options: jsonOptionSchema,
           run: () => ({ value: 1 })
         })
       ]
@@ -146,11 +234,9 @@ describe('command runtime', () => {
       name: 'test',
       commands: [
         defineCommand('noop', {
-          args: Type.Object({}),
+          args: emptySchema,
           description: 'No options',
-          options: Type.Object({
-            json: Type.Optional(Type.Boolean())
-          }),
+          options: jsonOptionSchema,
           run: () => ({})
         })
       ]
@@ -175,9 +261,9 @@ describe('command runtime', () => {
       name: 'test',
       commands: [
         defineCommand('noop', {
-          args: Type.Object({}),
+          args: emptySchema,
           description: 'No options',
-          options: Type.Object({}),
+          options: emptySchema,
           run: () => ({})
         })
       ]
@@ -196,9 +282,9 @@ describe('command runtime', () => {
       name: 'test',
       commands: [
         defineCommand('noop', {
-          args: Type.Object({}),
+          args: emptySchema,
           description: 'No options',
-          options: Type.Object({}),
+          options: emptySchema,
           run: () => ({})
         })
       ]
@@ -217,11 +303,11 @@ describe('command runtime', () => {
       name: 'test',
       commands: [
         defineCommand('add', {
-          args: Type.Object({
-            source: Type.String()
+          args: objectSchema<{ source: string }>({
+            source: { type: 'string' }
           }),
           description: 'Add items',
-          options: Type.Object({}),
+          options: emptySchema,
           positionals: [{ name: 'source' }],
           run: () => ({})
         })
@@ -245,11 +331,11 @@ describe('command runtime', () => {
       name: 'test',
       commands: [
         defineCommand('add', {
-          args: Type.Object({
-            source: Type.String()
+          args: objectSchema<{ source: string }>({
+            source: { type: 'string' }
           }),
           description: 'Add items',
-          options: Type.Object({}),
+          options: emptySchema,
           positionals: [{ name: 'source' }],
           run: () => ({})
         })
@@ -267,6 +353,82 @@ describe('command runtime', () => {
     expect(output).toContain('source')
   })
 
+  test('uses schemaAdapter for help descriptions when schemas do not expose json schema', async () => {
+    const argsJson = objectSchema<{ source: string }>({
+      source: { description: 'Repository source', type: 'string' }
+    })
+    const optionsJson = objectSchema<{ global?: boolean }>({
+      global: { description: 'Use global state', type: 'boolean' }
+    })
+    const args = standardOnlySchema(argsJson)
+    const options = standardOnlySchema(optionsJson)
+    const jsonSchemas = new WeakMap<StandardSchemaV1, StandardJSONSchemaV1>([
+      [args, argsJson],
+      [options, optionsJson]
+    ])
+    const cli = defineCli({
+      description: 'Test CLI',
+      name: 'test',
+      commands: [
+        defineCommand('add', {
+          args,
+          description: 'Add items',
+          options,
+          positionals: [{ name: 'source' }],
+          run: () => ({})
+        })
+      ],
+      schemaAdapter: {
+        toStandardJsonSchema: schema => jsonSchemas.get(schema)
+      }
+    })
+
+    const output = await captureStdout(async () => {
+      await cli.serve(['add', '--help'])
+    })
+
+    expect(output).toContain('source  Repository source')
+    expect(output).toContain('--global  Use global state')
+  })
+
+  test('validates request-level args and options before running commands', async () => {
+    let ran = false
+    const cli = defineCli({
+      description: 'Test CLI',
+      name: 'test',
+      commands: [
+        defineCommand('add', {
+          args: objectSchema<{ source: string }>({
+            source: { type: 'string' }
+          }),
+          description: 'Add items',
+          options: objectSchema<{ all?: boolean }>({
+            all: { type: 'boolean' }
+          }),
+          positionals: [{ name: 'source' }],
+          validate: objectSchema<{ args: { source: string }; options: { all?: boolean } }>(
+            {
+              args: { type: 'object' },
+              options: { type: 'object' }
+            },
+            value => (value.args.source === 'repo' && value.options.all ? [{ message: 'invalid combination' }] : [])
+          ),
+          run: () => {
+            ran = true
+            return {}
+          }
+        })
+      ]
+    })
+
+    const output = await captureStderr(async () => {
+      await cli.serve(['add', 'repo', '--all'])
+    })
+
+    expect(output).toContain('Invalid request')
+    expect(ran).toBe(false)
+  })
+
   test('command help includes aliases and options', async () => {
     const cli = defineCli({
       description: 'Test CLI',
@@ -274,14 +436,18 @@ describe('command runtime', () => {
       commands: [
         defineCommand('add', {
           aliases: ['a'],
-          args: Type.Object({
-            items: Type.Array(Type.String()),
-            source: Type.String()
+          args: objectSchema<{ items: string[]; source: string }>({
+            items: { items: { type: 'string' }, type: 'array' },
+            source: { type: 'string' }
           }),
           description: 'Add items',
-          options: Type.Object({
-            global: Type.Optional(Type.Boolean({ description: 'Use global state' })),
-            skill: Type.Optional(Type.Array(Type.String(), { description: 'Item to add; can be repeated' }))
+          options: objectSchema<{ global?: boolean; skill?: string[] }>({
+            global: { description: 'Use global state', type: 'boolean' },
+            skill: {
+              description: 'Item to add; can be repeated',
+              items: { type: 'string' },
+              type: 'array'
+            }
           }),
           positionals: [{ name: 'source' }, { name: 'items', rest: true }],
           optionAliases: {

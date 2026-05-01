@@ -1,6 +1,5 @@
-import type { TObject, TSchema } from '@sinclair/typebox'
-
 import { CommandErrorCode, CommandRuntimeError } from './errors.js'
+import type { JsonObjectSchema, JsonSchemaProperty } from './schema.js'
 
 export type PositionalSpec = {
   name: string
@@ -15,7 +14,7 @@ export type ParsedArgv = {
 
 export type ParseArgvOptions = {
   optionAliases?: Record<string, string>
-  optionSchema: TObject
+  optionSchema: JsonObjectSchema | undefined
   positionals: PositionalSpec[]
 }
 
@@ -147,8 +146,8 @@ function readOptionValue(argv: string[], index: number, name: string): string {
   return value
 }
 
-function optionProperty(schema: TObject, name: string, displayName: string): TSchema {
-  const property = schema.properties[name]
+function optionProperty(schema: JsonObjectSchema | undefined, name: string, displayName: string): JsonSchemaProperty {
+  const property = schema?.properties?.[name]
   if (!property) {
     throw new CommandRuntimeError(CommandErrorCode.UnknownOption, `Unknown option: --${displayName}`)
   }
@@ -156,16 +155,28 @@ function optionProperty(schema: TObject, name: string, displayName: string): TSc
   return property
 }
 
-function optionKind(schema: TSchema): 'array' | 'boolean' | 'string' {
-  if (schema.type === 'boolean') {
+function optionKind(schema: JsonSchemaProperty): 'array' | 'boolean' | 'string' {
+  if (hasJsonSchemaType(schema, 'boolean')) {
     return 'boolean'
   }
 
-  if (schema.type === 'array') {
+  if (hasJsonSchemaType(schema, 'array')) {
     return 'array'
   }
 
   return 'string'
+}
+
+function hasJsonSchemaType(schema: JsonSchemaProperty, type: string): boolean {
+  if (Array.isArray(schema.type) && schema.type.includes(type)) {
+    return true
+  }
+
+  if (schema.type === type) {
+    return true
+  }
+
+  return [...(schema.anyOf ?? []), ...(schema.oneOf ?? [])].some(option => hasJsonSchemaType(option, type))
 }
 
 function setOption(options: Record<string, unknown>, name: string, value: unknown, append = false): void {
