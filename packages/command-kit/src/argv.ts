@@ -10,8 +10,6 @@ export type PositionalSpec = {
 
 export type ParsedArgv = {
   args: Record<string, unknown>
-  format: 'json' | 'pretty'
-  formatExplicit: boolean
   options: Record<string, unknown>
 }
 
@@ -25,12 +23,9 @@ export function parseArgv(argv: string[], options: ParseArgvOptions): ParsedArgv
   validatePositionals(options.positionals)
   const parsed = parseOptionsAndPositionals(argv, options)
   const args = bindPositionals(parsed.positionals, options.positionals)
-  const format = resolveFormat(parsed.options, options.optionSchema)
 
   return {
     args,
-    format,
-    formatExplicit: format === 'json',
     options: parsed.options
   }
 }
@@ -193,10 +188,6 @@ function parseBoolean(name: string, value: string): boolean {
   }
 
   throw new CommandRuntimeError(CommandErrorCode.InvalidOptions, `Option --${name} must be true or false`)
-}
-
-function resolveFormat(options: Record<string, unknown>, optionSchema: TObject): 'json' | 'pretty' {
-  return optionSchema.properties.json?.type === 'boolean' && options.json === true ? 'json' : 'pretty'
 }
 
 function kebabToCamel(value: string): string {

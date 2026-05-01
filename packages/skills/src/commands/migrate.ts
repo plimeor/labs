@@ -36,7 +36,7 @@ export async function migrateCommand(context: MigrateCommandContext) {
   const legacyLock = await readLegacyLockWithProgress(inputPath)
   if (!legacyLock) {
     log.info(`No legacy lock found at ${formatDisplayPath(inputPath)}; nothing to migrate`)
-    return { lockPath, manifestPath: outputPath, migrated: 0 }
+    return
   }
 
   const migrated = migrateLegacyLock(legacyLock, scope)
@@ -54,7 +54,6 @@ export async function migrateCommand(context: MigrateCommandContext) {
   log.success(
     `Migrated ${migrated.manifest.skills.length} skills to ${formatDisplayPath(outputPath)} and ${formatDisplayPath(lockPath)}`
   )
-  return { lockPath, manifestPath: outputPath, migrated: migrated.manifest.skills.length }
 }
 
 async function readLegacyLockWithProgress(path: string): Promise<unknown | undefined> {

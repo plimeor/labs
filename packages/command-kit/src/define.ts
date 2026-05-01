@@ -3,13 +3,12 @@ import { Type } from '@sinclair/typebox'
 
 import { type PositionalSpec, parseArgv } from './argv.js'
 import { type CommandError, CommandErrorCode, CommandRuntimeError } from './errors.js'
-import { type CommandResult, normalizeFailure, normalizeSuccess, type OutputMode, writeJsonResult } from './output.js'
+import { type CommandResult, normalizeFailure, normalizeSuccess, writeJsonResult } from './output.js'
 import { validateSchema } from './schema.js'
 
 export type CommandContext<ArgsSchema extends TObject, OptionsSchema extends TObject> = {
   args: Static<ArgsSchema>
-  format: OutputMode
-  formatExplicit: boolean
+  assertInteractive: () => void
   options: Static<OptionsSchema>
 }
 
@@ -76,33 +75,72 @@ async function serve(cli: CliDefinition, argv: string[]): Promise<void> {
     return
   }
 
-  let format: OutputMode = wantsJsonResult(argv.slice(1), command) ? 'json' : 'pretty'
+  let json = wantsJsonResult(argv.slice(1), command)
   try {
     const parsed = parseArgv(argv.slice(1), {
       optionAliases: command.optionAliases,
       optionSchema: command.options,
       positionals: command.positionals ?? []
     })
-    format = parsed.format
+    json = isJsonResult(parsed.options, command)
     const args = validateSchema(command.args, parsed.args, CommandErrorCode.InvalidArguments, 'arguments')
     const options = validateSchema(command.options, parsed.options, CommandErrorCode.InvalidOptions, 'options')
-    const output = await command.run({
+    const context = {
       args,
-      format: parsed.format,
-      formatExplicit: parsed.formatExplicit,
+      assertInteractive: createInteractiveGuard(json),
       options
-    })
+    }
+    const output = await runCommand(command, context, json)
     const result = normalizeSuccess(output)
-    if (format === 'json') {
+    if (json) {
       writeJsonResult(result)
     }
   } catch (error) {
     const result = normalizeFailure(error)
-    if (format === 'json') {
+    if (json) {
       writeJsonResult(result)
     } else {
       writeErrorResult(result, shouldPrintCommandHelp(result.error) ? formatCommandHelp(cli, command) : undefined)
     }
+  }
+}
+
+async function runCommand<ArgsSchema extends TObject, OptionsSchema extends TObject>(
+  command: CommandDefinition<ArgsSchema, OptionsSchema>,
+  context: CommandContext<ArgsSchema, OptionsSchema>,
+  json: boolean
+): Promise<unknown | CommandResult<unknown>> {
+  if (!json) {
+    return command.run(context)
+  }
+
+  return withSuppressedOutput(() => command.run(context))
+}
+
+async function withSuppressedOutput<T>(callback: () => Promise<T> | T): Promise<T> {
+  const stdoutWrite = process.stdout.write
+  const stderrWrite = process.stderr.write
+  process.stdout.write = (() => true) as typeof process.stdout.write
+  process.stderr.write = (() => true) as typeof process.stderr.write
+
+  try {
+    return await callback()
+  } finally {
+    process.stdout.write = stdoutWrite
+    process.stderr.write = stderrWrite
+  }
+}
+
+function createInteractiveGuard(json: boolean): () => void {
+  if (!json) {
+    return () => undefined
+  }
+
+  return () => {
+    throw new CommandRuntimeError(
+      CommandErrorCode.InvalidOptions,
+      'Interactive prompts are not available with --json; remove --json and run the command again.'
+    )
   }
 }
 
@@ -126,6 +164,10 @@ function wantsJsonResult(argv: string[], command: CommandDefinition<any, any>): 
 
 function hasBooleanJsonOption(command: CommandDefinition<any, any>): boolean {
   return command.options.properties.json?.type === 'boolean'
+}
+
+function isJsonResult(options: Record<string, unknown>, command: CommandDefinition<any, any>): boolean {
+  return hasBooleanJsonOption(command) && options.json === true
 }
 
 function camelToKebab(value: string): string {

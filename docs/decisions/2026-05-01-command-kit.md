@@ -101,7 +101,7 @@ definitions should serve both local shell usage and agent-friendly output.
   positional binding, option parsing, TypeBox validation, help output, and result
   formatting.
 - The repository owns a small amount of CLI runtime behavior: argv parsing, help
-  text, error formatting, and output envelopes.
+  text, error formatting, JSON-mode output suppression, and output envelopes.
 - TypeBox becomes the first schema dependency for this command layer.
 - Bun is the assumed runtime for v1, which keeps local TypeScript execution
   simple but postpones Node.js compatibility.

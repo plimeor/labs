@@ -52,13 +52,7 @@ export async function syncCommand(context: SyncCommandContext) {
   if (context.options.dryRun) {
     const dryRunPlan = SyncPlan.formatDryRun(syncPlan, scope)
     process.stdout.write(dryRunPlan)
-    return {
-      dryRunPlan,
-      installs: syncPlan.installSkills.length,
-      lockPath: scope.lockPath,
-      plannedChanges: syncPlan.pruneNames.length + syncPlan.installSkills.length,
-      removals: syncPlan.pruneNames.length
-    }
+    return
   }
 
   let nextLock = lock
@@ -127,12 +121,6 @@ export async function syncCommand(context: SyncCommandContext) {
   await Lock.write(scope, nextLock)
   if (plannedChanges > 0) {
     log.success(`Updated ${formatDisplayPath(scope.lockPath)}`)
-  }
-  return {
-    installs: syncPlan.installSkills.length,
-    lockPath: scope.lockPath,
-    plannedChanges,
-    removals: syncPlan.pruneNames.length
   }
 }
 

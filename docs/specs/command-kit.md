@@ -148,11 +148,7 @@ export const addCommand = defineCommand('add', {
     const skills: string[] = ctx.args.skills
     const global: boolean | undefined = ctx.options.global
 
-    return {
-      installed: skills,
-      manifestPath: ctx.meta.scope.manifestPath,
-      lockPath: ctx.meta.scope.lockPath
-    }
+    await installSkills({ global, skills, source })
   }
 })
 
@@ -250,7 +246,8 @@ use stable machine-readable codes:
 - `COMMAND_FAILED`
 
 The runtime does not validate command output. Command handlers own the shape of
-their returned data.
+their returned data, and should return structured data only when that command has
+a real JSON output contract.
 
 ## Output Modes
 
@@ -260,7 +257,9 @@ The runtime must support two first-version modes:
   progress. Final structured data does not need to be printed unless the command
   already has a human-facing summary.
 - `json`: machine and agent mode. stdout contains only the result envelope as
-  formatted JSON. Progress logs must not be written to stdout in this mode.
+  formatted JSON. The runtime suppresses command stdout/stderr while the handler
+  runs, so `@clack/prompts` progress logs and pretty summaries do not leak into
+  the envelope stream.
 
 The mode is selected by command-owned JSON options. If a command declares a
 boolean `json` option in its TypeBox option schema, `--json` switches that
@@ -268,8 +267,13 @@ command into JSON envelope output. Commands that do not declare `json` reject
 `--json` as an unknown option. There is no global `--format json` option.
 
 In the first `packages/skills` migration, only `skills list` should declare and
-handle `--json`. Other `skills` commands should reject `--json` until they have a
-real JSON output contract.
+return data for `--json`. Other `skills` commands should reject `--json` until
+they have a real JSON output contract.
+
+Handlers must not branch on `ctx.format` or inspect runtime output mode. The
+runtime decides whether to write the returned value as JSON. Commands that may
+enter an interactive prompt can call `ctx.assertInteractive()` immediately before
+the prompt; in JSON mode this fails with guidance to remove `--json`.
 
 Agent-friendly output means JSON envelope output. A separate agent protocol,
 MCP server, or tool registry is out of scope.
@@ -294,7 +298,7 @@ export const removeCommand = defineCommand('remove', {
   async run(ctx) {
     const skillNames = ctx.args.skills
     // Existing business logic stays in the command module.
-    return { removed: skillNames }
+    await removeSkills(skillNames, ctx.options)
   }
 })
 ```
@@ -308,6 +312,8 @@ Conventions:
   command handlers.
 - Command handlers should receive already validated `ctx.args` and
   `ctx.options`.
+- Pretty command handlers may keep writing human output; command-kit suppresses
+  that output automatically when a declared `--json` option is active.
 - Do not add a schema adapter abstraction until another schema system is
   actually authorized.
 
@@ -394,6 +400,9 @@ The spec is implemented when all of these are true:
   call sites.
 - JSON mode returns `{ ok: true, data }` for successful commands and
   `{ ok: false, error }` for failures.
+- JSON mode suppresses command stdout/stderr and writes only the envelope.
+- `ctx.assertInteractive()` rejects interactive prompts in JSON mode with a
+  message that tells the user to remove `--json`.
 - Command output is not schema-validated by `@plimeor/command-kit`.
 - Existing `packages/skills` commands still support their documented command
   names and aliases unless a later migration spec changes them.
