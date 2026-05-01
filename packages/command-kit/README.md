@@ -2,30 +2,36 @@
 
 Bun-first command declaration runtime for CLI and agent tools.
 
+Schemas are accepted through `StandardSchemaV1`. A CLI can optionally provide a
+`schemaAdapter.toStandardJsonSchema` function when help output should include
+field descriptions.
+
 ## Install
 
 ```bash
-bun add @plimeor/command-kit @sinclair/typebox
+bun add @plimeor/command-kit valibot @valibot/to-json-schema
 ```
 
 ## Minimal Usage
 
 ```ts
-import { Type } from '@sinclair/typebox'
 import { defineCli, defineCommand } from '@plimeor/command-kit'
+import { toStandardJsonSchema } from '@valibot/to-json-schema'
+import * as v from 'valibot'
 
 const cli = defineCli({
   description: 'Example CLI',
   name: 'example',
+  schemaAdapter: { toStandardJsonSchema },
   commands: [
     defineCommand('add', {
-      args: Type.Object({
-        items: Type.Array(Type.String()),
-        source: Type.String()
+      args: v.object({
+        items: v.array(v.string()),
+        source: v.string()
       }),
       description: 'Add items from a source',
-      options: Type.Object({
-        json: Type.Optional(Type.Boolean({ description: 'Write a JSON result envelope' }))
+      options: v.object({
+        json: v.optional(v.pipe(v.boolean(), v.description('Write a JSON result envelope')))
       }),
       positionals: [{ name: 'source' }, { name: 'items', rest: true }],
       run: context => ({

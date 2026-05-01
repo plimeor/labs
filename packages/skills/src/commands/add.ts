@@ -2,33 +2,46 @@ import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { cancel, isCancel, log, multiselect, tasks } from '@clack/prompts'
-import { type Static, Type } from '@sinclair/typebox'
+import * as v from 'valibot'
 
 import { Checkout } from '../checkout.js'
 import { type InstallResult, installSkill } from '../installer.js'
 import { Lock } from '../lock.js'
 import { Manifest } from '../manifest.js'
 import { formatDisplayPath, resolveScope } from '../scope.js'
+import { nonBlankString, optionalBoolean, optionalString, optionalStringArray } from './schemas.js'
 
-export const addArgsSchema = Type.Object({
-  skills: Type.Array(Type.String()),
-  source: Type.String()
+export const addArgsSchema = v.object({
+  skills: v.pipe(v.array(nonBlankString()), v.description('Skill names to install from the source repository')),
+  source: nonBlankString('Source repository, local path, or repository shorthand')
 })
-export const addOptionsSchema = Type.Object({
-  all: Type.Optional(Type.Boolean({ description: 'Install every skill from the source repository' })),
-  commit: Type.Optional(Type.String({ description: 'Git commit to install from' })),
-  global: Type.Optional(Type.Boolean({ description: 'Use the global skills manifest and lock file' })),
-  ref: Type.Optional(Type.String({ description: 'Git ref to install from' })),
-  skill: Type.Optional(Type.Array(Type.String(), { description: 'Skill name to install; can be repeated' }))
+export const addOptionsSchema = v.object({
+  all: optionalBoolean('Install every skill from the source repository'),
+  commit: optionalString('Git commit to install from'),
+  global: optionalBoolean('Use the global skills manifest and lock file'),
+  ref: optionalString('Git ref to install from'),
+  skill: optionalStringArray('Skill name to install; can be repeated')
 })
+export const addRequestSchema = v.pipe(
+  v.object({
+    args: addArgsSchema,
+    options: addOptionsSchema
+  }),
+  v.check(request => !(request.options.commit && request.options.ref), 'add cannot specify both --commit and --ref'),
+  v.check(
+    request =>
+      !request.options.all ||
+      normalizeSkills([...(request.args.skills ?? []), ...(request.options.skill ?? [])]).length === 0,
+    'add cannot specify both --all and skill names'
+  )
+)
 
 export type AddCommandContext = {
-  args: Static<typeof addArgsSchema>
-  options: Static<typeof addOptionsSchema>
+  args: v.InferOutput<typeof addArgsSchema>
+  options: v.InferOutput<typeof addOptionsSchema>
 }
 
 export async function addCommand(context: AddCommandContext) {
-  validateAddRequest(context)
   const scope = resolveScope(context.options.global ?? false)
   log.step(`Using ${formatScope(scope)} skills state`)
 
@@ -82,19 +95,6 @@ export async function addCommand(context: AddCommandContext) {
     await Lock.write(scope, lock)
     log.success(`Updated ${formatDisplayPath(scope.manifestPath)} and ${formatDisplayPath(scope.lockPath)}`)
   })
-}
-
-function validateAddRequest(context: AddCommandContext): void {
-  if (context.options.commit && context.options.ref) {
-    throw new Error('add cannot specify both --commit and --ref')
-  }
-
-  if (
-    context.options.all &&
-    normalizeSkills([...(context.args.skills ?? []), ...(context.options.skill ?? [])]).length > 0
-  ) {
-    throw new Error('add cannot specify both --all and skill names')
-  }
 }
 
 function checkoutRequest({ args, options }: AddCommandContext): Checkout.Request {

@@ -1,16 +1,17 @@
 import { log } from '@clack/prompts'
-import { type Static, Type } from '@sinclair/typebox'
+import * as v from 'valibot'
 
+import { emptyArgsSchema, optionalBoolean } from './schemas.js'
 import { syncCommand } from './sync.js'
 
-export const updateArgsSchema = Type.Object({})
-export const updateOptionsSchema = Type.Object({
-  dryRun: Type.Optional(Type.Boolean({ description: 'Print the planned changes without writing state' })),
-  global: Type.Optional(Type.Boolean({ description: 'Use the global skills manifest and lock file' }))
+export const updateArgsSchema = emptyArgsSchema
+export const updateOptionsSchema = v.object({
+  dryRun: optionalBoolean('Print the planned changes without writing state'),
+  global: optionalBoolean('Use the global skills manifest and lock file')
 })
 
 export type UpdateCommandContext = {
-  options: Static<typeof updateOptionsSchema>
+  options: v.InferOutput<typeof updateOptionsSchema>
 }
 
 export async function updateCommand(context: UpdateCommandContext) {

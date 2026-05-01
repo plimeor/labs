@@ -4,6 +4,9 @@
 
 Accepted
 
+Updated 2026-05-02: the schema boundary moved from TypeBox-only to
+Standard Schema plus optional Standard JSON Schema metadata.
+
 ## Date
 
 2026-05-01
@@ -47,14 +50,17 @@ Bun-first means:
 - External publishing and Node-compatible build output require a separate future
   decision.
 
-The v1 schema boundary means:
+The schema boundary means:
 
-- TypeBox is the v1 schema contract for command args and options.
-- The runtime should infer typed `ctx.args` and `ctx.options` from TypeBox
-  schemas.
+- `StandardSchemaV1` is the command args and options contract.
+- The runtime should infer typed `ctx.args` and `ctx.options` from
+  `StandardSchemaV1.InferOutput`.
+- `defineCli` may receive `schemaAdapter.toStandardJsonSchema` so command help
+  can read field descriptions without binding the public API to one schema
+  library.
 - Command output is not schema-validated by `command-kit`; command handlers own
   the shape of their returned data.
-- Schema-library abstraction is out of scope for v1.
+- `packages/skills` uses Valibot as its concrete schema library.
 
 ## Alternatives Considered
 
@@ -98,11 +104,13 @@ definitions should serve both local shell usage and agent-friendly output.
 - Future repo-local CLI tools can share one command declaration model instead of
   choosing parser behavior package by package.
 - `packages/skills` becomes the proving ground for `command-kit`, especially for
-  positional binding, option parsing, TypeBox validation, help output, and result
-  formatting.
+  positional binding, option parsing, Standard Schema validation, help output,
+  and result formatting.
 - The repository owns a small amount of CLI runtime behavior: argv parsing, help
   text, error formatting, JSON-mode output suppression, and output envelopes.
-- TypeBox becomes the first schema dependency for this command layer.
+- `@standard-schema/spec` becomes the schema dependency for the command runtime.
+- Concrete command packages can choose any Standard Schema-compatible library;
+  the current `packages/skills` implementation uses Valibot.
 - Bun is the assumed runtime for v1, which keeps local TypeScript execution
   simple but postpones Node.js compatibility.
 - The root agent guidance should continue to mention `incur` until the new
@@ -117,7 +125,7 @@ The v1 runtime should not include:
 - Automatic MCP server generation.
 - Shell completion.
 - OpenAPI mounting.
-- Multiple schema libraries or Standard Schema adapters.
+- Custom schema DSLs or schema-library-specific public APIs.
 - External publish-readiness guarantees.
 
 These may be reconsidered later only after the repo-local runtime proves useful
