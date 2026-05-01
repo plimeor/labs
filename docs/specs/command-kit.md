@@ -128,11 +128,10 @@ const addArgs = Type.Object({
 })
 
 const addOptions = Type.Object({
-  all: Type.Optional(Type.Boolean()),
-  global: Type.Optional(Type.Boolean()),
-  ref: Type.Optional(Type.String()),
-  commit: Type.Optional(Type.String()),
-  json: Type.Optional(Type.Boolean())
+  all: Type.Optional(Type.Boolean({ description: 'Install every skill from the source repository' })),
+  global: Type.Optional(Type.Boolean({ description: 'Use the global skills manifest and lock file' })),
+  ref: Type.Optional(Type.String({ description: 'Git ref to install from' })),
+  commit: Type.Optional(Type.String({ description: 'Git commit to install from' }))
 })
 
 export const addCommand = defineCommand('add', {
@@ -216,6 +215,10 @@ The runtime must support:
 Unknown options fail before command execution. Option values are validated against
 the TypeBox `options` schema after parsing.
 
+Command help should read option descriptions from each TypeBox property schema's
+JSON Schema `description` annotation. Do not add a parallel option-description
+DSL unless TypeBox metadata stops being sufficient.
+
 ## Output Model
 
 Every command execution returns a result envelope:
@@ -264,6 +267,10 @@ boolean `json` option in its TypeBox option schema, `--json` switches that
 command into JSON envelope output. Commands that do not declare `json` reject
 `--json` as an unknown option. There is no global `--format json` option.
 
+In the first `packages/skills` migration, only `skills list` should declare and
+handle `--json`. Other `skills` commands should reject `--json` until they have a
+real JSON output contract.
+
 Agent-friendly output means JSON envelope output. A separate agent protocol,
 MCP server, or tool registry is out of scope.
 
@@ -282,7 +289,7 @@ export const removeCommand = defineCommand('remove', {
   args: removeArgs,
   positionals: [{ name: 'skills', rest: true }],
   options: Type.Object({
-    global: Type.Optional(Type.Boolean())
+    global: Type.Optional(Type.Boolean({ description: 'Use the global skills manifest and lock file' }))
   }),
   async run(ctx) {
     const skillNames = ctx.args.skills
@@ -295,6 +302,7 @@ export const removeCommand = defineCommand('remove', {
 Conventions:
 
 - Keep schemas named after the command surface: `addArgs`, `addOptions`.
+- Put option help text in each TypeBox property schema's `description`.
 - Prefer explicit `if` branches over nested ternary expressions.
 - Keep argv parsing and TypeBox validation in the runtime, not in individual
   command handlers.

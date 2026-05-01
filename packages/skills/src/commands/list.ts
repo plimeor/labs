@@ -1,5 +1,4 @@
 import { log } from '@clack/prompts'
-import type { OutputMode } from '@plimeor/command-kit'
 import { type Static, Type } from '@sinclair/typebox'
 
 import { Lock } from '../lock.js'
@@ -7,17 +6,16 @@ import { formatDisplayPath, resolveScope } from '../scope.js'
 
 export const listArgsSchema = Type.Object({})
 export const listOptionsSchema = Type.Object({
-  global: Type.Optional(Type.Boolean()),
-  json: Type.Optional(Type.Boolean())
+  global: Type.Optional(Type.Boolean({ description: 'Use the global skills manifest and lock file' })),
+  json: Type.Optional(Type.Boolean({ description: 'Write a JSON result envelope' }))
 })
 
 export type ListCommandContext = {
-  format?: OutputMode
-  formatExplicit?: boolean
   options: Static<typeof listOptionsSchema>
 }
 
 export async function listCommand(context: ListCommandContext) {
+  const json = context.options.json === true
   const scope = resolveScope(context.options.global ?? false)
   const lock = await Lock.ensure(scope)
 
@@ -31,23 +29,14 @@ export async function listCommand(context: ListCommandContext) {
     }))
     .sort((a, b) => a.name.localeCompare(b.name))
 
-  if (context.formatExplicit && context.format === 'json') {
-    return entries
-  }
-
-  if (context.options.json) {
-    process.stdout.write(`${JSON.stringify(entries, null, 2)}\n`)
-    return entries
-  }
-
   if (entries.length === 0) {
-    if (context.format !== 'json') {
+    if (!json) {
       log.info(`No skills installed in ${formatScope(scope)}.`)
     }
     return []
   }
 
-  if (context.format !== 'json') {
+  if (!json) {
     log.info(`Installed ${entries.length} skills in ${formatScope(scope)}`)
     process.stdout.write(`${formatList(entries)}\n`)
   }
