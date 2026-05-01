@@ -1,12 +1,12 @@
-# Spec: TypeBox Command Runtime
+# Spec: command-kit
 
 ## Objective
 
-Build a Bun-runtime-first, TypeBox-first command declaration runtime for
-repo-local CLI and agent tools.
+Build `@plimeor/command-kit`, a Bun-runtime-first command declaration package
+for repo-local CLI and agent tools.
 
-The first user is this repository: the runtime must support a full replacement of
-the current `packages/skills` command layer. It is also intended for agent
+The first user is this repository: `command-kit` must support a full replacement
+of the current `packages/skills` command layer. It is also intended for agent
 execution, where structured result envelopes are more useful than ad hoc stdout.
 
 The main problem is positional argument modeling. The current `incur` usage does
@@ -16,9 +16,9 @@ not naturally support commands such as:
 skills add plimeor/agent-skills code-scope-gate writing-blog
 ```
 
-The runtime must bind `plimeor/agent-skills` to the first positional argument and
-bind the remaining values to a second rest-array argument. This must be expressed
-declaratively and reflected in the inferred `run(ctx)` types.
+`command-kit` must bind `plimeor/agent-skills` to the first positional argument
+and bind the remaining values to a second rest-array argument. This must be
+expressed declaratively and reflected in the inferred `run(ctx)` types.
 
 This is not a general CLI framework. It is a small command runtime for the
 concrete needs of Bun-executed `packages/skills` commands and adjacent
@@ -26,9 +26,10 @@ agent-facing tools.
 
 ## Assumptions
 
-1. The runtime is for the user and local agents first; it does not need a
-   publication-ready external API in the next six months.
-2. The command runtime lives in the standalone workspace package
+1. The runtime is for the user and local agents first. It may become public
+   later, but v1 should validate the local `packages/skills` use case before
+   widening the API for external users.
+2. The command package lives in the standalone workspace package
    `packages/command-kit` and is consumed by `packages/skills`.
 3. TypeBox is the only schema system in scope for the first version.
 4. Bun is the primary runtime target. The implementation may use Node-compatible
@@ -107,9 +108,9 @@ packages/command-kit/test/
   Runtime-level tests, if implementation testing is authorized.
 ```
 
-`@plimeor/command-kit` is a publishable package name. The first implementation
-still stays TypeBox-only and Bun-first; the package name intentionally describes
-the command declaration function rather than the schema implementation detail.
+`@plimeor/command-kit` is the package name. The first implementation still stays
+TypeBox-only and Bun-first; the package name intentionally describes the command
+declaration function rather than the schema implementation detail.
 
 ## Public Interface
 
@@ -372,7 +373,8 @@ The spec is implemented when all of these are true:
   parsing, or typed handlers.
 - `packages/skills` depends on `@plimeor/command-kit` for command declaration,
   argv parsing, validation, and output envelopes.
-- Commands are declared through the TypeBox-first runtime.
+- Commands are declared through `@plimeor/command-kit` with TypeBox schemas for
+  args and options.
 - The runtime is executed and verified primarily through Bun commands, including
   the `#!/usr/bin/env bun` CLI entrypoint path.
 - `skills add plimeor/agent-skills code-scope-gate writing-blog` binds

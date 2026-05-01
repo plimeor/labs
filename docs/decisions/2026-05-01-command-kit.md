@@ -1,4 +1,4 @@
-# Adopt a Bun-first TypeBox command runtime for repo-local CLI tools
+# Adopt command-kit for repo-local CLI and agent tools
 
 ## Status
 
@@ -10,9 +10,9 @@ Accepted
 
 ## Context
 
-This repository is accumulating small CLI and agent-facing tools. These tools need
-to define commands, validate inputs, expose typed command contexts, and produce
-predictable output for both humans and agents.
+This repository is accumulating small CLI and agent-facing tools. These tools
+need to define commands, validate inputs, expose typed command contexts, render
+consistent help, and produce predictable output for both humans and agents.
 
 The current `packages/skills` CLI uses `incur`, which works for basic command
 routing and typed handlers but does not model the positional argument shape that
@@ -26,16 +26,17 @@ In this command, `plimeor/agent-skills` should bind to the first positional
 argument and the remaining values should bind to a second positional array. This
 is not an edge case for the planned CLI shape; it is the primary command flow.
 
-The first users are repo-local tools and agents. There is no near-term
-requirement to publish a general-purpose CLI framework for external users.
+The first users are repo-local tools and agents. The package may be public later,
+but the first design pass should validate the local `packages/skills` use case
+before generalizing it into a broader framework.
 
 ## Decision
 
-Adopt a repo-local, Bun-first, TypeBox-first command runtime as the default
-declaration layer for internal CLI and agent-facing tools.
+Adopt `@plimeor/command-kit` as the Bun-first command declaration package for
+repo-local CLI and agent-facing tools.
 
 The first validation target is a complete replacement of `incur` usage in
-`packages/skills`. The runtime should support the command shapes needed by
+`packages/skills`. `command-kit` should support the command shapes needed by
 `packages/skills` before it is generalized for other packages.
 
 Bun-first means:
@@ -46,11 +47,13 @@ Bun-first means:
 - External publishing and Node-compatible build output require a separate future
   decision.
 
-TypeBox-first means:
+The v1 schema boundary means:
 
-- TypeBox is the v1 schema contract for command args, options, and output.
+- TypeBox is the v1 schema contract for command args and options.
 - The runtime should infer typed `ctx.args` and `ctx.options` from TypeBox
   schemas.
+- Command output is not schema-validated by `command-kit`; command handlers own
+  the shape of their returned data.
 - Schema-library abstraction is out of scope for v1.
 
 ## Alternatives Considered
@@ -60,7 +63,7 @@ TypeBox-first means:
 `incur` already provides command routing, option parsing, help output, and typed
 handlers. It remains a good default for simple CLI packages.
 
-Rejected for this runtime because the next `packages/skills` command shape
+Rejected for `command-kit` because the next `packages/skills` command shape
 requires first-class support for rest positional arguments. Hand-rolling that
 parsing inside individual commands would keep the core mismatch in place.
 
@@ -94,16 +97,17 @@ definitions should serve both local shell usage and agent-friendly output.
 
 - Future repo-local CLI tools can share one command declaration model instead of
   choosing parser behavior package by package.
-- `packages/skills` becomes the proving ground for the runtime, especially for
-  positional binding, option parsing, TypeBox validation, and result formatting.
+- `packages/skills` becomes the proving ground for `command-kit`, especially for
+  positional binding, option parsing, TypeBox validation, help output, and result
+  formatting.
 - The repository owns a small amount of CLI runtime behavior: argv parsing, help
   text, error formatting, and output envelopes.
 - TypeBox becomes the first schema dependency for this command layer.
 - Bun is the assumed runtime for v1, which keeps local TypeScript execution
   simple but postpones Node.js compatibility.
 - The root agent guidance should continue to mention `incur` until the new
-  runtime exists. After implementation, update repo guidance to point new
-  internal CLI work at this runtime.
+  package proves out. After implementation, update repo guidance to point new
+  internal CLI work at `command-kit`.
 
 ## Boundaries
 
