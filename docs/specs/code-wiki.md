@@ -3,6 +3,7 @@
 Created: 2026-04-29
 Status: Draft for review
 Source idea: `docs/ideas/2026-04-29-code-wiki.md`
+Related spec: `docs/specs/code-wiki-evaluation.md`
 
 ## Objective
 
@@ -38,6 +39,7 @@ Required behavior:
 - `review <prd>` defaults to auto mode: the configured agent proposes affected projects, shows the proposal to the user, and runs only after the user confirms or edits the project set.
 - The first real runtime is Codex CLI.
 - The durable source of truth is Markdown plus small JSON metadata files.
+- Each project wiki includes a machine-readable routing index and per-page provenance so review can select relevant context without loading an entire large repository wiki.
 
 ### Light Support
 
@@ -181,9 +183,11 @@ Shared-wiki state:
     <project-id>/
       overview.md
       index.md
+      index.json
       log.md
       modules/
       flows/
+      contracts/
       metadata.json
   repos/                    Ignored managed clones
     <project-id>/
@@ -200,9 +204,11 @@ Embedded state:
   wiki/
     overview.md
     index.md
+    index.json
     log.md
     modules/
     flows/
+    contracts/
     metadata.json
 ```
 
@@ -238,9 +244,10 @@ Shared-wiki scan:
 4. For each selected project, check out the latest default-branch commit in its managed clone.
 5. Scan the managed clone.
 6. Write wiki output under `.code-wiki/projects/<project-id>/`.
-7. Write `metadata.json` with `lastScannedCommit`, branch, repo URL, scan time, and include/exclude rules.
-8. Append a scan entry to that project's `log.md`, including scanned branch and commit.
-9. If no projects changed, print an up-to-date result and do not rewrite wiki files.
+7. Write or update `index.json` with routable page metadata for the generated wiki pages.
+8. Write `metadata.json` with `lastScannedCommit`, branch, repo URL, scan time, and include/exclude rules.
+9. Append a scan entry to that project's `log.md`, including scanned branch and commit.
+10. If no projects changed, print an up-to-date result and do not rewrite wiki files.
 
 Embedded scan:
 
@@ -249,8 +256,9 @@ Embedded scan:
 3. If unchanged, print an up-to-date result and do not rewrite wiki files.
 4. If changed or never scanned, scan the current repository.
 5. Write wiki output under `.code-wiki/wiki/`.
-6. Write `metadata.json` with `lastScannedCommit`, branch, repo URL, scan time, and include/exclude rules.
-7. Append a scan entry to `.code-wiki/wiki/log.md`.
+6. Write or update `index.json` with routable page metadata for the generated wiki pages.
+7. Write `metadata.json` with `lastScannedCommit`, branch, repo URL, scan time, and include/exclude rules.
+8. Append a scan entry to `.code-wiki/wiki/log.md`.
 
 ## Review Flow
 
@@ -259,19 +267,19 @@ Shared-wiki review:
 1. Load the PRD source.
 2. If `--projects` is provided, use that explicit project set.
 3. If `--projects` is omitted, enter auto mode:
-   - Ask the configured agent to inspect the PRD, project index, and latest scan metadata.
+   - Ask the configured agent to inspect the PRD, each project's `index.json`, human-readable `index.md`, and latest scan metadata.
    - Produce a proposed affected-project set with short reasons.
    - Show the proposal to the user.
    - If the user confirms, use that set.
    - If the user rejects it, open a multi-select project picker and use the edited set.
-4. Read each selected project's wiki.
+4. Read each selected project's `index.json`, `overview.md`, relevant routed pages, and latest correction history needed for the review.
 5. Run Codex CLI through the runtime adapter.
 6. Write one Markdown report under `.code-wiki/reports/`.
 
 Embedded review:
 
 1. Load the PRD source.
-2. Read `.code-wiki/wiki/`.
+2. Read `.code-wiki/wiki/index.json`, `.code-wiki/wiki/overview.md`, relevant routed pages, and latest correction history needed for the review.
 3. Run Codex CLI through the runtime adapter.
 4. Write one Markdown report under `.code-wiki/reports/`.
 
@@ -281,12 +289,68 @@ Each project wiki contains:
 
 - `overview.md`: project purpose, boundaries, entry points, major subsystems.
 - `index.md`: routing index for humans and agents.
+- `index.json`: machine-readable routing index for review context selection.
 - `log.md`: append-only scan and correction history.
-- `modules/*.md`: module responsibilities, key files, dependencies, common change points, regression hints.
+- `modules/**/*.md`: hierarchical module responsibilities, key files, dependencies, common change points, regression hints.
 - `flows/*.md`: important inferred or human-corrected flows.
+- `contracts/*.md`: durable API, data, event, package, route, or cross-project contracts that affect implementation planning.
 - `metadata.json`: repository identity, `lastScannedCommit`, branch, include/exclude rules, scan metadata.
 
-Automatic scan output is not final truth. Human corrections have higher authority than generated summaries.
+Generated Markdown pages, except `log.md`, must start with frontmatter:
+
+```yaml
+---
+id: module.billing.checkout
+kind: module
+title: Checkout Module
+authority: generated
+sourceRefs:
+  - src/billing/**
+symbols:
+  - CheckoutPage
+  - createCheckoutSession
+generatedFromCommit: abc123
+contentHash: sha256:...
+lastVerifiedAt: 2026-04-29T10:00:00Z
+---
+```
+
+`index.json` is part of the durable wiki contract. It must be deterministic, diffable, and small enough to read before loading page bodies:
+
+```json
+{
+  "schemaVersion": 1,
+  "projectId": "web-app",
+  "commit": "abc123",
+  "pages": [
+    {
+      "id": "module.billing.checkout",
+      "path": "modules/billing/checkout.md",
+      "kind": "module",
+      "title": "Checkout Module",
+      "summary": "Checkout UI and session creation flow.",
+      "sourceRefs": ["src/billing/**"],
+      "symbols": ["CheckoutPage", "createCheckoutSession"],
+      "dependsOn": ["contract.api.billing"],
+      "authority": "generated",
+      "contentHash": "sha256:...",
+      "lastScannedCommit": "abc123"
+    }
+  ]
+}
+```
+
+Rules:
+
+- Page ids are stable logical identifiers. Moving a file should update `path`, not change `id`.
+- `index.json` may add optional fields later, but MVP fields above must stay backward compatible.
+- Module pages can be nested by area or package. Large repositories must prefer several focused pages over one oversized module page.
+- `sourceRefs` and `symbols` are routing and traceability hints, not a full semantic code graph in MVP.
+- Review must use `index.json` to choose context before reading page bodies.
+- Contract pages are required for stable boundaries that can affect multiple modules or projects. Do not bury API, event, data model, package, or route contracts only inside module prose.
+- Automatic scan output is not final truth. Human corrections have higher authority than generated summaries.
+- Authority order is `human-confirmed` > `human-corrected` > `generated`.
+- A later scan must not silently overwrite human-corrected or human-confirmed content. If source code changes make a human correction suspect, mark the page or correction as stale and append to `log.md`.
 
 ## Review Report Contract
 
@@ -297,7 +361,7 @@ Automatic scan output is not final truth. Human corrections have higher authorit
 3. Project plans: affected modules, concrete code changes, implementation steps, local risks, regression scope, verification notes.
 4. Integration plan: contracts, coordination points, rollout order, open questions.
 
-The report must distinguish observed wiki facts, PRD-derived requirements, inferred risks, and open questions.
+The report must distinguish observed wiki facts, PRD-derived requirements, inferred risks, and open questions. Observed wiki facts should cite wiki page ids, contract ids, or source refs when available.
 
 ## Runtime Contract
 
@@ -357,6 +421,8 @@ Required behavior tests:
 - Embedded mode: `init`, `scan`, `review`.
 - Runtime: Codex adapter command construction and executable availability checks.
 - Report: generated Markdown contains the required report sections.
+- Wiki contract: generated project wikis include deterministic `index.json`, required page frontmatter, hierarchical module paths, and contract pages when cross-module or cross-project boundaries are observed.
+- Large-context routing: review uses `index.json` to select relevant pages before reading Markdown page bodies.
 
 Light-support tests:
 
@@ -382,11 +448,13 @@ Always:
 - Keep wiki state file-backed and reviewable in Git.
 - Keep shared projects portable by storing repo URLs, not local paths.
 - Keep managed clones ignored and disposable.
+- Keep `index.json` deterministic, reviewable, and additive across schema changes.
 - Make no-argument `scan` incremental by default using `lastScannedCommit`.
 - Make no-argument shared-wiki `review` use agent-proposed project selection with user confirmation.
 - Use Codex as the first verified runtime.
 - Require explicit user confirmation before using runtime-proposed project sets.
 - Preserve human corrections above generated scan output.
+- Preserve page ids and human authority markers across scans.
 - Separate observed facts, model inference, and open questions in reports.
 
 Ask first:
@@ -404,6 +472,7 @@ Never:
 - Commit `.code-wiki/repos/`.
 - Silently edit the source PRD.
 - Treat automatic scan output as final human-confirmed knowledge.
+- Require a database, embedding store, or complete semantic code graph for the MVP wiki contract.
 - Start a shared-wiki review from runtime-guessed projects before user confirmation.
 - Build a public runtime plugin system in MVP.
 
@@ -412,12 +481,13 @@ Never:
 MVP is done when:
 
 - A shared Wiki repository can register two projects by Git URL.
-- `scan` creates or updates managed clones, skips unchanged projects by comparing `lastScannedCommit`, and writes changed project wikis.
+- `scan` creates or updates managed clones, skips unchanged projects by comparing `lastScannedCommit`, and writes changed project wikis with `index.json`, page frontmatter, and metadata.
 - `review prd.md` asks Codex to propose affected projects, requires user confirmation or edited selection, and writes a Markdown report with code-level objective, missing requirements, project plans, integration plan, regression scope, and open questions.
+- `review prd.md` uses project routing indexes to load relevant wiki pages instead of concatenating whole large project wikis.
 - The Codex runtime path works end to end.
 - Embedded mode can run `init`, `scan`, and `review` for one repository.
 - Managed clones are ignored by Git.
-- Tests cover shared mode, embedded mode, managed clone behavior, Codex adapter, and report shape.
+- Tests cover shared mode, embedded mode, managed clone behavior, wiki contract shape, routed review context selection, Codex adapter, and report shape.
 
 ## Open Questions
 
@@ -426,4 +496,5 @@ MVP is done when:
 3. What exact non-interactive Codex CLI invocation should the adapter use?
 4. What is the smallest correction file format that is comfortable for reviewers to write?
 5. How should URL inputs be fetched when authentication, login state, or internal network access is required?
-6. Should repeated-review skipping be added later by comparing PRD source identity plus selected project commits with a previous report?
+6. What page-size or source-size threshold should force module splitting in large repositories?
+7. Should repeated-review skipping be added later by comparing PRD source identity plus selected project commits with a previous report?
