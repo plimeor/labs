@@ -682,7 +682,7 @@ function extractSymbols(text: string): string[] {
   for (const match of text.matchAll(
     /(?:export\s+)?(?:async\s+)?(?:function|class|interface|type|const|let|var|enum)\s+([A-Za-z_$][\w$]*)/g
   )) {
-    if (match[1]) {
+    if (match[1] && isUsefulSymbol(match[1])) {
       symbols.add(match[1])
     }
   }
@@ -692,13 +692,31 @@ function extractSymbols(text: string): string[] {
 
 function extractImports(text: string): string[] {
   const imports = new Set<string>()
-  for (const match of text.matchAll(/(?:from\s+|import\s*\(|require\s*\()\s*['"]([^'"]+)['"]/g)) {
+  for (const match of text.matchAll(/^\s*import\s+(?:[\s\S]*?\s+from\s+)?['"]([^'"]+)['"]/gm)) {
+    if (match[1]) {
+      imports.add(match[1])
+    }
+  }
+
+  for (const match of text.matchAll(/^\s*(?:const|let|var)\s+[\w${}\s,]+\s*=\s*require\(['"]([^'"]+)['"]\)/gm)) {
     if (match[1]) {
       imports.add(match[1])
     }
   }
 
   return [...imports].sort((a, b) => a.localeCompare(b)).slice(0, 80)
+}
+
+function isUsefulSymbol(symbol: string): boolean {
+  if (symbol.length < 3) {
+    return false
+  }
+
+  if (/^(and|arg|args|before|after|next|prev|value|values|result|results|error|errors)$/i.test(symbol)) {
+    return false
+  }
+
+  return /^[A-Z]/.test(symbol) || symbol.length >= 5
 }
 
 function capabilitySignalsFor(path: string, text: string): CapabilitySignal[] {

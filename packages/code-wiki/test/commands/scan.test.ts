@@ -48,7 +48,7 @@ describe('scan command', () => {
     const wikiRoot = await tempDir('code-wiki-scan-filter-wiki-')
     await mkdir(join(repoRoot, 'src'), { recursive: true })
     await mkdir(join(repoRoot, 'docs'), { recursive: true })
-    await writeFile(join(repoRoot, 'src', 'keep.ts'), 'export function KeepSymbol() { return true }\n')
+    await writeFile(join(repoRoot, 'src', 'keep.ts'), 'const a = 1\nexport function KeepSymbol() { return a }\n')
     await writeFile(join(repoRoot, 'src', 'skip.ts'), 'export function SkipSymbol() { return false }\n')
     await writeFile(join(repoRoot, 'docs', 'guide.md'), '# Guide\n')
 
@@ -74,6 +74,7 @@ describe('scan command', () => {
     expect(result.index.pages.map(page => page.id)).toContain('module.src')
     const modulePage = await readText(join(wikiRoot, 'modules', 'src.md'))
     expect(modulePage).toContain('KeepSymbol')
+    expect(modulePage).not.toContain('- a')
     expect(modulePage).not.toContain('SkipSymbol')
     expect(await readText(join(wikiRoot, 'overview.md'))).toContain('Indexed source files: 1')
   })
