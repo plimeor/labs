@@ -65,13 +65,22 @@ type SchemaAdapter = {
   toStandardJsonSchema: (schema: any) => StandardJSONSchemaV1 | undefined
 }
 
+type CommandPositionalSpec<ArgsSchema extends StandardSchemaV1> = Omit<PositionalSpec, 'name'> & {
+  name: Extract<keyof StandardSchemaV1.InferOutput<ArgsSchema>, string>
+}
+
+type CommandOptionAliases<OptionsSchema extends StandardSchemaV1> =
+  Extract<keyof StandardSchemaV1.InferOutput<OptionsSchema>, string> extends never
+    ? never
+    : Partial<Record<Extract<keyof StandardSchemaV1.InferOutput<OptionsSchema>, string>, string>>
+
 type CommandConfig<ArgsSchema extends StandardSchemaV1, OptionsSchema extends StandardSchemaV1> = {
   aliases?: string[]
   args?: ArgsSchema
   description: string
-  optionAliases?: Record<string, string>
+  optionAliases?: CommandOptionAliases<OptionsSchema>
   options?: OptionsSchema
-  positionals?: PositionalSpec[]
+  positionals?: CommandPositionalSpec<ArgsSchema>[]
   run: (ctx: CommandContext<ArgsSchema, OptionsSchema>) => unknown | Promise<unknown>
 }
 
@@ -96,6 +105,11 @@ function defineCli(definition: {
 `StandardSchemaV1.InferOutput<typeof schema>`. If a command does not need args
 or options, callers omit the corresponding field and command-kit treats it as an
 empty object.
+
+`positionals[].name` must be a string key from the command args schema output.
+`optionAliases` keys must be string keys from the command options schema output.
+For example, if `args` outputs `{ name: string; age: string }`, positional names
+are limited to `'name' | 'age'`.
 
 `command-kit` validates only the declared `args` and `options` schemas. Business
 rules that compare multiple fields belong in the concrete command implementation.

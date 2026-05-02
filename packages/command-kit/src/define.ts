@@ -11,8 +11,16 @@ import {
   validateSchema
 } from './schema.js'
 
-type EmptyObject = Record<string, never>
+type EmptyObject = Record<never, never>
 type EmptyObjectSchema = typeof emptyObjectSchema
+type SchemaFieldName<Schema extends StandardSchemaV1> = Extract<keyof StandardSchemaV1.InferOutput<Schema>, string>
+
+export type CommandPositionalSpec<ArgsSchema extends StandardSchemaV1> = Omit<PositionalSpec, 'name'> & {
+  name: SchemaFieldName<ArgsSchema>
+}
+
+export type CommandOptionAliases<OptionsSchema extends StandardSchemaV1> =
+  SchemaFieldName<OptionsSchema> extends never ? never : Partial<Record<SchemaFieldName<OptionsSchema>, string>>
 
 export type CommandContext<ArgsSchema extends StandardSchemaV1, OptionsSchema extends StandardSchemaV1> = {
   args: StandardSchemaV1.InferOutput<ArgsSchema>
@@ -38,9 +46,9 @@ export type CommandConfig<
   aliases?: string[]
   args?: ArgsSchema
   description: string
-  optionAliases?: Record<string, string>
+  optionAliases?: CommandOptionAliases<OptionsSchema>
   options?: OptionsSchema
-  positionals?: PositionalSpec[]
+  positionals?: CommandPositionalSpec<ArgsSchema>[]
   run: (
     context: CommandContext<ArgsSchema, OptionsSchema>
   ) => Promise<unknown | CommandResult<unknown>> | unknown | CommandResult<unknown>
@@ -281,14 +289,18 @@ type CommandJsonSchemas = {
   options: JsonObjectSchema | undefined
 }
 
-function resolveCommandJsonSchemas(cli: CliDefinition, command: CommandDefinition): CommandJsonSchemas {
+function resolveCommandJsonSchemas(cli: CliDefinition, command: CommandDefinition<any, any>): CommandJsonSchemas {
   return {
     args: resolveJsonObjectSchema(getArgsSchema(command), cli.schemaAdapter),
     options: resolveJsonObjectSchema(getOptionsSchema(command), cli.schemaAdapter)
   }
 }
 
-function formatCommandHelp(cli: CliDefinition, command: CommandDefinition, schemas: CommandJsonSchemas): string {
+function formatCommandHelp(
+  cli: CliDefinition,
+  command: CommandDefinition<any, any>,
+  schemas: CommandJsonSchemas
+): string {
   return [
     `${cli.name} ${command.name} — ${command.description}`,
     '',
@@ -304,7 +316,7 @@ function formatCommandHelp(cli: CliDefinition, command: CommandDefinition, schem
     .join('\n')
 }
 
-function formatCommandNames(command: CommandDefinition): string {
+function formatCommandNames(command: CommandDefinition<any, any>): string {
   return command.aliases?.length ? `${command.name}, ${command.aliases.join(', ')}` : command.name
 }
 
@@ -328,11 +340,14 @@ function formatPositionals(positionals: PositionalSpec[]): string {
     .join(' ')}`
 }
 
-function formatAliases(command: CommandDefinition): string | undefined {
+function formatAliases(command: CommandDefinition<any, any>): string | undefined {
   return command.aliases?.length ? `Aliases: ${command.aliases.join(', ')}` : undefined
 }
 
-function formatArguments(command: CommandDefinition, argsSchema: JsonObjectSchema | undefined): string | undefined {
+function formatArguments(
+  command: CommandDefinition<any, any>,
+  argsSchema: JsonObjectSchema | undefined
+): string | undefined {
   const positionals = command.positionals ?? []
   if (positionals.length === 0) {
     return undefined
@@ -357,7 +372,10 @@ function formatArgumentName(positional: PositionalSpec): string {
   return positional.rest ? `${positional.name}...` : positional.name
 }
 
-function formatOptions(command: CommandDefinition, optionsSchema: JsonObjectSchema | undefined): string | undefined {
+function formatOptions(
+  command: CommandDefinition<any, any>,
+  optionsSchema: JsonObjectSchema | undefined
+): string | undefined {
   const entries = Object.entries(optionsSchema?.properties ?? {})
   if (entries.length === 0) {
     return undefined
@@ -378,7 +396,7 @@ function formatOptions(command: CommandDefinition, optionsSchema: JsonObjectSche
   return `Options:\n${lines.join('\n')}`
 }
 
-function formatOptionName(name: string, command: CommandDefinition): string {
+function formatOptionName(name: string, command: CommandDefinition<any, any>): string {
   const longName = `--${camelToKebab(name)}`
   const alias = command.optionAliases?.[name]
   return alias ? `${longName}, -${alias}` : longName

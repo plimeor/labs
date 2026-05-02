@@ -5,7 +5,9 @@ export type {
   CommandContext,
   CommandDefinition,
   CommandGroupConfig,
-  CommandGroupDefinition
+  CommandGroupDefinition,
+  CommandOptionAliases,
+  CommandPositionalSpec
 } from './define.js'
 export { defineCli, defineCommand, defineGroup } from './define.js'
 export type { CommandError } from './errors.js'

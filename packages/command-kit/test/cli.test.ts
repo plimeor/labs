@@ -21,8 +21,8 @@ function objectSchema<T extends Record<string, unknown>>(
       vendor: 'command-kit-test',
       version: 1,
       jsonSchema: {
-        input: () => jsonSchema,
-        output: () => jsonSchema
+        input: () => jsonSchema as unknown as Record<string, unknown>,
+        output: () => jsonSchema as unknown as Record<string, unknown>
       },
       validate(value) {
         if (!isRecord(value)) {
@@ -595,5 +595,44 @@ describe('command runtime', () => {
     })
 
     expect(output).toContain('Unknown command: missing')
+  })
+
+  test('types constrain positional and option alias names to schema fields', () => {
+    const args = objectSchema<{ age: string; name: string }>({
+      age: { type: 'string' },
+      name: { type: 'string' }
+    })
+    const options = objectSchema<{ global?: boolean }>({
+      global: { type: 'boolean' }
+    })
+
+    defineCommand('typed', {
+      args,
+      description: 'Typed command',
+      options,
+      positionals: [{ name: 'name' }, { name: 'age' }],
+      optionAliases: {
+        global: 'g'
+      },
+      run: () => ({})
+    })
+
+    defineCommand('bad-positional', {
+      args,
+      description: 'Bad positional',
+      // @ts-expect-error positionals must reference args schema fields
+      positionals: [{ name: 'missing' }],
+      run: () => ({})
+    })
+
+    defineCommand('bad-option-alias', {
+      description: 'Bad option alias',
+      options,
+      optionAliases: {
+        // @ts-expect-error optionAliases must reference options schema fields
+        missing: 'm'
+      },
+      run: () => ({})
+    })
   })
 })

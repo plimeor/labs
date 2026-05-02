@@ -13,7 +13,7 @@ export type ParsedArgv = {
 }
 
 export type ParseArgvOptions = {
-  optionAliases?: Record<string, string>
+  optionAliases?: Partial<Record<string, string>>
   optionSchema: JsonObjectSchema | undefined
   positionals: PositionalSpec[]
 }
