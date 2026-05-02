@@ -140,9 +140,23 @@ const capabilitySignalDefinitions: CapabilitySignalDefinition[] = [
   {
     appliesTo: 'react',
     id: 'react.concurrent-lanes',
-    patterns: [/ReactFiberLane/i, /\bLanes?\b/, /ConcurrentRoot/i, /startTransition/i],
-    summary: 'Concurrent scheduling or lane-based update priority code is present.',
-    title: 'Concurrent scheduling lanes'
+    patterns: [/ReactFiberLane/i, /\bLanes?\b/, /ConcurrentRoot/i, /startTransition/i, /expirationTime/i],
+    summary: 'Concurrent, async, or priority-based scheduling primitives are present.',
+    title: 'Concurrent scheduling primitives'
+  },
+  {
+    appliesTo: 'react',
+    id: 'react.error-boundaries',
+    patterns: [/componentDidCatch/i, /getDerivedStateFromError/i, /ReactErrorUtils/i],
+    summary: 'Error boundary lifecycle or error capture internals are present.',
+    title: 'Error boundaries'
+  },
+  {
+    appliesTo: 'react',
+    id: 'react.fragments',
+    patterns: [/REACT_FRAGMENT_TYPE/i, /ReactFragment/i, /\bFragment\b/],
+    summary: 'Fragment symbols or support code are present.',
+    title: 'Fragments'
   },
   {
     appliesTo: 'react',
@@ -153,6 +167,20 @@ const capabilitySignalDefinitions: CapabilitySignalDefinition[] = [
       /ReactHooks/i,
       /\buse(State|Effect|Memo|Callback|Reducer|Ref|Context|Transition|DeferredValue|SyncExternalStore|Id)\b/
     ]
+  },
+  {
+    appliesTo: 'react',
+    id: 'react.actions',
+    patterns: [/useActionState/i, /useOptimistic/i, /useFormStatus/i, /requestFormReset/i, /startHostTransition/i],
+    summary: 'React 19 action, form status, or optimistic update primitives are present.',
+    title: 'Actions and form status'
+  },
+  {
+    appliesTo: 'react',
+    id: 'react.portals',
+    patterns: [/createPortal/i, /ReactPortal/i, /REACT_PORTAL_TYPE/i],
+    summary: 'Portal creation symbols or portal internals are present.',
+    title: 'Portals'
   },
   {
     appliesTo: 'react',
