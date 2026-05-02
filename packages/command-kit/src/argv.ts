@@ -1,7 +1,7 @@
 import { CommandErrorCode, CommandRuntimeError } from './errors.js'
 import type { JsonObjectSchema, JsonSchemaProperty } from './schema.js'
 
-export type PositionalSpec = {
+export type ArgBindingSpec = {
   name: string
   optional?: boolean
   rest?: boolean
@@ -13,15 +13,15 @@ export type ParsedArgv = {
 }
 
 export type ParseArgvOptions = {
+  argBindings: ArgBindingSpec[]
   optionAliases?: Partial<Record<string, string>>
   optionSchema: JsonObjectSchema | undefined
-  positionals: PositionalSpec[]
 }
 
 export function parseArgv(argv: string[], options: ParseArgvOptions): ParsedArgv {
-  validatePositionals(options.positionals)
-  const parsed = parseOptionsAndPositionals(argv, options)
-  const args = bindPositionals(parsed.positionals, options.positionals)
+  validateArgBindings(options.argBindings)
+  const parsed = parseOptionsAndArgValues(argv, options)
+  const args = bindArgValues(parsed.argValues, options.argBindings)
 
   return {
     args,
@@ -29,24 +29,24 @@ export function parseArgv(argv: string[], options: ParseArgvOptions): ParsedArgv
   }
 }
 
-function parseOptionsAndPositionals(
+function parseOptionsAndArgValues(
   argv: string[],
   { optionAliases = {}, optionSchema }: ParseArgvOptions
-): { options: Record<string, unknown>; positionals: string[] } {
+): { argValues: string[]; options: Record<string, unknown> } {
+  const argValues: string[] = []
   const options: Record<string, unknown> = {}
-  const positionals: string[] = []
   const aliasMap = new Map(Object.entries(optionAliases).map(([name, alias]) => [alias, name]))
-  let positionalOnly = false
+  let argValuesOnly = false
 
   for (let index = 0; index < argv.length; index++) {
     const token = argv[index]
-    if (positionalOnly) {
-      positionals.push(token)
+    if (argValuesOnly) {
+      argValues.push(token)
       continue
     }
 
     if (token === '--') {
-      positionalOnly = true
+      argValuesOnly = true
       continue
     }
 
@@ -84,32 +84,32 @@ function parseOptionsAndPositionals(
       continue
     }
 
-    positionals.push(token)
+    argValues.push(token)
   }
 
-  return { options, positionals }
+  return { argValues, options }
 }
 
-function bindPositionals(values: string[], specs: PositionalSpec[]): Record<string, unknown> {
+function bindArgValues(values: string[], bindings: ArgBindingSpec[]): Record<string, unknown> {
   const args: Record<string, unknown> = {}
   let valueIndex = 0
 
-  for (const spec of specs) {
-    if (spec.rest) {
-      args[spec.name] = values.slice(valueIndex)
+  for (const binding of bindings) {
+    if (binding.rest) {
+      args[binding.name] = values.slice(valueIndex)
       valueIndex = values.length
       continue
     }
 
     const value = values[valueIndex]
     if (value === undefined) {
-      if (!spec.optional) {
-        throw new CommandRuntimeError(CommandErrorCode.MissingArgument, `Missing argument: ${spec.name}`)
+      if (!binding.optional) {
+        throw new CommandRuntimeError(CommandErrorCode.MissingArgument, `Missing argument: ${binding.name}`)
       }
       continue
     }
 
-    args[spec.name] = value
+    args[binding.name] = value
     valueIndex++
   }
 
@@ -120,10 +120,10 @@ function bindPositionals(values: string[], specs: PositionalSpec[]): Record<stri
   return args
 }
 
-function validatePositionals(specs: PositionalSpec[]): void {
-  const restIndex = specs.findIndex(spec => spec.rest)
-  if (restIndex !== -1 && restIndex !== specs.length - 1) {
-    throw new CommandRuntimeError(CommandErrorCode.InvalidArguments, 'Only the final positional may use rest: true')
+function validateArgBindings(bindings: ArgBindingSpec[]): void {
+  const restIndex = bindings.findIndex(binding => binding.rest)
+  if (restIndex !== -1 && restIndex !== bindings.length - 1) {
+    throw new CommandRuntimeError(CommandErrorCode.InvalidArguments, 'Only the final arg binding may use rest: true')
   }
 }
 

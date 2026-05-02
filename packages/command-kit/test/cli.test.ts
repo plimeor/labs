@@ -132,19 +132,19 @@ async function captureStderr(callback: () => Promise<void>): Promise<string> {
 }
 
 describe('command runtime', () => {
-  test('binds first positional and rest positional array', async () => {
+  test('binds first arg value and rest arg value array', async () => {
     const cli = defineCli({
       description: 'Test CLI',
       name: 'test',
       commands: [
         defineCommand('add', {
+          argBindings: [{ name: 'source' }, { name: 'skills', rest: true }],
           args: objectSchema<{ skills: string[]; source: string }>({
             skills: { items: { type: 'string' }, type: 'array' },
             source: { type: 'string' }
           }),
           description: 'Add skills',
           options: jsonOptionSchema,
-          positionals: [{ name: 'source' }, { name: 'skills', rest: true }],
           run: context => ({
             skills: context.args.skills,
             source: context.args.source
@@ -297,11 +297,11 @@ describe('command runtime', () => {
       name: 'test',
       commands: [
         defineCommand('add', {
+          argBindings: [{ name: 'source' }],
           args: objectSchema<{ source: string }>({
             source: { type: 'string' }
           }),
           description: 'Add items',
-          positionals: [{ name: 'source' }],
           run: () => ({})
         })
       ]
@@ -324,11 +324,11 @@ describe('command runtime', () => {
       name: 'test',
       commands: [
         defineCommand('add', {
+          argBindings: [{ name: 'source' }],
           args: objectSchema<{ source: string }>({
             source: { type: 'string' }
           }),
           description: 'Add items',
-          positionals: [{ name: 'source' }],
           run: () => ({})
         })
       ]
@@ -366,7 +366,7 @@ describe('command runtime', () => {
           args,
           description: 'Add items',
           options,
-          positionals: [{ name: 'source' }],
+          argBindings: [{ name: 'source' }],
           run: () => ({})
         })
       ],
@@ -390,6 +390,7 @@ describe('command runtime', () => {
       commands: [
         defineCommand('add', {
           aliases: ['a'],
+          argBindings: [{ name: 'source' }, { name: 'items', rest: true }],
           args: objectSchema<{ items: string[]; source: string }>({
             items: { items: { type: 'string' }, type: 'array' },
             source: { type: 'string' }
@@ -403,7 +404,6 @@ describe('command runtime', () => {
               type: 'array'
             }
           }),
-          positionals: [{ name: 'source' }, { name: 'items', rest: true }],
           optionAliases: {
             global: 'g'
           },
@@ -471,11 +471,11 @@ describe('command runtime', () => {
           description: 'Manage projects',
           commands: [
             defineCommand('add', {
+              argBindings: [{ name: 'project' }],
               args: objectSchema<{ project: string }>({
                 project: { type: 'string' }
               }),
               description: 'Add project',
-              positionals: [{ name: 'project' }],
               run: () => ({})
             })
           ]
@@ -512,7 +512,7 @@ describe('command runtime', () => {
               }),
               description: 'Add project',
               options,
-              positionals: [{ name: 'project' }],
+              argBindings: [{ name: 'project' }],
               run: context => {
                 handled = {
                   project: context.args.project,
@@ -548,11 +548,11 @@ describe('command runtime', () => {
           description: 'Manage projects',
           commands: [
             defineCommand('add', {
+              argBindings: [{ name: 'project' }],
               args: objectSchema<{ project: string }>({
                 project: { description: 'Project id', type: 'string' }
               }),
               description: 'Add project',
-              positionals: [{ name: 'project' }],
               run: () => ({})
             })
           ]
@@ -597,7 +597,7 @@ describe('command runtime', () => {
     expect(output).toContain('Unknown command: missing')
   })
 
-  test('types constrain positional and option alias names to schema fields', () => {
+  test('types constrain arg binding and option alias names to schema fields', () => {
     const args = objectSchema<{ age: string; name: string }>({
       age: { type: 'string' },
       name: { type: 'string' }
@@ -610,18 +610,18 @@ describe('command runtime', () => {
       args,
       description: 'Typed command',
       options,
-      positionals: [{ name: 'name' }, { name: 'age' }],
+      argBindings: [{ name: 'name' }, { name: 'age' }],
       optionAliases: {
         global: 'g'
       },
       run: () => ({})
     })
 
-    defineCommand('bad-positional', {
+    defineCommand('bad-arg-binding', {
       args,
-      description: 'Bad positional',
-      // @ts-expect-error positionals must reference args schema fields
-      positionals: [{ name: 'missing' }],
+      // @ts-expect-error argBindings must reference args schema fields
+      argBindings: [{ name: 'missing' }],
+      description: 'Bad arg binding',
       run: () => ({})
     })
 

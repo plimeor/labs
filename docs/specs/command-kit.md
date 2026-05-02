@@ -65,8 +65,10 @@ type SchemaAdapter = {
   toStandardJsonSchema: (schema: any) => StandardJSONSchemaV1 | undefined
 }
 
-type CommandPositionalSpec<ArgsSchema extends StandardSchemaV1> = Omit<PositionalSpec, 'name'> & {
+type CommandArgBinding<ArgsSchema extends StandardSchemaV1> = {
   name: Extract<keyof StandardSchemaV1.InferOutput<ArgsSchema>, string>
+  optional?: boolean
+  rest?: boolean
 }
 
 type CommandOptionAliases<OptionsSchema extends StandardSchemaV1> =
@@ -80,7 +82,7 @@ type CommandConfig<ArgsSchema extends StandardSchemaV1, OptionsSchema extends St
   description: string
   optionAliases?: CommandOptionAliases<OptionsSchema>
   options?: OptionsSchema
-  positionals?: CommandPositionalSpec<ArgsSchema>[]
+  argBindings?: CommandArgBinding<ArgsSchema>[]
   run: (ctx: CommandContext<ArgsSchema, OptionsSchema>) => unknown | Promise<unknown>
 }
 
@@ -106,9 +108,9 @@ function defineCli(definition: {
 or options, callers omit the corresponding field and command-kit treats it as an
 empty object.
 
-`positionals[].name` must be a string key from the command args schema output.
+`argBindings[].name` must be a string key from the command args schema output.
 `optionAliases` keys must be string keys from the command options schema output.
-For example, if `args` outputs `{ name: string; age: string }`, positional names
+For example, if `args` outputs `{ name: string; age: string }`, binding names
 are limited to `'name' | 'age'`.
 
 `command-kit` validates only the declared `args` and `options` schemas. Business
@@ -180,24 +182,25 @@ kinds:
 Commands with options should provide either schemas that implement
 `StandardJSONSchemaV1` or a CLI-level adapter.
 
-## Positional Arguments
+## Argument Bindings
 
 Supported forms:
 
 ```ts
-positionals: [{ name: 'source' }]
-positionals: [{ name: 'input', optional: true }]
-positionals: [{ name: 'source' }, { name: 'skills', optional: true, rest: true }]
+argBindings: [{ name: 'source' }]
+argBindings: [{ name: 'input', optional: true }]
+argBindings: [{ name: 'source' }, { name: 'skills', optional: true, rest: true }]
 ```
 
 Rules:
 
-- A positional entry maps to a property in the `args` schema output.
-- A non-rest positional consumes exactly one raw argument.
-- A rest positional consumes all remaining raw arguments.
-- Only the final positional may use `rest: true`.
-- Missing required positionals fail before command execution.
-- Extra positionals without a rest binding are unknown argument errors.
+- An arg binding maps one positional argv value to a property in the `args`
+  schema output.
+- A non-rest binding consumes exactly one raw argument.
+- A rest binding consumes all remaining raw arguments.
+- Only the final binding may use `rest: true`.
+- Missing required arg bindings fail before command execution.
+- Extra argv values without a rest binding are unknown argument errors.
 - Final validation belongs to the `args` Standard Schema.
 
 ## Options

@@ -34,7 +34,7 @@ const cli = defineCli({
       options: v.object({
         json: v.optional(v.pipe(v.boolean(), v.description('Write a JSON result envelope')))
       }),
-      positionals: [{ name: 'source' }, { name: 'items', rest: true }],
+      argBindings: [{ name: 'source' }, { name: 'items', rest: true }],
       run: context => ({
         items: context.args.items,
         source: context.args.source
@@ -48,7 +48,7 @@ const cli = defineCli({
             project: v.string()
           }),
           description: 'Add a project',
-          positionals: [{ name: 'project' }],
+          argBindings: [{ name: 'project' }],
           run: context => ({
             project: context.args.project
           })

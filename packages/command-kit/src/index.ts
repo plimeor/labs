@@ -1,13 +1,13 @@
 export type {
   CliDefinition,
   CliEntry,
+  CommandArgBinding,
   CommandConfig,
   CommandContext,
   CommandDefinition,
   CommandGroupConfig,
   CommandGroupDefinition,
-  CommandOptionAliases,
-  CommandPositionalSpec
+  CommandOptionAliases
 } from './define.js'
 export { defineCli, defineCommand, defineGroup } from './define.js'
 export type { CommandError } from './errors.js'

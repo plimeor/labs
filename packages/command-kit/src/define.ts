@@ -1,6 +1,6 @@
 import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec'
 
-import { type PositionalSpec, parseArgv } from './argv.js'
+import { type ArgBindingSpec, parseArgv } from './argv.js'
 import { type CommandError, CommandErrorCode, CommandRuntimeError } from './errors.js'
 import { type CommandResult, normalizeFailure, normalizeSuccess, writeJsonResult } from './output.js'
 import {
@@ -15,7 +15,7 @@ type EmptyObject = Record<never, never>
 type EmptyObjectSchema = typeof emptyObjectSchema
 type SchemaFieldName<Schema extends StandardSchemaV1> = Extract<keyof StandardSchemaV1.InferOutput<Schema>, string>
 
-export type CommandPositionalSpec<ArgsSchema extends StandardSchemaV1> = Omit<PositionalSpec, 'name'> & {
+export type CommandArgBinding<ArgsSchema extends StandardSchemaV1> = Omit<ArgBindingSpec, 'name'> & {
   name: SchemaFieldName<ArgsSchema>
 }
 
@@ -48,7 +48,7 @@ export type CommandConfig<
   description: string
   optionAliases?: CommandOptionAliases<OptionsSchema>
   options?: OptionsSchema
-  positionals?: CommandPositionalSpec<ArgsSchema>[]
+  argBindings?: CommandArgBinding<ArgsSchema>[]
   run: (
     context: CommandContext<ArgsSchema, OptionsSchema>
   ) => Promise<unknown | CommandResult<unknown>> | unknown | CommandResult<unknown>
@@ -130,9 +130,9 @@ async function serve(cli: CliDefinition, argv: string[]): Promise<void> {
   let json = wantsJsonResult(argv.slice(1), command, cli.schemaAdapter)
   try {
     const parsed = parseArgv(argv.slice(1), {
+      argBindings: command.argBindings ?? [],
       optionAliases: command.optionAliases,
-      optionSchema: resolveJsonObjectSchema(getOptionsSchema(command), cli.schemaAdapter),
-      positionals: command.positionals ?? []
+      optionSchema: resolveJsonObjectSchema(getOptionsSchema(command), cli.schemaAdapter)
     })
     json = isJsonResult(parsed.options, command, cli.schemaAdapter)
     const args = await validateSchema(
@@ -304,7 +304,7 @@ function formatCommandHelp(
   return [
     `${cli.name} ${command.name} — ${command.description}`,
     '',
-    `Usage: ${cli.name} ${command.name}${formatPositionals(command.positionals ?? [])} [options]`,
+    `Usage: ${cli.name} ${command.name}${formatArgBindings(command.argBindings ?? [])} [options]`,
     formatAliases(command),
     formatArguments(command, schemas.args),
     formatOptions(command, schemas.options),
@@ -324,18 +324,18 @@ function formatEntryNames(entry: CliEntry): string {
   return isCommandGroup(entry) ? entry.name : formatCommandNames(entry)
 }
 
-function formatPositionals(positionals: PositionalSpec[]): string {
-  if (positionals.length === 0) {
+function formatArgBindings(argBindings: ArgBindingSpec[]): string {
+  if (argBindings.length === 0) {
     return ''
   }
 
-  return ` ${positionals
-    .map(positional => {
-      if (positional.rest) {
-        return positional.optional ? `[${positional.name}...]` : `<${positional.name}...>`
+  return ` ${argBindings
+    .map(binding => {
+      if (binding.rest) {
+        return binding.optional ? `[${binding.name}...]` : `<${binding.name}...>`
       }
 
-      return positional.optional ? `[${positional.name}]` : `<${positional.name}>`
+      return binding.optional ? `[${binding.name}]` : `<${binding.name}>`
     })
     .join(' ')}`
 }
@@ -348,14 +348,14 @@ function formatArguments(
   command: CommandDefinition<any, any>,
   argsSchema: JsonObjectSchema | undefined
 ): string | undefined {
-  const positionals = command.positionals ?? []
-  if (positionals.length === 0) {
+  const argBindings = command.argBindings ?? []
+  if (argBindings.length === 0) {
     return undefined
   }
 
-  const formatted = positionals.map(positional => ({
-    description: formatDescription(argsSchema?.properties?.[positional.name]),
-    usage: formatArgumentName(positional)
+  const formatted = argBindings.map(binding => ({
+    description: formatDescription(argsSchema?.properties?.[binding.name]),
+    usage: formatArgumentName(binding)
   }))
   const width = Math.max(...formatted.map(argument => argument.usage.length))
   const lines = formatted.map(argument => {
@@ -368,8 +368,8 @@ function formatArguments(
   return `Arguments:\n${lines.join('\n')}`
 }
 
-function formatArgumentName(positional: PositionalSpec): string {
-  return positional.rest ? `${positional.name}...` : positional.name
+function formatArgumentName(binding: ArgBindingSpec): string {
+  return binding.rest ? `${binding.name}...` : binding.name
 }
 
 function formatOptions(
