@@ -11,6 +11,9 @@ import {
   validateSchema
 } from './schema.js'
 
+type EmptyObject = Record<string, never>
+type EmptyObjectSchema = typeof emptyObjectSchema
+
 export type CommandContext<ArgsSchema extends StandardSchemaV1, OptionsSchema extends StandardSchemaV1> = {
   args: StandardSchemaV1.InferOutput<ArgsSchema>
   assertInteractive: () => void
@@ -18,21 +21,21 @@ export type CommandContext<ArgsSchema extends StandardSchemaV1, OptionsSchema ex
 }
 
 export type CommandDefinition<
-  ArgsSchema extends StandardSchemaV1 = StandardSchemaV1,
-  OptionsSchema extends StandardSchemaV1 = StandardSchemaV1
+  ArgsSchema extends StandardSchemaV1 = EmptyObjectSchema,
+  OptionsSchema extends StandardSchemaV1 = EmptyObjectSchema
 > = CommandConfig<ArgsSchema, OptionsSchema> & {
   name: string
 }
 
 export type CommandConfig<
-  ArgsSchema extends StandardSchemaV1 = StandardSchemaV1,
-  OptionsSchema extends StandardSchemaV1 = StandardSchemaV1
+  ArgsSchema extends StandardSchemaV1 = EmptyObjectSchema,
+  OptionsSchema extends StandardSchemaV1 = EmptyObjectSchema
 > = {
   aliases?: string[]
-  args: ArgsSchema
+  args?: ArgsSchema
   description: string
   optionAliases?: Record<string, string>
-  options: OptionsSchema
+  options?: OptionsSchema
   positionals?: PositionalSpec[]
   run: (
     context: CommandContext<ArgsSchema, OptionsSchema>
@@ -47,10 +50,10 @@ export type CliDefinition = {
   schemaAdapter?: SchemaAdapter
 }
 
-export function defineCommand<ArgsSchema extends StandardSchemaV1, OptionsSchema extends StandardSchemaV1>(
-  name: string,
-  config: CommandConfig<ArgsSchema, OptionsSchema>
-): CommandDefinition<ArgsSchema, OptionsSchema> {
+export function defineCommand<
+  ArgsSchema extends StandardSchemaV1 = EmptyObjectSchema,
+  OptionsSchema extends StandardSchemaV1 = EmptyObjectSchema
+>(name: string, config: CommandConfig<ArgsSchema, OptionsSchema>): CommandDefinition<ArgsSchema, OptionsSchema> {
   return {
     ...config,
     name
@@ -89,12 +92,22 @@ async function serve(cli: CliDefinition, argv: string[]): Promise<void> {
   try {
     const parsed = parseArgv(argv.slice(1), {
       optionAliases: command.optionAliases,
-      optionSchema: resolveJsonObjectSchema(command.options, cli.schemaAdapter),
+      optionSchema: resolveJsonObjectSchema(getOptionsSchema(command), cli.schemaAdapter),
       positionals: command.positionals ?? []
     })
     json = isJsonResult(parsed.options, command, cli.schemaAdapter)
-    const args = await validateSchema(command.args, parsed.args, CommandErrorCode.InvalidArguments, 'arguments')
-    const options = await validateSchema(command.options, parsed.options, CommandErrorCode.InvalidOptions, 'options')
+    const args = await validateSchema(
+      getArgsSchema(command),
+      parsed.args,
+      CommandErrorCode.InvalidArguments,
+      'arguments'
+    )
+    const options = await validateSchema(
+      getOptionsSchema(command),
+      parsed.options,
+      CommandErrorCode.InvalidOptions,
+      'options'
+    )
     const context = {
       args,
       assertInteractive: createInteractiveGuard(json),
@@ -186,6 +199,18 @@ function findCommand(commands: CommandDefinition<any, any>[], name: string): Com
   return commands.find(command => command.name === name || command.aliases?.includes(name))
 }
 
+function getArgsSchema<ArgsSchema extends StandardSchemaV1>(command: {
+  args?: ArgsSchema
+}): ArgsSchema | EmptyObjectSchema {
+  return command.args ?? emptyObjectSchema
+}
+
+function getOptionsSchema<OptionsSchema extends StandardSchemaV1>(command: {
+  options?: OptionsSchema
+}): OptionsSchema | EmptyObjectSchema {
+  return command.options ?? emptyObjectSchema
+}
+
 function wantsJsonResult(
   argv: string[],
   command: CommandDefinition<any, any>,
@@ -205,7 +230,7 @@ function wantsJsonResult(
 }
 
 function hasBooleanJsonOption(command: CommandDefinition<any, any>, adapter: SchemaAdapter | undefined): boolean {
-  const optionsSchema = resolveJsonObjectSchema(command.options, adapter)
+  const optionsSchema = resolveJsonObjectSchema(getOptionsSchema(command), adapter)
   const jsonOption = optionsSchema?.properties?.json
   return jsonOption ? hasJsonSchemaType(jsonOption, 'boolean') : false
 }
@@ -246,8 +271,8 @@ type CommandJsonSchemas = {
 
 function resolveCommandJsonSchemas(cli: CliDefinition, command: CommandDefinition): CommandJsonSchemas {
   return {
-    args: resolveJsonObjectSchema(command.args, cli.schemaAdapter),
-    options: resolveJsonObjectSchema(command.options, cli.schemaAdapter)
+    args: resolveJsonObjectSchema(getArgsSchema(command), cli.schemaAdapter),
+    options: resolveJsonObjectSchema(getOptionsSchema(command), cli.schemaAdapter)
   }
 }
 
@@ -356,14 +381,18 @@ function formatOptionValue(schema: JsonSchemaProperty): string {
 }
 
 function formatDescription(schema: JsonSchemaProperty | undefined): string | undefined {
-  if (typeof schema?.description !== 'string' || schema.description.length === 0) {
+  if (!isJsonSchemaObject(schema) || typeof schema.description !== 'string' || schema.description.length === 0) {
     return undefined
   }
 
   return schema.description
 }
 
-function hasJsonSchemaType(schema: JsonSchemaProperty, type: string): boolean {
+function hasJsonSchemaType(schema: JsonSchemaProperty, type: 'array' | 'boolean' | 'string'): boolean {
+  if (!isJsonSchemaObject(schema)) {
+    return false
+  }
+
   if (Array.isArray(schema.type) && schema.type.includes(type)) {
     return true
   }
@@ -375,8 +404,12 @@ function hasJsonSchemaType(schema: JsonSchemaProperty, type: string): boolean {
   return [...(schema.anyOf ?? []), ...(schema.oneOf ?? [])].some(option => hasJsonSchemaType(option, type))
 }
 
-function createEmptyObjectSchema(): StandardSchemaV1<unknown, Record<string, never>> &
-  StandardJSONSchemaV1<unknown, Record<string, never>> {
+function isJsonSchemaObject(schema: JsonSchemaProperty | undefined): schema is JsonObjectSchema {
+  return typeof schema === 'object' && schema !== null && !Array.isArray(schema)
+}
+
+function createEmptyObjectSchema(): StandardSchemaV1<unknown, EmptyObject> &
+  StandardJSONSchemaV1<unknown, EmptyObject> {
   const jsonSchema = {
     properties: {},
     type: 'object'
@@ -405,5 +438,4 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-export const emptyArgsSchema = createEmptyObjectSchema()
-export const emptyOptionsSchema = createEmptyObjectSchema()
+const emptyObjectSchema = createEmptyObjectSchema()

@@ -148,7 +148,7 @@ function readOptionValue(argv: string[], index: number, name: string): string {
 
 function optionProperty(schema: JsonObjectSchema | undefined, name: string, displayName: string): JsonSchemaProperty {
   const property = schema?.properties?.[name]
-  if (!property) {
+  if (!isJsonSchemaObject(property)) {
     throw new CommandRuntimeError(CommandErrorCode.UnknownOption, `Unknown option: --${displayName}`)
   }
 
@@ -167,7 +167,11 @@ function optionKind(schema: JsonSchemaProperty): 'array' | 'boolean' | 'string' 
   return 'string'
 }
 
-function hasJsonSchemaType(schema: JsonSchemaProperty, type: string): boolean {
+function hasJsonSchemaType(schema: JsonSchemaProperty, type: 'array' | 'boolean' | 'string'): boolean {
+  if (!isJsonSchemaObject(schema)) {
+    return false
+  }
+
   if (Array.isArray(schema.type) && schema.type.includes(type)) {
     return true
   }
@@ -177,6 +181,10 @@ function hasJsonSchemaType(schema: JsonSchemaProperty, type: string): boolean {
   }
 
   return [...(schema.anyOf ?? []), ...(schema.oneOf ?? [])].some(option => hasJsonSchemaType(option, type))
+}
+
+function isJsonSchemaObject(schema: JsonSchemaProperty | undefined): schema is JsonObjectSchema {
+  return typeof schema === 'object' && schema !== null && !Array.isArray(schema)
 }
 
 function setOption(options: Record<string, unknown>, name: string, value: unknown, append = false): void {

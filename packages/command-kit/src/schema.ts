@@ -1,20 +1,12 @@
 import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec'
+import type { JSONSchema7, JSONSchema7Definition } from 'json-schema'
 
 import { type CommandErrorCode, CommandRuntimeError } from './errors.js'
 
 export type InferSchema<T extends StandardSchemaV1> = StandardSchemaV1.InferOutput<T>
 
-export type JsonSchemaProperty = {
-  anyOf?: JsonSchemaProperty[]
-  description?: unknown
-  oneOf?: JsonSchemaProperty[]
-  type?: string | string[]
-}
-
-export type JsonObjectSchema = {
-  properties?: Record<string, JsonSchemaProperty>
-  type?: unknown
-}
+export type JsonSchemaProperty = JSONSchema7Definition
+export type JsonObjectSchema = JSONSchema7
 
 export type SchemaAdapter = {
   toStandardJsonSchema: (schema: StandardSchemaV1) => StandardJSONSchemaV1 | undefined
@@ -71,8 +63,16 @@ function isStandardJsonSchema(schema: StandardSchemaV1): schema is StandardSchem
   return typeof candidate['~standard'].jsonSchema?.input === 'function'
 }
 
-function isJsonObjectSchema(value: Record<string, unknown>): value is JsonObjectSchema {
-  return value.type === 'object' || typeof value.properties === 'object'
+function isJsonObjectSchema(value: unknown): value is JSONSchema7 {
+  if (!isRecord(value)) {
+    return false
+  }
+
+  return value.type === 'object' || isRecord(value.properties)
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 function formatIssuePath(path: StandardSchemaV1.Issue['path']): string {

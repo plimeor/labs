@@ -1,22 +1,17 @@
 import { describe, expect, test } from 'bun:test'
 
 import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec'
+import type { JSONSchema7, JSONSchema7Definition } from 'json-schema'
 
 import { defineCli, defineCommand } from '../src/index.js'
-
-type TestJsonSchemaProperty = {
-  description?: string
-  items?: TestJsonSchemaProperty
-  type: 'array' | 'boolean' | 'object' | 'string'
-}
 
 type TestSchema<T extends Record<string, unknown>> = StandardSchemaV1<unknown, T> & StandardJSONSchemaV1<unknown, T>
 
 function objectSchema<T extends Record<string, unknown>>(
-  properties: Record<string, TestJsonSchemaProperty>,
+  properties: Record<string, JSONSchema7Definition>,
   validate?: (value: T) => StandardSchemaV1.Issue[]
 ): TestSchema<T> {
-  const jsonSchema = {
+  const jsonSchema: JSONSchema7 = {
     properties,
     type: 'object'
   }
@@ -62,9 +57,13 @@ function standardOnlySchema<T extends Record<string, unknown>>(schema: TestSchem
 
 function validateTypes(
   value: Record<string, unknown>,
-  properties: Record<string, TestJsonSchemaProperty>
+  properties: Record<string, JSONSchema7Definition>
 ): StandardSchemaV1.Issue[] {
   return Object.entries(properties).flatMap(([name, property]) => {
+    if (!isJsonSchemaObject(property)) {
+      return []
+    }
+
     const field = value[name]
     if (field === undefined) {
       return []
@@ -90,7 +89,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-const emptySchema = objectSchema<Record<string, never>>({})
+function isJsonSchemaObject(schema: JSONSchema7Definition): schema is JSONSchema7 {
+  return typeof schema === 'object' && schema !== null && !Array.isArray(schema)
+}
 
 const jsonOptionSchema = objectSchema<{ json?: boolean }>({
   json: { type: 'boolean' }
@@ -171,7 +172,6 @@ describe('command runtime', () => {
       name: 'test',
       commands: [
         defineCommand('sync', {
-          args: emptySchema,
           description: 'Sync',
           options: objectSchema<{ dryRun?: boolean; global?: boolean; json?: boolean }>({
             dryRun: { type: 'boolean' },
@@ -208,7 +208,6 @@ describe('command runtime', () => {
       name: 'test',
       commands: [
         defineCommand('bad', {
-          args: emptySchema,
           description: 'Bad output',
           options: jsonOptionSchema,
           run: () => ({ value: 1 })
@@ -234,7 +233,6 @@ describe('command runtime', () => {
       name: 'test',
       commands: [
         defineCommand('noop', {
-          args: emptySchema,
           description: 'No options',
           options: jsonOptionSchema,
           run: () => ({})
@@ -261,9 +259,7 @@ describe('command runtime', () => {
       name: 'test',
       commands: [
         defineCommand('noop', {
-          args: emptySchema,
           description: 'No options',
-          options: emptySchema,
           run: () => ({})
         })
       ]
@@ -282,9 +278,7 @@ describe('command runtime', () => {
       name: 'test',
       commands: [
         defineCommand('noop', {
-          args: emptySchema,
           description: 'No options',
-          options: emptySchema,
           run: () => ({})
         })
       ]
@@ -307,7 +301,6 @@ describe('command runtime', () => {
             source: { type: 'string' }
           }),
           description: 'Add items',
-          options: emptySchema,
           positionals: [{ name: 'source' }],
           run: () => ({})
         })
@@ -335,7 +328,6 @@ describe('command runtime', () => {
             source: { type: 'string' }
           }),
           description: 'Add items',
-          options: emptySchema,
           positionals: [{ name: 'source' }],
           run: () => ({})
         })

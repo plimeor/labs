@@ -1,10 +1,9 @@
 import { log } from '@clack/prompts'
 import * as v from 'valibot'
 
-import { emptyArgsSchema, optionalBoolean } from './schemas.js'
+import { optionalBoolean } from './schemas.js'
 import { syncCommand } from './sync.js'
 
-export const updateArgsSchema = emptyArgsSchema
 export const updateOptionsSchema = v.object({
   dryRun: optionalBoolean('Print the planned changes without writing state'),
   global: optionalBoolean('Use the global skills manifest and lock file')

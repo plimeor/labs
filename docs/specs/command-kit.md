@@ -43,6 +43,7 @@ binds to `ctx.args.skills` as an array.
 `packages/command-kit` depends on:
 
 - `@standard-schema/spec`
+- `@types/json-schema` for TypeScript JSON Schema helper types
 
 `packages/skills` depends on:
 
@@ -64,10 +65,10 @@ type SchemaAdapter = {
 
 type CommandConfig<ArgsSchema extends StandardSchemaV1, OptionsSchema extends StandardSchemaV1> = {
   aliases?: string[]
-  args: ArgsSchema
+  args?: ArgsSchema
   description: string
   optionAliases?: Record<string, string>
-  options: OptionsSchema
+  options?: OptionsSchema
   positionals?: PositionalSpec[]
   run: (ctx: CommandContext<ArgsSchema, OptionsSchema>) => unknown | Promise<unknown>
   validate?: StandardSchemaV1
@@ -84,7 +85,9 @@ function defineCli(definition: {
 ```
 
 `ctx.args` and `ctx.options` are inferred from
-`StandardSchemaV1.InferOutput<typeof schema>`.
+`StandardSchemaV1.InferOutput<typeof schema>`. If a command does not need args
+or options, callers omit the corresponding field and command-kit treats it as an
+empty object.
 
 `validate`, when present, validates `{ args, options }` after the individual
 `args` and `options` schemas pass. It exists for cross-field and cross-schema
@@ -104,8 +107,10 @@ Success uses `result.value`; failure normalizes `result.issues` into a
 Validation stages:
 
 1. Parse raw argv into an args object and options object.
-2. Validate args with the command's `args` `StandardSchemaV1`.
-3. Validate options with the command's `options` `StandardSchemaV1`.
+2. Validate args with the command's `args` `StandardSchemaV1`, or an internal
+   empty-object schema when omitted.
+3. Validate options with the command's `options` `StandardSchemaV1`, or an
+   internal empty-object schema when omitted.
 4. Validate `{ args, options }` with optional command `validate` schema.
 5. Call `run(ctx)` only after all validation succeeds.
 
@@ -255,7 +260,8 @@ skills migrate -g
 ## Success Criteria
 
 - `packages/command-kit` has no TypeBox dependency or TypeBox-specific API.
-- `packages/command-kit` accepts `StandardSchemaV1` for args and options.
+- `packages/command-kit` accepts `StandardSchemaV1` for args and options, and
+  lets callers omit either field when a command does not need it.
 - `defineCli` accepts optional `schemaAdapter.toStandardJsonSchema`.
 - Help output shows field descriptions when JSON Schema metadata is available
   and omits them when it is not.

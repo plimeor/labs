@@ -3,9 +3,8 @@ import * as v from 'valibot'
 
 import { Lock } from '../lock.js'
 import { formatDisplayPath, resolveScope } from '../scope.js'
-import { emptyArgsSchema, optionalBoolean } from './schemas.js'
+import { optionalBoolean } from './schemas.js'
 
-export const listArgsSchema = emptyArgsSchema
 export const listOptionsSchema = v.object({
   global: optionalBoolean('Use the global skills manifest and lock file'),
   json: optionalBoolean('Write a JSON result envelope')

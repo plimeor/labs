@@ -3,11 +3,11 @@
 import { defineCli, defineCommand } from '@plimeor/command-kit'
 
 import { addArgsSchema, addCommand, addOptionsSchema, addRequestSchema } from './commands/add.js'
-import { listArgsSchema, listCommand, listOptionsSchema } from './commands/list.js'
+import { listCommand, listOptionsSchema } from './commands/list.js'
 import { migrateArgsSchema, migrateCommand, migrateOptionsSchema } from './commands/migrate.js'
 import { removeArgsSchema, removeCommand, removeOptionsSchema } from './commands/remove.js'
-import { syncArgsSchema, syncCommand, syncOptionsSchema } from './commands/sync.js'
-import { updateArgsSchema, updateCommand, updateOptionsSchema } from './commands/update.js'
+import { syncCommand, syncOptionsSchema } from './commands/sync.js'
+import { updateCommand, updateOptionsSchema } from './commands/update.js'
 import { toStandardJsonSchema } from './schema-adapter.js'
 
 export function createCli() {
@@ -41,7 +41,6 @@ export function createCli() {
       }),
       defineCommand('update', {
         aliases: ['upgrade'],
-        args: updateArgsSchema,
         description: 'Refresh lock entries and reinstall manifest skills',
         options: updateOptionsSchema,
         run: updateCommand,
@@ -50,7 +49,6 @@ export function createCli() {
         }
       }),
       defineCommand('sync', {
-        args: syncArgsSchema,
         description: 'Converge installed skills to skills.json',
         options: syncOptionsSchema,
         run: syncCommand,
@@ -60,7 +58,6 @@ export function createCli() {
       }),
       defineCommand('list', {
         aliases: ['ls'],
-        args: listArgsSchema,
         description: 'List installed skills from skills.lock.json',
         options: listOptionsSchema,
         run: listCommand,
