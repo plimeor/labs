@@ -69,13 +69,6 @@ export const ProjectEntrySchema = v.pipe(
 )
 export type ProjectEntry = v.InferOutput<typeof ProjectEntrySchema>
 
-export const ProjectRefSchema = v.object({
-  id: ProjectIdSchema,
-  managedRepoPath: v.optional(TextSchema),
-  wikiPath: TextSchema
-})
-export type ProjectRef = v.InferOutput<typeof ProjectRefSchema>
-
 export const ProjectsDocumentSchema = v.pipe(
   v.looseObject({
     projects: v.array(ProjectEntrySchema),
@@ -145,7 +138,7 @@ export const ProjectMetadataSchema = v.pipe(
 )
 export type ProjectMetadata = v.InferOutput<typeof ProjectMetadataSchema>
 
-export const WikiPageKindSchema = v.picklist(['overview', 'index', 'module', 'flow', 'contract'])
+export const WikiPageKindSchema = v.picklist(['overview', 'index', 'module', 'contract'])
 export type WikiPageKind = v.InferOutput<typeof WikiPageKindSchema>
 
 export const WikiPageAuthoritySchema = v.literal('generated')
@@ -187,3 +180,30 @@ export const WikiIndexDocumentSchema = v.pipe(
   }))
 )
 export type WikiIndexDocument = v.InferOutput<typeof WikiIndexDocumentSchema>
+
+export const WikiVersionSchema = v.looseObject({
+  branch: TextSchema,
+  commit: TextSchema,
+  path: TextSchema,
+  ref: TextSchema,
+  scannedAt: TextSchema
+})
+export type WikiVersion = v.InferOutput<typeof WikiVersionSchema>
+
+export const WikiVersionsDocumentSchema = v.pipe(
+  v.looseObject({
+    projectId: TextSchema,
+    schemaVersion: v.literal(1),
+    versions: v.array(WikiVersionSchema)
+  }),
+  v.transform(input => ({
+    projectId: input.projectId,
+    schemaVersion: 1 as const,
+    versions: [...input.versions]
+      .sort((a, b) => a.scannedAt.localeCompare(b.scannedAt) || a.commit.localeCompare(b.commit))
+      .filter(
+        (version, index, versions) => versions.findIndex(candidate => candidate.commit === version.commit) === index
+      )
+  }))
+)
+export type WikiVersionsDocument = v.InferOutput<typeof WikiVersionsDocumentSchema>

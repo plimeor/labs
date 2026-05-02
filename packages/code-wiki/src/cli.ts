@@ -13,6 +13,7 @@ import {
   projectSetCommand,
   projectSetOptionsSchema
 } from './commands/project.js'
+import { queryArgsSchema, queryCommand, queryOptionsSchema } from './commands/query.js'
 import {
   runtimeCurrentCommand,
   runtimeSelectCommand,
@@ -83,6 +84,13 @@ export function createCli() {
         args: scanArgsSchema,
         description: 'Scan changed projects into durable Markdown wikis',
         run: scanCommand
+      }),
+      defineCommand('query', {
+        argBindings: [{ name: 'question', rest: true }],
+        args: queryArgsSchema,
+        description: 'Ask a configured runtime about current and historical wiki snapshots',
+        options: queryOptionsSchema,
+        run: queryCommand
       })
     ],
     schemaAdapter

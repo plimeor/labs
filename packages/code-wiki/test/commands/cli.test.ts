@@ -19,6 +19,7 @@ describe('cli command groups', () => {
     expect(rootHelp).toContain('code-wiki — Code wiki CLI for scanning repositories into durable Markdown wikis')
     expect(rootHelp).toContain('  runtime')
     expect(rootHelp).toContain('  project')
+    expect(rootHelp).toContain('  query')
     expect(rootHelp).not.toContain('  review')
     expect(rootHelp).not.toContain('  correct')
     expect(projectHelp).toContain('code-wiki project — Manage scanned CodeWiki projects')

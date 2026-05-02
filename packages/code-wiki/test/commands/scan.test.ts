@@ -36,6 +36,13 @@ describe('scan command', () => {
     expect(await readText(join(cwd, '.code-wiki', 'wiki', 'modules', 'src.md'))).toContain(
       'symbols:\n  - "BillingPage"'
     )
+    const versions = (await readJson(join(cwd, '.code-wiki', 'wiki', 'versions.json'))) as {
+      versions: { commit: string; path: string }[]
+    }
+    expect(versions.versions).toHaveLength(1)
+    expect(await readText(join(cwd, '.code-wiki', 'wiki', versions.versions[0].path, 'modules', 'src.md'))).toContain(
+      'BillingPage'
+    )
     const logBefore = await readText(join(cwd, '.code-wiki', 'wiki', 'log.md'))
 
     await withCwd(cwd, () => scanCommand({ args: {} }))
@@ -48,8 +55,13 @@ describe('scan command', () => {
     const wikiRoot = await tempDir('code-wiki-scan-filter-wiki-')
     await mkdir(join(repoRoot, 'src'), { recursive: true })
     await mkdir(join(repoRoot, 'docs'), { recursive: true })
+    await mkdir(join(repoRoot, 'src', '__stories__'), { recursive: true })
     await writeFile(join(repoRoot, 'src', 'keep.ts'), 'const a = 1\nexport function KeepSymbol() { return a }\n')
     await writeFile(join(repoRoot, 'src', 'skip.ts'), 'export function SkipSymbol() { return false }\n')
+    await writeFile(
+      join(repoRoot, 'src', '__stories__', 'keep.stories.tsx'),
+      'export function StoryOnlySymbol() { return null }\n'
+    )
     await writeFile(join(repoRoot, 'docs', 'guide.md'), '# Guide\n')
 
     const result = await scanRepository({
@@ -76,59 +88,37 @@ describe('scan command', () => {
     expect(modulePage).toContain('KeepSymbol')
     expect(modulePage).not.toContain('- a')
     expect(modulePage).not.toContain('SkipSymbol')
+    expect(modulePage).not.toContain('StoryOnlySymbol')
     expect(await readText(join(wikiRoot, 'overview.md'))).toContain('Indexed source files: 1')
   })
 
-  test('keeps framework-specific architecture signals scoped to source paths', async () => {
-    const reactRepo = await tempDir('code-wiki-scan-react-signals-')
-    const reactWiki = await tempDir('code-wiki-scan-react-signals-wiki-')
-    await mkdir(join(reactRepo, 'docs'), { recursive: true })
-    await writeFile(join(reactRepo, 'docs', 'theme.md'), 'tokens recipes theme aria server-components\n')
+  test('does not emit framework-specific architecture signals from scanner presets', async () => {
+    const repoRoot = await tempDir('code-wiki-scan-generic-signals-')
+    const wikiRoot = await tempDir('code-wiki-scan-generic-signals-wiki-')
+    await mkdir(join(repoRoot, 'docs'), { recursive: true })
+    await writeFile(join(repoRoot, 'docs', 'theme.md'), 'tokens recipes theme aria server-components ReactFiber\n')
 
     await scanRepository({
       branch: 'main',
-      commit: 'react-docs',
-      ref: 'v15.6.2',
-      repoRoot: reactRepo,
-      wikiRoot: reactWiki,
-      project: {
-        displayName: 'React',
-        id: 'react',
-        ref: 'v15.6.2',
-        repoUrl: 'https://github.com/facebook/react.git',
-        wikiPath: '.code-wiki/projects/react'
-      }
-    })
-
-    const reactOverview = await readText(join(reactWiki, 'overview.md'))
-    expect(reactOverview).not.toContain('Design system primitives')
-    expect(reactOverview).not.toContain('Accessibility and interaction primitives')
-    expect(reactOverview).not.toContain('Server Components and Flight')
-
-    const chakraRepo = await tempDir('code-wiki-scan-chakra-signals-')
-    const chakraWiki = await tempDir('code-wiki-scan-chakra-signals-wiki-')
-    await mkdir(join(chakraRepo, 'packages', 'react', 'src', 'theme'), { recursive: true })
-    await writeFile(join(chakraRepo, 'packages', 'react', 'src', 'theme', 'tokens.ts'), 'export const tokens = {}\n')
-
-    await scanRepository({
-      branch: 'main',
-      commit: 'chakra',
+      commit: 'docs',
       ref: 'main',
-      repoRoot: chakraRepo,
-      wikiRoot: chakraWiki,
+      repoRoot,
+      wikiRoot,
       project: {
-        displayName: 'Chakra',
-        id: 'chakra',
+        displayName: 'Generic',
+        id: 'generic',
         ref: 'main',
-        repoUrl: 'https://github.com/chakra-ui/chakra-ui.git',
-        wikiPath: '.code-wiki/projects/chakra'
+        repoUrl: 'git@example.com:org/generic.git',
+        wikiPath: '.code-wiki/projects/generic'
       }
     })
 
-    const chakraOverview = await readText(join(chakraWiki, 'overview.md'))
-    expect(chakraOverview).toContain('Design system primitives')
-    expect(chakraOverview).not.toContain('Hooks')
-    expect(chakraOverview).not.toContain('Portals')
+    const overview = await readText(join(wikiRoot, 'overview.md'))
+    expect(overview).toContain('## Notable Symbols')
+    expect(overview).not.toContain('## Detected Architecture Signals')
+    expect(overview).not.toContain('Design system primitives')
+    expect(overview).not.toContain('Fiber reconciler')
+    expect(overview).not.toContain('Server Components and Flight')
   })
 
   test('uses the configured shared project ref when scanning managed clones', async () => {
@@ -178,6 +168,13 @@ describe('scan command', () => {
       projectId: 'app',
       ref: 'release'
     })
+    const versions = (await readJson(join(cwd, '.code-wiki', 'projects', 'app', 'versions.json'))) as {
+      versions: { commit: string; path: string }[]
+    }
+    expect(versions.versions).toHaveLength(1)
+    expect(
+      await readText(join(cwd, '.code-wiki', 'projects', 'app', versions.versions[0].path, 'modules', 'src.md'))
+    ).toContain('ReleaseSymbol')
   })
 
   test('resolves a configured commit ref before scanning a managed clone', async () => {
@@ -246,6 +243,7 @@ describe('scan command', () => {
         wikiPath: '.code-wiki/projects/react'
       },
       repoRoot,
+      versionRoot: join(wikiRoot, 'versions', 'react15'),
       wikiRoot
     })
 
@@ -267,14 +265,19 @@ describe('scan command', () => {
         wikiPath: '.code-wiki/projects/react'
       },
       repoRoot,
+      versionRoot: join(wikiRoot, 'versions', 'react16'),
       wikiRoot
     })
 
     const overview = await readText(join(wikiRoot, 'overview.md'))
-    expect(overview).toContain('Fiber reconciler')
-    expect(overview).not.toContain('Legacy stack reconciler')
+    expect(overview).toContain('createFiber')
+    expect(overview).not.toContain('ReactMount')
     expect(await readText(join(wikiRoot, 'modules', 'packages', 'react-reconciler.md'))).toContain(
       'ReactFiberWorkLoop.ts'
     )
+    expect(await readText(join(wikiRoot, 'versions', 'react15', 'modules', 'src', 'legacy.md'))).toContain('ReactMount')
+    expect(
+      await readText(join(wikiRoot, 'versions', 'react16', 'modules', 'packages', 'react-reconciler.md'))
+    ).toContain('createFiber')
   })
 })

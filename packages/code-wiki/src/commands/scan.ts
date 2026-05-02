@@ -57,6 +57,7 @@ async function scanShared(workspace: Awaited<ReturnType<typeof resolveWorkspace>
       project,
       ref: latest.ref,
       repoRoot: repoPath,
+      versionRoot: join(wikiRoot, 'versions', latest.commit),
       wikiRoot
     })
     scanned += 1
@@ -83,6 +84,7 @@ async function scanEmbedded(workspace: Awaited<ReturnType<typeof resolveWorkspac
     commit: git.commit,
     ref: git.commit,
     repoRoot: git.root,
+    versionRoot: join(wikiRoot, 'versions', git.commit),
     project: {
       ...project,
       repoUrl: git.repoUrl ?? project.repoUrl

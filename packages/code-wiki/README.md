@@ -1,12 +1,14 @@
 # @plimeor/code-wiki
 
-Scan Git repositories into durable Markdown wikis.
+Scan Git repositories into durable Markdown wikis, then query those wikis through
+the configured runtime.
 
 The executable is `code-wiki`. It stores wiki state under `.code-wiki/`, keeps
 managed clones under `.code-wiki/repos/`, and generates deterministic Markdown
-plus JSON indexes for source inspection and version-to-version comparison.
+plus JSON indexes for source inspection, version-to-version comparison, and
+runtime-backed question answering.
 
-This phase is scan-only: `review`, `correct`, PRD analysis, coding plan
+This phase is scan + query only: `review`, `correct`, PRD analysis, coding plan
 generation, and non-Codex runtimes are intentionally out of scope.
 
 ## Installation
@@ -37,6 +39,7 @@ code-wiki project add react --repo https://github.com/facebook/react/tree/main -
 code-wiki scan
 code-wiki project set react --ref v16.14.0
 code-wiki scan react
+code-wiki query "react 两个版本之间的差异是什么？"
 ```
 
 Shared mode stores project entries by Git remote URL and ref. Managed clones are
@@ -66,6 +69,8 @@ code-wiki project set react --ref v19.0.0
 code-wiki project list
 code-wiki scan
 code-wiki scan react
+code-wiki query "react 15 和 16 的源码差异是什么？"
+code-wiki query --project react --commits <commit-a>,<commit-b> "这两个 commit 的关键变化是什么？"
 ```
 
 `project add` and `project set` accept `--ref` or `--commit`. Use one of them,
@@ -95,4 +100,7 @@ Embedded mode:
 ```
 
 Generated project wikis include `overview.md`, `index.md`, `index.json`,
-`metadata.json`, `log.md`, `modules/`, and `contracts/`.
+`metadata.json`, `versions.json`, `log.md`, `modules/`, `contracts/`, and
+`versions/<commit>/` snapshots. `query` reads current and historical snapshots,
+builds a bounded source-evidence prompt, and asks the configured runtime to
+answer with cited wiki/source context.

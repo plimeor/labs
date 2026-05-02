@@ -6,8 +6,15 @@ import * as v from 'valibot'
 import { Files } from '../files.js'
 import { isRecord } from '../json.js'
 import { markdownList, renderGeneratedPage, slugify } from '../markdown/pages.js'
-import type { ProjectEntry, ProjectMetadata, WikiIndexDocument, WikiIndexPage, WikiPageKind } from '../types.js'
-import { ProjectMetadataSchema } from '../types.js'
+import type {
+  ProjectEntry,
+  ProjectMetadata,
+  WikiIndexDocument,
+  WikiIndexPage,
+  WikiPageKind,
+  WikiVersionsDocument
+} from '../types.js'
+import { ProjectMetadataSchema, WikiVersionsDocumentSchema } from '../types.js'
 
 export type ScanTarget = {
   branch: string
@@ -15,36 +22,20 @@ export type ScanTarget = {
   project: ProjectEntry
   ref: string
   repoRoot: string
+  versionRoot?: string
   wikiRoot: string
 }
 
 export type ScanResult = {
   index: WikiIndexDocument
   metadata: ProjectMetadata
-  preservedPages: string[]
 }
 
 type SourceFile = {
-  capabilitySignals: CapabilitySignal[]
   extension: string
   imports: string[]
   path: string
   symbols: string[]
-}
-
-type CapabilitySignal = {
-  evidence: string[]
-  id: string
-  summary: string
-  title: string
-}
-
-type CapabilitySignalDefinition = {
-  appliesTo: 'chakra' | 'react'
-  id: string
-  patterns: RegExp[]
-  summary: string
-  title: string
 }
 
 type PageSpec = {
@@ -66,6 +57,7 @@ const ignoredDirectories = new Set([
   '.turbo',
   '.vitepress',
   '__fixtures__',
+  '__stories__',
   '__tests__',
   'build',
   'coverage',
@@ -77,6 +69,7 @@ const ignoredDirectories = new Set([
   'node_modules',
   'old_major_packages',
   'out',
+  'stories',
   'test',
   'tests'
 ])
@@ -89,6 +82,8 @@ const ignoredFiles = new Set([
   'skills.lock.json',
   'tsconfig.tsbuildinfo'
 ])
+
+const ignoredFilePatterns = [/\.stories\.[cm]?[jt]sx?$/i, /\.story\.[cm]?[jt]sx?$/i]
 
 const sourceExtensions = new Set([
   '.c',
@@ -122,110 +117,6 @@ const sourceExtensions = new Set([
   '.yml'
 ])
 
-const capabilitySignalDefinitions: CapabilitySignalDefinition[] = [
-  {
-    appliesTo: 'react',
-    id: 'react.legacy-stack',
-    patterns: [/stack\/reconciler/i, /ReactMount/i, /instantiateReactComponent/i, /ReactCompositeComponent/i],
-    summary: 'Legacy React stack reconciler and mounting flow are present in the scanned source.',
-    title: 'Legacy stack reconciler'
-  },
-  {
-    appliesTo: 'react',
-    id: 'react.fiber',
-    patterns: [/ReactFiber/i, /FiberRoot/i, /createFiber/i, /packages\/react-reconciler/i],
-    summary: 'Fiber reconciler code paths are present in the scanned source.',
-    title: 'Fiber reconciler'
-  },
-  {
-    appliesTo: 'react',
-    id: 'react.concurrent-lanes',
-    patterns: [/ReactFiberLane/i, /\bLanes?\b/, /ConcurrentRoot/i, /startTransition/i, /expirationTime/i],
-    summary: 'Concurrent, async, or priority-based scheduling primitives are present.',
-    title: 'Concurrent scheduling primitives'
-  },
-  {
-    appliesTo: 'react',
-    id: 'react.error-boundaries',
-    patterns: [/componentDidCatch/i, /getDerivedStateFromError/i, /ReactErrorUtils/i],
-    summary: 'Error boundary lifecycle or error capture internals are present.',
-    title: 'Error boundaries'
-  },
-  {
-    appliesTo: 'react',
-    id: 'react.fragments',
-    patterns: [/REACT_FRAGMENT_TYPE/i, /ReactFragment/i, /\bFragment\b/],
-    summary: 'Fragment symbols or support code are present.',
-    title: 'Fragments'
-  },
-  {
-    appliesTo: 'react',
-    id: 'react.hooks',
-    summary: 'Hook APIs or hook dispatcher internals are present.',
-    title: 'Hooks',
-    patterns: [
-      /ReactHooks/i,
-      /\buse(State|Effect|Memo|Callback|Reducer|Ref|Context|Transition|DeferredValue|SyncExternalStore|Id)\b/
-    ]
-  },
-  {
-    appliesTo: 'react',
-    id: 'react.actions',
-    patterns: [/useActionState/i, /useOptimistic/i, /useFormStatus/i, /requestFormReset/i, /startHostTransition/i],
-    summary: 'React 19 action, form status, or optimistic update primitives are present.',
-    title: 'Actions and form status'
-  },
-  {
-    appliesTo: 'react',
-    id: 'react.portals',
-    patterns: [/createPortal/i, /ReactPortal/i, /REACT_PORTAL_TYPE/i],
-    summary: 'Portal creation symbols or portal internals are present.',
-    title: 'Portals'
-  },
-  {
-    appliesTo: 'react',
-    id: 'react.suspense',
-    patterns: [/\bSuspense\b/, /SuspenseList/i, /throwException/i],
-    summary: 'Suspense-related API or reconciler behavior is present.',
-    title: 'Suspense'
-  },
-  {
-    appliesTo: 'react',
-    id: 'react.server-components',
-    patterns: [/react-server/i, /server-components/i, /ReactFlight/i, /FlightClient/i, /ServerReference/i],
-    summary: 'Server Components or Flight-related source is present.',
-    title: 'Server Components and Flight'
-  },
-  {
-    appliesTo: 'react',
-    id: 'react.dom-client-roots',
-    patterns: [/createRoot/i, /hydrateRoot/i, /ReactDOMRoot/i],
-    summary: 'Modern React DOM root creation and hydration APIs are present.',
-    title: 'React DOM root APIs'
-  },
-  {
-    appliesTo: 'react',
-    id: 'react.jsx-runtime',
-    patterns: [/jsx-runtime/i, /ReactJSX/i, /\bjsxDEV\b/],
-    summary: 'Automatic JSX runtime entrypoints or helpers are present.',
-    title: 'JSX runtime'
-  },
-  {
-    appliesTo: 'chakra',
-    id: 'chakra.design-system',
-    patterns: [/packages\/react\/src\/(styled-system|theme|anatomy|recipes|preset|system)/i],
-    summary: 'Design-system primitives such as tokens, recipes, anatomy, or theme code are present.',
-    title: 'Design system primitives'
-  },
-  {
-    appliesTo: 'chakra',
-    id: 'chakra.accessibility',
-    patterns: [/packages\/react\/src\/components\/(.*aria|focus|presence|popover|dialog|menu|tabs|tooltip)/i],
-    summary: 'Accessibility, focus, presence, or interaction primitives are present.',
-    title: 'Accessibility and interaction primitives'
-  }
-]
-
 export async function readMetadata(path: string): Promise<ProjectMetadata | undefined> {
   try {
     return await Files.readJson(path, input => v.parse(ProjectMetadataSchema, input))
@@ -245,21 +136,6 @@ export async function scanRepository(target: ScanTarget): Promise<ScanResult> {
     include: target.project.include
   })
   const pageSpecs = await buildPageSpecs(target, sourceFiles, scanTime)
-
-  await prepareWikiRoot(target.wikiRoot)
-
-  const pages: WikiIndexPage[] = []
-  for (const spec of pageSpecs) {
-    const page = await writePage(target, spec, scanTime)
-    pages.push(page)
-  }
-
-  const indexDocument: WikiIndexDocument = {
-    commit: target.commit,
-    pages: pages.sort((a, b) => a.id.localeCompare(b.id)),
-    projectId: target.project.id,
-    schemaVersion: 1
-  }
   const metadata: ProjectMetadata = {
     branch: target.branch,
     exclude: target.project.exclude,
@@ -272,20 +148,52 @@ export async function scanRepository(target: ScanTarget): Promise<ScanResult> {
     schemaVersion: 1
   }
 
-  await Files.writeJson(join(target.wikiRoot, 'index.json'), indexDocument)
-  await Files.writeJson(join(target.wikiRoot, 'metadata.json'), metadata)
+  const indexDocument = await writeWikiArtifact(target.wikiRoot, target, pageSpecs, metadata, scanTime)
   await appendScanLog(target.wikiRoot, target, scanTime)
+
+  if (target.versionRoot) {
+    await writeWikiArtifact(target.versionRoot, target, pageSpecs, metadata, scanTime)
+    await recordVersion(target.wikiRoot, target, scanTime)
+  }
 
   return {
     index: indexDocument,
-    metadata,
-    preservedPages: []
+    metadata
   }
+}
+
+async function writeWikiArtifact(
+  wikiRoot: string,
+  target: ScanTarget,
+  pageSpecs: PageSpec[],
+  metadata: ProjectMetadata,
+  scanTime: string
+): Promise<WikiIndexDocument> {
+  await prepareWikiRoot(wikiRoot)
+
+  const pages: WikiIndexPage[] = []
+  for (const spec of pageSpecs) {
+    const page = await writePage(wikiRoot, target, spec, scanTime)
+    pages.push(page)
+  }
+
+  const indexDocument: WikiIndexDocument = {
+    commit: target.commit,
+    pages: pages.sort((a, b) => a.id.localeCompare(b.id)),
+    projectId: target.project.id,
+    schemaVersion: 1
+  }
+
+  await Files.writeJson(join(wikiRoot, 'index.json'), indexDocument)
+  await Files.writeJson(join(wikiRoot, 'metadata.json'), metadata)
+
+  return indexDocument
 }
 
 async function prepareWikiRoot(wikiRoot: string): Promise<void> {
   await Files.ensureDir(wikiRoot)
-  for (const path of ['modules', 'contracts', 'flows']) {
+  await Files.removePath(join(wikiRoot, 'flows'), { force: true, recursive: true })
+  for (const path of ['modules', 'contracts']) {
     await Files.removePath(join(wikiRoot, path), { force: true, recursive: true })
     await Files.ensureDir(join(wikiRoot, path))
   }
@@ -315,16 +223,12 @@ function buildOverviewPage(
     .slice(0, 20)
   const moduleLines = moduleSpecs.map(module => `${module.id}: ${module.summary}`)
   const contractLines = contractSpecs.map(contract => `${contract.id}: ${contract.summary}`)
+  const symbolLines = uniq(sourceFiles.flatMap(file => file.symbols))
+    .sort((a, b) => a.localeCompare(b))
+    .slice(0, 40)
   const extensionLines = Object.entries(groupBy(sourceFiles, file => file.extension || 'none'))
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([extension, files]) => `${extension}: ${files.length}`)
-  const signalLines = summarizeSignals(sourceFiles).map(
-    signal =>
-      `${signal.title}: ${signal.summary} Evidence: ${signal.evidence
-        .slice(0, 5)
-        .map(path => `\`${path}\``)
-        .join(', ')}`
-  )
   const body = [
     `# ${target.project.displayName}`,
     '',
@@ -343,9 +247,9 @@ function buildOverviewPage(
     '',
     markdownList(extensionLines),
     '',
-    '## Detected Architecture Signals',
+    '## Notable Symbols',
     '',
-    markdownList(signalLines),
+    markdownList(symbolLines),
     '',
     '## Entry Points',
     '',
@@ -428,13 +332,6 @@ function buildModulePages(projectId: string, sourceFiles: SourceFile[]): PageSpe
       )
         .sort((a, b) => a.localeCompare(b))
         .slice(0, 30)
-      const signalLines = summarizeSignals(files).map(
-        signal =>
-          `${signal.title}: ${signal.summary} Evidence: ${signal.evidence
-            .slice(0, 5)
-            .map(path => `\`${path}\``)
-            .join(', ')}`
-      )
       const id = `module.${logicalId(group)}`
       const sourceRefs = group === 'root' ? keyFiles : [`${group}/**`]
       const title = `${titleize(group)} Module`
@@ -452,10 +349,6 @@ function buildModulePages(projectId: string, sourceFiles: SourceFile[]): PageSpe
           `Extensions: ${formatExtensionCounts(files)}`,
           `Source refs: ${sourceRefs.map(ref => `\`${ref}\``).join(', ')}`
         ]),
-        '',
-        '## Detected Signals',
-        '',
-        markdownList(signalLines),
         '',
         '## Entry Files',
         '',
@@ -589,8 +482,13 @@ function buildRouteContract(target: ScanTarget, routeFiles: string[]): PageSpec 
   }
 }
 
-async function writePage(target: ScanTarget, spec: PageSpec, scanTime: string): Promise<WikiIndexPage> {
-  const absolutePath = join(target.wikiRoot, spec.path)
+async function writePage(
+  wikiRoot: string,
+  target: ScanTarget,
+  spec: PageSpec,
+  scanTime: string
+): Promise<WikiIndexPage> {
+  const absolutePath = join(wikiRoot, spec.path)
   const rendered = renderGeneratedPage({
     body: spec.body,
     generatedFromCommit: target.commit,
@@ -616,6 +514,39 @@ async function writePage(target: ScanTarget, spec: PageSpec, scanTime: string): 
     summary: spec.summary,
     symbols: spec.symbols,
     title: spec.title
+  }
+}
+
+async function recordVersion(wikiRoot: string, target: ScanTarget, scanTime: string): Promise<void> {
+  const versionsPath = join(wikiRoot, 'versions.json')
+  const existing = await readVersions(versionsPath, target.project.id)
+  const version = {
+    branch: target.branch,
+    commit: target.commit,
+    path: `versions/${target.commit}`,
+    ref: target.ref,
+    scannedAt: scanTime
+  }
+  const versions = [...existing.versions.filter(candidate => candidate.commit !== target.commit), version]
+  await Files.writeJson(
+    versionsPath,
+    v.parse(WikiVersionsDocumentSchema, {
+      projectId: target.project.id,
+      schemaVersion: 1,
+      versions
+    })
+  )
+}
+
+async function readVersions(path: string, projectId: string): Promise<WikiVersionsDocument> {
+  try {
+    return await Files.readJson(path, input => v.parse(WikiVersionsDocumentSchema, input))
+  } catch (error) {
+    if (Files.isNotFound(error)) {
+      return { projectId, schemaVersion: 1, versions: [] }
+    }
+
+    throw error
   }
 }
 
@@ -666,7 +597,6 @@ async function analyzeSourceFile(root: string, path: string): Promise<SourceFile
   const extension = fileExtension(path)
   if (Number(stats.size) > 250_000) {
     return {
-      capabilitySignals: capabilitySignalsFor(path, ''),
       extension,
       imports: [],
       path,
@@ -676,7 +606,6 @@ async function analyzeSourceFile(root: string, path: string): Promise<SourceFile
 
   const text = await Files.readText(absolutePath).catch(() => '')
   return {
-    capabilitySignals: capabilitySignalsFor(path, text),
     extension,
     imports: extractImports(text),
     path,
@@ -771,70 +700,24 @@ function isUsefulSymbol(symbol: string): boolean {
   return /^[A-Z]/.test(symbol) || symbol.length >= 5
 }
 
-function capabilitySignalsFor(path: string, text: string): CapabilitySignal[] {
-  return capabilitySignalDefinitions
-    .filter(definition => signalAppliesToPath(definition.appliesTo, path))
-    .filter(definition => definition.patterns.some(pattern => pattern.test(path) || pattern.test(text)))
-    .map(definition => ({
-      evidence: [path],
-      id: definition.id,
-      summary: definition.summary,
-      title: definition.title
-    }))
-}
-
-function signalAppliesToPath(kind: 'chakra' | 'react', path: string): boolean {
-  if (kind === 'react') {
-    return isReactCoreSourcePath(path)
-  }
-
-  return path.startsWith('packages/')
-}
-
-function isReactCoreSourcePath(path: string): boolean {
-  if (path.endsWith('.md')) {
-    return false
-  }
-
-  if (path.startsWith('src/renderers/')) {
-    return true
-  }
-
-  if (
-    /^packages\/react\/(index|jsx-|src\/(React|jsx|ReactChildren|ReactElement|ReactHooks|ReactSharedInternals|ReactVersion))/.test(
-      path
-    )
-  ) {
-    return true
-  }
-
-  return /^packages\/(react-client|react-dom|react-native-renderer|react-noop-renderer|react-reconciler|react-server|react-test-renderer|scheduler|shared)\//.test(
-    path
-  )
-}
-
 function entryPointRank(path: string): number {
   if (path === 'package.json' || path === 'README.md') {
     return 0
   }
 
-  if (path.startsWith('packages/react/')) {
+  if (path.startsWith('packages/')) {
     return 1
   }
 
-  if (path.startsWith('packages/')) {
+  if (path.startsWith('src/')) {
     return 2
   }
 
-  if (path.startsWith('src/')) {
+  if (path.startsWith('apps/')) {
     return 3
   }
 
-  if (path.startsWith('apps/')) {
-    return 4
-  }
-
-  return 5
+  return 4
 }
 
 async function pathType(path: string): Promise<'directory' | 'file' | 'other'> {
@@ -865,6 +748,10 @@ function isCandidateSource(path: string): boolean {
     return false
   }
 
+  if (ignoredFilePatterns.some(pattern => pattern.test(fileName))) {
+    return false
+  }
+
   const extension = fileName.includes('.') ? `.${fileName.split('.').at(-1)}` : ''
   return sourceExtensions.has(extension) || fileName === 'README' || fileName === 'Dockerfile'
 }
@@ -875,23 +762,6 @@ function isIncludedSource(path: string, filters: { exclude?: string[]; include?:
   }
 
   return !matchesAnyPattern(path, filters.exclude ?? [])
-}
-
-function summarizeSignals(files: SourceFile[]): CapabilitySignal[] {
-  const byId = new Map<string, CapabilitySignal>()
-  for (const signal of files.flatMap(file => file.capabilitySignals)) {
-    const existing = byId.get(signal.id)
-    if (existing) {
-      existing.evidence = uniq([...existing.evidence, ...signal.evidence])
-        .sort((a, b) => a.localeCompare(b))
-        .slice(0, 12)
-      continue
-    }
-
-    byId.set(signal.id, { ...signal })
-  }
-
-  return [...byId.values()].sort((a, b) => a.id.localeCompare(b.id))
 }
 
 function formatExtensionCounts(files: SourceFile[]): string {
