@@ -20,6 +20,7 @@ binds to `ctx.args.skills` as an array.
 
 - Bun first, TypeScript, ESM.
 - Command declarations through `defineCommand(name, config)`.
+- One-level command groups through `defineGroup(name, config)`.
 - CLI declarations through `defineCli({ ..., schemaAdapter })`.
 - `args` and `options` schemas use `StandardSchemaV1` from
   `@standard-schema/spec`.
@@ -37,6 +38,7 @@ binds to `ctx.args.skills` as an array.
 - OpenAPI mounting.
 - Global `--format json`.
 - A plugin system.
+- Nested command groups, group aliases, or group-level schema adapters.
 
 ## Dependencies
 
@@ -73,10 +75,17 @@ type CommandConfig<ArgsSchema extends StandardSchemaV1, OptionsSchema extends St
   run: (ctx: CommandContext<ArgsSchema, OptionsSchema>) => unknown | Promise<unknown>
 }
 
+type CommandGroupConfig = {
+  commands: CommandDefinition[]
+  description: string
+}
+
 function defineCommand(name: string, config: CommandConfig): CommandDefinition
 
+function defineGroup(name: string, config: CommandGroupConfig): CommandGroupDefinition
+
 function defineCli(definition: {
-  commands: CommandDefinition[]
+  commands: Array<CommandDefinition | CommandGroupDefinition>
   description: string
   name: string
   schemaAdapter?: SchemaAdapter
@@ -90,6 +99,25 @@ empty object.
 
 `command-kit` validates only the declared `args` and `options` schemas. Business
 rules that compare multiple fields belong in the concrete command implementation.
+
+## Command Groups
+
+Command groups provide one-level subcommand routing for CLIs such as:
+
+```bash
+code-wiki projects add web-app --repo git@github.com:org/web-app.git
+code-wiki runtime set codex
+```
+
+Groups are declarations only. A group has a `name`, `description`, and a flat
+`commands` list. It does not support aliases, a group-level schema adapter, or
+nested groups. Group subcommands use the parent CLI's `schemaAdapter`, and help
+uses the derived CLI name:
+
+```text
+Usage: code-wiki projects <command>
+Usage: code-wiki projects add <project> [options]
+```
 
 ## Standard Schema Validation
 
@@ -260,6 +288,9 @@ skills migrate -g
 - `packages/command-kit` accepts `StandardSchemaV1` for args and options, and
   lets callers omit either field when a command does not need it.
 - `defineCli` accepts optional `schemaAdapter.toStandardJsonSchema`.
+- `defineCli` accepts one-level command groups declared with `defineGroup`.
+- Command groups do not support aliases, group-level schema adapters, or nested
+  groups.
 - Help output shows field descriptions when JSON Schema metadata is available
   and omits them when it is not.
 - `packages/skills` uses Valibot instead of TypeBox.

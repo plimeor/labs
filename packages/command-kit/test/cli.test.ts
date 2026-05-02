@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec'
 import type { JSONSchema7, JSONSchema7Definition } from 'json-schema'
 
-import { defineCli, defineCommand } from '../src/index.js'
+import { defineCli, defineCommand, defineGroup } from '../src/index.js'
 
 type TestSchema<T extends Record<string, unknown>> = StandardSchemaV1<unknown, T> & StandardJSONSchemaV1<unknown, T>
 
@@ -427,5 +427,173 @@ describe('command runtime', () => {
     expect(output).toContain('Use global state')
     expect(output).toContain('--skill <array>')
     expect(output).toContain('Item to add; can be repeated')
+  })
+
+  test('root help includes command groups in declaration order', async () => {
+    const cli = defineCli({
+      description: 'Test CLI',
+      name: 'test',
+      commands: [
+        defineCommand('init', {
+          description: 'Initialize',
+          run: () => ({})
+        }),
+        defineGroup('projects', {
+          description: 'Manage projects',
+          commands: [
+            defineCommand('list', {
+              description: 'List projects',
+              run: () => ({})
+            })
+          ]
+        }),
+        defineCommand('scan', {
+          description: 'Scan projects',
+          run: () => ({})
+        })
+      ]
+    })
+
+    const output = await captureStdout(async () => {
+      await cli.serve(['--help'])
+    })
+
+    expect(output).toContain('Usage: test <command>')
+    expect(output).toContain('  init               Initialize\n  projects           Manage projects\n  scan')
+  })
+
+  test('prints group help with the derived cli name', async () => {
+    const cli = defineCli({
+      description: 'Test CLI',
+      name: 'test',
+      commands: [
+        defineGroup('projects', {
+          description: 'Manage projects',
+          commands: [
+            defineCommand('add', {
+              args: objectSchema<{ project: string }>({
+                project: { type: 'string' }
+              }),
+              description: 'Add project',
+              positionals: [{ name: 'project' }],
+              run: () => ({})
+            })
+          ]
+        })
+      ]
+    })
+
+    const output = await captureStdout(async () => {
+      await cli.serve(['projects', '--help'])
+    })
+
+    expect(output).toContain('test projects — Manage projects')
+    expect(output).toContain('Usage: test projects <command>')
+    expect(output).toContain('  add')
+  })
+
+  test('routes group subcommands through the parent schema adapter', async () => {
+    const optionsJson = objectSchema<{ repo: string }>({
+      repo: { description: 'Project repo URL', type: 'string' }
+    })
+    const options = standardOnlySchema(optionsJson)
+    const jsonSchemas = new WeakMap<StandardSchemaV1, StandardJSONSchemaV1>([[options, optionsJson]])
+    let handled: { project: string; repo: string } | undefined
+    const cli = defineCli({
+      description: 'Test CLI',
+      name: 'test',
+      commands: [
+        defineGroup('projects', {
+          description: 'Manage projects',
+          commands: [
+            defineCommand('add', {
+              args: objectSchema<{ project: string }>({
+                project: { type: 'string' }
+              }),
+              description: 'Add project',
+              options,
+              positionals: [{ name: 'project' }],
+              run: context => {
+                handled = {
+                  project: context.args.project,
+                  repo: context.options.repo
+                }
+              }
+            })
+          ]
+        })
+      ],
+      schemaAdapter: {
+        toStandardJsonSchema: schema => jsonSchemas.get(schema)
+      }
+    })
+
+    const output = await captureStdout(async () => {
+      await cli.serve(['projects', 'add', 'web-app', '--repo', 'git@example.com:org/web-app.git'])
+    })
+
+    expect(output).toBe('')
+    expect(handled).toEqual({
+      project: 'web-app',
+      repo: 'git@example.com:org/web-app.git'
+    })
+  })
+
+  test('group subcommand help and missing argument help use the derived command path', async () => {
+    const cli = defineCli({
+      description: 'Test CLI',
+      name: 'test',
+      commands: [
+        defineGroup('projects', {
+          description: 'Manage projects',
+          commands: [
+            defineCommand('add', {
+              args: objectSchema<{ project: string }>({
+                project: { description: 'Project id', type: 'string' }
+              }),
+              description: 'Add project',
+              positionals: [{ name: 'project' }],
+              run: () => ({})
+            })
+          ]
+        })
+      ]
+    })
+
+    const help = await captureStdout(async () => {
+      await cli.serve(['projects', 'add', '--help'])
+    })
+    const error = await captureStderr(async () => {
+      await cli.serve(['projects', 'add'])
+    })
+
+    expect(help).toContain('test projects add — Add project')
+    expect(help).toContain('Usage: test projects add <project> [options]')
+    expect(error).toContain('Missing argument: project')
+    expect(error).toContain('Usage: test projects add <project> [options]')
+  })
+
+  test('reports unknown subcommands inside command groups', async () => {
+    const cli = defineCli({
+      description: 'Test CLI',
+      name: 'test',
+      commands: [
+        defineGroup('projects', {
+          description: 'Manage projects',
+          commands: [
+            defineCommand('list', {
+              description: 'List projects',
+              run: () => ({})
+            })
+          ]
+        })
+      ]
+    })
+
+    const output = await captureStderr(async () => {
+      await cli.serve(['projects', 'missing'])
+    })
+
+    expect(output).toContain('Unknown command: missing')
   })
 })

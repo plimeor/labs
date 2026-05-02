@@ -27,6 +27,10 @@ export type CommandDefinition<
   name: string
 }
 
+export type CommandGroupDefinition = CommandGroupConfig & {
+  name: string
+}
+
 export type CommandConfig<
   ArgsSchema extends StandardSchemaV1 = EmptyObjectSchema,
   OptionsSchema extends StandardSchemaV1 = EmptyObjectSchema
@@ -42,8 +46,15 @@ export type CommandConfig<
   ) => Promise<unknown | CommandResult<unknown>> | unknown | CommandResult<unknown>
 }
 
-export type CliDefinition = {
+export type CommandGroupConfig = {
   commands: CommandDefinition<any, any>[]
+  description: string
+}
+
+export type CliEntry = CommandDefinition<any, any> | CommandGroupDefinition
+
+export type CliDefinition = {
+  commands: CliEntry[]
   description: string
   name: string
   schemaAdapter?: SchemaAdapter
@@ -53,6 +64,13 @@ export function defineCommand<
   ArgsSchema extends StandardSchemaV1 = EmptyObjectSchema,
   OptionsSchema extends StandardSchemaV1 = EmptyObjectSchema
 >(name: string, config: CommandConfig<ArgsSchema, OptionsSchema>): CommandDefinition<ArgsSchema, OptionsSchema> {
+  return {
+    ...config,
+    name
+  }
+}
+
+export function defineGroup(name: string, config: CommandGroupConfig): CommandGroupDefinition {
   return {
     ...config,
     name
@@ -73,8 +91,8 @@ async function serve(cli: CliDefinition, argv: string[]): Promise<void> {
   }
 
   const commandName = argv[0]
-  const command = findCommand(cli.commands, commandName)
-  if (!command) {
+  const entry = findEntry(cli.commands, commandName)
+  if (!entry) {
     const result = normalizeFailure(
       new CommandRuntimeError(CommandErrorCode.CommandNotFound, `Unknown command: ${commandName}`)
     )
@@ -82,6 +100,20 @@ async function serve(cli: CliDefinition, argv: string[]): Promise<void> {
     return
   }
 
+  if (isCommandGroup(entry)) {
+    await serve(
+      {
+        commands: entry.commands,
+        description: entry.description,
+        name: `${cli.name} ${entry.name}`,
+        schemaAdapter: cli.schemaAdapter
+      },
+      argv.slice(1)
+    )
+    return
+  }
+
+  const command = entry
   if (argv.includes('--help') || argv.includes('-h')) {
     process.stdout.write(formatCommandHelp(cli, command, resolveCommandJsonSchemas(cli, command)))
     return
@@ -171,8 +203,12 @@ function createInteractiveGuard(json: boolean): () => void {
   }
 }
 
-function findCommand(commands: CommandDefinition<any, any>[], name: string): CommandDefinition<any, any> | undefined {
-  return commands.find(command => command.name === name || command.aliases?.includes(name))
+function findEntry(entries: CliEntry[], name: string): CliEntry | undefined {
+  return entries.find(entry => entry.name === name || (!isCommandGroup(entry) && entry.aliases?.includes(name)))
+}
+
+function isCommandGroup(entry: CliEntry): entry is CommandGroupDefinition {
+  return 'commands' in entry
 }
 
 function getArgsSchema<ArgsSchema extends StandardSchemaV1>(command: {
@@ -234,7 +270,7 @@ function writeErrorResult(result: { error: CommandError; ok: false }, help?: str
 
 function formatCliHelp(cli: CliDefinition): string {
   const commandLines = cli.commands
-    .map(command => `  ${formatCommandNames(command).padEnd(18)} ${command.description}`)
+    .map(entry => `  ${formatEntryNames(entry).padEnd(18)} ${entry.description}`)
     .join('\n')
 
   return `${cli.name} — ${cli.description}\n\nUsage: ${cli.name} <command>\n\nCommands:\n${commandLines}\n\nGlobal Options:\n  --help, -h  Show help\n`
@@ -270,6 +306,10 @@ function formatCommandHelp(cli: CliDefinition, command: CommandDefinition, schem
 
 function formatCommandNames(command: CommandDefinition): string {
   return command.aliases?.length ? `${command.name}, ${command.aliases.join(', ')}` : command.name
+}
+
+function formatEntryNames(entry: CliEntry): string {
+  return isCommandGroup(entry) ? entry.name : formatCommandNames(entry)
 }
 
 function formatPositionals(positionals: PositionalSpec[]): string {
