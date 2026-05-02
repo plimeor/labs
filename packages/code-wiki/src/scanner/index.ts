@@ -39,6 +39,14 @@ type CapabilitySignal = {
   title: string
 }
 
+type CapabilitySignalDefinition = {
+  appliesTo: 'chakra' | 'react'
+  id: string
+  patterns: RegExp[]
+  summary: string
+  title: string
+}
+
 type PageSpec = {
   body: string
   dependsOn?: string[]
@@ -113,26 +121,30 @@ const sourceExtensions = new Set([
   '.yml'
 ])
 
-const capabilitySignalDefinitions = [
+const capabilitySignalDefinitions: CapabilitySignalDefinition[] = [
   {
+    appliesTo: 'react',
     id: 'react.legacy-stack',
     patterns: [/stack\/reconciler/i, /ReactMount/i, /instantiateReactComponent/i, /ReactCompositeComponent/i],
     summary: 'Legacy React stack reconciler and mounting flow are present in the scanned source.',
     title: 'Legacy stack reconciler'
   },
   {
+    appliesTo: 'react',
     id: 'react.fiber',
     patterns: [/ReactFiber/i, /FiberRoot/i, /createFiber/i, /packages\/react-reconciler/i],
     summary: 'Fiber reconciler code paths are present in the scanned source.',
     title: 'Fiber reconciler'
   },
   {
+    appliesTo: 'react',
     id: 'react.concurrent-lanes',
     patterns: [/ReactFiberLane/i, /\bLanes?\b/, /ConcurrentRoot/i, /startTransition/i],
     summary: 'Concurrent scheduling or lane-based update priority code is present.',
     title: 'Concurrent scheduling lanes'
   },
   {
+    appliesTo: 'react',
     id: 'react.hooks',
     summary: 'Hook APIs or hook dispatcher internals are present.',
     title: 'Hooks',
@@ -142,38 +154,44 @@ const capabilitySignalDefinitions = [
     ]
   },
   {
+    appliesTo: 'react',
     id: 'react.suspense',
     patterns: [/\bSuspense\b/, /SuspenseList/i, /throwException/i],
     summary: 'Suspense-related API or reconciler behavior is present.',
     title: 'Suspense'
   },
   {
+    appliesTo: 'react',
     id: 'react.server-components',
     patterns: [/react-server/i, /server-components/i, /ReactFlight/i, /FlightClient/i, /ServerReference/i],
     summary: 'Server Components or Flight-related source is present.',
     title: 'Server Components and Flight'
   },
   {
+    appliesTo: 'react',
     id: 'react.dom-client-roots',
     patterns: [/createRoot/i, /hydrateRoot/i, /ReactDOMRoot/i],
     summary: 'Modern React DOM root creation and hydration APIs are present.',
     title: 'React DOM root APIs'
   },
   {
+    appliesTo: 'react',
     id: 'react.jsx-runtime',
     patterns: [/jsx-runtime/i, /ReactJSX/i, /\bjsxDEV\b/],
     summary: 'Automatic JSX runtime entrypoints or helpers are present.',
     title: 'JSX runtime'
   },
   {
+    appliesTo: 'chakra',
     id: 'chakra.design-system',
-    patterns: [/styled-system/i, /recipes/i, /tokens/i, /theme/i, /anatomy/i],
+    patterns: [/packages\/react\/src\/(styled-system|theme|components|anatomy|recipes|preset|system)/i],
     summary: 'Design-system primitives such as tokens, recipes, anatomy, or theme code are present.',
     title: 'Design system primitives'
   },
   {
+    appliesTo: 'chakra',
     id: 'chakra.accessibility',
-    patterns: [/aria/i, /focus/i, /roving/i, /dismissable/i, /presence/i],
+    patterns: [/packages\/react\/src\/components\/(.*aria|focus|presence|popover|dialog|menu|tabs|tooltip)/i],
     summary: 'Accessibility, focus, presence, or interaction primitives are present.',
     title: 'Accessibility and interaction primitives'
   }
@@ -685,6 +703,7 @@ function extractImports(text: string): string[] {
 
 function capabilitySignalsFor(path: string, text: string): CapabilitySignal[] {
   return capabilitySignalDefinitions
+    .filter(definition => signalAppliesToPath(definition.appliesTo, path))
     .filter(definition => definition.patterns.some(pattern => pattern.test(path) || pattern.test(text)))
     .map(definition => ({
       evidence: [path],
@@ -692,6 +711,14 @@ function capabilitySignalsFor(path: string, text: string): CapabilitySignal[] {
       summary: definition.summary,
       title: definition.title
     }))
+}
+
+function signalAppliesToPath(kind: 'chakra' | 'react', path: string): boolean {
+  if (kind === 'react') {
+    return path.startsWith('src/') || path.startsWith('packages/')
+  }
+
+  return path.startsWith('packages/')
 }
 
 async function pathType(path: string): Promise<'directory' | 'file' | 'other'> {

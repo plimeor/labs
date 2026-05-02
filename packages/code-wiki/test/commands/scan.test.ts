@@ -78,6 +78,55 @@ describe('scan command', () => {
     expect(await readText(join(wikiRoot, 'overview.md'))).toContain('Indexed source files: 1')
   })
 
+  test('keeps framework-specific architecture signals scoped to source paths', async () => {
+    const reactRepo = await tempDir('code-wiki-scan-react-signals-')
+    const reactWiki = await tempDir('code-wiki-scan-react-signals-wiki-')
+    await mkdir(join(reactRepo, 'docs'), { recursive: true })
+    await writeFile(join(reactRepo, 'docs', 'theme.md'), 'tokens recipes theme aria server-components\n')
+
+    await scanRepository({
+      branch: 'main',
+      commit: 'react-docs',
+      ref: 'v15.6.2',
+      repoRoot: reactRepo,
+      wikiRoot: reactWiki,
+      project: {
+        displayName: 'React',
+        id: 'react',
+        ref: 'v15.6.2',
+        repoUrl: 'https://github.com/facebook/react.git',
+        wikiPath: '.code-wiki/projects/react'
+      }
+    })
+
+    const reactOverview = await readText(join(reactWiki, 'overview.md'))
+    expect(reactOverview).not.toContain('Design system primitives')
+    expect(reactOverview).not.toContain('Accessibility and interaction primitives')
+    expect(reactOverview).not.toContain('Server Components and Flight')
+
+    const chakraRepo = await tempDir('code-wiki-scan-chakra-signals-')
+    const chakraWiki = await tempDir('code-wiki-scan-chakra-signals-wiki-')
+    await mkdir(join(chakraRepo, 'packages', 'react', 'src', 'theme'), { recursive: true })
+    await writeFile(join(chakraRepo, 'packages', 'react', 'src', 'theme', 'tokens.ts'), 'export const tokens = {}\n')
+
+    await scanRepository({
+      branch: 'main',
+      commit: 'chakra',
+      ref: 'main',
+      repoRoot: chakraRepo,
+      wikiRoot: chakraWiki,
+      project: {
+        displayName: 'Chakra',
+        id: 'chakra',
+        ref: 'main',
+        repoUrl: 'https://github.com/chakra-ui/chakra-ui.git',
+        wikiPath: '.code-wiki/projects/chakra'
+      }
+    })
+
+    expect(await readText(join(chakraWiki, 'overview.md'))).toContain('Design system primitives')
+  })
+
   test('uses the configured shared project ref when scanning managed clones', async () => {
     const remote = await tempDir('code-wiki-scan-remote-')
     await run('git', ['init', '-q', '-b', 'main'], remote)
