@@ -383,44 +383,6 @@ describe('command runtime', () => {
     expect(output).toContain('--global  Use global state')
   })
 
-  test('validates request-level args and options before running commands', async () => {
-    let ran = false
-    const cli = defineCli({
-      description: 'Test CLI',
-      name: 'test',
-      commands: [
-        defineCommand('add', {
-          args: objectSchema<{ source: string }>({
-            source: { type: 'string' }
-          }),
-          description: 'Add items',
-          options: objectSchema<{ all?: boolean }>({
-            all: { type: 'boolean' }
-          }),
-          positionals: [{ name: 'source' }],
-          validate: objectSchema<{ args: { source: string }; options: { all?: boolean } }>(
-            {
-              args: { type: 'object' },
-              options: { type: 'object' }
-            },
-            value => (value.args.source === 'repo' && value.options.all ? [{ message: 'invalid combination' }] : [])
-          ),
-          run: () => {
-            ran = true
-            return {}
-          }
-        })
-      ]
-    })
-
-    const output = await captureStderr(async () => {
-      await cli.serve(['add', 'repo', '--all'])
-    })
-
-    expect(output).toContain('Invalid request')
-    expect(ran).toBe(false)
-  })
-
   test('command help includes aliases and options', async () => {
     const cli = defineCli({
       description: 'Test CLI',

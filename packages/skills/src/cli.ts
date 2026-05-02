@@ -3,7 +3,7 @@
 import { defineCli, defineCommand } from '@plimeor/command-kit'
 import { toStandardJsonSchema } from '@valibot/to-json-schema'
 
-import { addArgsSchema, addCommand, addOptionsSchema, addRequestSchema } from './commands/add.js'
+import { addArgsSchema, addCommand, addOptionsSchema } from './commands/add.js'
 import { listCommand, listOptionsSchema } from './commands/list.js'
 import { migrateArgsSchema, migrateCommand, migrateOptionsSchema } from './commands/migrate.js'
 import { removeArgsSchema, removeCommand, removeOptionsSchema } from './commands/remove.js'
@@ -23,7 +23,6 @@ export function createCli() {
         options: addOptionsSchema,
         positionals: [{ name: 'source' }, { name: 'skills', optional: true, rest: true }],
         run: addCommand,
-        validate: addRequestSchema,
         optionAliases: {
           global: 'g'
         }

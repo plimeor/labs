@@ -40,7 +40,6 @@ export type CommandConfig<
   run: (
     context: CommandContext<ArgsSchema, OptionsSchema>
   ) => Promise<unknown | CommandResult<unknown>> | unknown | CommandResult<unknown>
-  validate?: StandardSchemaV1
 }
 
 export type CliDefinition = {
@@ -139,33 +138,10 @@ async function runCommand<ArgsSchema extends StandardSchemaV1, OptionsSchema ext
   json: boolean
 ): Promise<unknown | CommandResult<unknown>> {
   if (!json) {
-    await validateCommandRequest(command, context)
     return command.run(context)
   }
 
-  return withSuppressedOutput(async () => {
-    await validateCommandRequest(command, context)
-    return command.run(context)
-  })
-}
-
-async function validateCommandRequest<ArgsSchema extends StandardSchemaV1, OptionsSchema extends StandardSchemaV1>(
-  command: CommandDefinition<ArgsSchema, OptionsSchema>,
-  context: CommandContext<ArgsSchema, OptionsSchema>
-): Promise<void> {
-  if (!command.validate) {
-    return
-  }
-
-  await validateSchema(
-    command.validate,
-    {
-      args: context.args,
-      options: context.options
-    },
-    CommandErrorCode.InvalidArguments,
-    'request'
-  )
+  return withSuppressedOutput(() => command.run(context))
 }
 
 async function withSuppressedOutput<T>(callback: () => Promise<T> | T): Promise<T> {
