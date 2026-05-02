@@ -60,7 +60,7 @@ TypeBox is not part of the current command-kit or skills command contract.
 import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec'
 
 type SchemaAdapter = {
-  toStandardJsonSchema: (schema: StandardSchemaV1) => StandardJSONSchemaV1 | undefined
+  toStandardJsonSchema: (schema: any) => StandardJSONSchemaV1 | undefined
 }
 
 type CommandConfig<ArgsSchema extends StandardSchemaV1, OptionsSchema extends StandardSchemaV1> = {
@@ -71,7 +71,6 @@ type CommandConfig<ArgsSchema extends StandardSchemaV1, OptionsSchema extends St
   options?: OptionsSchema
   positionals?: PositionalSpec[]
   run: (ctx: CommandContext<ArgsSchema, OptionsSchema>) => unknown | Promise<unknown>
-  validate?: StandardSchemaV1
 }
 
 function defineCommand(name: string, config: CommandConfig): CommandDefinition
@@ -89,9 +88,8 @@ function defineCli(definition: {
 or options, callers omit the corresponding field and command-kit treats it as an
 empty object.
 
-`validate`, when present, validates `{ args, options }` after the individual
-`args` and `options` schemas pass. It exists for cross-field and cross-schema
-rules such as `skills add --all <skill>`.
+`command-kit` validates only the declared `args` and `options` schemas. Business
+rules that compare multiple fields belong in the concrete command implementation.
 
 ## Standard Schema Validation
 
@@ -111,8 +109,7 @@ Validation stages:
    empty-object schema when omitted.
 3. Validate options with the command's `options` `StandardSchemaV1`, or an
    internal empty-object schema when omitted.
-4. Validate `{ args, options }` with optional command `validate` schema.
-5. Call `run(ctx)` only after all validation succeeds.
+4. Call `run(ctx)` only after schema validation succeeds.
 
 ## JSON Schema Metadata
 
@@ -221,12 +218,11 @@ For the first skills migration, only `skills list` declares `--json`.
 
 ## Skills Migration Contract
 
-`packages/skills` uses Valibot schemas for args, options, and request-level
-validation:
+`packages/skills` uses Valibot schemas for args and options:
 
 - Field shape and type validation live in Valibot object schemas.
 - Parameter constraints use `v.check`.
-- Cross-field rules use a command-level `validate` schema over `{ args, options }`.
+- Cross-field business rules live in the concrete command implementation.
 - Help descriptions use Valibot `v.description`.
 - The CLI passes `schemaAdapter: { toStandardJsonSchema }` to `defineCli`.
 

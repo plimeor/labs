@@ -22,19 +22,6 @@ export const addOptionsSchema = v.object({
   ref: optionalString('Git ref to install from'),
   skill: optionalStringArray('Skill name to install; can be repeated')
 })
-export const addRequestSchema = v.pipe(
-  v.object({
-    args: addArgsSchema,
-    options: addOptionsSchema
-  }),
-  v.check(request => !(request.options.commit && request.options.ref), 'add cannot specify both --commit and --ref'),
-  v.check(
-    request =>
-      !request.options.all ||
-      normalizeSkills([...(request.args.skills ?? []), ...(request.options.skill ?? [])]).length === 0,
-    'add cannot specify both --all and skill names'
-  )
-)
 
 export type AddCommandContext = {
   args: v.InferOutput<typeof addArgsSchema>
@@ -42,6 +29,7 @@ export type AddCommandContext = {
 }
 
 export async function addCommand(context: AddCommandContext) {
+  validateAddRequest(context)
   const scope = resolveScope(context.options.global ?? false)
   log.step(`Using ${formatScope(scope)} skills state`)
 
@@ -95,6 +83,19 @@ export async function addCommand(context: AddCommandContext) {
     await Lock.write(scope, lock)
     log.success(`Updated ${formatDisplayPath(scope.manifestPath)} and ${formatDisplayPath(scope.lockPath)}`)
   })
+}
+
+function validateAddRequest(context: AddCommandContext): void {
+  if (context.options.commit && context.options.ref) {
+    throw new Error('add cannot specify both --commit and --ref')
+  }
+
+  if (
+    context.options.all &&
+    normalizeSkills([...(context.args.skills ?? []), ...(context.options.skill ?? [])]).length > 0
+  ) {
+    throw new Error('add cannot specify both --all and skill names')
+  }
 }
 
 function checkoutRequest({ args, options }: AddCommandContext): Checkout.Request {
