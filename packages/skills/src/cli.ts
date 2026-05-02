@@ -18,10 +18,10 @@ export function createCli() {
     commands: [
       defineCommand('add', {
         aliases: ['a'],
+        argBindings: [{ name: 'source' }, { name: 'skills', optional: true, rest: true }],
         args: addArgsSchema,
         description: 'Install skills and update skills.json plus skills.lock.json',
         options: addOptionsSchema,
-        positionals: [{ name: 'source' }, { name: 'skills', optional: true, rest: true }],
         run: addCommand,
         optionAliases: {
           global: 'g'
@@ -29,10 +29,10 @@ export function createCli() {
       }),
       defineCommand('remove', {
         aliases: ['rm'],
+        argBindings: [{ name: 'skills', rest: true }],
         args: removeArgsSchema,
         description: 'Remove installed skills and update state files',
         options: removeOptionsSchema,
-        positionals: [{ name: 'skills', rest: true }],
         run: removeCommand,
         optionAliases: {
           global: 'g'
@@ -65,10 +65,10 @@ export function createCli() {
         }
       }),
       defineCommand('migrate', {
+        argBindings: [{ name: 'input', optional: true }],
         args: migrateArgsSchema,
         description: 'Convert an old skills lock file into skills.json',
         options: migrateOptionsSchema,
-        positionals: [{ name: 'input', optional: true }],
         run: migrateCommand,
         optionAliases: {
           global: 'g'

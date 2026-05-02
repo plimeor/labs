@@ -1,0 +1,226 @@
+import { basename } from 'node:path'
+
+import { $ } from 'zx'
+
+import { Files } from './files.js'
+import { normalizeProjectId } from './types.js'
+
+export type GitIdentity = {
+  branch: string
+  commit: string
+  repoUrl?: string
+  root: string
+}
+
+export type NormalizedGitRemote = {
+  ref?: string
+  repoUrl: string
+}
+
+export async function requireGitRoot(cwd: string): Promise<string> {
+  return gitOutput(cwd, ['rev-parse', '--show-toplevel'])
+}
+
+export async function readGitIdentity(cwd: string): Promise<GitIdentity> {
+  const root = await requireGitRoot(cwd)
+  const [commit, branch, repoUrl] = await Promise.all([
+    gitOutput(root, ['rev-parse', 'HEAD']),
+    currentBranch(root),
+    optionalGitOutput(root, ['config', '--get', 'remote.origin.url'])
+  ])
+
+  return {
+    branch,
+    commit,
+    repoUrl,
+    root
+  }
+}
+
+export async function inferProjectIdFromRoot(root: string): Promise<string> {
+  const remoteUrl = await optionalGitOutput(root, ['config', '--get', 'remote.origin.url'])
+  const source = remoteUrl
+    ? remoteUrl
+        .replace(/\.git$/, '')
+        .split(/[/:]/)
+        .at(-1)
+    : basename(root)
+  return normalizeProjectId(source ?? basename(root))
+}
+
+export async function ensureManagedClone(repoUrl: string, repoPath: string): Promise<void> {
+  const gitDir = `${repoPath}/.git`
+  if (!(await Files.pathExists(gitDir))) {
+    if (await Files.pathExists(repoPath)) {
+      throw new Error(`Managed repo path exists but is not a Git clone: ${repoPath}`)
+    }
+
+    await Files.ensureDir(repoPath)
+    await $({ cwd: repoPath, quiet: true })`git init -q`
+    await $({ cwd: repoPath, quiet: true })`git remote add origin ${repoUrl}`
+  }
+
+  await $({ cwd: repoPath, quiet: true })`git remote set-url origin ${repoUrl}`
+}
+
+export async function fetchProjectRef(
+  repoPath: string,
+  ref: string
+): Promise<{ branch: string; commit: string; ref: string }> {
+  if (ref === 'HEAD') {
+    const branch = await remoteDefaultBranch(repoPath)
+    await fetchRemoteBranch(repoPath, branch)
+    await $({ cwd: repoPath, quiet: true })`git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/${branch}`
+    return resolveProjectRef(repoPath, ref)
+  }
+
+  if (await remoteBranchExists(repoPath, ref)) {
+    await fetchRemoteBranch(repoPath, ref)
+    return resolveProjectRef(repoPath, ref)
+  }
+
+  if (await remoteTagExists(repoPath, ref)) {
+    await fetchRemoteTag(repoPath, ref)
+    return resolveProjectRef(repoPath, ref)
+  }
+
+  const directFetch = await $({
+    cwd: repoPath,
+    quiet: true
+  })`git fetch --filter=blob:none --depth=1 origin ${ref}`.nothrow()
+  if (directFetch.exitCode !== 0) {
+    await fetchAllRefsWithoutBlobs(repoPath)
+  }
+
+  return resolveProjectRef(repoPath, ref)
+}
+
+export async function resolveProjectRef(
+  repoPath: string,
+  ref: string
+): Promise<{ branch: string; commit: string; ref: string }> {
+  if (ref === 'HEAD') {
+    const commit = await gitOutput(repoPath, ['rev-parse', 'origin/HEAD'])
+    const branch = await remoteHeadBranch(repoPath)
+    return { branch, commit, ref }
+  }
+
+  const candidates = [
+    { branch: ref, revision: `refs/remotes/origin/${ref}` },
+    { branch: ref, revision: `origin/${ref}` },
+    { branch: ref, revision: `refs/tags/${ref}` },
+    { branch: ref, revision: ref }
+  ]
+
+  for (const candidate of candidates) {
+    const commit = await optionalGitOutput(repoPath, ['rev-parse', '--verify', `${candidate.revision}^{commit}`])
+    if (commit) {
+      return {
+        branch: candidate.branch,
+        commit,
+        ref
+      }
+    }
+  }
+
+  throw new Error(`Unable to resolve project ref ${ref}`)
+}
+
+async function remoteHeadBranch(repoPath: string): Promise<string> {
+  const branchRef = await optionalGitOutput(repoPath, ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'])
+  return branchRef?.replace(/^origin\//, '') ?? 'HEAD'
+}
+
+async function remoteDefaultBranch(repoPath: string): Promise<string> {
+  const output = await gitOutput(repoPath, ['ls-remote', '--symref', 'origin', 'HEAD'])
+  const match = output.match(/^ref: refs\/heads\/(.+)\s+HEAD/m)
+  return match?.[1] ?? 'HEAD'
+}
+
+async function remoteBranchExists(repoPath: string, branch: string): Promise<boolean> {
+  return Boolean(await optionalGitOutput(repoPath, ['ls-remote', '--heads', 'origin', branch]))
+}
+
+async function remoteTagExists(repoPath: string, tag: string): Promise<boolean> {
+  return Boolean(await optionalGitOutput(repoPath, ['ls-remote', '--tags', 'origin', tag]))
+}
+
+async function fetchRemoteBranch(repoPath: string, branch: string): Promise<void> {
+  await $({
+    cwd: repoPath,
+    quiet: true
+  })`git fetch --filter=blob:none --depth=1 origin +refs/heads/${branch}:refs/remotes/origin/${branch}`
+}
+
+async function fetchRemoteTag(repoPath: string, tag: string): Promise<void> {
+  await $({
+    cwd: repoPath,
+    quiet: true
+  })`git fetch --filter=blob:none --depth=1 origin +refs/tags/${tag}:refs/tags/${tag}`
+}
+
+async function fetchAllRefsWithoutBlobs(repoPath: string): Promise<void> {
+  await $({
+    cwd: repoPath,
+    quiet: true
+  })`git fetch --prune --filter=blob:none origin +refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/*`
+}
+
+async function currentBranch(root: string): Promise<string> {
+  const branch = await optionalGitOutput(root, ['rev-parse', '--abbrev-ref', 'HEAD'])
+  return branch && branch !== 'HEAD' ? branch : 'HEAD'
+}
+
+async function gitOutput(cwd: string, args: string[]): Promise<string> {
+  const output = await $({ cwd, quiet: true })`git ${args}`
+  return output.stdout.trim()
+}
+
+async function optionalGitOutput(cwd: string, args: string[]): Promise<string | undefined> {
+  const output = await $({ cwd, quiet: true })`git ${args}`.nothrow()
+  const value = output.stdout.trim()
+  return output.exitCode === 0 && value ? value : undefined
+}
+
+export function normalizeGitRemote(input: string): NormalizedGitRemote {
+  const trimmed = input.trim()
+  const github = parseGithubTreeUrl(trimmed)
+  if (github) {
+    return github
+  }
+
+  return { repoUrl: trimmed }
+}
+
+function parseGithubTreeUrl(input: string): NormalizedGitRemote | undefined {
+  let url: URL
+  try {
+    url = new URL(input)
+  } catch {
+    return undefined
+  }
+
+  if (url.hostname !== 'github.com') {
+    return undefined
+  }
+
+  const [owner, repoWithSuffix, marker, ...refParts] = url.pathname.split('/').filter(Boolean)
+  if (!owner || !repoWithSuffix) {
+    return undefined
+  }
+
+  const repo = repoWithSuffix.replace(/\.git$/, '')
+  const repoUrl = `https://github.com/${owner}/${repo}.git`
+  if ((marker === 'tree' || marker === 'blob') && refParts.length > 0) {
+    return {
+      ref: refParts.join('/'),
+      repoUrl
+    }
+  }
+
+  if (url.protocol === 'https:') {
+    return { repoUrl }
+  }
+
+  return undefined
+}

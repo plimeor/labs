@@ -1,10 +1,10 @@
 {
-  "homepage": "https://github.com/plimeor/labs/tree/main/packages/skills",
-  "name": "@plimeor/skills",
+  "homepage": "https://github.com/plimeor/labs/tree/main/packages/code-wiki",
+  "name": "@plimeor/code-wiki",
   "type": "module",
-  "version": "0.1.4",
+  "version": "0.1.0",
   "bin": {
-    "skills": "./src/cli.ts"
+    "code-wiki": "./src/cli.ts"
   },
   "bugs": {
     "url": "https://github.com/plimeor/labs/issues"
@@ -13,6 +13,7 @@
     "@clack/prompts": "catalog:",
     "@plimeor/command-kit": "workspace:*",
     "@valibot/to-json-schema": "catalog:",
+    "es-toolkit": "catalog:",
     "valibot": "catalog:",
     "zx": "catalog:"
   },
@@ -23,12 +24,12 @@
     "access": "public"
   },
   "repository": {
-    "directory": "packages/skills",
+    "directory": "packages/code-wiki",
     "type": "git",
     "url": "git+https://github.com/plimeor/labs.git"
   },
   "scripts": {
-    "lint": "biome check src test",
+    "lint": "biome check src",
     "prepack": "bun src/cli.ts --help >/dev/null",
     "test": "bun test test"
   }

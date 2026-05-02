@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec'
 import type { JSONSchema7, JSONSchema7Definition } from 'json-schema'
 
-import { defineCli, defineCommand } from '../src/index.js'
+import { defineCli, defineCommand, defineGroup } from '../src/index.js'
 
 type TestSchema<T extends Record<string, unknown>> = StandardSchemaV1<unknown, T> & StandardJSONSchemaV1<unknown, T>
 
@@ -21,8 +21,8 @@ function objectSchema<T extends Record<string, unknown>>(
       vendor: 'command-kit-test',
       version: 1,
       jsonSchema: {
-        input: () => jsonSchema,
-        output: () => jsonSchema
+        input: () => jsonSchema as unknown as Record<string, unknown>,
+        output: () => jsonSchema as unknown as Record<string, unknown>
       },
       validate(value) {
         if (!isRecord(value)) {
@@ -132,19 +132,19 @@ async function captureStderr(callback: () => Promise<void>): Promise<string> {
 }
 
 describe('command runtime', () => {
-  test('binds first positional and rest positional array', async () => {
+  test('binds first arg value and rest arg value array', async () => {
     const cli = defineCli({
       description: 'Test CLI',
       name: 'test',
       commands: [
         defineCommand('add', {
+          argBindings: [{ name: 'source' }, { name: 'skills', rest: true }],
           args: objectSchema<{ skills: string[]; source: string }>({
             skills: { items: { type: 'string' }, type: 'array' },
             source: { type: 'string' }
           }),
           description: 'Add skills',
           options: jsonOptionSchema,
-          positionals: [{ name: 'source' }, { name: 'skills', rest: true }],
           run: context => ({
             skills: context.args.skills,
             source: context.args.source
@@ -297,11 +297,11 @@ describe('command runtime', () => {
       name: 'test',
       commands: [
         defineCommand('add', {
+          argBindings: [{ name: 'source' }],
           args: objectSchema<{ source: string }>({
             source: { type: 'string' }
           }),
           description: 'Add items',
-          positionals: [{ name: 'source' }],
           run: () => ({})
         })
       ]
@@ -324,11 +324,11 @@ describe('command runtime', () => {
       name: 'test',
       commands: [
         defineCommand('add', {
+          argBindings: [{ name: 'source' }],
           args: objectSchema<{ source: string }>({
             source: { type: 'string' }
           }),
           description: 'Add items',
-          positionals: [{ name: 'source' }],
           run: () => ({})
         })
       ]
@@ -366,7 +366,7 @@ describe('command runtime', () => {
           args,
           description: 'Add items',
           options,
-          positionals: [{ name: 'source' }],
+          argBindings: [{ name: 'source' }],
           run: () => ({})
         })
       ],
@@ -390,6 +390,7 @@ describe('command runtime', () => {
       commands: [
         defineCommand('add', {
           aliases: ['a'],
+          argBindings: [{ name: 'source' }, { name: 'items', rest: true }],
           args: objectSchema<{ items: string[]; source: string }>({
             items: { items: { type: 'string' }, type: 'array' },
             source: { type: 'string' }
@@ -403,7 +404,6 @@ describe('command runtime', () => {
               type: 'array'
             }
           }),
-          positionals: [{ name: 'source' }, { name: 'items', rest: true }],
           optionAliases: {
             global: 'g'
           },
@@ -427,5 +427,212 @@ describe('command runtime', () => {
     expect(output).toContain('Use global state')
     expect(output).toContain('--skill <array>')
     expect(output).toContain('Item to add; can be repeated')
+  })
+
+  test('root help includes command groups in declaration order', async () => {
+    const cli = defineCli({
+      description: 'Test CLI',
+      name: 'test',
+      commands: [
+        defineCommand('init', {
+          description: 'Initialize',
+          run: () => ({})
+        }),
+        defineGroup('projects', {
+          description: 'Manage projects',
+          commands: [
+            defineCommand('list', {
+              description: 'List projects',
+              run: () => ({})
+            })
+          ]
+        }),
+        defineCommand('scan', {
+          description: 'Scan projects',
+          run: () => ({})
+        })
+      ]
+    })
+
+    const output = await captureStdout(async () => {
+      await cli.serve(['--help'])
+    })
+
+    expect(output).toContain('Usage: test <command>')
+    expect(output).toContain('  init               Initialize\n  projects           Manage projects\n  scan')
+  })
+
+  test('prints group help with the derived cli name', async () => {
+    const cli = defineCli({
+      description: 'Test CLI',
+      name: 'test',
+      commands: [
+        defineGroup('projects', {
+          description: 'Manage projects',
+          commands: [
+            defineCommand('add', {
+              argBindings: [{ name: 'project' }],
+              args: objectSchema<{ project: string }>({
+                project: { type: 'string' }
+              }),
+              description: 'Add project',
+              run: () => ({})
+            })
+          ]
+        })
+      ]
+    })
+
+    const output = await captureStdout(async () => {
+      await cli.serve(['projects', '--help'])
+    })
+
+    expect(output).toContain('test projects — Manage projects')
+    expect(output).toContain('Usage: test projects <command>')
+    expect(output).toContain('  add')
+  })
+
+  test('routes group subcommands through the parent schema adapter', async () => {
+    const optionsJson = objectSchema<{ repo: string }>({
+      repo: { description: 'Project repo URL', type: 'string' }
+    })
+    const options = standardOnlySchema(optionsJson)
+    const jsonSchemas = new WeakMap<StandardSchemaV1, StandardJSONSchemaV1>([[options, optionsJson]])
+    let handled: { project: string; repo: string } | undefined
+    const cli = defineCli({
+      description: 'Test CLI',
+      name: 'test',
+      commands: [
+        defineGroup('projects', {
+          description: 'Manage projects',
+          commands: [
+            defineCommand('add', {
+              args: objectSchema<{ project: string }>({
+                project: { type: 'string' }
+              }),
+              description: 'Add project',
+              options,
+              argBindings: [{ name: 'project' }],
+              run: context => {
+                handled = {
+                  project: context.args.project,
+                  repo: context.options.repo
+                }
+              }
+            })
+          ]
+        })
+      ],
+      schemaAdapter: {
+        toStandardJsonSchema: schema => jsonSchemas.get(schema)
+      }
+    })
+
+    const output = await captureStdout(async () => {
+      await cli.serve(['projects', 'add', 'web-app', '--repo', 'git@example.com:org/web-app.git'])
+    })
+
+    expect(output).toBe('')
+    expect(handled).toEqual({
+      project: 'web-app',
+      repo: 'git@example.com:org/web-app.git'
+    })
+  })
+
+  test('group subcommand help and missing argument help use the derived command path', async () => {
+    const cli = defineCli({
+      description: 'Test CLI',
+      name: 'test',
+      commands: [
+        defineGroup('projects', {
+          description: 'Manage projects',
+          commands: [
+            defineCommand('add', {
+              argBindings: [{ name: 'project' }],
+              args: objectSchema<{ project: string }>({
+                project: { description: 'Project id', type: 'string' }
+              }),
+              description: 'Add project',
+              run: () => ({})
+            })
+          ]
+        })
+      ]
+    })
+
+    const help = await captureStdout(async () => {
+      await cli.serve(['projects', 'add', '--help'])
+    })
+    const error = await captureStderr(async () => {
+      await cli.serve(['projects', 'add'])
+    })
+
+    expect(help).toContain('test projects add — Add project')
+    expect(help).toContain('Usage: test projects add <project> [options]')
+    expect(error).toContain('Missing argument: project')
+    expect(error).toContain('Usage: test projects add <project> [options]')
+  })
+
+  test('reports unknown subcommands inside command groups', async () => {
+    const cli = defineCli({
+      description: 'Test CLI',
+      name: 'test',
+      commands: [
+        defineGroup('projects', {
+          description: 'Manage projects',
+          commands: [
+            defineCommand('list', {
+              description: 'List projects',
+              run: () => ({})
+            })
+          ]
+        })
+      ]
+    })
+
+    const output = await captureStderr(async () => {
+      await cli.serve(['projects', 'missing'])
+    })
+
+    expect(output).toContain('Unknown command: missing')
+  })
+
+  test('types constrain arg binding and option alias names to schema fields', () => {
+    const args = objectSchema<{ age: string; name: string }>({
+      age: { type: 'string' },
+      name: { type: 'string' }
+    })
+    const options = objectSchema<{ global?: boolean }>({
+      global: { type: 'boolean' }
+    })
+
+    defineCommand('typed', {
+      args,
+      description: 'Typed command',
+      options,
+      argBindings: [{ name: 'name' }, { name: 'age' }],
+      optionAliases: {
+        global: 'g'
+      },
+      run: () => ({})
+    })
+
+    defineCommand('bad-arg-binding', {
+      args,
+      // @ts-expect-error argBindings must reference args schema fields
+      argBindings: [{ name: 'missing' }],
+      description: 'Bad arg binding',
+      run: () => ({})
+    })
+
+    defineCommand('bad-option-alias', {
+      description: 'Bad option alias',
+      options,
+      optionAliases: {
+        // @ts-expect-error optionAliases must reference options schema fields
+        missing: 'm'
+      },
+      run: () => ({})
+    })
   })
 })
