@@ -125,7 +125,10 @@ describe('scan command', () => {
       }
     })
 
-    expect(await readText(join(chakraWiki, 'overview.md'))).toContain('Design system primitives')
+    const chakraOverview = await readText(join(chakraWiki, 'overview.md'))
+    expect(chakraOverview).toContain('Design system primitives')
+    expect(chakraOverview).not.toContain('Hooks')
+    expect(chakraOverview).not.toContain('Portals')
   })
 
   test('uses the configured shared project ref when scanning managed clones', async () => {

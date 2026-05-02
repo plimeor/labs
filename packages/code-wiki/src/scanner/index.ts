@@ -213,7 +213,7 @@ const capabilitySignalDefinitions: CapabilitySignalDefinition[] = [
   {
     appliesTo: 'chakra',
     id: 'chakra.design-system',
-    patterns: [/packages\/react\/src\/(styled-system|theme|components|anatomy|recipes|preset|system)/i],
+    patterns: [/packages\/react\/src\/(styled-system|theme|anatomy|recipes|preset|system)/i],
     summary: 'Design-system primitives such as tokens, recipes, anatomy, or theme code are present.',
     title: 'Design system primitives'
   },
@@ -311,6 +311,7 @@ function buildOverviewPage(
     .filter(path =>
       /(^|\/)(README\.md|package\.json|src\/.*\.(ts|tsx|js|jsx)|main\.(ts|js)|index\.(ts|js))$/i.test(path)
     )
+    .sort((a, b) => entryPointRank(a) - entryPointRank(b) || a.localeCompare(b))
     .slice(0, 20)
   const moduleLines = moduleSpecs.map(module => `${module.id}: ${module.summary}`)
   const contractLines = contractSpecs.map(contract => `${contract.id}: ${contract.summary}`)
@@ -799,9 +800,37 @@ function isReactCoreSourcePath(path: string): boolean {
     return true
   }
 
-  return /^packages\/(react|react-client|react-dom|react-native-renderer|react-noop-renderer|react-reconciler|react-server|react-test-renderer|scheduler|shared)\//.test(
+  if (
+    /^packages\/react\/(index|jsx-|src\/(React|jsx|ReactChildren|ReactElement|ReactHooks|ReactSharedInternals|ReactVersion))/.test(
+      path
+    )
+  ) {
+    return true
+  }
+
+  return /^packages\/(react-client|react-dom|react-native-renderer|react-noop-renderer|react-reconciler|react-server|react-test-renderer|scheduler|shared)\//.test(
     path
   )
+}
+
+function entryPointRank(path: string): number {
+  if (path === 'package.json' || path === 'README.md') {
+    return 0
+  }
+
+  if (path.startsWith('packages/')) {
+    return 1
+  }
+
+  if (path.startsWith('src/')) {
+    return 2
+  }
+
+  if (path.startsWith('apps/')) {
+    return 3
+  }
+
+  return 4
 }
 
 async function pathType(path: string): Promise<'directory' | 'file' | 'other'> {
