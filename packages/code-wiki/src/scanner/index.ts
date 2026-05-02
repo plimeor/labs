@@ -818,19 +818,23 @@ function entryPointRank(path: string): number {
     return 0
   }
 
-  if (path.startsWith('packages/')) {
+  if (path.startsWith('packages/react/')) {
     return 1
   }
 
-  if (path.startsWith('src/')) {
+  if (path.startsWith('packages/')) {
     return 2
   }
 
-  if (path.startsWith('apps/')) {
+  if (path.startsWith('src/')) {
     return 3
   }
 
-  return 4
+  if (path.startsWith('apps/')) {
+    return 4
+  }
+
+  return 5
 }
 
 async function pathType(path: string): Promise<'directory' | 'file' | 'other'> {
