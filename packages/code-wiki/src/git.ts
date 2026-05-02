@@ -57,22 +57,34 @@ export async function ensureManagedClone(repoUrl: string, repoPath: string): Pro
   await $({ cwd: repoPath, quiet: true })`git remote set-head origin -a`.nothrow()
 }
 
-export async function checkoutRemoteHead(repoPath: string): Promise<{ branch: string; commit: string }> {
-  const commit = await gitOutput(repoPath, ['rev-parse', 'origin/HEAD'])
-  const branchRef = await optionalGitOutput(repoPath, ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'])
-  const branch = branchRef?.replace(/^origin\//, '') ?? 'HEAD'
-  await $({ cwd: repoPath, quiet: true })`git checkout --detach ${commit}`
+export async function checkoutRemoteBranch(
+  repoPath: string,
+  defaultBranch: string
+): Promise<{ branch: string; commit: string }> {
+  const latest = await latestRemoteBranch(repoPath, defaultBranch)
+  await $({ cwd: repoPath, quiet: true })`git checkout --detach ${latest.commit}`
+
+  return latest
+}
+
+export async function latestRemoteBranch(
+  repoPath: string,
+  defaultBranch: string
+): Promise<{ branch: string; commit: string }> {
+  const remoteRef = remoteRefForDefaultBranch(defaultBranch)
+  const commit = await gitOutput(repoPath, ['rev-parse', remoteRef])
+  const branch = defaultBranch === 'HEAD' ? await remoteHeadBranch(repoPath) : defaultBranch
 
   return { branch, commit }
 }
 
-export async function latestRemoteHead(repoPath: string): Promise<{ branch: string; commit: string }> {
-  const commit = await gitOutput(repoPath, ['rev-parse', 'origin/HEAD'])
+async function remoteHeadBranch(repoPath: string): Promise<string> {
   const branchRef = await optionalGitOutput(repoPath, ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'])
-  return {
-    branch: branchRef?.replace(/^origin\//, '') ?? 'HEAD',
-    commit
-  }
+  return branchRef?.replace(/^origin\//, '') ?? 'HEAD'
+}
+
+function remoteRefForDefaultBranch(defaultBranch: string): string {
+  return defaultBranch === 'HEAD' ? 'origin/HEAD' : `origin/${defaultBranch}`
 }
 
 async function currentBranch(root: string): Promise<string> {

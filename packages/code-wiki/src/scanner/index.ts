@@ -5,7 +5,7 @@ import * as v from 'valibot'
 
 import { Files } from '../files.js'
 import { isRecord } from '../json.js'
-import { markdownList, readAuthority, renderGeneratedPage, slugify } from '../markdown/pages.js'
+import { isHumanAuthority, markdownList, readAuthority, renderGeneratedPage, slugify } from '../markdown/pages.js'
 import type {
   ProjectEntry,
   ProjectMetadata,
@@ -115,7 +115,10 @@ export async function readMetadata(path: string): Promise<ProjectMetadata | unde
 
 export async function scanRepository(target: ScanTarget): Promise<ScanResult> {
   const scanTime = new Date().toISOString()
-  const sourceFiles = await collectSourceFiles(target.repoRoot)
+  const sourceFiles = await collectSourceFiles(target.repoRoot, {
+    exclude: target.project.exclude,
+    include: target.project.include
+  })
   const pageSpecs = await buildPageSpecs(target, sourceFiles, scanTime)
   const preservedPages: string[] = []
 
@@ -271,7 +274,7 @@ function buildModulePages(projectId: string, sourceFiles: SourceFile[]): PageSpe
         '',
         '## Responsibility',
         '',
-        `Generated summary for \`${projectId}\` files under \`${group}\`. Treat this as routing context, not final human-confirmed design truth.`,
+        `Generated summary for \`${projectId}\` files under \`${group}\`. Treat this as routing context, not final human design truth.`,
         '',
         '## Key Files',
         '',
@@ -412,7 +415,7 @@ async function writePage(target: ScanTarget, spec: PageSpec, scanTime: string): 
   if (await Files.pathExists(absolutePath)) {
     const existing = await Files.readText(absolutePath)
     const existingAuthority = readAuthority(existing)
-    if (existingAuthority === 'human-corrected' || existingAuthority === 'human-confirmed') {
+    if (isHumanAuthority(existingAuthority)) {
       authority = existingAuthority
       contentHash = readFrontmatterField(existing, 'contentHash') ?? rendered.contentHash
     } else {
@@ -461,11 +464,21 @@ async function appendScanLog(
   await Files.writeText(logPath, `${existing.trimEnd()}\n\n${entry}`)
 }
 
-async function collectSourceFiles(root: string): Promise<SourceFile[]> {
+async function collectSourceFiles(
+  root: string,
+  filters: {
+    exclude?: string[]
+    include?: string[]
+  }
+): Promise<SourceFile[]> {
   const paths = await walk(root)
   const files: SourceFile[] = []
   for (const path of paths.sort((a, b) => a.localeCompare(b))) {
     if (!isCandidateSource(path)) {
+      continue
+    }
+
+    if (!isIncludedSource(path, filters)) {
       continue
     }
 
@@ -552,6 +565,55 @@ function isCandidateSource(path: string): boolean {
   return sourceExtensions.has(extension) || fileName === 'README' || fileName === 'Dockerfile'
 }
 
+function isIncludedSource(path: string, filters: { exclude?: string[]; include?: string[] }): boolean {
+  if (filters.include && filters.include.length > 0 && !matchesAnyPattern(path, filters.include)) {
+    return false
+  }
+
+  return !matchesAnyPattern(path, filters.exclude ?? [])
+}
+
+function matchesAnyPattern(path: string, patterns: string[]): boolean {
+  return patterns.some(pattern => matchesPathPattern(path, pattern))
+}
+
+function matchesPathPattern(path: string, pattern: string): boolean {
+  const normalizedPattern = toPosixPath(pattern)
+    .replace(/^\.?\//, '')
+    .replace(/\/$/, '')
+  if (!normalizedPattern) {
+    return false
+  }
+
+  if (!normalizedPattern.includes('*')) {
+    return path === normalizedPattern || path.startsWith(`${normalizedPattern}/`)
+  }
+
+  return globToRegExp(normalizedPattern).test(path)
+}
+
+function globToRegExp(pattern: string): RegExp {
+  let source = '^'
+  for (let index = 0; index < pattern.length; index += 1) {
+    const char = pattern[index]
+    const next = pattern[index + 1]
+    if (char === '*' && next === '*') {
+      source += '.*'
+      index += 1
+      continue
+    }
+
+    if (char === '*') {
+      source += '[^/]*'
+      continue
+    }
+
+    source += escapeRegExp(char)
+  }
+
+  return new RegExp(`${source}$`)
+}
+
 function moduleGroup(path: string): string {
   const parts = path.split('/')
   if (parts.length === 1) {
@@ -611,6 +673,10 @@ function formatPackageBins(bin: unknown): string {
 function readFrontmatterField(markdown: string, field: string): string | undefined {
   const match = markdown.match(/^---\n([\s\S]*?)\n---/)
   return match?.[1]?.match(new RegExp(`^${field}:\\s*(.+)$`, 'm'))?.[1]?.trim()
+}
+
+function escapeRegExp(input: string): string {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 function toPosixPath(path: string): string {

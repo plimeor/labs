@@ -1,10 +1,11 @@
 # @plimeor/code-wiki
 
-PRD review-first code wiki CLI.
+Code wiki CLI for codebase Q&A, PRD review, and coding plan generation.
 
 The executable is `code-wiki`. It stores durable wiki state as Markdown plus
 small JSON metadata files under `.code-wiki/`, keeps managed clones under
-`.code-wiki/repos/`, and uses a local agent runtime for PRD review.
+`.code-wiki/repos/`, and gives local agent runtimes focused code context for
+answering codebase questions, reviewing PRDs, and producing coding plans.
 
 ## Installation
 

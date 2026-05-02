@@ -5,15 +5,7 @@ import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { stableStringify } from './json.js'
 
 export namespace Files {
-  export enum ErrorKind {
-    AlreadyExists = 'already_exists',
-    BadResource = 'bad_resource',
-    Busy = 'busy',
-    NotFound = 'not_found',
-    NotSymbolicLink = 'not_symbolic_link',
-    PermissionDenied = 'permission_denied',
-    Unknown = 'unknown'
-  }
+  export type ErrorKind = 'not_found' | 'not_symbolic_link'
 
   export type FileInfo = Stats
 
@@ -83,34 +75,22 @@ export namespace Files {
     }
 
     if (error.code === 'EINVAL' && isReadLinkError(error)) {
-      return ErrorKind.NotSymbolicLink
+      return 'not_symbolic_link'
     }
 
-    switch (error.code) {
-      case 'ENOENT':
-        return ErrorKind.NotFound
-      case 'EEXIST':
-        return ErrorKind.AlreadyExists
-      case 'EACCES':
-      case 'EPERM':
-        return ErrorKind.PermissionDenied
-      case 'EBUSY':
-        return ErrorKind.Busy
-      case 'EISDIR':
-      case 'ENOTDIR':
-      case 'ELOOP':
-        return ErrorKind.BadResource
-      default:
-        return ErrorKind.Unknown
+    if (error.code === 'ENOENT') {
+      return 'not_found'
     }
+
+    return undefined
   }
 
   export function isNotFound(error: unknown): boolean {
-    return errorKind(error) === ErrorKind.NotFound
+    return errorKind(error) === 'not_found'
   }
 
   export function isNotSymbolicLinkReadError(error: unknown): boolean {
-    return errorKind(error) === ErrorKind.NotSymbolicLink
+    return errorKind(error) === 'not_symbolic_link'
   }
 
   async function parentDirForWritablePath(path: string): Promise<string> {

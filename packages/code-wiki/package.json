@@ -13,7 +13,6 @@
     "@clack/prompts": "catalog:",
     "@plimeor/command-kit": "workspace:*",
     "@valibot/to-json-schema": "catalog:",
-    "effect": "catalog:",
     "es-toolkit": "catalog:",
     "valibot": "catalog:",
     "zx": "catalog:"

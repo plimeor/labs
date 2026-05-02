@@ -1,6 +1,5 @@
 import { join } from 'node:path'
 
-import { Effect } from 'effect'
 import * as v from 'valibot'
 
 import { Files } from '../files.js'
@@ -129,31 +128,17 @@ export async function runReview(input: {
   reportsDir: string
   runtime: RuntimeId
 }): Promise<string> {
-  return Effect.runPromise(
-    Effect.gen(function* () {
-      const contextPages = yield* Effect.tryPromise({
-        catch: normalizeError,
-        try: () => loadRelevantContextPages(input.prd, input.contexts)
-      })
-      const prompt = buildReviewPrompt(input.prd, input.contexts, contextPages)
-      const agentOutput = yield* Effect.tryPromise({
-        catch: normalizeError,
-        try: () =>
-          runRuntime({
-            cwd: input.cwd,
-            prompt,
-            runtime: input.runtime
-          })
-      })
-      const report = renderReport(input.prd, input.contexts, contextPages, agentOutput)
-      const reportPath = join(input.reportsDir, `${timestampSlug()}-${slugify(input.prd.label)}.md`)
-      yield* Effect.tryPromise({
-        catch: normalizeError,
-        try: () => Files.writeText(reportPath, report)
-      })
-      return reportPath
-    })
-  )
+  const contextPages = await loadRelevantContextPages(input.prd, input.contexts)
+  const prompt = buildReviewPrompt(input.prd, input.contexts, contextPages)
+  const agentOutput = await runRuntime({
+    cwd: input.cwd,
+    prompt,
+    runtime: input.runtime
+  })
+  const report = renderReport(input.prd, input.contexts, contextPages, agentOutput)
+  const reportPath = join(input.reportsDir, `${timestampSlug()}-${slugify(input.prd.label)}.md`)
+  await Files.writeText(reportPath, report)
+  return reportPath
 }
 
 export async function loadRelevantContextPages(
@@ -243,7 +228,7 @@ function renderReport(
   pages: ReviewContextPage[],
   agentOutput: string
 ): string {
-  const body = ensureReportSections(agentOutput)
+  const body = requireReportSections(agentOutput)
   return [
     '# CodeWiki Review Report',
     '',
@@ -256,7 +241,7 @@ function renderReport(
   ].join('\n')
 }
 
-function ensureReportSections(output: string): string {
+function requireReportSections(output: string): string {
   const required = [
     'Code-level objective',
     'Missing requirements',
@@ -265,35 +250,12 @@ function ensureReportSections(output: string): string {
     'Regression scope',
     'Open questions'
   ]
-  if (required.every(section => new RegExp(`^#{1,3}\\s+${escapeRegExp(section)}\\b`, 'im').test(output))) {
+  const missing = required.filter(section => !new RegExp(`^#{1,3}\\s+${escapeRegExp(section)}\\b`, 'im').test(output))
+  if (missing.length === 0) {
     return output
   }
 
-  return [
-    '## Code-level objective',
-    '',
-    'See agent review output below.',
-    '',
-    '## Missing requirements',
-    '',
-    'See agent review output below.',
-    '',
-    '## Project plans',
-    '',
-    output.trim(),
-    '',
-    '## Integration plan',
-    '',
-    'See agent review output above.',
-    '',
-    '## Regression scope',
-    '',
-    'See agent review output above.',
-    '',
-    '## Open questions',
-    '',
-    'See agent review output above.'
-  ].join('\n')
+  throw new Error(`Runtime review output is missing required sections: ${missing.join(', ')}`)
 }
 
 function parseProjectProposal(output: string): RuntimeProjectProposal {
@@ -321,8 +283,4 @@ function timestampSlug(): string {
 
 function escapeRegExp(input: string): string {
   return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
-function normalizeError(error: unknown): Error {
-  return error instanceof Error ? error : new Error(String(error))
 }

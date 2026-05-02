@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { log } from '@clack/prompts'
 import * as v from 'valibot'
 
-import { checkoutRemoteHead, ensureManagedClone, latestRemoteHead, readGitIdentity } from '../git.js'
+import { checkoutRemoteBranch, ensureManagedClone, latestRemoteBranch, readGitIdentity } from '../git.js'
 import { readProjects, requireProject } from '../projects.js'
 import { readMetadata, scanRepository } from '../scanner/index.js'
 import { type ProjectEntry, TextSchema } from '../types.js'
@@ -38,9 +38,9 @@ async function scanShared(workspace: Awaited<ReturnType<typeof resolveWorkspace>
   let scanned = 0
   for (const project of projects) {
     const repoPath = managedRepoPath(workspace.root, project)
-    log.step(`Fetching ${project.id}`)
+    log.info(`Fetching ${project.id}`)
     await ensureManagedClone(project.repoUrl, repoPath)
-    const latest = await latestRemoteHead(repoPath)
+    const latest = await latestRemoteBranch(repoPath, project.defaultBranch)
     const wikiRoot = join(workspace.root, project.wikiPath)
     const metadata = await readMetadata(join(wikiRoot, 'metadata.json'))
     if (!projectId && metadata?.lastScannedCommit === latest.commit) {
@@ -48,8 +48,8 @@ async function scanShared(workspace: Awaited<ReturnType<typeof resolveWorkspace>
       continue
     }
 
-    const checkout = await checkoutRemoteHead(repoPath)
-    log.step(`Scanning ${project.id} at ${checkout.commit.slice(0, 7)}`)
+    const checkout = await checkoutRemoteBranch(repoPath, project.defaultBranch)
+    log.info(`Scanning ${project.id} at ${checkout.commit.slice(0, 7)}`)
     await scanRepository({
       branch: checkout.branch,
       commit: checkout.commit,

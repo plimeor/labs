@@ -23,6 +23,25 @@ const multiselectCalls: MultiselectOptions[] = []
 const runtimePrompts: string[] = []
 let confirmResult: boolean | symbol = false
 let multiselectResult: string[] | symbol = ['platform']
+let reviewOutput = [
+  '## Code-level objective',
+  'Update the selected project.',
+  '',
+  '## Missing requirements',
+  'Clarify rollout.',
+  '',
+  '## Project plans',
+  'Use the routed wiki context.',
+  '',
+  '## Integration plan',
+  'Coordinate contracts.',
+  '',
+  '## Regression scope',
+  'Run focused checks.',
+  '',
+  '## Open questions',
+  'Who approves release?'
+].join('\n')
 
 mock.module('@clack/prompts', () => ({
   cancel: () => undefined,
@@ -31,6 +50,10 @@ mock.module('@clack/prompts', () => ({
     return confirmResult
   },
   isCancel: (value: unknown) => typeof value === 'symbol',
+  log: {
+    info: () => undefined,
+    success: () => undefined
+  },
   multiselect: async (options: MultiselectOptions) => {
     multiselectCalls.push(options)
     return multiselectResult
@@ -45,25 +68,7 @@ mock.module('../../src/runtime/index.js', () => ({
       return '{"projects":[{"id":"web-app","reason":"PRD mentions web billing."}]}'
     }
 
-    return [
-      '## Code-level objective',
-      'Update the selected project.',
-      '',
-      '## Missing requirements',
-      'Clarify rollout.',
-      '',
-      '## Project plans',
-      'Use the routed wiki context.',
-      '',
-      '## Integration plan',
-      'Coordinate contracts.',
-      '',
-      '## Regression scope',
-      'Run focused checks.',
-      '',
-      '## Open questions',
-      'Who approves release?'
-    ].join('\n')
+    return reviewOutput
   }
 }))
 
@@ -75,6 +80,25 @@ afterEach(() => {
   runtimePrompts.length = 0
   confirmResult = false
   multiselectResult = ['platform']
+  reviewOutput = [
+    '## Code-level objective',
+    'Update the selected project.',
+    '',
+    '## Missing requirements',
+    'Clarify rollout.',
+    '',
+    '## Project plans',
+    'Use the routed wiki context.',
+    '',
+    '## Integration plan',
+    'Coordinate contracts.',
+    '',
+    '## Regression scope',
+    'Run focused checks.',
+    '',
+    '## Open questions',
+    'Who approves release?'
+  ].join('\n')
 })
 
 describe('review command', () => {
@@ -102,6 +126,26 @@ describe('review command', () => {
     const report = await Bun.file(join(cwd, '.code-wiki', 'reports', reports[0])).text()
     expect(report).toContain('Projects: platform')
     expect(report).toContain('## Code-level objective')
+  })
+
+  test('fails instead of writing a report when runtime output misses required sections', async () => {
+    const cwd = await tempDir('code-wiki-review-invalid-')
+    await writeSharedWorkspace(cwd)
+    confirmResult = true
+    reviewOutput = '## Project plans\nOnly partial output.\n'
+
+    await expect(
+      withTemporaryTty(() =>
+        withCwd(cwd, () =>
+          reviewCommand({
+            args: { prd: 'prd.md' },
+            options: {}
+          })
+        )
+      )
+    ).rejects.toThrow('Runtime review output is missing required sections')
+
+    expect(await readdir(join(cwd, '.code-wiki', 'reports'))).toEqual([])
   })
 })
 

@@ -135,8 +135,8 @@ export type WikiPageKind = v.InferOutput<typeof WikiPageKindSchema>
 
 export const WikiPageAuthoritySchema = v.pipe(
   v.unknown(),
-  v.transform(input => (input === 'human-confirmed' || input === 'human-corrected' ? input : 'generated')),
-  v.picklist(['generated', 'human-corrected', 'human-confirmed'])
+  v.transform(input => (input === 'human-corrected' ? input : 'generated')),
+  v.picklist(['generated', 'human-corrected'])
 )
 export type WikiPageAuthority = v.InferOutput<typeof WikiPageAuthoritySchema>
 

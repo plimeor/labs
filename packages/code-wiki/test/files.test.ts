@@ -16,7 +16,7 @@ describe('Files', () => {
       await Files.statPath(missingPath)
       throw new Error('Expected statPath to throw for a missing path')
     } catch (error) {
-      expect(Files.errorKind(error)).toBe(Files.ErrorKind.NotFound)
+      expect(Files.errorKind(error)).toBe('not_found')
       expect(Files.isNotFound(error)).toBe(true)
     }
   })
@@ -39,7 +39,7 @@ describe('Files', () => {
       await Files.readSymbolicLink(filePath)
       throw new Error('Expected readSymbolicLink to throw for a regular file')
     } catch (error) {
-      expect(Files.errorKind(error)).toBe(Files.ErrorKind.NotSymbolicLink)
+      expect(Files.errorKind(error)).toBe('not_symbolic_link')
       expect(Files.isNotSymbolicLinkReadError(error)).toBe(true)
     }
   })

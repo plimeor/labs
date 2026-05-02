@@ -60,7 +60,7 @@ export function createCli() {
   })
 
   return defineCli({
-    description: 'PRD review-first code wiki CLI',
+    description: 'Code wiki CLI for codebase Q&A, PRD review, and coding plans',
     name: 'code-wiki',
     commands: [
       defineCommand('init', {

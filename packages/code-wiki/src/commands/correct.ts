@@ -29,7 +29,7 @@ export async function correctCommand(context: CorrectCommandContext) {
     `## ${timestamp} correction`,
     '',
     `- Correction source: ${target.correctionPath}`,
-    '- Authority: human-corrected',
+    '- Correction status: human-corrected',
     '',
     correctionContent.trim(),
     ''

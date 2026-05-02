@@ -7,11 +7,11 @@ Related spec: `docs/specs/code-wiki-evaluation.md`
 
 ## Objective
 
-Build `code-wiki` as a PRD review-first code wiki CLI.
+Build `code-wiki` as a code wiki CLI for three connected jobs: codebase Q&A, PRD review, and coding plan generation.
 
-The first product proof is narrow: a small frontend team can register code projects, scan them into durable Markdown wikis, and review a PRD against selected project wikis to produce a more stable code-level implementation plan.
+The first product proof is narrow: a small frontend team can register code projects, scan them into durable Markdown wikis, and review a PRD against selected project wikis to produce a more stable code-level coding plan.
 
-Success is not "complete repository documentation". Success is that a review report catches missing requirements, names concrete code changes, exposes integration risks, and gives the team a better implementation starting point before coding begins.
+Success is not "complete repository documentation". Success is that the wiki can answer targeted codebase questions, a review report catches missing requirements, concrete code changes are named, integration risks are exposed, and the team gets a better coding plan before implementation begins.
 
 ## Scope Layers
 
@@ -237,13 +237,13 @@ Shared-wiki scan:
 1. Resolve the shared CodeWiki repository and project registry.
 2. If no project argument is provided, enter auto mode:
    - Ensure each registered project's managed clone exists.
-   - Fetch each project's configured default branch.
-   - Read the latest default-branch commit.
+   - Fetch each project and resolve its configured `defaultBranch`; `HEAD` means the remote default branch.
+   - Read the latest configured-branch commit.
    - Compare it with the project's last scanned commit from `metadata.json`.
    - Select only projects whose latest commit differs from `lastScannedCommit`, plus never-scanned projects.
 3. If a project argument is provided, scan only that project.
-4. For each selected project, check out the latest default-branch commit in its managed clone.
-5. Scan the managed clone.
+4. For each selected project, check out the latest configured-branch commit in its managed clone.
+5. Scan the managed clone, applying the project entry's include/exclude rules before generating pages.
 6. Write wiki output under `.code-wiki/projects/<project-id>/`.
 7. Write or update `index.json` with routable page metadata for the generated wiki pages.
 8. Write `metadata.json` with `lastScannedCommit`, branch, repo URL, scan time, and include/exclude rules.
@@ -255,7 +255,7 @@ Embedded scan:
 1. Resolve the current Git repository and embedded config.
 2. Compare the current Git commit with `.code-wiki/wiki/metadata.json.lastScannedCommit`.
 3. If unchanged, print an up-to-date result and do not rewrite wiki files.
-4. If changed or never scanned, scan the current repository.
+4. If changed or never scanned, scan the current repository, applying the embedded project entry's include/exclude rules if present.
 5. Write wiki output under `.code-wiki/wiki/`.
 6. Write or update `index.json` with routable page metadata for the generated wiki pages.
 7. Write `metadata.json` with `lastScannedCommit`, branch, repo URL, scan time, and include/exclude rules.
@@ -350,8 +350,8 @@ Rules:
 - Review must use `index.json` to choose context before reading page bodies.
 - Contract pages are required for stable boundaries that can affect multiple modules or projects. Do not bury API, event, data model, package, or route contracts only inside module prose.
 - Automatic scan output is not final truth. Human corrections have higher authority than generated summaries.
-- Authority order is `human-confirmed` > `human-corrected` > `generated`.
-- A later scan must not silently overwrite human-corrected or human-confirmed content. If source code changes make a human correction suspect, mark the page or correction as stale and append to `log.md`.
+- Authority order is `human-corrected` > `generated`.
+- A later scan must not silently overwrite human-corrected content. If source code changes make a human correction suspect, append the concern to `log.md`.
 
 ## Review Report Contract
 
@@ -361,6 +361,10 @@ Rules:
 2. Missing requirements: PRD gaps and ambiguity that affect implementation.
 3. Project plans: affected modules, concrete code changes, implementation steps, local risks, regression scope, verification notes.
 4. Integration plan: contracts, coordination points, rollout order, open questions.
+5. Regression scope: focused checks and likely breakage surfaces.
+6. Open questions: unresolved decisions that block implementation confidence.
+
+If runtime output misses required sections, `review` must fail explicitly instead of writing a structurally padded report.
 
 The report must distinguish observed wiki facts, PRD-derived requirements, inferred risks, and open questions. Observed wiki facts should cite wiki page ids, contract ids, or source refs when available.
 
@@ -466,7 +470,7 @@ Never:
 - Depend on developer checkout paths in shared-wiki mode.
 - Commit `.code-wiki/repos/`.
 - Silently edit the source PRD.
-- Treat automatic scan output as final human-confirmed knowledge.
+- Treat automatic scan output as human-corrected knowledge.
 - Require a database, embedding store, or complete semantic code graph for the MVP wiki contract.
 - Start a shared-wiki review from runtime-guessed projects before user confirmation.
 - Build a public runtime plugin system in MVP.

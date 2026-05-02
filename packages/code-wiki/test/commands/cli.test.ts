@@ -16,7 +16,7 @@ describe('cli command groups', () => {
       await cli.serve(['projects', '--help'])
     })
 
-    expect(rootHelp).toContain('code-wiki — PRD review-first code wiki CLI')
+    expect(rootHelp).toContain('code-wiki — Code wiki CLI for codebase Q&A, PRD review, and coding plans')
     expect(rootHelp).toContain('  runtime')
     expect(rootHelp).toContain('  projects')
     expect(projectsHelp).toContain('code-wiki projects — Manage shared CodeWiki projects')
