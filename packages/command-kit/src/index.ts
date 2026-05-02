@@ -1,5 +1,5 @@
 export type { CliDefinition, CommandConfig, CommandContext, CommandDefinition } from './define.js'
-export { defineCli, defineCommand, emptyArgsSchema, emptyOptionsSchema } from './define.js'
+export { defineCli, defineCommand } from './define.js'
 export type { CommandError } from './errors.js'
 export { CommandErrorCode, CommandRuntimeError } from './errors.js'
 export type { CommandResult, OutputMode } from './output.js'

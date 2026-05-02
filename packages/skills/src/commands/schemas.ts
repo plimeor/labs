@@ -1,7 +1,5 @@
 import * as v from 'valibot'
 
-export const emptyArgsSchema = v.object({})
-
 export function optionalBoolean(description: string) {
   return v.optional(v.pipe(v.boolean(), v.description(description)))
 }

@@ -10,9 +10,8 @@ import { Lock } from '../lock.js'
 import { Manifest } from '../manifest.js'
 import { formatDisplayPath, resolveScope } from '../scope.js'
 import { SyncPlan } from '../sync-plan.js'
-import { emptyArgsSchema, optionalBoolean } from './schemas.js'
+import { optionalBoolean } from './schemas.js'
 
-export const syncArgsSchema = emptyArgsSchema
 export const syncOptionsSchema = v.object({
   dryRun: optionalBoolean('Print the planned changes without writing state'),
   global: optionalBoolean('Use the global skills manifest and lock file'),

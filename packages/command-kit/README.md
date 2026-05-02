@@ -4,7 +4,8 @@ Bun-first command declaration runtime for CLI and agent tools.
 
 Schemas are accepted through `StandardSchemaV1`. A CLI can optionally provide a
 `schemaAdapter.toStandardJsonSchema` function when help output should include
-field descriptions.
+field descriptions. Commands that do not need args or options can omit those
+fields.
 
 ## Install
 
