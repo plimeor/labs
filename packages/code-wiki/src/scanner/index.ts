@@ -75,6 +75,7 @@ const ignoredDirectories = new Set([
   'examples',
   'fixtures',
   'node_modules',
+  'old_major_packages',
   'out',
   'test',
   'tests'
@@ -755,10 +756,24 @@ function capabilitySignalsFor(path: string, text: string): CapabilitySignal[] {
 
 function signalAppliesToPath(kind: 'chakra' | 'react', path: string): boolean {
   if (kind === 'react') {
-    return path.startsWith('src/') || path.startsWith('packages/')
+    return isReactCoreSourcePath(path)
   }
 
   return path.startsWith('packages/')
+}
+
+function isReactCoreSourcePath(path: string): boolean {
+  if (path.endsWith('.md')) {
+    return false
+  }
+
+  if (path.startsWith('src/renderers/')) {
+    return true
+  }
+
+  return /^packages\/(react|react-client|react-dom|react-native-renderer|react-noop-renderer|react-reconciler|react-server|react-test-renderer|scheduler|shared)\//.test(
+    path
+  )
 }
 
 async function pathType(path: string): Promise<'directory' | 'file' | 'other'> {
