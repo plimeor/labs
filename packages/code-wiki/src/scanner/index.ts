@@ -679,15 +679,37 @@ async function walk(root: string, current = root): Promise<string[]> {
 
 function extractSymbols(text: string): string[] {
   const symbols = new Set<string>()
+  const fallbackSymbols = new Set<string>()
   for (const match of text.matchAll(
-    /(?:export\s+)?(?:async\s+)?(?:function|class|interface|type|const|let|var|enum)\s+([A-Za-z_$][\w$]*)/g
+    /^\s*export\s+(?:default\s+)?(?:async\s+)?(?:function|class|interface|type|const|let|var|enum)\s+([A-Za-z_$][\w$]*)/gm
   )) {
     if (match[1] && isUsefulSymbol(match[1])) {
       symbols.add(match[1])
     }
   }
 
-  return [...symbols].sort((a, b) => a.localeCompare(b)).slice(0, 40)
+  for (const match of text.matchAll(/^\s*exports\.([A-Za-z_$][\w$]*)\s*=/gm)) {
+    if (match[1] && isUsefulSymbol(match[1])) {
+      symbols.add(match[1])
+    }
+  }
+
+  for (const match of text.matchAll(/^\s*module\.exports\s*=\s*([A-Za-z_$][\w$]*)/gm)) {
+    if (match[1] && isUsefulSymbol(match[1])) {
+      symbols.add(match[1])
+    }
+  }
+
+  for (const match of text.matchAll(
+    /^\s*(?:async\s+)?(?:function|class|interface|type|const|let|var|enum)\s+([A-Za-z_$][\w$]*)/gm
+  )) {
+    if (match[1] && isUsefulSymbol(match[1])) {
+      fallbackSymbols.add(match[1])
+    }
+  }
+
+  const visibleSymbols = symbols.size > 0 ? symbols : fallbackSymbols
+  return [...visibleSymbols].sort((a, b) => a.localeCompare(b)).slice(0, 40)
 }
 
 function extractImports(text: string): string[] {
