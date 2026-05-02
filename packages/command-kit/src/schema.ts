@@ -9,7 +9,7 @@ export type JsonSchemaProperty = JSONSchema7Definition
 export type JsonObjectSchema = JSONSchema7
 
 export type SchemaAdapter = {
-  toStandardJsonSchema: (schema: StandardSchemaV1) => StandardJSONSchemaV1 | undefined
+  toStandardJsonSchema: (schema: any) => StandardJSONSchemaV1 | undefined
 }
 
 export async function validateSchema<T extends StandardSchemaV1>(
@@ -40,7 +40,13 @@ export function resolveJsonObjectSchema(
       return undefined
     }
 
-    const jsonSchema = standardJsonSchema['~standard'].jsonSchema.input({ target: 'draft-07' })
+    const jsonSchema = standardJsonSchema['~standard'].jsonSchema.input({
+      target: 'draft-07',
+      libraryOptions: {
+        errorMode: 'ignore',
+        ignoreActions: ['check']
+      }
+    })
     return isJsonObjectSchema(jsonSchema) ? jsonSchema : undefined
   } catch {
     return undefined

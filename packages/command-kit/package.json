@@ -9,8 +9,8 @@
     "url": "https://github.com/plimeor/labs/issues"
   },
   "dependencies": {
-    "@standard-schema/spec": "catalog:",
-    "@types/json-schema": "catalog:"
+    "@standard-schema/spec": "^1.1.0",
+    "@types/json-schema": "^7.0.15"
   },
   "exports": {
     ".": "./src/index.ts"

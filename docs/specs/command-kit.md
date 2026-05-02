@@ -230,10 +230,11 @@ validation:
 - Help descriptions use Valibot `v.description`.
 - The CLI passes `schemaAdapter: { toStandardJsonSchema }` to `defineCli`.
 
-Because Valibot `check` actions are validation logic rather than JSON Schema, the
-skills adapter converts schemas for help with `@valibot/to-json-schema` while
-ignoring `check` actions. Runtime validation still uses Valibot through Standard
-Schema.
+Because Valibot `check` actions are validation logic rather than JSON Schema,
+command-kit asks the Standard JSON Schema converter to ignore `check` actions
+when it reads help and option metadata. Runtime validation still uses the
+original Valibot schemas through Standard Schema, so args/options parameter
+constraints remain in their owning schemas.
 
 ## Testing Strategy
 
