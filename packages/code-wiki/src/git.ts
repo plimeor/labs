@@ -54,25 +54,54 @@ export async function ensureManagedClone(repoUrl: string, repoPath: string): Pro
       throw new Error(`Managed repo path exists but is not a Git clone: ${repoPath}`)
     }
 
-    await $({ quiet: true })`git clone --no-checkout ${repoUrl} ${repoPath}`
+    await Files.ensureDir(repoPath)
+    await $({ cwd: repoPath, quiet: true })`git init -q`
+    await $({ cwd: repoPath, quiet: true })`git remote add origin ${repoUrl}`
   }
 
   await $({ cwd: repoPath, quiet: true })`git remote set-url origin ${repoUrl}`
-  await $({
-    cwd: repoPath,
-    quiet: true
-  })`git fetch --prune --tags origin +refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/*`
-  await $({ cwd: repoPath, quiet: true })`git remote set-head origin -a`.nothrow()
 }
 
 export async function checkoutProjectRef(
   repoPath: string,
   ref: string
 ): Promise<{ branch: string; commit: string; ref: string }> {
-  const latest = await resolveProjectRef(repoPath, ref)
+  const latest = await fetchProjectRef(repoPath, ref)
   await $({ cwd: repoPath, quiet: true })`git checkout --detach ${latest.commit}`
 
   return latest
+}
+
+export async function fetchProjectRef(
+  repoPath: string,
+  ref: string
+): Promise<{ branch: string; commit: string; ref: string }> {
+  if (ref === 'HEAD') {
+    const branch = await remoteDefaultBranch(repoPath)
+    await fetchRemoteBranch(repoPath, branch)
+    await $({ cwd: repoPath, quiet: true })`git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/${branch}`
+    return resolveProjectRef(repoPath, ref)
+  }
+
+  if (await remoteBranchExists(repoPath, ref)) {
+    await fetchRemoteBranch(repoPath, ref)
+    return resolveProjectRef(repoPath, ref)
+  }
+
+  if (await remoteTagExists(repoPath, ref)) {
+    await fetchRemoteTag(repoPath, ref)
+    return resolveProjectRef(repoPath, ref)
+  }
+
+  const directFetch = await $({
+    cwd: repoPath,
+    quiet: true
+  })`git fetch --filter=blob:none --depth=1 origin ${ref}`.nothrow()
+  if (directFetch.exitCode !== 0) {
+    await fetchAllRefsWithoutBlobs(repoPath)
+  }
+
+  return resolveProjectRef(repoPath, ref)
 }
 
 export async function resolveProjectRef(
@@ -109,6 +138,41 @@ export async function resolveProjectRef(
 async function remoteHeadBranch(repoPath: string): Promise<string> {
   const branchRef = await optionalGitOutput(repoPath, ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'])
   return branchRef?.replace(/^origin\//, '') ?? 'HEAD'
+}
+
+async function remoteDefaultBranch(repoPath: string): Promise<string> {
+  const output = await gitOutput(repoPath, ['ls-remote', '--symref', 'origin', 'HEAD'])
+  const match = output.match(/^ref: refs\/heads\/(.+)\s+HEAD/m)
+  return match?.[1] ?? 'HEAD'
+}
+
+async function remoteBranchExists(repoPath: string, branch: string): Promise<boolean> {
+  return Boolean(await optionalGitOutput(repoPath, ['ls-remote', '--heads', 'origin', branch]))
+}
+
+async function remoteTagExists(repoPath: string, tag: string): Promise<boolean> {
+  return Boolean(await optionalGitOutput(repoPath, ['ls-remote', '--tags', 'origin', tag]))
+}
+
+async function fetchRemoteBranch(repoPath: string, branch: string): Promise<void> {
+  await $({
+    cwd: repoPath,
+    quiet: true
+  })`git fetch --filter=blob:none --depth=1 origin +refs/heads/${branch}:refs/remotes/origin/${branch}`
+}
+
+async function fetchRemoteTag(repoPath: string, tag: string): Promise<void> {
+  await $({
+    cwd: repoPath,
+    quiet: true
+  })`git fetch --filter=blob:none --depth=1 origin +refs/tags/${tag}:refs/tags/${tag}`
+}
+
+async function fetchAllRefsWithoutBlobs(repoPath: string): Promise<void> {
+  await $({
+    cwd: repoPath,
+    quiet: true
+  })`git fetch --prune --filter=blob:none origin +refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/*`
 }
 
 async function currentBranch(root: string): Promise<string> {

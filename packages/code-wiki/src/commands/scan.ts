@@ -2,8 +2,9 @@ import { join } from 'node:path'
 
 import { log } from '@clack/prompts'
 import * as v from 'valibot'
+import { $ } from 'zx'
 
-import { checkoutProjectRef, ensureManagedClone, readGitIdentity, resolveProjectRef } from '../git.js'
+import { ensureManagedClone, fetchProjectRef, readGitIdentity } from '../git.js'
 import { readProjects, requireProject } from '../projects.js'
 import { readMetadata, scanRepository } from '../scanner/index.js'
 import { type ProjectEntry, TextSchema } from '../types.js'
@@ -40,7 +41,7 @@ async function scanShared(workspace: Awaited<ReturnType<typeof resolveWorkspace>
     const repoPath = managedRepoPath(workspace.root, project)
     log.info(`Fetching ${project.id}`)
     await ensureManagedClone(project.repoUrl, repoPath)
-    const latest = await resolveProjectRef(repoPath, project.ref)
+    const latest = await fetchProjectRef(repoPath, project.ref)
     const wikiRoot = join(workspace.root, project.wikiPath)
     const metadata = await readMetadata(join(wikiRoot, 'metadata.json'))
     if (!projectId && metadata?.lastScannedCommit === latest.commit) {
@@ -48,13 +49,13 @@ async function scanShared(workspace: Awaited<ReturnType<typeof resolveWorkspace>
       continue
     }
 
-    const checkout = await checkoutProjectRef(repoPath, project.ref)
-    log.info(`Scanning ${project.id} at ${checkout.commit.slice(0, 7)}`)
+    await checkoutProject(repoPath, latest.commit)
+    log.info(`Scanning ${project.id} at ${latest.commit.slice(0, 7)}`)
     await scanRepository({
-      branch: checkout.branch,
-      commit: checkout.commit,
+      branch: latest.branch,
+      commit: latest.commit,
       project,
-      ref: checkout.ref,
+      ref: latest.ref,
       repoRoot: repoPath,
       wikiRoot
     })
@@ -93,4 +94,8 @@ async function scanEmbedded(workspace: Awaited<ReturnType<typeof resolveWorkspac
 
 function managedRepoPath(root: string, project: ProjectEntry): string {
   return join(root, project.managedRepoPath ?? join('.code-wiki', 'repos', project.id))
+}
+
+async function checkoutProject(repoPath: string, commit: string): Promise<void> {
+  await $({ cwd: repoPath, quiet: true })`git checkout --detach ${commit}`
 }
