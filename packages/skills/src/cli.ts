@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import { defineCli, defineCommand } from '@plimeor/command-kit'
+import { toStandardJsonSchema } from '@valibot/to-json-schema'
 
 import { addArgsSchema, addCommand, addOptionsSchema, addRequestSchema } from './commands/add.js'
 import { listCommand, listOptionsSchema } from './commands/list.js'
@@ -8,7 +9,6 @@ import { migrateArgsSchema, migrateCommand, migrateOptionsSchema } from './comma
 import { removeArgsSchema, removeCommand, removeOptionsSchema } from './commands/remove.js'
 import { syncCommand, syncOptionsSchema } from './commands/sync.js'
 import { updateCommand, updateOptionsSchema } from './commands/update.js'
-import { toStandardJsonSchema } from './schema-adapter.js'
 
 export function createCli() {
   return defineCli({
