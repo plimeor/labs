@@ -1,8 +1,7 @@
 import { describe, expect, test } from 'bun:test'
-import { join } from 'node:path'
 
 import { createCli } from '../../src/cli.js'
-import { readJson, tempDir } from '../helpers/fs.js'
+import { tempDir } from '../helpers/fs.js'
 import { captureStdout, run, withCwd } from '../helpers/process.js'
 
 describe('cli command groups', () => {
@@ -17,32 +16,16 @@ describe('cli command groups', () => {
     })
 
     expect(rootHelp).toContain('code-wiki — Code wiki CLI for scanning repositories into durable Markdown wikis')
-    expect(rootHelp).toContain('  runtime')
+    expect(rootHelp).toContain('  init')
     expect(rootHelp).toContain('  project')
-    expect(rootHelp).toContain('  query')
+    expect(rootHelp).toContain('  scan')
+    expect(rootHelp).not.toContain('  runtime')
+    expect(rootHelp).not.toContain('  query')
+    expect(rootHelp).not.toContain('  context')
     expect(rootHelp).not.toContain('  review')
     expect(rootHelp).not.toContain('  correct')
     expect(projectHelp).toContain('code-wiki project — Manage scanned CodeWiki projects')
     expect(projectHelp).toContain('Usage: code-wiki project <command>')
-  })
-
-  test('routes runtime commands through the command group', async () => {
-    const cwd = await tempDir('code-wiki-cli-runtime-')
-    await run('git', ['init', '-q', '-b', 'main'], cwd)
-    const cli = createCli()
-
-    await withCwd(cwd, async () => {
-      await cli.serve(['init', '--shared'])
-      await cli.serve(['runtime', 'set', 'codex'])
-    })
-    const output = await captureStdout(() => withCwd(cwd, () => cli.serve(['runtime', 'current'])))
-
-    expect(output).toBe('codex\n')
-    expect(await readJson(join(cwd, '.code-wiki', 'config.json'))).toEqual({
-      mode: 'shared',
-      runtime: 'codex',
-      schemaVersion: 1
-    })
   })
 
   test('routes project commands through the command group', async () => {

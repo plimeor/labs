@@ -4,6 +4,7 @@ import { log } from '@clack/prompts'
 import * as v from 'valibot'
 import { $ } from 'zx'
 
+import { Files } from '../files.js'
 import { ensureManagedClone, fetchProjectRef, readGitIdentity } from '../git.js'
 import { readProjects, requireProject } from '../projects.js'
 import { readMetadata, scanRepository } from '../scanner/index.js'
@@ -44,7 +45,7 @@ async function scanShared(workspace: Awaited<ReturnType<typeof resolveWorkspace>
     const latest = await fetchProjectRef(repoPath, project.ref)
     const wikiRoot = join(workspace.root, project.wikiPath)
     const metadata = await readMetadata(join(wikiRoot, 'metadata.json'))
-    if (!projectId && isSharedScanUpToDate(project, metadata, latest)) {
+    if (!projectId && isSharedScanUpToDate(project, metadata, latest) && (await isWikiRootContractCurrent(wikiRoot))) {
       log.info(`${project.id} is up to date at ${latest.commit.slice(0, 7)}`)
       continue
     }
@@ -57,7 +58,6 @@ async function scanShared(workspace: Awaited<ReturnType<typeof resolveWorkspace>
       project,
       ref: latest.ref,
       repoRoot: repoPath,
-      versionRoot: join(wikiRoot, 'versions', latest.commit),
       wikiRoot
     })
     scanned += 1
@@ -74,7 +74,7 @@ async function scanEmbedded(workspace: Awaited<ReturnType<typeof resolveWorkspac
   const git = await readGitIdentity(workspace.root)
   const wikiRoot = statePath(workspace, 'wiki')
   const metadata = await readMetadata(join(wikiRoot, 'metadata.json'))
-  if (metadata?.lastScannedCommit === git.commit) {
+  if (metadata?.lastScannedCommit === git.commit && (await isWikiRootContractCurrent(wikiRoot))) {
     log.success(`Embedded wiki is up to date at ${git.commit.slice(0, 7)}`)
     return
   }
@@ -84,7 +84,6 @@ async function scanEmbedded(workspace: Awaited<ReturnType<typeof resolveWorkspac
     commit: git.commit,
     ref: git.commit,
     repoRoot: git.root,
-    versionRoot: join(wikiRoot, 'versions', git.commit),
     project: {
       ...project,
       repoUrl: git.repoUrl ?? project.repoUrl
@@ -128,6 +127,14 @@ function sameStringArray(left: string[] | undefined, right: string[] | undefined
   }
 
   return left.every((value, index) => value === right[index])
+}
+
+async function isWikiRootContractCurrent(wikiRoot: string): Promise<boolean> {
+  return (
+    (await Files.pathExists(join(wikiRoot, 'AGENTS.md'))) &&
+    !(await Files.pathExists(join(wikiRoot, 'versions.json'))) &&
+    !(await Files.pathExists(join(wikiRoot, 'versions')))
+  )
 }
 
 async function checkoutProject(repoPath: string, commit: string): Promise<void> {

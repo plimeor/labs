@@ -6,15 +6,8 @@ import * as v from 'valibot'
 import { Files } from '../files.js'
 import { isRecord } from '../json.js'
 import { markdownList, renderGeneratedPage, slugify } from '../markdown/pages.js'
-import type {
-  ProjectEntry,
-  ProjectMetadata,
-  WikiIndexDocument,
-  WikiIndexPage,
-  WikiPageKind,
-  WikiVersionsDocument
-} from '../types.js'
-import { ProjectMetadataSchema, WikiVersionsDocumentSchema } from '../types.js'
+import type { ProjectEntry, ProjectMetadata, WikiIndexDocument, WikiIndexPage, WikiPageKind } from '../types.js'
+import { ProjectMetadataSchema } from '../types.js'
 
 export type ScanTarget = {
   branch: string
@@ -22,7 +15,6 @@ export type ScanTarget = {
   project: ProjectEntry
   ref: string
   repoRoot: string
-  versionRoot?: string
   wikiRoot: string
 }
 
@@ -151,11 +143,6 @@ export async function scanRepository(target: ScanTarget): Promise<ScanResult> {
   const indexDocument = await writeWikiArtifact(target.wikiRoot, target, pageSpecs, metadata, scanTime)
   await appendScanLog(target.wikiRoot, target, scanTime)
 
-  if (target.versionRoot) {
-    await writeWikiArtifact(target.versionRoot, target, pageSpecs, metadata, scanTime)
-    await recordVersion(target.wikiRoot, target, scanTime)
-  }
-
   return {
     index: indexDocument,
     metadata
@@ -186,6 +173,7 @@ async function writeWikiArtifact(
 
   await Files.writeJson(join(wikiRoot, 'index.json'), indexDocument)
   await Files.writeJson(join(wikiRoot, 'metadata.json'), metadata)
+  await writeAgentsFile(wikiRoot)
 
   return indexDocument
 }
@@ -193,10 +181,32 @@ async function writeWikiArtifact(
 async function prepareWikiRoot(wikiRoot: string): Promise<void> {
   await Files.ensureDir(wikiRoot)
   await Files.removePath(join(wikiRoot, 'flows'), { force: true, recursive: true })
+  await Files.removePath(join(wikiRoot, 'versions'), { force: true, recursive: true })
+  await Files.removePath(join(wikiRoot, 'versions.json'), { force: true })
   for (const path of ['modules', 'contracts']) {
     await Files.removePath(join(wikiRoot, path), { force: true, recursive: true })
     await Files.ensureDir(join(wikiRoot, path))
   }
+}
+
+async function writeAgentsFile(wikiRoot: string): Promise<void> {
+  await Files.writeText(
+    join(wikiRoot, 'AGENTS.md'),
+    [
+      '# CodeWiki Reading Protocol',
+      '',
+      '1. Read `index.json` first to inspect available pages and source refs.',
+      '2. Read `overview.md` for the broad repository shape.',
+      '3. Read `index.md` for the human routing index.',
+      '4. Open only the relevant `modules/` or `contracts/` pages for the task.',
+      '',
+      '- Cite wiki page paths and their `sourceRefs` when using this wiki as evidence.',
+      '- If evidence is insufficient, state exactly what source or diff is missing.',
+      '- For code review, treat the wiki only as baseline context. Inspect the real diff and source before judging a defect.',
+      '- Do not edit generated wiki files directly; regenerate them with `code-wiki scan`.',
+      ''
+    ].join('\n')
+  )
 }
 
 async function buildPageSpecs(target: ScanTarget, sourceFiles: SourceFile[], scanTime: string): Promise<PageSpec[]> {
@@ -514,39 +524,6 @@ async function writePage(
     summary: spec.summary,
     symbols: spec.symbols,
     title: spec.title
-  }
-}
-
-async function recordVersion(wikiRoot: string, target: ScanTarget, scanTime: string): Promise<void> {
-  const versionsPath = join(wikiRoot, 'versions.json')
-  const existing = await readVersions(versionsPath, target.project.id)
-  const version = {
-    branch: target.branch,
-    commit: target.commit,
-    path: `versions/${target.commit}`,
-    ref: target.ref,
-    scannedAt: scanTime
-  }
-  const versions = [...existing.versions.filter(candidate => candidate.commit !== target.commit), version]
-  await Files.writeJson(
-    versionsPath,
-    v.parse(WikiVersionsDocumentSchema, {
-      projectId: target.project.id,
-      schemaVersion: 1,
-      versions
-    })
-  )
-}
-
-async function readVersions(path: string, projectId: string): Promise<WikiVersionsDocument> {
-  try {
-    return await Files.readJson(path, input => v.parse(WikiVersionsDocumentSchema, input))
-  } catch (error) {
-    if (Files.isNotFound(error)) {
-      return { projectId, schemaVersion: 1, versions: [] }
-    }
-
-    throw error
   }
 }
 

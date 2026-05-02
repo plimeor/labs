@@ -13,37 +13,10 @@ import {
   projectSetCommand,
   projectSetOptionsSchema
 } from './commands/project.js'
-import { queryArgsSchema, queryCommand, queryOptionsSchema } from './commands/query.js'
-import {
-  runtimeCurrentCommand,
-  runtimeSelectCommand,
-  runtimeSetArgsSchema,
-  runtimeSetCommand
-} from './commands/runtime.js'
 import { scanArgsSchema, scanCommand } from './commands/scan.js'
 
 export function createCli() {
   const schemaAdapter = { toStandardJsonSchema }
-  const runtime = defineGroup('runtime', {
-    description: 'Configure the local scanner runtime',
-    commands: [
-      defineCommand('set', {
-        argBindings: [{ name: 'runtime' }],
-        args: runtimeSetArgsSchema,
-        description: 'Select a runtime without an interactive prompt',
-        run: runtimeSetCommand
-      }),
-      defineCommand('current', {
-        description: 'Print the configured runtime',
-        run: runtimeCurrentCommand
-      }),
-      defineCommand('select', {
-        description: 'Select a runtime interactively',
-        run: runtimeSelectCommand
-      })
-    ]
-  })
-
   const project = defineGroup('project', {
     description: 'Manage scanned CodeWiki projects',
     commands: [
@@ -77,20 +50,12 @@ export function createCli() {
         options: initOptionsSchema,
         run: initCommand
       }),
-      runtime,
       project,
       defineCommand('scan', {
         argBindings: [{ name: 'project', optional: true }],
         args: scanArgsSchema,
         description: 'Scan changed projects into durable Markdown wikis',
         run: scanCommand
-      }),
-      defineCommand('query', {
-        argBindings: [{ name: 'question', rest: true }],
-        args: queryArgsSchema,
-        description: 'Ask a configured runtime about current and historical wiki snapshots',
-        options: queryOptionsSchema,
-        run: queryCommand
       })
     ],
     schemaAdapter

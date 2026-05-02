@@ -9,14 +9,16 @@ export const OptionalTextArraySchema = v.optional(v.array(TextSchema))
 export const WorkspaceModeSchema = v.picklist(['shared', 'embedded'])
 export type WorkspaceMode = v.InferOutput<typeof WorkspaceModeSchema>
 
-export const RuntimeIdSchema = v.picklist(['codex'])
-export type RuntimeId = v.InferOutput<typeof RuntimeIdSchema>
-
-export const CodeWikiConfigSchema = v.looseObject({
-  mode: WorkspaceModeSchema,
-  runtime: v.optional(RuntimeIdSchema),
-  schemaVersion: v.literal(1)
-})
+export const CodeWikiConfigSchema = v.pipe(
+  v.looseObject({
+    mode: WorkspaceModeSchema,
+    schemaVersion: v.literal(1)
+  }),
+  v.transform(input => ({
+    mode: input.mode,
+    schemaVersion: 1 as const
+  }))
+)
 export type CodeWikiConfig = v.InferOutput<typeof CodeWikiConfigSchema>
 
 export const ProjectIdSchema = v.pipe(
@@ -184,30 +186,3 @@ export const WikiIndexDocumentSchema = v.pipe(
   }))
 )
 export type WikiIndexDocument = v.InferOutput<typeof WikiIndexDocumentSchema>
-
-export const WikiVersionSchema = v.looseObject({
-  branch: TextSchema,
-  commit: TextSchema,
-  path: TextSchema,
-  ref: TextSchema,
-  scannedAt: TextSchema
-})
-export type WikiVersion = v.InferOutput<typeof WikiVersionSchema>
-
-export const WikiVersionsDocumentSchema = v.pipe(
-  v.looseObject({
-    projectId: TextSchema,
-    schemaVersion: v.literal(1),
-    versions: v.array(WikiVersionSchema)
-  }),
-  v.transform(input => ({
-    projectId: input.projectId,
-    schemaVersion: 1 as const,
-    versions: [...input.versions]
-      .sort((a, b) => a.scannedAt.localeCompare(b.scannedAt) || a.commit.localeCompare(b.commit))
-      .filter(
-        (version, index, versions) => versions.findIndex(candidate => candidate.commit === version.commit) === index
-      )
-  }))
-)
-export type WikiVersionsDocument = v.InferOutput<typeof WikiVersionsDocumentSchema>

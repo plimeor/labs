@@ -4,42 +4,50 @@ import { join } from 'node:path'
 import { $ } from 'zx'
 
 import { Files } from '../files.js'
-import type { RuntimeId } from '../types.js'
 
-export type RuntimeCommand = {
-  args: string[]
-  command: string
-  input?: string
-}
+export type RuntimeId = 'codex'
 
 export type RuntimeRunOptions = {
   cwd: string
+  outputPath?: string
   prompt: string
-  runtime: RuntimeId
 }
 
-export function executableForRuntime(runtime: RuntimeId): string {
-  switch (runtime) {
-    case 'codex':
-      return 'codex'
-  }
+export type RuntimeAdapter = {
+  assertAvailable(): Promise<void>
+  id: RuntimeId
+  run(options: RuntimeRunOptions): Promise<string>
 }
 
-export async function assertRuntimeAvailable(runtime: RuntimeId): Promise<void> {
-  const executable = executableForRuntime(runtime)
-  const result = await $({ quiet: true })`which ${executable}`.nothrow()
+export const codexRuntime: RuntimeAdapter = {
+  assertAvailable: assertCodexAvailable,
+  id: 'codex',
+  run: runCodex
+}
+
+async function assertCodexAvailable(): Promise<void> {
+  const result = await $({ quiet: true })`which codex`.nothrow()
   if (result.exitCode !== 0) {
-    throw new Error(`Runtime executable not found on PATH for ${runtime}: ${executable}`)
+    throw new Error('Runtime executable not found on PATH for codex: codex')
   }
 }
 
-export async function runRuntime(options: RuntimeRunOptions): Promise<string> {
-  await assertRuntimeAvailable(options.runtime)
+async function runCodex(options: RuntimeRunOptions): Promise<string> {
+  await codexRuntime.assertAvailable()
 
-  const tempDir = await Files.makeTempDir({ directory: tmpdir(), prefix: 'code-wiki-' })
-  const outputPath = join(tempDir, 'last-message.md')
+  let tempDir: string | undefined
+  let outputPath = options.outputPath
+  if (!outputPath) {
+    tempDir = await Files.makeTempDir({ directory: tmpdir(), prefix: 'code-wiki-' })
+    outputPath = join(tempDir, 'last-message.md')
+  }
+
   try {
-    const command = constructRuntimeCommand(options.runtime, options.prompt, outputPath, options.cwd)
+    const command = constructCodexRuntimeCommand({
+      cwd: options.cwd,
+      outputPath,
+      prompt: options.prompt
+    })
     await $({
       cwd: options.cwd,
       input: command.input,
@@ -47,34 +55,28 @@ export async function runRuntime(options: RuntimeRunOptions): Promise<string> {
     })`${command.command} ${command.args}`
     return await Files.readText(outputPath)
   } finally {
-    await Files.removePath(tempDir, { force: true, recursive: true })
+    if (tempDir) {
+      await Files.removePath(tempDir, { force: true, recursive: true })
+    }
   }
 }
 
-export function constructRuntimeCommand(
-  runtime: RuntimeId,
-  prompt: string,
-  outputPath: string,
-  cwd: string
-): RuntimeCommand {
-  switch (runtime) {
-    case 'codex':
-      return {
-        command: 'codex',
-        input: prompt,
-        args: [
-          '--ask-for-approval',
-          'never',
-          'exec',
-          '--skip-git-repo-check',
-          '--sandbox',
-          'read-only',
-          '--output-last-message',
-          outputPath,
-          '--cd',
-          cwd,
-          '-'
-        ]
-      }
+export function constructCodexRuntimeCommand(options: { cwd: string; outputPath: string; prompt: string }) {
+  return {
+    command: 'codex',
+    input: options.prompt,
+    args: [
+      '--ask-for-approval',
+      'never',
+      'exec',
+      '--skip-git-repo-check',
+      '--sandbox',
+      'read-only',
+      '--output-last-message',
+      options.outputPath,
+      '--cd',
+      options.cwd,
+      '-'
+    ]
   }
 }

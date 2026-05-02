@@ -1,12 +1,16 @@
 import { describe, expect, test } from 'bun:test'
 
-import { constructRuntimeCommand, executableForRuntime } from '../../src/runtime/index.js'
+import { codexRuntime, constructCodexRuntimeCommand } from '../src/runtime/index.js'
 
-describe('runtime contract', () => {
-  test('supports codex as the only runtime command contract', () => {
-    expect(executableForRuntime('codex')).toBe('codex')
+describe('runtime adapter contract', () => {
+  test('keeps codex as the internal default runtime adapter', () => {
+    expect(codexRuntime.id).toBe('codex')
 
-    const command = constructRuntimeCommand('codex', 'Scan context', '/tmp/output.md', '/tmp/workspace')
+    const command = constructCodexRuntimeCommand({
+      cwd: '/tmp/workspace',
+      outputPath: '/tmp/output.md',
+      prompt: 'Scan context'
+    })
     expect(command.command).toBe('codex')
     expect(command.input).toBe('Scan context')
     expect(command.args).toEqual([

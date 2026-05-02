@@ -10,9 +10,6 @@ import {
   type EmbeddedProject,
   EmbeddedProjectSchema,
   type ProjectsDocument,
-  type RuntimeId,
-  RuntimeIdSchema,
-  TextSchema,
   type WorkspaceMode
 } from './types.js'
 
@@ -30,7 +27,7 @@ export function statePath(workspace: Workspace, ...segments: string[]): string {
 export async function initSharedWorkspace(cwd: string): Promise<Workspace> {
   const root = await requireGitRoot(resolve(cwd))
   const stateDir = join(root, '.code-wiki')
-  const config: CodeWikiConfig = { mode: 'shared', runtime: undefined, schemaVersion: 1 }
+  const config: CodeWikiConfig = { mode: 'shared', schemaVersion: 1 }
 
   await Files.ensureDir(stateDir)
   await writeConfig(join(stateDir, 'config.json'), config)
@@ -47,7 +44,7 @@ export async function initEmbeddedWorkspace(cwd: string): Promise<Workspace> {
   const stateDir = join(root, '.code-wiki')
   const git = await readGitIdentity(root)
   const projectId = await inferProjectIdFromRoot(root)
-  const config: CodeWikiConfig = { mode: 'embedded', runtime: undefined, schemaVersion: 1 }
+  const config: CodeWikiConfig = { mode: 'embedded', schemaVersion: 1 }
   const project: EmbeddedProject = {
     displayName: projectId,
     id: projectId,
@@ -81,20 +78,6 @@ export async function resolveWorkspace(cwd = process.cwd()): Promise<Workspace> 
     root: dirname(dirname(configPath)),
     stateDir: dirname(configPath)
   }
-}
-
-export async function setWorkspaceRuntime(workspace: Workspace, runtime: RuntimeId): Promise<Workspace> {
-  const config = { ...workspace.config, runtime }
-  await writeConfig(workspace.configPath, config)
-  return { ...workspace, config }
-}
-
-export async function ensureRuntime(workspace: Workspace): Promise<RuntimeId> {
-  if (workspace.config.runtime) {
-    return workspace.config.runtime
-  }
-
-  throw new Error('No runtime configured. Run `code-wiki runtime set codex` or `code-wiki runtime select` first.')
 }
 
 export async function readEmbeddedProject(workspace: Workspace): Promise<EmbeddedProject> {
@@ -138,8 +121,4 @@ async function writeConfig(path: string, config: CodeWikiConfig): Promise<void> 
 
 async function ensureManagedReposGitignore(stateDir: string): Promise<void> {
   await Files.writeText(join(stateDir, '.gitignore'), 'repos/\n')
-}
-
-export function requireRuntimeId(input: unknown): RuntimeId {
-  return v.parse(RuntimeIdSchema, v.parse(TextSchema, input))
 }

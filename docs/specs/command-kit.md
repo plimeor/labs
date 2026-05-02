@@ -122,7 +122,7 @@ Command groups provide one-level subcommand routing for CLIs such as:
 
 ```bash
 code-wiki project add web-app --repo git@github.com:org/web-app.git
-code-wiki runtime set codex
+code-wiki project list
 ```
 
 Groups are declarations only. A group has a `name`, `description`, and a flat
