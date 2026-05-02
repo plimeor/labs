@@ -1,62 +1,56 @@
-# Spec: command-kit
+# 规格：command-kit
 
-## Objective
+## 目标
 
-Build `@plimeor/command-kit`, a Bun-runtime-first command declaration package
-for repo-local CLI and agent tools.
+`@plimeor/command-kit` 是 Bun-runtime-first 的 command declaration package，用于 repo-local CLI 和 agent tools。
 
-The first production user is `packages/skills`. The runtime must replace that
-package's command layer while preserving its business behavior and fixing the
-positional argument model that blocked the old command stack:
+第一个 production user 是 `packages/skills`。Runtime 要替换它的 command layer，同时保留业务行为，并补上旧 command stack 表达不了的 positional argument model：
 
 ```bash
 skills add plimeor/agent-skills code-scope-gate writing-blog
 ```
 
-`plimeor/agent-skills` binds to `ctx.args.source`; every following positional
-binds to `ctx.args.skills` as an array.
+`plimeor/agent-skills` 绑定到 `ctx.args.source`；后续 positional values 绑定到 `ctx.args.skills` array。这是 `command-kit` 的第一条硬需求。
 
-## Current Scope
+## 当前范围
 
-- Bun first, TypeScript, ESM.
-- Command declarations through `defineCommand(name, config)`.
-- One-level command groups through `defineGroup(name, config)`.
-- CLI declarations through `defineCli({ ..., schemaAdapter })`.
-- `args` and `options` schemas use `StandardSchemaV1` from
-  `@standard-schema/spec`.
-- Help metadata may use `StandardJSONSchemaV1` from `@standard-schema/spec`.
-- `packages/skills` uses Valibot for validation and `@valibot/to-json-schema`
-  for help metadata conversion.
-- Command output is not schema-validated by `command-kit`.
+- Bun first、TypeScript、ESM。
+- 通过 `defineCommand(name, config)` 声明 commands。
+- 通过 `defineGroup(name, config)` 声明 one-level command groups。
+- 通过 `defineCli({ ..., schemaAdapter })` 声明 CLI。
+- `args` 和 `options` schemas 使用 `@standard-schema/spec` 的 `StandardSchemaV1`。
+- Help metadata 可以使用 `@standard-schema/spec` 的 `StandardJSONSchemaV1`。
+- `packages/skills` 使用 Valibot 做 validation，并用 `@valibot/to-json-schema` 转换 help metadata。
+- `command-kit` 不对 command output 做 schema validation。
 
-## Non-Goals
+## 非目标
 
-- Replacing full-featured CLI frameworks.
-- Building a custom schema DSL.
-- Automatic MCP server generation.
-- Shell completion.
-- OpenAPI mounting.
-- Global `--format json`.
-- A plugin system.
-- Nested command groups, group aliases, or group-level schema adapters.
+- 替代 full-featured CLI frameworks。
+- 自己发明 custom schema DSL。
+- 自动生成 MCP server。
+- shell completion。
+- OpenAPI mounting。
+- global `--format json`。
+- plugin system。
+- nested command groups、group aliases 或 group-level schema adapters。
 
-## Dependencies
+## 依赖
 
-`packages/command-kit` depends on:
+`packages/command-kit` 只需要这些依赖：
 
 - `@standard-schema/spec`
-- `@types/json-schema` for TypeScript JSON Schema helper types
+- `@types/json-schema`，用于 TypeScript JSON Schema helper types
 
-`packages/skills` depends on:
+`packages/skills` 依赖：
 
 - `@plimeor/command-kit`
 - `valibot`
 - `@valibot/to-json-schema`
 - `@clack/prompts`
 
-TypeBox is not part of the current command-kit or skills command contract.
+TypeBox 不在当前 command-kit 或 skills command contract 内。
 
-## Public Interface
+## 公开接口
 
 ```ts
 import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec'
@@ -103,88 +97,68 @@ function defineCli(definition: {
 }): CliDefinition & { serve(argv: string[]): Promise<void> }
 ```
 
-`ctx.args` and `ctx.options` are inferred from
-`StandardSchemaV1.InferOutput<typeof schema>`. If a command does not need args
-or options, callers omit the corresponding field and command-kit treats it as an
-empty object.
+`ctx.args` 和 `ctx.options` 从 `StandardSchemaV1.InferOutput<typeof schema>` 推导。某个 command 不需要 args 或 options 时，调用方省略对应字段，command-kit 将其视为空对象。
 
-`argBindings[].name` must be a string key from the command args schema output.
-`optionAliases` keys must be string keys from the command options schema output.
-For example, if `args` outputs `{ name: string; age: string }`, binding names
-are limited to `'name' | 'age'`.
+`argBindings[].name` 必须是 command args schema output 的 string key。`optionAliases` 的 keys 必须是 command options schema output 的 string keys。例如 `args` 输出 `{ name: string; age: string }` 时，binding names 只允许 `'name' | 'age'`。
 
-`command-kit` validates only the declared `args` and `options` schemas. Business
-rules that compare multiple fields belong in the concrete command implementation.
+`command-kit` 只校验声明出来的 `args` 和 `options` schemas。跨字段 business rules 放在具体 command implementation 里。
 
-## Command Groups
+## 命令组
 
-Command groups provide one-level subcommand routing for CLIs such as:
+Command groups 只解决 one-level subcommand routing，例如：
 
 ```bash
 code-wiki project add web-app --repo git@github.com:org/web-app.git
 code-wiki project list
 ```
 
-Groups are declarations only. A group has a `name`, `description`, and a flat
-`commands` list. It does not support aliases, a group-level schema adapter, or
-nested groups. Group subcommands use the parent CLI's `schemaAdapter`, and help
-uses the derived CLI name:
+Group 只是 declaration：一个 `name`、一个 `description`、一组扁平 `commands`。不支持 aliases、group-level schema adapter 或 nested groups。Group subcommands 使用 parent CLI 的 `schemaAdapter`，help 使用派生 CLI name：
 
 ```text
 Usage: code-wiki project <command>
 Usage: code-wiki project add <project> [options]
 ```
 
-## Standard Schema Validation
+## Standard Schema 校验
 
-The runtime validates user input with:
+Runtime 使用以下方式校验用户输入：
 
 ```ts
 await schema['~standard'].validate(value)
 ```
 
-Success uses `result.value`; failure normalizes `result.issues` into a
-`CommandRuntimeError`.
+成功时使用 `result.value`；失败时把 `result.issues` 规范化为 `CommandRuntimeError`。
 
-Validation stages:
+校验顺序：
 
-1. Parse raw argv into an args object and options object.
-2. Validate args with the command's `args` `StandardSchemaV1`, or an internal
-   empty-object schema when omitted.
-3. Validate options with the command's `options` `StandardSchemaV1`, or an
-   internal empty-object schema when omitted.
-4. Call `run(ctx)` only after schema validation succeeds.
+1. 把 raw argv 解析为 args object 和 options object。
+2. 用 command 的 `args` `StandardSchemaV1` 校验 args；未声明时使用内部 empty-object schema。
+3. 用 command 的 `options` `StandardSchemaV1` 校验 options；未声明时使用内部 empty-object schema。
+4. 只有 schema validation 成功后才调用 `run(ctx)`。
 
 ## JSON Schema Metadata
 
-Standard Schema does not provide runtime introspection for option names, option
-kinds, or descriptions. `command-kit` therefore uses JSON Schema metadata when
-available.
+Standard Schema 不提供 option names、option kinds 或 descriptions 的 runtime introspection。所以 `command-kit` 在能拿到 JSON Schema metadata 时就用它。
 
-Resolution order:
+解析顺序：
 
-1. If the schema itself implements `StandardJSONSchemaV1`, use it.
-2. Otherwise, if `defineCli` provides `schemaAdapter.toStandardJsonSchema`, use
-   that adapter.
-3. If conversion is unavailable or throws, proceed without field descriptions.
+1. 如果 schema 本身实现 `StandardJSONSchemaV1`，直接使用。
+2. 否则，如果 `defineCli` 提供 `schemaAdapter.toStandardJsonSchema`，使用该 adapter。
+3. 如果转换不可用或抛错，继续执行，但不显示 field descriptions。
 
-Help output reads `description` from JSON Schema object properties for both
-positional arguments and options. If JSON Schema is unavailable, field
-descriptions are omitted.
+Help output 从 JSON Schema object properties 读取 positional arguments 和 options 的 `description`。拿不到 JSON Schema 时，只省略 field descriptions，不影响 command 运行。
 
-Option parsing also uses JSON Schema metadata for declared option names and basic
-kinds:
+Option parsing 也使用 JSON Schema metadata 识别 declared option names 和 basic kinds：
 
 - boolean
 - string
 - array
 
-Commands with options should provide either schemas that implement
-`StandardJSONSchemaV1` or a CLI-level adapter.
+带 options 的 commands 应提供实现 `StandardJSONSchemaV1` 的 schemas，或通过 CLI-level adapter 补 metadata。
 
-## Argument Bindings
+## 参数绑定
 
-Supported forms:
+支持形式：
 
 ```ts
 argBindings: [{ name: 'source' }]
@@ -192,32 +166,30 @@ argBindings: [{ name: 'input', optional: true }]
 argBindings: [{ name: 'source' }, { name: 'skills', optional: true, rest: true }]
 ```
 
-Rules:
+规则：
 
-- An arg binding maps one positional argv value to a property in the `args`
-  schema output.
-- A non-rest binding consumes exactly one raw argument.
-- A rest binding consumes all remaining raw arguments.
-- Only the final binding may use `rest: true`.
-- Missing required arg bindings fail before command execution.
-- Extra argv values without a rest binding are unknown argument errors.
-- Final validation belongs to the `args` Standard Schema.
+- 一个 arg binding 把一个 positional argv value 映射到 `args` schema output 的属性。
+- non-rest binding 消费一个 raw argument。
+- rest binding 消费所有剩余 raw arguments。
+- 只有最后一个 binding 可以使用 `rest: true`。
+- 缺少 required arg bindings 时，在 command execution 前失败。
+- 没有 rest binding 却出现额外 argv values 时，报 unknown argument error。
+- 最终 validation 属于 `args` Standard Schema。
 
-## Options
+## 选项
 
-Supported forms:
+支持形式：
 
-- `--global`, `--dry-run`, `--locked`
-- `-g` through `optionAliases`
-- `--ref main`, `--commit abc123`, `--output path`
-- repeatable string options when the JSON Schema property is an array
+- `--global`、`--dry-run`、`--locked`
+- 通过 `optionAliases` 支持 `-g`
+- `--ref main`、`--commit abc123`、`--output path`
+- 当 JSON Schema property 是 array 时，支持 repeatable string options
 
-Unknown options fail before command execution. Parsed values are validated
-against the `options` Standard Schema.
+Unknown options 在 command execution 前失败。Parsed values 继续交给 `options` Standard Schema 校验。
 
-Negated boolean options are out of scope.
+Negated boolean options 不在范围内。
 
-## Output Model
+## 输出模型
 
 ```ts
 type CommandResult<T> =
@@ -231,12 +203,11 @@ type CommandError = {
 }
 ```
 
-`run(ctx)` may return raw data or a full success envelope. The runtime normalizes
-successful values into `{ ok: true, data }`.
+`run(ctx)` 可以返回 raw data，也可以返回完整 success envelope。Runtime 统一把 successful values 规范化为 `{ ok: true, data }`。
 
-Thrown errors normalize into `{ ok: false, error }`.
+Thrown errors 统一规范化为 `{ ok: false, error }`。
 
-Stable error codes:
+Stable error codes：
 
 - `COMMAND_NOT_FOUND`
 - `INVALID_ARGUMENTS`
@@ -246,49 +217,43 @@ Stable error codes:
 - `MISSING_ARGUMENT`
 - `COMMAND_FAILED`
 
-## JSON Mode
+## JSON 模式
 
-There is no global JSON mode. A command opts in by declaring a boolean `json`
-option. If a command does not declare `json`, `--json` is an unknown option.
+没有 global JSON mode。Command 只有声明 boolean `json` option 才 opt in；未声明 `json` 的 command 收到 `--json` 时，直接按 unknown option 处理。
 
-In JSON mode:
+JSON mode 中：
 
-- stdout contains only the JSON result envelope.
-- command stdout/stderr is suppressed while validation and `run(ctx)` execute.
-- command handlers do not inspect a runtime format field.
-- commands that may prompt call `ctx.assertInteractive()` before prompting; in
-  JSON mode this throws an error telling the caller to remove `--json`.
+- stdout 只包含 JSON result envelope。
+- validation 和 `run(ctx)` 执行期间，command stdout/stderr 会被 suppress。
+- command handlers 不读取 runtime format field。
+- 可能 prompt 的 commands 在 prompt 前调用 `ctx.assertInteractive()`；JSON mode 下它会抛错，提示 caller 移除 `--json`。
 
-For the first skills migration, only `skills list` declares `--json`.
+第一轮 skills migration 只让 `skills list` 声明 `--json`。
 
-## Skills Migration Contract
+## Skills 迁移契约
 
-`packages/skills` uses Valibot schemas for args and options:
+`packages/skills` 使用 Valibot schemas 定义 args 和 options：
 
-- Field shape and type validation live in Valibot object schemas.
-- Parameter constraints use `v.check`.
-- Cross-field business rules live in the concrete command implementation.
-- Help descriptions use Valibot `v.description`.
-- The CLI passes `schemaAdapter: { toStandardJsonSchema }` to `defineCli`.
+- Field shape 和 type validation 位于 Valibot object schemas。
+- Parameter constraints 使用 `v.check`。
+- Cross-field business rules 位于具体 command implementation。
+- Help descriptions 使用 Valibot `v.description`。
+- CLI 将 `schemaAdapter: { toStandardJsonSchema }` 传给 `defineCli`。
 
-Because Valibot `check` actions are validation logic rather than JSON Schema,
-command-kit asks the Standard JSON Schema converter to ignore `check` actions
-when it reads help and option metadata. Runtime validation still uses the
-original Valibot schemas through Standard Schema, so args/options parameter
-constraints remain in their owning schemas.
+Valibot `check` actions 是 validation logic，不是 JSON Schema。command-kit 读取 help 和 option metadata 时要求 Standard JSON Schema converter 忽略 `check` actions；runtime validation 仍然通过 Standard Schema 使用原始 Valibot schemas，所以 args/options parameter constraints 仍由这些 schemas 拥有。
 
-## Testing Strategy
+## 测试策略
 
-Runtime tests should focus on public behavior:
+Runtime tests 只盯 public behavior：
 
-- first positional plus rest-array binding
-- missing, extra, and unknown arguments
-- boolean, string, alias, and repeatable options
-- Standard Schema validation failures for args, options, and request validation
-- help descriptions derived from JSON Schema metadata
-- JSON mode suppressing command output and writing only the envelope
+- first positional 加 rest-array binding
+- missing、extra 和 unknown arguments
+- boolean、string、alias 和 repeatable options
+- args、options 和 request validation 的 Standard Schema validation failures
+- 从 JSON Schema metadata 派生 help descriptions
+- JSON mode suppress command output，并只写 envelope
 
-Skills tests should cover only affected command compatibility:
+Skills tests 只覆盖这次迁移影响到的 command compatibility：
 
 ```bash
 skills add plimeor/agent-skills
@@ -299,23 +264,18 @@ skills sync -g --dry-run
 skills migrate -g
 ```
 
-## Success Criteria
+## 成功标准
 
-- `packages/command-kit` has no TypeBox dependency or TypeBox-specific API.
-- `packages/command-kit` accepts `StandardSchemaV1` for args and options, and
-  lets callers omit either field when a command does not need it.
-- `defineCli` accepts optional `schemaAdapter.toStandardJsonSchema`.
-- `defineCli` accepts one-level command groups declared with `defineGroup`.
-- Command groups do not support aliases, group-level schema adapters, or nested
-  groups.
-- Help output shows field descriptions when JSON Schema metadata is available
-  and omits them when it is not.
-- `packages/skills` uses Valibot instead of TypeBox.
-- `packages/skills` parameter validation rules are implemented with Valibot
-  `check`.
-- `skills add plimeor/agent-skills code-scope-gate writing-blog` binds source
-  and skills correctly.
-- `skills remove code-scope-gate writing-blog` binds skill names as an array.
-- Only `skills list` accepts `--json`.
-- JSON mode writes only the result envelope.
-- `bun run check`, `bun run lint`, and relevant Bun tests pass.
+- `packages/command-kit` 没有 TypeBox dependency 或 TypeBox-specific API。
+- `packages/command-kit` 接受 `StandardSchemaV1` 作为 args 和 options，并允许 command 不需要时省略任一字段。
+- `defineCli` 接受 optional `schemaAdapter.toStandardJsonSchema`。
+- `defineCli` 接受用 `defineGroup` 声明的 one-level command groups。
+- Command groups 不支持 aliases、group-level schema adapters 或 nested groups。
+- JSON Schema metadata 可用时，help output 显示 field descriptions；不可用时省略。
+- `packages/skills` 使用 Valibot 而不是 TypeBox。
+- `packages/skills` parameter validation rules 使用 Valibot `check` 实现。
+- `skills add plimeor/agent-skills code-scope-gate writing-blog` 正确绑定 source 和 skills。
+- `skills remove code-scope-gate writing-blog` 正确绑定 skill names array。
+- 只有 `skills list` 接受 `--json`。
+- JSON mode 只写 result envelope。
+- `bun run check`、`bun run lint` 和相关 Bun tests 通过。

@@ -12,6 +12,7 @@ standalone demos can live under `apps/`.
 | Package | Purpose | Stack |
 | ------- | ------- | ----- |
 | [`@plimeor/code-wiki`](packages/code-wiki) | Code wiki CLI. It registers Git projects by portable remote URL and ref, scans managed clones into Markdown wikis with deterministic routing indexes, and writes an `AGENTS.md` reading protocol for external CLIs. | TypeScript, Bun |
+| [`@plimeor/command-kit`](packages/command-kit) | Bun-first command declaration runtime for repo-local CLI and agent tools. It handles command groups, positional binding, Standard Schema validation, help metadata, and JSON result envelopes. | TypeScript, Bun |
 | [`@plimeor/skills`](packages/skills) | Manifest-based CLI for installing and syncing agent skills. It keeps `skills.json` as desired state, `skills.lock.json` as resolved state, and installs skills into global or project-local `.agents/skills` directories. | TypeScript, Bun |
 
 ## Quick Start
