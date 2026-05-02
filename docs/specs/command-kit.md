@@ -121,7 +121,7 @@ rules that compare multiple fields belong in the concrete command implementation
 Command groups provide one-level subcommand routing for CLIs such as:
 
 ```bash
-code-wiki projects add web-app --repo git@github.com:org/web-app.git
+code-wiki project add web-app --repo git@github.com:org/web-app.git
 code-wiki runtime set codex
 ```
 
@@ -131,8 +131,8 @@ nested groups. Group subcommands use the parent CLI's `schemaAdapter`, and help
 uses the derived CLI name:
 
 ```text
-Usage: code-wiki projects <command>
-Usage: code-wiki projects add <project> [options]
+Usage: code-wiki project <command>
+Usage: code-wiki project add <project> [options]
 ```
 
 ## Standard Schema Validation

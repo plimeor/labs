@@ -55,20 +55,6 @@ export function renderGeneratedPage(input: PageInput): RenderedPage {
   }
 }
 
-export function readAuthority(markdown: string): WikiPageAuthority | undefined {
-  const match = markdown.match(/^---\n([\s\S]*?)\n---/)
-  const authority = match?.[1]?.match(/^authority:\s*(.+)$/m)?.[1]?.trim()
-  if (authority === 'generated' || authority === 'human-corrected') {
-    return authority
-  }
-
-  return undefined
-}
-
-export function isHumanAuthority(authority: WikiPageAuthority | undefined): authority is 'human-corrected' {
-  return authority === 'human-corrected'
-}
-
 export function slugify(input: string): string {
   const slug = input
     .trim()

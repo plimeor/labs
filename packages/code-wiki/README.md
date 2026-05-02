@@ -1,11 +1,13 @@
 # @plimeor/code-wiki
 
-Code wiki CLI for codebase Q&A, PRD review, and coding plan generation.
+Scan Git repositories into durable Markdown wikis.
 
-The executable is `code-wiki`. It stores durable wiki state as Markdown plus
-small JSON metadata files under `.code-wiki/`, keeps managed clones under
-`.code-wiki/repos/`, and gives local agent runtimes focused code context for
-answering codebase questions, reviewing PRDs, and producing coding plans.
+The executable is `code-wiki`. It stores wiki state under `.code-wiki/`, keeps
+managed clones under `.code-wiki/repos/`, and generates deterministic Markdown
+plus JSON indexes for source inspection and version-to-version comparison.
+
+This phase is scan-only: `review`, `correct`, PRD analysis, coding plan
+generation, and non-Codex runtimes are intentionally out of scope.
 
 ## Installation
 
@@ -31,24 +33,21 @@ cd team-code-wiki
 git init
 code-wiki init --shared
 code-wiki runtime set codex
-code-wiki projects add web-app --repo git@github.com:org/web-app.git
-code-wiki projects add platform --repo git@github.com:org/platform.git
-code-wiki projects list
+code-wiki project add react --repo https://github.com/facebook/react/tree/main --ref v15.6.2
 code-wiki scan
-code-wiki review prd.md
+code-wiki project set react --ref v16.14.0
+code-wiki scan react
 ```
 
-Shared mode stores project entries by Git remote URL. Managed clones are
+Shared mode stores project entries by Git remote URL and ref. Managed clones are
 created under `.code-wiki/repos/<project-id>/` and are ignored by Git.
 
 ## Embedded Quick Start
 
 ```bash
-cd /path/to/web-app
+cd /path/to/repo
 code-wiki init
-code-wiki runtime set codex
 code-wiki scan
-code-wiki review prd.md
 ```
 
 Embedded mode stores a single repository wiki under `.code-wiki/wiki/`.
@@ -61,20 +60,18 @@ code-wiki init
 code-wiki runtime set codex
 code-wiki runtime current
 code-wiki runtime select
-code-wiki projects add web-app --repo git@github.com:org/web-app.git
-code-wiki projects list
+code-wiki project add react --repo https://github.com/facebook/react.git --ref v15.6.2
+code-wiki project add chakra --repo https://github.com/chakra-ui/chakra-ui.git --ref main
+code-wiki project set react --ref v19.0.0
+code-wiki project list
 code-wiki scan
-code-wiki scan web-app
-code-wiki review prd.md
-code-wiki review prd.md --projects web-app,platform
-code-wiki review --url https://example.com/prd --projects web-app
-code-wiki review --text "Add team-level billing controls" --projects web-app
-code-wiki correct web-app correction.md
+code-wiki scan react
 ```
 
-`review <prd>` in shared mode asks the configured runtime to propose affected
-projects and requires confirmation before it runs. Use `--projects` to bypass
-the proposal step with an explicit project set.
+`project add` and `project set` accept `--ref` or `--commit`. Use one of them,
+not both. A GitHub URL such as `https://github.com/facebook/react/tree/main` is
+normalized to `https://github.com/facebook/react.git`; the URL ref is used only
+when no explicit `--ref` or `--commit` is provided.
 
 ## State Files
 
@@ -84,7 +81,6 @@ Shared mode:
 .code-wiki/
   config.json
   projects.json
-  reports/
   projects/<project-id>/
   repos/
 ```
@@ -95,6 +91,8 @@ Embedded mode:
 .code-wiki/
   config.json
   project.json
-  reports/
   wiki/
 ```
+
+Generated project wikis include `overview.md`, `index.md`, `index.json`,
+`metadata.json`, `log.md`, `modules/`, and `contracts/`.

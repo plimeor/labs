@@ -22,12 +22,6 @@ export function executableForRuntime(runtime: RuntimeId): string {
   switch (runtime) {
     case 'codex':
       return 'codex'
-    case 'claude-code':
-      return 'claude'
-    case 'cursor':
-      return 'cursor'
-    case 'kiro':
-      return 'kiro'
   }
 }
 
@@ -41,9 +35,6 @@ export async function assertRuntimeAvailable(runtime: RuntimeId): Promise<void> 
 
 export async function runRuntime(options: RuntimeRunOptions): Promise<string> {
   await assertRuntimeAvailable(options.runtime)
-  if (options.runtime !== 'codex') {
-    throw new Error(`${options.runtime} is registered as a runtime id, but only codex is end-to-end supported.`)
-  }
 
   const tempDir = await Files.makeTempDir({ directory: tmpdir(), prefix: 'code-wiki-' })
   const outputPath = join(tempDir, 'last-message.md')
@@ -84,21 +75,6 @@ export function constructRuntimeCommand(
           cwd,
           '-'
         ]
-      }
-    case 'claude-code':
-      return {
-        args: ['-p', prompt],
-        command: 'claude'
-      }
-    case 'cursor':
-      return {
-        args: ['agent', prompt],
-        command: 'cursor'
-      }
-    case 'kiro':
-      return {
-        args: ['run', prompt],
-        command: 'kiro'
       }
   }
 }

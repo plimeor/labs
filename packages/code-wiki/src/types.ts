@@ -9,7 +9,7 @@ export const OptionalTextArraySchema = v.optional(v.array(TextSchema))
 export const WorkspaceModeSchema = v.picklist(['shared', 'embedded'])
 export type WorkspaceMode = v.InferOutput<typeof WorkspaceModeSchema>
 
-export const RuntimeIdSchema = v.picklist(['codex', 'claude-code', 'cursor', 'kiro'])
+export const RuntimeIdSchema = v.picklist(['codex'])
 export type RuntimeId = v.InferOutput<typeof RuntimeIdSchema>
 
 export const CodeWikiConfigSchema = v.looseObject({
@@ -40,6 +40,7 @@ const RawProjectEntryEntries = {
   localPath: v.optional(v.unknown()),
   managedRepoPath: OptionalTextSchema,
   path: v.optional(v.unknown()),
+  ref: OptionalTextSchema,
   repoUrl: TextSchema,
   wikiPath: OptionalTextSchema
 }
@@ -55,12 +56,12 @@ export const ProjectEntrySchema = v.pipe(
 
     const managedRepoPath: string | undefined = input.managedRepoPath ?? join('.code-wiki', 'repos', input.id)
     return {
-      defaultBranch: input.defaultBranch ?? 'HEAD',
       displayName: input.displayName ?? input.id,
       id: input.id,
       ...(input.exclude === undefined ? {} : { exclude: input.exclude }),
       ...(input.include === undefined ? {} : { include: input.include }),
       ...(managedRepoPath === undefined ? {} : { managedRepoPath }),
+      ref: input.ref ?? input.defaultBranch ?? 'HEAD',
       repoUrl: input.repoUrl,
       wikiPath: input.wikiPath ?? join('.code-wiki', 'projects', input.id)
     }
@@ -118,26 +119,36 @@ export const EmbeddedProjectSchema = v.pipe(
 )
 export type EmbeddedProject = v.InferOutput<typeof EmbeddedProjectSchema>
 
-export const ProjectMetadataSchema = v.object({
-  branch: TextSchema,
-  exclude: OptionalTextArraySchema,
-  include: OptionalTextArraySchema,
-  lastScannedAt: TextSchema,
-  lastScannedCommit: TextSchema,
-  projectId: TextSchema,
-  repoUrl: OptionalTextSchema,
-  schemaVersion: v.literal(1)
-})
+export const ProjectMetadataSchema = v.pipe(
+  v.looseObject({
+    branch: TextSchema,
+    exclude: OptionalTextArraySchema,
+    include: OptionalTextArraySchema,
+    lastScannedAt: TextSchema,
+    lastScannedCommit: TextSchema,
+    projectId: TextSchema,
+    ref: OptionalTextSchema,
+    repoUrl: OptionalTextSchema,
+    schemaVersion: v.literal(1)
+  }),
+  v.transform(input => ({
+    branch: input.branch,
+    ...(input.exclude === undefined ? {} : { exclude: input.exclude }),
+    ...(input.include === undefined ? {} : { include: input.include }),
+    lastScannedAt: input.lastScannedAt,
+    lastScannedCommit: input.lastScannedCommit,
+    projectId: input.projectId,
+    ref: input.ref ?? input.branch,
+    ...(input.repoUrl === undefined ? {} : { repoUrl: input.repoUrl }),
+    schemaVersion: 1 as const
+  }))
+)
 export type ProjectMetadata = v.InferOutput<typeof ProjectMetadataSchema>
 
 export const WikiPageKindSchema = v.picklist(['overview', 'index', 'module', 'flow', 'contract'])
 export type WikiPageKind = v.InferOutput<typeof WikiPageKindSchema>
 
-export const WikiPageAuthoritySchema = v.pipe(
-  v.unknown(),
-  v.transform(input => (input === 'human-corrected' ? input : 'generated')),
-  v.picklist(['generated', 'human-corrected'])
-)
+export const WikiPageAuthoritySchema = v.literal('generated')
 export type WikiPageAuthority = v.InferOutput<typeof WikiPageAuthoritySchema>
 
 const FallbackTextArraySchema = v.pipe(
@@ -176,45 +187,3 @@ export const WikiIndexDocumentSchema = v.pipe(
   }))
 )
 export type WikiIndexDocument = v.InferOutput<typeof WikiIndexDocumentSchema>
-
-export const PrdSourceSchema = v.variant('kind', [
-  v.object({ kind: v.literal('file'), path: TextSchema }),
-  v.object({ kind: v.literal('url'), url: TextSchema }),
-  v.object({ kind: v.literal('text'), text: TextSchema })
-])
-export type PrdSource = v.InferOutput<typeof PrdSourceSchema>
-
-export const LoadedPrdSchema = v.object({
-  content: TextSchema,
-  label: TextSchema,
-  source: PrdSourceSchema
-})
-export type LoadedPrd = v.InferOutput<typeof LoadedPrdSchema>
-
-export const RuntimeProjectProposalSchema = v.pipe(
-  v.looseObject({
-    projects: v.array(
-      v.object({
-        id: TextSchema,
-        reason: OptionalTextSchema
-      })
-    )
-  }),
-  v.transform(input => {
-    const reasons: Record<string, string> = {}
-    const projectIds = input.projects.map(entry => {
-      reasons[entry.id] = entry.reason ?? 'Runtime selected this project.'
-      return entry.id
-    })
-
-    return { projectIds, reasons }
-  })
-)
-export type RuntimeProjectProposal = v.InferOutput<typeof RuntimeProjectProposalSchema>
-
-export const ReviewContextPageSchema = v.object({
-  content: TextSchema,
-  page: WikiIndexPageSchema,
-  projectId: TextSchema
-})
-export type ReviewContextPage = v.InferOutput<typeof ReviewContextPageSchema>

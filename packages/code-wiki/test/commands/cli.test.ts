@@ -12,15 +12,17 @@ describe('cli command groups', () => {
     const rootHelp = await captureStdout(async () => {
       await cli.serve(['--help'])
     })
-    const projectsHelp = await captureStdout(async () => {
-      await cli.serve(['projects', '--help'])
+    const projectHelp = await captureStdout(async () => {
+      await cli.serve(['project', '--help'])
     })
 
-    expect(rootHelp).toContain('code-wiki — Code wiki CLI for codebase Q&A, PRD review, and coding plans')
+    expect(rootHelp).toContain('code-wiki — Code wiki CLI for scanning repositories into durable Markdown wikis')
     expect(rootHelp).toContain('  runtime')
-    expect(rootHelp).toContain('  projects')
-    expect(projectsHelp).toContain('code-wiki projects — Manage shared CodeWiki projects')
-    expect(projectsHelp).toContain('Usage: code-wiki projects <command>')
+    expect(rootHelp).toContain('  project')
+    expect(rootHelp).not.toContain('  review')
+    expect(rootHelp).not.toContain('  correct')
+    expect(projectHelp).toContain('code-wiki project — Manage scanned CodeWiki projects')
+    expect(projectHelp).toContain('Usage: code-wiki project <command>')
   })
 
   test('routes runtime commands through the command group', async () => {
@@ -42,17 +44,18 @@ describe('cli command groups', () => {
     })
   })
 
-  test('routes projects commands through the command group', async () => {
+  test('routes project commands through the command group', async () => {
     const cwd = await tempDir('code-wiki-cli-projects-')
     await run('git', ['init', '-q', '-b', 'main'], cwd)
     const cli = createCli()
 
     await withCwd(cwd, async () => {
       await cli.serve(['init', '--shared'])
-      await cli.serve(['projects', 'add', 'web-app', '--repo', 'git@github.com:org/web-app.git'])
+      await cli.serve(['project', 'add', 'web-app', '--repo', 'git@github.com:org/web-app.git', '--ref', 'main'])
+      await cli.serve(['project', 'set', 'web-app', '--ref', 'v1'])
     })
-    const output = await captureStdout(() => withCwd(cwd, () => cli.serve(['projects', 'list'])))
+    const output = await captureStdout(() => withCwd(cwd, () => cli.serve(['project', 'list'])))
 
-    expect(output).toContain('web-app\tgit@github.com:org/web-app.git\tHEAD')
+    expect(output).toContain('web-app\tgit@github.com:org/web-app.git\tv1')
   })
 })

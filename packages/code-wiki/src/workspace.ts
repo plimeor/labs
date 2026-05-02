@@ -49,10 +49,10 @@ export async function initEmbeddedWorkspace(cwd: string): Promise<Workspace> {
   const projectId = await inferProjectIdFromRoot(root)
   const config: CodeWikiConfig = { mode: 'embedded', runtime: undefined, schemaVersion: 1 }
   const project: EmbeddedProject = {
-    defaultBranch: git.branch,
     displayName: projectId,
     id: projectId,
     managedRepoPath: undefined,
+    ref: git.commit,
     repositoryRoot: root,
     repoUrl: git.repoUrl ?? root,
     wikiPath: '.code-wiki/wiki'

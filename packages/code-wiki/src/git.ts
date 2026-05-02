@@ -11,6 +11,11 @@ export type GitIdentity = {
   root: string
 }
 
+export type NormalizedGitRemote = {
+  ref?: string
+  repoUrl: string
+}
+
 export async function requireGitRoot(cwd: string): Promise<string> {
   return gitOutput(cwd, ['rev-parse', '--show-toplevel'])
 }
@@ -53,38 +58,57 @@ export async function ensureManagedClone(repoUrl: string, repoPath: string): Pro
   }
 
   await $({ cwd: repoPath, quiet: true })`git remote set-url origin ${repoUrl}`
-  await $({ cwd: repoPath, quiet: true })`git fetch --prune origin`
+  await $({
+    cwd: repoPath,
+    quiet: true
+  })`git fetch --prune --tags origin +refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/*`
   await $({ cwd: repoPath, quiet: true })`git remote set-head origin -a`.nothrow()
 }
 
-export async function checkoutRemoteBranch(
+export async function checkoutProjectRef(
   repoPath: string,
-  defaultBranch: string
-): Promise<{ branch: string; commit: string }> {
-  const latest = await latestRemoteBranch(repoPath, defaultBranch)
+  ref: string
+): Promise<{ branch: string; commit: string; ref: string }> {
+  const latest = await resolveProjectRef(repoPath, ref)
   await $({ cwd: repoPath, quiet: true })`git checkout --detach ${latest.commit}`
 
   return latest
 }
 
-export async function latestRemoteBranch(
+export async function resolveProjectRef(
   repoPath: string,
-  defaultBranch: string
-): Promise<{ branch: string; commit: string }> {
-  const remoteRef = remoteRefForDefaultBranch(defaultBranch)
-  const commit = await gitOutput(repoPath, ['rev-parse', remoteRef])
-  const branch = defaultBranch === 'HEAD' ? await remoteHeadBranch(repoPath) : defaultBranch
+  ref: string
+): Promise<{ branch: string; commit: string; ref: string }> {
+  if (ref === 'HEAD') {
+    const commit = await gitOutput(repoPath, ['rev-parse', 'origin/HEAD'])
+    const branch = await remoteHeadBranch(repoPath)
+    return { branch, commit, ref }
+  }
 
-  return { branch, commit }
+  const candidates = [
+    { branch: ref, revision: `refs/remotes/origin/${ref}` },
+    { branch: ref, revision: `origin/${ref}` },
+    { branch: ref, revision: `refs/tags/${ref}` },
+    { branch: ref, revision: ref }
+  ]
+
+  for (const candidate of candidates) {
+    const commit = await optionalGitOutput(repoPath, ['rev-parse', '--verify', `${candidate.revision}^{commit}`])
+    if (commit) {
+      return {
+        branch: candidate.branch,
+        commit,
+        ref
+      }
+    }
+  }
+
+  throw new Error(`Unable to resolve project ref ${ref}`)
 }
 
 async function remoteHeadBranch(repoPath: string): Promise<string> {
   const branchRef = await optionalGitOutput(repoPath, ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'])
   return branchRef?.replace(/^origin\//, '') ?? 'HEAD'
-}
-
-function remoteRefForDefaultBranch(defaultBranch: string): string {
-  return defaultBranch === 'HEAD' ? 'origin/HEAD' : `origin/${defaultBranch}`
 }
 
 async function currentBranch(root: string): Promise<string> {
@@ -109,4 +133,47 @@ function slugProjectId(input: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9._-]+/g, '-')
     .replace(/^-+|-+$/g, '')
+}
+
+export function normalizeGitRemote(input: string): NormalizedGitRemote {
+  const trimmed = input.trim()
+  const github = parseGithubTreeUrl(trimmed)
+  if (github) {
+    return github
+  }
+
+  return { repoUrl: trimmed }
+}
+
+function parseGithubTreeUrl(input: string): NormalizedGitRemote | undefined {
+  let url: URL
+  try {
+    url = new URL(input)
+  } catch {
+    return undefined
+  }
+
+  if (url.hostname !== 'github.com') {
+    return undefined
+  }
+
+  const [owner, repoWithSuffix, marker, ...refParts] = url.pathname.split('/').filter(Boolean)
+  if (!owner || !repoWithSuffix) {
+    return undefined
+  }
+
+  const repo = repoWithSuffix.replace(/\.git$/, '')
+  const repoUrl = `https://github.com/${owner}/${repo}.git`
+  if ((marker === 'tree' || marker === 'blob') && refParts.length > 0) {
+    return {
+      ref: refParts.join('/'),
+      repoUrl
+    }
+  }
+
+  if (url.protocol === 'https:') {
+    return { repoUrl }
+  }
+
+  return undefined
 }

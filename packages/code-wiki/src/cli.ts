@@ -3,15 +3,16 @@
 import { defineCli, defineCommand, defineGroup } from '@plimeor/command-kit'
 import { toStandardJsonSchema } from '@valibot/to-json-schema'
 
-import { correctArgsSchema, correctCommand } from './commands/correct.js'
 import { initCommand, initOptionsSchema } from './commands/init.js'
 import {
-  projectsAddArgsSchema,
-  projectsAddCommand,
-  projectsAddOptionsSchema,
-  projectsListCommand
-} from './commands/projects.js'
-import { reviewArgsSchema, reviewCommand, reviewOptionsSchema } from './commands/review.js'
+  projectAddArgsSchema,
+  projectAddCommand,
+  projectAddOptionsSchema,
+  projectListCommand,
+  projectSetArgsSchema,
+  projectSetCommand,
+  projectSetOptionsSchema
+} from './commands/project.js'
 import {
   runtimeCurrentCommand,
   runtimeSelectCommand,
@@ -23,7 +24,7 @@ import { scanArgsSchema, scanCommand } from './commands/scan.js'
 export function createCli() {
   const schemaAdapter = { toStandardJsonSchema }
   const runtime = defineGroup('runtime', {
-    description: 'Configure the local agent runtime',
+    description: 'Configure the local scanner runtime',
     commands: [
       defineCommand('set', {
         argBindings: [{ name: 'runtime' }],
@@ -42,25 +43,32 @@ export function createCli() {
     ]
   })
 
-  const projects = defineGroup('projects', {
-    description: 'Manage shared CodeWiki projects',
+  const project = defineGroup('project', {
+    description: 'Manage scanned CodeWiki projects',
     commands: [
       defineCommand('add', {
         argBindings: [{ name: 'project' }],
-        args: projectsAddArgsSchema,
-        description: 'Register a shared project by Git remote URL',
-        options: projectsAddOptionsSchema,
-        run: projectsAddCommand
+        args: projectAddArgsSchema,
+        description: 'Register a project by Git remote URL and optional ref',
+        options: projectAddOptionsSchema,
+        run: projectAddCommand
+      }),
+      defineCommand('set', {
+        argBindings: [{ name: 'project' }],
+        args: projectSetArgsSchema,
+        description: 'Update a registered project ref, remote, or scan filters',
+        options: projectSetOptionsSchema,
+        run: projectSetCommand
       }),
       defineCommand('list', {
-        description: 'List shared projects',
-        run: projectsListCommand
+        description: 'List registered projects',
+        run: projectListCommand
       })
     ]
   })
 
   return defineCli({
-    description: 'Code wiki CLI for codebase Q&A, PRD review, and coding plans',
+    description: 'Code wiki CLI for scanning repositories into durable Markdown wikis',
     name: 'code-wiki',
     commands: [
       defineCommand('init', {
@@ -69,25 +77,12 @@ export function createCli() {
         run: initCommand
       }),
       runtime,
-      projects,
+      project,
       defineCommand('scan', {
         argBindings: [{ name: 'project', optional: true }],
         args: scanArgsSchema,
         description: 'Scan changed projects into durable Markdown wikis',
         run: scanCommand
-      }),
-      defineCommand('review', {
-        argBindings: [{ name: 'prd', optional: true }],
-        args: reviewArgsSchema,
-        description: 'Review a PRD against selected project wikis',
-        options: reviewOptionsSchema,
-        run: reviewCommand
-      }),
-      defineCommand('correct', {
-        argBindings: [{ name: 'project' }, { name: 'correction', optional: true }],
-        args: correctArgsSchema,
-        description: 'Append a human correction to the project log',
-        run: correctCommand
       })
     ],
     schemaAdapter

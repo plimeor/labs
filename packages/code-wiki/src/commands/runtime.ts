@@ -5,7 +5,7 @@ import { assertRuntimeAvailable } from '../runtime/index.js'
 import { TextSchema } from '../types.js'
 import { requireRuntimeId, resolveWorkspace, setWorkspaceRuntime } from '../workspace.js'
 
-const runtimeIds = ['codex', 'claude-code', 'cursor', 'kiro'] as const
+const runtimeIds = ['codex'] as const
 
 export const runtimeSetArgsSchema = v.object({
   runtime: TextSchema

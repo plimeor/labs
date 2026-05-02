@@ -2,6 +2,8 @@ import { describe, expect, test } from 'bun:test'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
+import { $ } from 'zx'
+
 import { initCommand } from '../../src/commands/init.js'
 import { scanCommand } from '../../src/commands/scan.js'
 import { scanRepository } from '../../src/scanner/index.js'
@@ -53,12 +55,13 @@ describe('scan command', () => {
     const result = await scanRepository({
       branch: 'main',
       commit: 'abc123',
+      ref: 'HEAD',
       project: {
-        defaultBranch: 'HEAD',
         displayName: 'Filtered App',
         exclude: ['src/skip.ts'],
         id: 'filtered-app',
         include: ['src/**'],
+        ref: 'HEAD',
         repoUrl: 'git@example.com:org/filtered-app.git',
         wikiPath: '.code-wiki/projects/filtered-app'
       },
@@ -75,7 +78,7 @@ describe('scan command', () => {
     expect(await readText(join(wikiRoot, 'overview.md'))).toContain('Indexed source files: 1')
   })
 
-  test('uses the configured shared project default branch when scanning managed clones', async () => {
+  test('uses the configured shared project ref when scanning managed clones', async () => {
     const remote = await tempDir('code-wiki-scan-remote-')
     await run('git', ['init', '-q', '-b', 'main'], remote)
     await mkdir(join(remote, 'src'), { recursive: true })
@@ -99,10 +102,10 @@ describe('scan command', () => {
           schemaVersion: 1,
           projects: [
             {
-              defaultBranch: 'release',
               displayName: 'app',
               id: 'app',
               managedRepoPath: join('.code-wiki', 'repos', 'app'),
+              ref: 'release',
               repoUrl: remote,
               wikiPath: join('.code-wiki', 'projects', 'app')
             }
@@ -119,7 +122,106 @@ describe('scan command', () => {
     expect(await readText(join(cwd, '.code-wiki', 'projects', 'app', 'modules', 'src.md'))).not.toContain('MainSymbol')
     expect(await readJson(join(cwd, '.code-wiki', 'projects', 'app', 'metadata.json'))).toMatchObject({
       branch: 'release',
-      projectId: 'app'
+      projectId: 'app',
+      ref: 'release'
     })
+  })
+
+  test('resolves a configured commit ref before scanning a managed clone', async () => {
+    const remote = await tempDir('code-wiki-scan-commit-remote-')
+    await run('git', ['init', '-q', '-b', 'main'], remote)
+    await mkdir(join(remote, 'src'), { recursive: true })
+    await writeFile(join(remote, 'src', 'index.ts'), 'export function LegacySymbol() { return "legacy" }\n')
+    await run('git', ['add', '.'], remote)
+    await run('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-qm', 'legacy'], remote)
+    const legacyCommit = (await $({ cwd: remote, quiet: true })`git rev-parse HEAD`).stdout.trim()
+    await writeFile(join(remote, 'src', 'index.ts'), 'export function ModernSymbol() { return "modern" }\n')
+    await run('git', ['add', '.'], remote)
+    await run('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-qm', 'modern'], remote)
+
+    const cwd = await tempDir('code-wiki-scan-commit-workspace-')
+    await run('git', ['init', '-q', '-b', 'main'], cwd)
+    await withCwd(cwd, async () => {
+      await initCommand({ options: { shared: true } })
+    })
+    await writeFile(
+      join(cwd, '.code-wiki', 'projects.json'),
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          projects: [
+            {
+              displayName: 'app',
+              id: 'app',
+              managedRepoPath: join('.code-wiki', 'repos', 'app'),
+              ref: legacyCommit,
+              repoUrl: remote,
+              wikiPath: join('.code-wiki', 'projects', 'app')
+            }
+          ]
+        },
+        null,
+        2
+      )
+    )
+
+    await withCwd(cwd, () => scanCommand({ args: {} }))
+
+    const modulePage = await readText(join(cwd, '.code-wiki', 'projects', 'app', 'modules', 'src.md'))
+    expect(modulePage).toContain('LegacySymbol')
+    expect(modulePage).not.toContain('ModernSymbol')
+    expect(await readJson(join(cwd, '.code-wiki', 'projects', 'app', 'metadata.json'))).toMatchObject({
+      lastScannedCommit: legacyCommit,
+      ref: legacyCommit
+    })
+  })
+
+  test('removes stale generated pages when scanning a different ref', async () => {
+    const repoRoot = await tempDir('code-wiki-scan-stale-repo-')
+    const wikiRoot = await tempDir('code-wiki-scan-stale-wiki-')
+    await mkdir(join(repoRoot, 'src', 'legacy'), { recursive: true })
+    await writeFile(join(repoRoot, 'src', 'legacy', 'stack.ts'), 'export function ReactMount() { return null }\n')
+    await scanRepository({
+      branch: 'main',
+      commit: 'react15',
+      ref: 'v15.6.2',
+      project: {
+        displayName: 'React',
+        id: 'react',
+        ref: 'v15.6.2',
+        repoUrl: 'https://github.com/facebook/react.git',
+        wikiPath: '.code-wiki/projects/react'
+      },
+      repoRoot,
+      wikiRoot
+    })
+
+    await Bun.write(join(repoRoot, 'src', 'legacy', 'stack.ts'), '')
+    await mkdir(join(repoRoot, 'packages', 'react-reconciler'), { recursive: true })
+    await writeFile(
+      join(repoRoot, 'packages', 'react-reconciler', 'ReactFiberWorkLoop.ts'),
+      'export function createFiber() { return null }\n'
+    )
+    await scanRepository({
+      branch: 'main',
+      commit: 'react16',
+      ref: 'v16.14.0',
+      project: {
+        displayName: 'React',
+        id: 'react',
+        ref: 'v16.14.0',
+        repoUrl: 'https://github.com/facebook/react.git',
+        wikiPath: '.code-wiki/projects/react'
+      },
+      repoRoot,
+      wikiRoot
+    })
+
+    const overview = await readText(join(wikiRoot, 'overview.md'))
+    expect(overview).toContain('Fiber reconciler')
+    expect(overview).not.toContain('Legacy stack reconciler')
+    expect(await readText(join(wikiRoot, 'modules', 'packages', 'react-reconciler.md'))).toContain(
+      'ReactFiberWorkLoop.ts'
+    )
   })
 })

@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { log } from '@clack/prompts'
 import * as v from 'valibot'
 
-import { checkoutRemoteBranch, ensureManagedClone, latestRemoteBranch, readGitIdentity } from '../git.js'
+import { checkoutProjectRef, ensureManagedClone, readGitIdentity, resolveProjectRef } from '../git.js'
 import { readProjects, requireProject } from '../projects.js'
 import { readMetadata, scanRepository } from '../scanner/index.js'
 import { type ProjectEntry, TextSchema } from '../types.js'
@@ -40,7 +40,7 @@ async function scanShared(workspace: Awaited<ReturnType<typeof resolveWorkspace>
     const repoPath = managedRepoPath(workspace.root, project)
     log.info(`Fetching ${project.id}`)
     await ensureManagedClone(project.repoUrl, repoPath)
-    const latest = await latestRemoteBranch(repoPath, project.defaultBranch)
+    const latest = await resolveProjectRef(repoPath, project.ref)
     const wikiRoot = join(workspace.root, project.wikiPath)
     const metadata = await readMetadata(join(wikiRoot, 'metadata.json'))
     if (!projectId && metadata?.lastScannedCommit === latest.commit) {
@@ -48,12 +48,13 @@ async function scanShared(workspace: Awaited<ReturnType<typeof resolveWorkspace>
       continue
     }
 
-    const checkout = await checkoutRemoteBranch(repoPath, project.defaultBranch)
+    const checkout = await checkoutProjectRef(repoPath, project.ref)
     log.info(`Scanning ${project.id} at ${checkout.commit.slice(0, 7)}`)
     await scanRepository({
       branch: checkout.branch,
       commit: checkout.commit,
       project,
+      ref: checkout.ref,
       repoRoot: repoPath,
       wikiRoot
     })
@@ -79,6 +80,7 @@ async function scanEmbedded(workspace: Awaited<ReturnType<typeof resolveWorkspac
   await scanRepository({
     branch: git.branch,
     commit: git.commit,
+    ref: git.commit,
     repoRoot: git.root,
     project: {
       ...project,
