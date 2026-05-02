@@ -7,7 +7,7 @@ import { $ } from 'zx'
 import { ensureManagedClone, fetchProjectRef, readGitIdentity } from '../git.js'
 import { readProjects, requireProject } from '../projects.js'
 import { readMetadata, scanRepository } from '../scanner/index.js'
-import { type ProjectEntry, TextSchema } from '../types.js'
+import { type ProjectEntry, type ProjectMetadata, TextSchema } from '../types.js'
 import { readEmbeddedProject, resolveWorkspace, statePath } from '../workspace.js'
 
 export const scanArgsSchema = v.object({
@@ -44,7 +44,7 @@ async function scanShared(workspace: Awaited<ReturnType<typeof resolveWorkspace>
     const latest = await fetchProjectRef(repoPath, project.ref)
     const wikiRoot = join(workspace.root, project.wikiPath)
     const metadata = await readMetadata(join(wikiRoot, 'metadata.json'))
-    if (!projectId && metadata?.lastScannedCommit === latest.commit) {
+    if (!projectId && isSharedScanUpToDate(project, metadata, latest)) {
       log.info(`${project.id} is up to date at ${latest.commit.slice(0, 7)}`)
       continue
     }
@@ -96,6 +96,38 @@ async function scanEmbedded(workspace: Awaited<ReturnType<typeof resolveWorkspac
 
 function managedRepoPath(root: string, project: ProjectEntry): string {
   return join(root, project.managedRepoPath ?? join('.code-wiki', 'repos', project.id))
+}
+
+function isSharedScanUpToDate(
+  project: ProjectEntry,
+  metadata: ProjectMetadata | undefined,
+  latest: { branch: string; commit: string; ref: string }
+): boolean {
+  if (!metadata) {
+    return false
+  }
+
+  return (
+    metadata.lastScannedCommit === latest.commit &&
+    metadata.branch === latest.branch &&
+    metadata.projectId === project.id &&
+    metadata.ref === latest.ref &&
+    metadata.repoUrl === project.repoUrl &&
+    sameStringArray(metadata.include, project.include) &&
+    sameStringArray(metadata.exclude, project.exclude)
+  )
+}
+
+function sameStringArray(left: string[] | undefined, right: string[] | undefined): boolean {
+  if (left === undefined || right === undefined) {
+    return left === right
+  }
+
+  if (left.length !== right.length) {
+    return false
+  }
+
+  return left.every((value, index) => value === right[index])
 }
 
 async function checkoutProject(repoPath: string, commit: string): Promise<void> {
