@@ -7,6 +7,7 @@ import { inferProjectIdFromRoot, readGitIdentity, requireGitRoot } from './git.j
 import {
   type CodeWikiConfig,
   CodeWikiConfigSchema,
+  codeWikiPath,
   type EmbeddedProject,
   EmbeddedProjectSchema,
   type ProjectsDocument,
@@ -27,6 +28,7 @@ export function statePath(workspace: Workspace, ...segments: string[]): string {
 export async function initSharedWorkspace(cwd: string): Promise<Workspace> {
   const root = await requireGitRoot(resolve(cwd))
   const stateDir = join(root, '.code-wiki')
+  await assertWorkspaceDoesNotExist(stateDir)
   const config: CodeWikiConfig = { mode: 'shared', schemaVersion: 1 }
 
   await Files.ensureDir(stateDir)
@@ -42,6 +44,7 @@ export async function initSharedWorkspace(cwd: string): Promise<Workspace> {
 export async function initEmbeddedWorkspace(cwd: string): Promise<Workspace> {
   const root = await requireGitRoot(cwd)
   const stateDir = join(root, '.code-wiki')
+  await assertWorkspaceDoesNotExist(stateDir)
   const git = await readGitIdentity(root)
   const projectId = await inferProjectIdFromRoot(root)
   const config: CodeWikiConfig = { mode: 'embedded', schemaVersion: 1 }
@@ -52,7 +55,7 @@ export async function initEmbeddedWorkspace(cwd: string): Promise<Workspace> {
     ref: git.commit,
     repositoryRoot: root,
     repoUrl: git.repoUrl ?? root,
-    wikiPath: '.code-wiki/wiki'
+    wikiPath: codeWikiPath('wiki')
   }
 
   await Files.ensureDir(stateDir)
@@ -117,6 +120,12 @@ async function readConfig(path: string): Promise<CodeWikiConfig> {
 
 async function writeConfig(path: string, config: CodeWikiConfig): Promise<void> {
   await Files.writeJson(path, config)
+}
+
+async function assertWorkspaceDoesNotExist(stateDir: string): Promise<void> {
+  if (await Files.pathExists(join(stateDir, 'config.json'))) {
+    throw new Error('CodeWiki workspace already exists.')
+  }
 }
 
 async function ensureManagedReposGitignore(stateDir: string): Promise<void> {

@@ -180,9 +180,6 @@ async function writeWikiArtifact(
 
 async function prepareWikiRoot(wikiRoot: string): Promise<void> {
   await Files.ensureDir(wikiRoot)
-  await Files.removePath(join(wikiRoot, 'flows'), { force: true, recursive: true })
-  await Files.removePath(join(wikiRoot, 'versions'), { force: true, recursive: true })
-  await Files.removePath(join(wikiRoot, 'versions.json'), { force: true })
   for (const path of ['modules', 'contracts']) {
     await Files.removePath(join(wikiRoot, path), { force: true, recursive: true })
     await Files.ensureDir(join(wikiRoot, path))

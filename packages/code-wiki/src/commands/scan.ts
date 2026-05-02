@@ -8,7 +8,7 @@ import { Files } from '../files.js'
 import { ensureManagedClone, fetchProjectRef, readGitIdentity } from '../git.js'
 import { readProjects, requireProject } from '../projects.js'
 import { readMetadata, scanRepository } from '../scanner/index.js'
-import { type ProjectEntry, type ProjectMetadata, TextSchema } from '../types.js'
+import { codeWikiPath, type ProjectEntry, type ProjectMetadata, TextSchema } from '../types.js'
 import { readEmbeddedProject, resolveWorkspace, statePath } from '../workspace.js'
 
 export const scanArgsSchema = v.object({
@@ -94,7 +94,7 @@ async function scanEmbedded(workspace: Awaited<ReturnType<typeof resolveWorkspac
 }
 
 function managedRepoPath(root: string, project: ProjectEntry): string {
-  return join(root, project.managedRepoPath ?? join('.code-wiki', 'repos', project.id))
+  return join(root, project.managedRepoPath ?? codeWikiPath('repos', project.id))
 }
 
 function isSharedScanUpToDate(
@@ -130,11 +130,7 @@ function sameStringArray(left: string[] | undefined, right: string[] | undefined
 }
 
 async function isWikiRootContractCurrent(wikiRoot: string): Promise<boolean> {
-  return (
-    (await Files.pathExists(join(wikiRoot, 'AGENTS.md'))) &&
-    !(await Files.pathExists(join(wikiRoot, 'versions.json'))) &&
-    !(await Files.pathExists(join(wikiRoot, 'versions')))
-  )
+  return Files.pathExists(join(wikiRoot, 'AGENTS.md'))
 }
 
 async function checkoutProject(repoPath: string, commit: string): Promise<void> {

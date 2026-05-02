@@ -1,5 +1,3 @@
-import { join } from 'node:path'
-
 import * as v from 'valibot'
 
 export const TextSchema = v.pipe(v.string(), v.trim(), v.minLength(1))
@@ -10,7 +8,7 @@ export const WorkspaceModeSchema = v.picklist(['shared', 'embedded'])
 export type WorkspaceMode = v.InferOutput<typeof WorkspaceModeSchema>
 
 export const CodeWikiConfigSchema = v.pipe(
-  v.looseObject({
+  v.strictObject({
     mode: WorkspaceModeSchema,
     schemaVersion: v.literal(1)
   }),
@@ -36,47 +34,48 @@ export function normalizeProjectId(input: unknown): string {
   return v.parse(ProjectIdSchema, input)
 }
 
+export function codeWikiPath(...segments: string[]): string {
+  return ['.code-wiki', ...segments].join('/')
+}
+
+export const CodeWikiPathSchema = v.pipe(
+  TextSchema,
+  v.check(input => isPortableCodeWikiPath(input), 'Path must be a portable relative path under .code-wiki/')
+)
+
 const RawProjectEntryEntries = {
-  checkoutPath: v.optional(v.unknown()),
-  defaultBranch: OptionalTextSchema,
   displayName: OptionalTextSchema,
   exclude: OptionalTextArraySchema,
   id: ProjectIdSchema,
   include: OptionalTextArraySchema,
-  localPath: v.optional(v.unknown()),
-  managedRepoPath: OptionalTextSchema,
-  path: v.optional(v.unknown()),
+  managedRepoPath: v.optional(CodeWikiPathSchema),
   ref: OptionalTextSchema,
   repoUrl: TextSchema,
-  wikiPath: OptionalTextSchema
+  wikiPath: v.optional(CodeWikiPathSchema)
 }
 
-const RawProjectEntrySchema = v.looseObject(RawProjectEntryEntries)
+const RawProjectEntrySchema = v.strictObject(RawProjectEntryEntries)
 
 export const ProjectEntrySchema = v.pipe(
   RawProjectEntrySchema,
   v.transform(input => {
-    if (input.checkoutPath !== undefined || input.localPath !== undefined || input.path !== undefined) {
-      throw new Error(`Project ${input.id} must not store developer-local checkout paths`)
-    }
-
-    const managedRepoPath: string | undefined = input.managedRepoPath ?? join('.code-wiki', 'repos', input.id)
+    const managedRepoPath: string | undefined = input.managedRepoPath ?? codeWikiPath('repos', input.id)
     return {
       displayName: input.displayName ?? input.id,
       id: input.id,
       ...(input.exclude === undefined ? {} : { exclude: input.exclude }),
       ...(input.include === undefined ? {} : { include: input.include }),
       ...(managedRepoPath === undefined ? {} : { managedRepoPath }),
-      ref: input.ref ?? input.defaultBranch ?? 'HEAD',
+      ref: input.ref ?? 'HEAD',
       repoUrl: input.repoUrl,
-      wikiPath: input.wikiPath ?? join('.code-wiki', 'projects', input.id)
+      wikiPath: input.wikiPath ?? codeWikiPath('projects', input.id)
     }
   })
 )
 export type ProjectEntry = v.InferOutput<typeof ProjectEntrySchema>
 
 export const ProjectsDocumentSchema = v.pipe(
-  v.looseObject({
+  v.strictObject({
     projects: v.array(ProjectEntrySchema),
     schemaVersion: v.literal(1)
   }),
@@ -100,7 +99,7 @@ export const ProjectsDocumentSchema = v.pipe(
 export type ProjectsDocument = v.InferOutput<typeof ProjectsDocumentSchema>
 
 export const EmbeddedProjectSchema = v.pipe(
-  v.looseObject({
+  v.strictObject({
     ...RawProjectEntryEntries,
     repositoryRoot: TextSchema
   }),
@@ -112,14 +111,14 @@ export const EmbeddedProjectSchema = v.pipe(
         ? { managedRepoPath: undefined }
         : { managedRepoPath: input.managedRepoPath }),
       repositoryRoot: input.repositoryRoot,
-      wikiPath: input.wikiPath ?? '.code-wiki/wiki'
+      wikiPath: input.wikiPath ?? codeWikiPath('wiki')
     }
   })
 )
 export type EmbeddedProject = v.InferOutput<typeof EmbeddedProjectSchema>
 
 export const ProjectMetadataSchema = v.pipe(
-  v.looseObject({
+  v.strictObject({
     branch: TextSchema,
     exclude: OptionalTextArraySchema,
     include: OptionalTextArraySchema,
@@ -156,7 +155,7 @@ const FallbackTextArraySchema = v.pipe(
   v.array(TextSchema)
 )
 
-export const WikiIndexPageSchema = v.looseObject({
+export const WikiIndexPageSchema = v.strictObject({
   authority: WikiPageAuthoritySchema,
   contentHash: TextSchema,
   dependsOn: v.optional(v.array(TextSchema)),
@@ -172,7 +171,7 @@ export const WikiIndexPageSchema = v.looseObject({
 export type WikiIndexPage = v.InferOutput<typeof WikiIndexPageSchema>
 
 export const WikiIndexDocumentSchema = v.pipe(
-  v.looseObject({
+  v.strictObject({
     commit: TextSchema,
     pages: v.array(WikiIndexPageSchema),
     projectId: TextSchema,
@@ -186,3 +185,15 @@ export const WikiIndexDocumentSchema = v.pipe(
   }))
 )
 export type WikiIndexDocument = v.InferOutput<typeof WikiIndexDocumentSchema>
+
+function isPortableCodeWikiPath(input: string): boolean {
+  if (!input.startsWith('.code-wiki/')) {
+    return false
+  }
+
+  if (input.includes('\\') || input.includes('//') || /^[A-Za-z]:/.test(input)) {
+    return false
+  }
+
+  return input.split('/').every(segment => segment.length > 0 && segment !== '.' && segment !== '..')
+}

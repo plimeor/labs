@@ -63,16 +63,6 @@ export async function ensureManagedClone(repoUrl: string, repoPath: string): Pro
   await $({ cwd: repoPath, quiet: true })`git remote set-url origin ${repoUrl}`
 }
 
-export async function checkoutProjectRef(
-  repoPath: string,
-  ref: string
-): Promise<{ branch: string; commit: string; ref: string }> {
-  const latest = await fetchProjectRef(repoPath, ref)
-  await $({ cwd: repoPath, quiet: true })`git checkout --detach ${latest.commit}`
-
-  return latest
-}
-
 export async function fetchProjectRef(
   repoPath: string,
   ref: string

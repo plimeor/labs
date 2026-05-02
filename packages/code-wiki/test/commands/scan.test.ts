@@ -1,5 +1,4 @@
 import { describe, expect, test } from 'bun:test'
-import { existsSync } from 'node:fs'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
@@ -40,8 +39,6 @@ describe('scan command', () => {
     const agents = await readText(join(cwd, '.code-wiki', 'wiki', 'AGENTS.md'))
     expect(agents).toContain('Read `index.json` first')
     expect(agents).toContain('Do not edit generated wiki files directly')
-    expect(existsSync(join(cwd, '.code-wiki', 'wiki', 'versions.json'))).toBe(false)
-    expect(existsSync(join(cwd, '.code-wiki', 'wiki', 'versions'))).toBe(false)
     const logBefore = await readText(join(cwd, '.code-wiki', 'wiki', 'log.md'))
 
     await withCwd(cwd, () => scanCommand({ args: {} }))
@@ -49,14 +46,10 @@ describe('scan command', () => {
     expect(await readText(join(cwd, '.code-wiki', 'wiki', 'log.md'))).toBe(logBefore)
 
     await rm(join(cwd, '.code-wiki', 'wiki', 'AGENTS.md'))
-    await writeFile(join(cwd, '.code-wiki', 'wiki', 'versions.json'), '{"legacy":true}\n')
-    await mkdir(join(cwd, '.code-wiki', 'wiki', 'versions', 'old'), { recursive: true })
 
     await withCwd(cwd, () => scanCommand({ args: {} }))
 
     expect(await readText(join(cwd, '.code-wiki', 'wiki', 'AGENTS.md'))).toContain('CodeWiki Reading Protocol')
-    expect(existsSync(join(cwd, '.code-wiki', 'wiki', 'versions.json'))).toBe(false)
-    expect(existsSync(join(cwd, '.code-wiki', 'wiki', 'versions'))).toBe(false)
   })
 
   test('applies project include and exclude filters to generated wiki content', async () => {
@@ -156,10 +149,10 @@ describe('scan command', () => {
             {
               displayName: 'app',
               id: 'app',
-              managedRepoPath: join('.code-wiki', 'repos', 'app'),
+              managedRepoPath: '.code-wiki/repos/app',
               ref: 'release',
               repoUrl: remote,
-              wikiPath: join('.code-wiki', 'projects', 'app')
+              wikiPath: '.code-wiki/projects/app'
             }
           ]
         },
@@ -180,8 +173,6 @@ describe('scan command', () => {
     expect(await readText(join(cwd, '.code-wiki', 'projects', 'app', 'AGENTS.md'))).toContain(
       'CodeWiki Reading Protocol'
     )
-    expect(existsSync(join(cwd, '.code-wiki', 'projects', 'app', 'versions.json'))).toBe(false)
-    expect(existsSync(join(cwd, '.code-wiki', 'projects', 'app', 'versions'))).toBe(false)
   })
 
   test('resolves a configured commit ref before scanning a managed clone', async () => {
@@ -210,10 +201,10 @@ describe('scan command', () => {
             {
               displayName: 'app',
               id: 'app',
-              managedRepoPath: join('.code-wiki', 'repos', 'app'),
+              managedRepoPath: '.code-wiki/repos/app',
               ref: legacyCommit,
               repoUrl: remote,
-              wikiPath: join('.code-wiki', 'projects', 'app')
+              wikiPath: '.code-wiki/projects/app'
             }
           ]
         },
@@ -280,7 +271,5 @@ describe('scan command', () => {
     expect(await readText(join(wikiRoot, 'modules', 'packages', 'react-reconciler.md'))).toContain(
       'ReactFiberWorkLoop.ts'
     )
-    expect(existsSync(join(wikiRoot, 'versions.json'))).toBe(false)
-    expect(existsSync(join(wikiRoot, 'versions'))).toBe(false)
   })
 })

@@ -31,10 +31,10 @@ describe('init and project commands', () => {
           displayName: 'web-app',
           id: 'web-app',
           include: ['src/**', 'package.json'],
-          managedRepoPath: join('.code-wiki', 'repos', 'web-app'),
+          managedRepoPath: '.code-wiki/repos/web-app',
           ref: 'v1.2.3',
           repoUrl: 'git@github.com:org/web-app.git',
-          wikiPath: join('.code-wiki', 'projects', 'web-app')
+          wikiPath: '.code-wiki/projects/web-app'
         }
       ]
     })
