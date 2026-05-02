@@ -15,7 +15,8 @@
     "@valibot/to-json-schema": "catalog:",
     "effect": "catalog:",
     "es-toolkit": "catalog:",
-    "valibot": "catalog:"
+    "valibot": "catalog:",
+    "zx": "catalog:"
   },
   "files": [
     "src"

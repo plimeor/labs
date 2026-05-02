@@ -26,6 +26,7 @@
         "effect": "catalog:",
         "es-toolkit": "catalog:",
         "valibot": "catalog:",
+        "zx": "catalog:",
       },
     },
     "packages/command-kit": {

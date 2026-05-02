@@ -87,11 +87,11 @@ These are explicitly out of the first implementation path:
 
 - Runtime: Bun.
 - Language: TypeScript.
-- File IO: Effect Platform `FileSystem` provided by `@effect/platform-bun`.
+- File IO: internal `Files` namespace backed by Bun file APIs and Bun's `node:fs/promises` compatibility layer.
 - Package location: `packages/code-wiki`.
 - State format: Markdown plus JSON metadata.
 - Agent runtime: local CLI adapter, with Codex as the first verified adapter.
-- Validation: direct TypeScript validation helpers first; add a schema library only if validation code becomes repetitive.
+- CLI/runtime validation: `@plimeor/command-kit` for command routing and `valibot` schemas for CLI arguments, state JSON, wiki metadata, and runtime JSON.
 
 ## Commands
 
@@ -386,22 +386,16 @@ Rules:
 
 ## Code Style
 
-Use direct command handlers with explicit validation at the boundary. Keep behavior in small modules; do not introduce a generic platform abstraction for future modes.
+Use direct command handlers with explicit validation at the boundary. Keep behavior in small modules; do not introduce a generic platform abstraction for future modes. Define shared JSON/domain schemas in `types.ts` and derive TypeScript types from those schemas.
 
 ```ts
-export type WorkspaceMode = "shared" | "embedded";
-export type RuntimeId = "codex" | "claude-code" | "cursor" | "kiro";
+import * as v from "valibot";
 
-export type ProjectRef = {
-  id: string;
-  wikiPath: string;
-  managedRepoPath?: string;
-};
+export const WorkspaceModeSchema = v.picklist(["shared", "embedded"]);
+export type WorkspaceMode = v.InferOutput<typeof WorkspaceModeSchema>;
 
-export type PrdSource =
-  | { kind: "file"; path: string }
-  | { kind: "url"; url: string }
-  | { kind: "text"; text: string };
+export const RuntimeIdSchema = v.picklist(["codex", "claude-code", "cursor", "kiro"]);
+export type RuntimeId = v.InferOutput<typeof RuntimeIdSchema>;
 ```
 
 Conventions:
