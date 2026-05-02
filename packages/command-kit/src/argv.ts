@@ -1,5 +1,5 @@
 import { CommandErrorCode, CommandRuntimeError } from './errors.js'
-import type { JsonObjectSchema, JsonSchemaProperty } from './schema.js'
+import { hasJsonSchemaType, isJsonSchemaObject, type JsonObjectSchema, type JsonSchemaProperty } from './schema.js'
 
 export type ArgBindingSpec = {
   name: string
@@ -165,26 +165,6 @@ function optionKind(schema: JsonSchemaProperty): 'array' | 'boolean' | 'string' 
   }
 
   return 'string'
-}
-
-function hasJsonSchemaType(schema: JsonSchemaProperty, type: 'array' | 'boolean' | 'string'): boolean {
-  if (!isJsonSchemaObject(schema)) {
-    return false
-  }
-
-  if (Array.isArray(schema.type) && schema.type.includes(type)) {
-    return true
-  }
-
-  if (schema.type === type) {
-    return true
-  }
-
-  return [...(schema.anyOf ?? []), ...(schema.oneOf ?? [])].some(option => hasJsonSchemaType(option, type))
-}
-
-function isJsonSchemaObject(schema: JsonSchemaProperty | undefined): schema is JsonObjectSchema {
-  return typeof schema === 'object' && schema !== null && !Array.isArray(schema)
 }
 
 function setOption(options: Record<string, unknown>, name: string, value: unknown, append = false): void {

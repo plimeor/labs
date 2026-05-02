@@ -3,6 +3,7 @@ import { basename } from 'node:path'
 import { $ } from 'zx'
 
 import { Files } from './files.js'
+import { normalizeProjectId } from './types.js'
 
 export type GitIdentity = {
   branch: string
@@ -44,7 +45,7 @@ export async function inferProjectIdFromRoot(root: string): Promise<string> {
         .split(/[/:]/)
         .at(-1)
     : basename(root)
-  return slugProjectId(source ?? basename(root))
+  return normalizeProjectId(source ?? basename(root))
 }
 
 export async function ensureManagedClone(repoUrl: string, repoPath: string): Promise<void> {
@@ -189,14 +190,6 @@ async function optionalGitOutput(cwd: string, args: string[]): Promise<string | 
   const output = await $({ cwd, quiet: true })`git ${args}`.nothrow()
   const value = output.stdout.trim()
   return output.exitCode === 0 && value ? value : undefined
-}
-
-function slugProjectId(input: string): string {
-  return input
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9._-]+/g, '-')
-    .replace(/^-+|-+$/g, '')
 }
 
 export function normalizeGitRemote(input: string): NormalizedGitRemote {

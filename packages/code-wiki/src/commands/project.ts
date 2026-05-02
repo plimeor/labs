@@ -2,6 +2,7 @@ import { log } from '@clack/prompts'
 import * as v from 'valibot'
 
 import { addProject, readProjects, updateProject } from '../projects.js'
+import { splitCommaList } from '../strings.js'
 import { TextSchema } from '../types.js'
 import { resolveWorkspace } from '../workspace.js'
 
@@ -43,9 +44,9 @@ export async function projectAddCommand(context: ProjectAddCommandContext) {
   const ref = resolveRefOptions(context.options)
   const workspace = await resolveWorkspace()
   const project = await addProject(workspace, {
-    exclude: splitPatterns(context.options.exclude),
+    exclude: splitCommaList(context.options.exclude),
     id: context.args.project,
-    include: splitPatterns(context.options.include),
+    include: splitCommaList(context.options.include),
     ref,
     repoUrl: context.options.repo
   })
@@ -56,8 +57,8 @@ export async function projectSetCommand(context: ProjectSetCommandContext) {
   const ref = resolveRefOptions(context.options)
   const workspace = await resolveWorkspace()
   const project = await updateProject(workspace, context.args.project, {
-    exclude: splitPatterns(context.options.exclude),
-    include: splitPatterns(context.options.include),
+    exclude: splitCommaList(context.options.exclude),
+    include: splitCommaList(context.options.include),
     ref,
     repoUrl: context.options.repo
   })
@@ -83,16 +84,4 @@ function resolveRefOptions(options: { commit?: string; ref?: string }): string |
   }
 
   return options.commit ?? options.ref
-}
-
-function splitPatterns(input: string | undefined): string[] | undefined {
-  if (!input) {
-    return undefined
-  }
-
-  const patterns = input
-    .split(',')
-    .map(value => value.trim())
-    .filter(Boolean)
-  return patterns.length > 0 ? patterns : undefined
 }

@@ -30,6 +30,10 @@ export const ProjectIdSchema = v.pipe(
   v.check(input => /^[a-z0-9][a-z0-9._-]*$/.test(input), 'Invalid project id')
 )
 
+export function normalizeProjectId(input: unknown): string {
+  return v.parse(ProjectIdSchema, input)
+}
+
 const RawProjectEntryEntries = {
   checkoutPath: v.optional(v.unknown()),
   defaultBranch: OptionalTextSchema,

@@ -1,6 +1,7 @@
 import * as v from 'valibot'
 
 import { answerQuery } from '../query.js'
+import { splitCommaList } from '../strings.js'
 import { TextSchema } from '../types.js'
 
 export const queryArgsSchema = v.object({
@@ -24,21 +25,9 @@ export async function queryCommand(context: QueryCommandContext) {
   }
 
   const answer = await answerQuery({
-    commits: splitCommits(context.options.commits),
+    commits: splitCommaList(context.options.commits),
     projectId: context.options.project,
     question
   })
   process.stdout.write(answer.endsWith('\n') ? answer : `${answer}\n`)
-}
-
-function splitCommits(input: string | undefined): string[] | undefined {
-  if (!input) {
-    return undefined
-  }
-
-  const commits = input
-    .split(',')
-    .map(value => value.trim())
-    .filter(Boolean)
-  return commits.length > 0 ? commits : undefined
 }

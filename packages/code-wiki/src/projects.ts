@@ -5,9 +5,10 @@ import * as v from 'valibot'
 
 import { Files } from './files.js'
 import { normalizeGitRemote } from './git.js'
+import { splitCommaList } from './strings.js'
 import {
+  normalizeProjectId,
   type ProjectEntry,
-  ProjectIdSchema,
   type ProjectsDocument,
   ProjectsDocumentSchema,
   TextSchema
@@ -106,17 +107,8 @@ export function requireProject(document: ProjectsDocument, projectId: string): P
   return project
 }
 
-export function normalizeProjectId(input: unknown): string {
-  return v.parse(ProjectIdSchema, input)
-}
-
 export function normalizeProjectIds(input: string): string[] {
-  const ids = uniq(
-    input
-      .split(',')
-      .map(value => normalizeProjectId(value))
-      .filter(Boolean)
-  )
+  const ids = uniq((splitCommaList(input) ?? []).map(value => normalizeProjectId(value)))
   if (ids.length === 0) {
     throw new Error('--projects requires at least one project id')
   }
