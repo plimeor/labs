@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { $ } from 'bun'
 
@@ -114,6 +114,7 @@ install b to ~/.agents/skills
 
   test('sync prunes stale lock entries and writes resolved commits', async () => {
     const { commit, cwd } = await writeProjectManifestFixture()
+    await writeInstalledSkill(cwd, 'old')
 
     await withCwd(cwd, () => syncCommand({ options: {} }))
 
@@ -121,6 +122,9 @@ install b to ~/.agents/skills
     expect(lock.skills.a.commit).toBe(commit)
     expect(lock.skills.b.commit).toBe(commit)
     expect(lock.skills.old).toBeUndefined()
+    await expect(fileExists(join(cwd, '.agents', 'skills', 'old', 'SKILL.md'))).resolves.toBe(false)
+    await expect(fileExists(join(cwd, '.agents', 'skills', 'a', 'SKILL.md'))).resolves.toBe(true)
+    await expect(fileExists(join(cwd, '.agents', 'skills', 'b', 'SKILL.md'))).resolves.toBe(true)
   })
 })
 
@@ -171,7 +175,7 @@ async function createGitRepo(): Promise<{ commit: string; source: string }> {
   await writeSkill(source, 'b')
   await $`git add skills`.cwd(source).quiet()
   await $`git -c user.email=skills@example.com -c user.name=Skills commit -m init`.cwd(source).quiet()
-  const commit = await $`printf "%s" "$(git rev-parse HEAD)"`.cwd(source).text()
+  const commit = await $`git rev-parse HEAD`.cwd(source).quiet().text()
   return { commit, source: `file://${source}` }
 }
 
@@ -183,4 +187,22 @@ async function writeSkill(source: string, name: string): Promise<void> {
   const skillDir = join(source, 'skills', name)
   await mkdir(skillDir, { recursive: true })
   await writeFile(join(skillDir, 'SKILL.md'), `---\nname: ${name}\ndescription: ${name}\n---\n`)
+}
+
+async function writeInstalledSkill(cwd: string, name: string): Promise<void> {
+  const skillDir = join(cwd, '.agents', 'skills', name)
+  await mkdir(skillDir, { recursive: true })
+  await writeFile(join(skillDir, 'SKILL.md'), `---\nname: ${name}\ndescription: ${name}\n---\n`)
+}
+
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    await stat(path)
+    return true
+  } catch (error) {
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT') {
+      return false
+    }
+    throw error
+  }
 }

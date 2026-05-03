@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'bun:test'
-import { mkdir, mkdtemp, stat as readStat, realpath, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, stat as readStat, realpath, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { basename, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { $ } from 'bun'
 
-import * as Git from '../src/index.js'
+import * as Git from '@plimeor/git-kit'
 
 describe('git-kit', () => {
   test('stat reports repository identity on branches and detached HEAD', async () => {
@@ -13,7 +13,7 @@ describe('git-kit', () => {
     try {
       expect(await Git.stat(checkout.path)).toMatchObject({
         HEAD: commit,
-        identity: basename(source),
+        identity: `${basename(dirname(source))}__${basename(source)}`,
         path: checkout.path,
         ref: 'main',
         repo: `file://${source}`
@@ -48,11 +48,25 @@ describe('git-kit', () => {
     await expect(readStat(temporaryPath)).rejects.toThrow()
   })
 
+  test('clone rejects skipExisting when origin does not match', async () => {
+    const existing = await createGitSource()
+    const requested = await createGitSource()
+    const target = await tempDir('git-kit-target-')
+
+    await Git.clone({ path: join(target, 'repo'), repo: `file://${existing.source}` })
+
+    await expect(
+      Git.clone({ path: join(target, 'repo'), repo: `file://${requested.source}`, skipExisting: true })
+    ).rejects.toThrow('Existing checkout origin does not match requested repo')
+  })
+
   test('clone cleans temporary directories when checkout fails', async () => {
     const { source } = await createGitSource()
+    const before = await cloneTempDirs()
     const checkout = Git.clone({ ref: 'missing', repo: `file://${source}` })
 
     await expect(checkout).rejects.toThrow()
+    expect(await cloneTempDirs()).toEqual(before)
   })
 
   test('clone normalizes GitHub shorthand to an origin URL', async () => {
@@ -83,13 +97,14 @@ describe('git-kit', () => {
   })
 
   test('fetch resolves branches tags commits and remote HEAD', async () => {
-    const { commit, releaseCommit, source, tag } = await createGitSource()
+    const { commit, pullRef, releaseCommit, source, tag } = await createGitSource()
     const checkout = await Git.clone({ repo: `file://${source}` })
     try {
       expect(await Git.fetch({ path: checkout.path, ref: 'main' })).toEqual({ HEAD: commit, ref: 'main' })
       expect(await Git.fetch({ path: checkout.path, ref: 'release' })).toEqual({ HEAD: releaseCommit, ref: 'release' })
       expect(await Git.fetch({ path: checkout.path, ref: tag })).toEqual({ HEAD: commit, ref: tag })
       expect(await Git.fetch({ path: checkout.path, ref: commit })).toEqual({ HEAD: commit, ref: commit })
+      expect(await Git.fetch({ path: checkout.path, ref: pullRef })).toEqual({ HEAD: commit, ref: pullRef })
       expect(await Git.fetch({ path: checkout.path, ref: 'HEAD' })).toEqual({ HEAD: commit, ref: 'main' })
     } finally {
       await checkout.dispose?.()
@@ -113,7 +128,7 @@ describe('git-kit', () => {
     }
   })
 
-  test('collectIgnoreRules returns ignored paths', async () => {
+  test('collectIgnorePaths returns collected ignore paths', async () => {
     const { source } = await createGitSource()
     await mkdir(join(source, 'docs'), { recursive: true })
     await mkdir(join(source, 'src'), { recursive: true })
@@ -122,7 +137,7 @@ describe('git-kit', () => {
     await writeFile(join(source, 'ignored.txt'), 'ignored\n')
     await writeFile(join(source, 'kept.txt'), 'kept\n')
 
-    expect(await Git.collectIgnoreRules(source)).toEqual(
+    expect(await Git.collectIgnorePaths(source)).toEqual(
       new Set([
         join(source, 'docs'),
         join(source, 'ignored.txt'),
@@ -133,24 +148,40 @@ describe('git-kit', () => {
   })
 })
 
-async function createGitSource(): Promise<{ commit: string; releaseCommit: string; source: string; tag: string }> {
+async function createGitSource(): Promise<{
+  commit: string
+  pullRef: string
+  releaseCommit: string
+  source: string
+  tag: string
+}> {
   const source = await tempDir('git-kit-source-')
   await $`git init -b main`.cwd(source).quiet()
   await writeFile(join(source, 'README.md'), 'main\n')
   await $`git add README.md`.cwd(source).quiet()
   await $`git -c user.email=git-kit@example.com -c user.name=GitKit commit -m main`.cwd(source).quiet()
-  const commit = await $`printf "%s" "$(git rev-parse HEAD)"`.cwd(source).quiet().text()
+  const commit = await $`git rev-parse HEAD`.cwd(source).quiet().text()
   const tag = 'v1.0.0'
+  const pullRef = 'pull/1/head'
   await $`git tag ${tag}`.cwd(source).quiet()
+  await $`git update-ref ${`refs/${pullRef}`} ${commit}`.cwd(source).quiet()
   await $`git checkout -b release`.cwd(source).quiet()
   await writeFile(join(source, 'README.md'), 'release\n')
   await $`git add README.md`.cwd(source).quiet()
   await $`git -c user.email=git-kit@example.com -c user.name=GitKit commit -m release`.cwd(source).quiet()
-  const releaseCommit = await $`printf "%s" "$(git rev-parse HEAD)"`.cwd(source).quiet().text()
+  const releaseCommit = await $`git rev-parse HEAD`.cwd(source).quiet().text()
   await $`git checkout main`.cwd(source).quiet()
-  return { commit, releaseCommit, source, tag }
+  return { commit, pullRef, releaseCommit, source, tag }
 }
 
 async function tempDir(prefix: string): Promise<string> {
   return mkdtemp(join(tmpdir(), prefix))
+}
+
+async function cloneTempDirs(): Promise<string[]> {
+  const entries = await readdir(tmpdir(), { withFileTypes: true })
+  return entries
+    .filter(entry => entry.isDirectory() && entry.name.startsWith('git-kit-clone-'))
+    .map(entry => entry.name)
+    .sort()
 }
