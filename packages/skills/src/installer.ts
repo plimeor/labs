@@ -1,7 +1,6 @@
 import { cp, mkdir, rm, stat } from 'node:fs/promises'
 import { basename, isAbsolute, join, normalize, resolve, sep } from 'node:path'
 
-import type { Checkout } from './checkout.js'
 import { Manifest } from './manifest.js'
 import type { Scope } from './scope.js'
 
@@ -12,10 +11,10 @@ export type InstallResult = {
 
 export async function installSkill(
   skill: Manifest.Skill,
-  checkout: Checkout.Result,
+  checkout: { path: string },
   scope: Scope
 ): Promise<InstallResult> {
-  const sourcePath = resolveSkillSourcePath(checkout.dir, skill)
+  const sourcePath = resolveSkillSourcePath(checkout.path, skill)
   const installPath = join(scope.installDir, safeFileName(skill.name))
 
   await assertSkillDirectory(sourcePath, skill.name)

@@ -2,8 +2,7 @@ import { afterEach, describe, expect, mock, test } from 'bun:test'
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-
-import { $ } from 'zx'
+import { $ } from 'bun'
 
 import { readJson, tempDir, writeGlobalLock } from '../helpers/fs.js'
 import { withHome } from '../helpers/process.js'
@@ -53,11 +52,9 @@ afterEach(() => {
 })
 
 describe('add command', () => {
-  test('installs a local skill and writes manifest plus lock state', async () => {
+  test('installs a git skill and writes manifest plus lock state', async () => {
     const home = await tempDir('skills-add-home-')
-    const source = await tempDir('skills-add-source-')
-    await mkdir(join(source, 'skills', 'demo'), { recursive: true })
-    await writeFile(join(source, 'skills', 'demo', 'SKILL.md'), '---\nname: demo\ndescription: Demo\n---\n')
+    const { commit, source } = await createGitSource('skills-add-source-', ['demo'])
 
     await withHome(home, () =>
       addCommand({
@@ -77,7 +74,7 @@ describe('add command', () => {
       scope: 'global',
       skills: {
         demo: {
-          commit: 'local',
+          commit,
           installedAt: expect.any(String),
           installPath: join(home, '.agents', 'skills', 'demo'),
           method: 'copy',
@@ -90,9 +87,7 @@ describe('add command', () => {
 
   test('installs all skills from the source skills directory', async () => {
     const home = await tempDir('skills-add-all-home-')
-    const source = await tempDir('skills-add-all-source-')
-    await writeSkill(source, 'b')
-    await writeSkill(source, 'a')
+    const { source } = await createGitSource('skills-add-all-source-', ['b', 'a'])
 
     await withHome(home, () =>
       addCommand({
@@ -112,11 +107,9 @@ describe('add command', () => {
 
   test('CLI binds source plus skill rest arguments', async () => {
     const home = await tempDir('skills-add-cli-home-')
-    const source = await tempDir('skills-add-cli-source-')
-    await writeSkill(source, 'b')
-    await writeSkill(source, 'a')
+    const { source } = await createGitSource('skills-add-cli-source-', ['b', 'a'])
 
-    await $({ env: { ...process.env, HOME: home }, quiet: true })`bun ${cliPath()} add ${source} b a -g`
+    await $`bun ${cliPath()} add ${source} b a -g`.env({ ...process.env, HOME: home }).quiet()
 
     expect(await readJson(join(home, '.agents', 'skills.json'))).toEqual({
       schemaVersion: 1,
@@ -137,16 +130,13 @@ describe('add command', () => {
 
   test('prompts for uninstalled skills and installs selected skills', async () => {
     const home = await tempDir('skills-add-prompt-home-')
-    const source = await tempDir('skills-add-prompt-source-')
-    await writeSkill(source, 'b')
-    await writeSkill(source, 'a')
-    await writeSkill(source, 'c')
+    const { commit, source } = await createGitSource('skills-add-prompt-source-', ['b', 'a', 'c'])
     await writeGlobalLock(home, {
       schemaVersion: 1,
       scope: 'global',
       skills: {
         b: {
-          commit: 'local',
+          commit,
           installedAt: '2026-05-01T00:00:00.000Z',
           installPath: join(home, '.agents', 'skills', 'b'),
           method: 'copy',
@@ -178,15 +168,13 @@ describe('add command', () => {
 
   test('skips prompting when all source skills are already installed', async () => {
     const home = await tempDir('skills-add-all-installed-home-')
-    const source = await tempDir('skills-add-all-installed-source-')
-    await writeSkill(source, 'a')
-    await writeSkill(source, 'b')
+    const { commit, source } = await createGitSource('skills-add-all-installed-source-', ['a', 'b'])
     await writeGlobalLock(home, {
       schemaVersion: 1,
       scope: 'global',
       skills: {
         a: {
-          commit: 'local',
+          commit,
           installedAt: '2026-05-01T00:00:00.000Z',
           installPath: join(home, '.agents', 'skills', 'a'),
           method: 'copy',
@@ -194,7 +182,7 @@ describe('add command', () => {
           source
         },
         b: {
-          commit: 'local',
+          commit,
           installedAt: '2026-05-01T00:00:00.000Z',
           installPath: join(home, '.agents', 'skills', 'b'),
           method: 'copy',
@@ -219,7 +207,7 @@ describe('add command', () => {
       scope: 'global',
       skills: {
         a: {
-          commit: 'local',
+          commit,
           installedAt: '2026-05-01T00:00:00.000Z',
           installPath: join(home, '.agents', 'skills', 'a'),
           method: 'copy',
@@ -227,7 +215,7 @@ describe('add command', () => {
           source
         },
         b: {
-          commit: 'local',
+          commit,
           installedAt: '2026-05-01T00:00:00.000Z',
           installPath: join(home, '.agents', 'skills', 'b'),
           method: 'copy',
@@ -242,6 +230,18 @@ describe('add command', () => {
 async function writeSkill(source: string, name: string): Promise<void> {
   await mkdir(join(source, 'skills', name), { recursive: true })
   await writeFile(join(source, 'skills', name, 'SKILL.md'), `---\nname: ${name}\ndescription: ${name}\n---\n`)
+}
+
+async function createGitSource(prefix: string, skillNames: string[]): Promise<{ commit: string; source: string }> {
+  const repo = await tempDir(prefix)
+  await $`git init -b main`.cwd(repo).quiet()
+  for (const skillName of skillNames) {
+    await writeSkill(repo, skillName)
+  }
+  await $`git add skills`.cwd(repo).quiet()
+  await $`git -c user.email=skills@example.com -c user.name=Skills commit -m init`.cwd(repo).quiet()
+  const commit = await $`printf "%s" "$(git rev-parse HEAD)"`.cwd(repo).quiet().text()
+  return { commit, source: `file://${repo}` }
 }
 
 async function fileExists(path: string): Promise<boolean> {

@@ -1,0 +1,30 @@
+{
+  "description": "Small Git repository operations for Bun CLI tools",
+  "homepage": "https://github.com/plimeor/labs/tree/main/packages/git-kit",
+  "name": "@plimeor/git-kit",
+  "type": "module",
+  "types": "./src/index.ts",
+  "version": "0.1.0",
+  "bugs": {
+    "url": "https://github.com/plimeor/labs/issues"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "directory": "packages/git-kit",
+    "type": "git",
+    "url": "git+https://github.com/plimeor/labs.git"
+  },
+  "scripts": {
+    "lint": "biome check src test",
+    "prepack": "bun test test",
+    "test": "bun test test"
+  }
+}

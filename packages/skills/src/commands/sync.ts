@@ -2,12 +2,13 @@ import { readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { log, tasks } from '@clack/prompts'
+import * as Git from '@plimeor/git-kit'
 import * as v from 'valibot'
 
-import { Checkout } from '../checkout.js'
 import { type InstallResult, installSkill, removeInstalledSkill } from '../installer.js'
 import { Lock } from '../lock.js'
 import { Manifest } from '../manifest.js'
+import { type RepositoryRequest, repositoryRequestKey, repositoryRequestRef } from '../repository.js'
 import { formatDisplayPath, resolveScope } from '../scope.js'
 import { SyncPlan } from '../sync-plan.js'
 import { optionalBoolean } from './schemas.js'
@@ -77,15 +78,15 @@ export async function syncCommand(context: SyncCommandContext) {
       nextLock = Lock.removeSkill(nextLock, skillName)
     }
 
-    for (const request of uniqueCheckoutRequests(syncPlan.installRequests)) {
+    for (const request of uniqueRepositoryRequests(syncPlan.installRequests)) {
       log.step(`Resolving ${formatCheckoutTarget(request)}`)
     }
 
-    await Checkout.withAll(syncPlan.installRequests, async checkouts => {
+    await withRepositories(syncPlan.installRequests, async checkouts => {
       const installResults = new Map<
         string,
         {
-          checkout: Checkout.Result
+          checkout: Git.CloneResult
           result: InstallResult
           skill: Manifest.Skill
         }
@@ -96,7 +97,7 @@ export async function syncCommand(context: SyncCommandContext) {
           title: `Install ${skill.name}`,
           task: async () => {
             const request = syncPlan.installRequestsBySkillName[skill.name]
-            const checkout = Checkout.requireResult(checkouts, request, skill.name)
+            const checkout = requireRepository(checkouts, request, skill.name)
             const result = await installSkillWithContext(skill, checkout, scope)
             installResults.set(skill.name, { checkout, result, skill })
             return `Installed ${formatDisplayPath(result.installPath)}`
@@ -139,13 +140,13 @@ async function resolveAllSources(
   }
 
   const resolvedSkills: Manifest.Skill[] = []
-  await Checkout.withAll(
+  await withRepositories(
     allSources.map(source => ({ commit: source.commit, ref: source.ref, source: source.source })),
     async checkouts => {
       for (const source of allSources) {
         const request = { commit: source.commit, ref: source.ref, source: source.source }
-        const checkout = Checkout.requireResult(checkouts, request, source.source)
-        const skillNames = await discoverSkillNames(checkout.dir)
+        const checkout = requireRepository(checkouts, request, source.source)
+        const skillNames = await discoverSkillNames(checkout.path)
         resolvedSkills.push(
           ...skillNames.map(name => ({
             commit: source.commit,
@@ -218,7 +219,7 @@ async function discoverSkillNames(checkoutDir: string): Promise<string[]> {
 
 async function installSkillWithContext(
   skill: Manifest.Skill,
-  checkout: Checkout.Result,
+  checkout: Git.CloneResult,
   scope: ReturnType<typeof resolveScope>
 ) {
   try {
@@ -235,16 +236,53 @@ function formatScope(scope: ReturnType<typeof resolveScope>): string {
     : `project (${formatDisplayPath(process.cwd())})`
 }
 
-function formatCheckoutTarget(request: Checkout.Request): string {
+function formatCheckoutTarget(request: RepositoryRequest): string {
   const source = formatDisplayPath(request.source)
   if (request.commit) {
-    const commit = request.commit === 'local' ? request.commit : request.commit.slice(0, 7)
+    const commit = request.commit.slice(0, 7)
     return `${source} at commit ${commit}`
   }
 
   return request.ref ? `${source} at ref ${request.ref}` : `${source} at HEAD`
 }
 
-function uniqueCheckoutRequests(requests: Checkout.Request[]): Checkout.Request[] {
-  return [...new Map(requests.map(request => [Checkout.key(request), request])).values()]
+function uniqueRepositoryRequests(requests: RepositoryRequest[]): RepositoryRequest[] {
+  return [...new Map(requests.map(request => [repositoryRequestKey(request), request])).values()]
+}
+
+async function withRepositories<T>(
+  requests: RepositoryRequest[],
+  callback: (checkouts: Map<string, Git.CloneResult>) => Promise<T>
+): Promise<T> {
+  const checkouts = new Map<string, Git.CloneResult>()
+  try {
+    for (const request of uniqueRepositoryRequests(requests)) {
+      checkouts.set(
+        repositoryRequestKey(request),
+        await Git.clone({ ref: repositoryRequestRef(request), repo: request.source })
+      )
+    }
+  } catch (error) {
+    await Promise.all([...checkouts.values()].map(checkout => checkout.dispose?.()))
+    throw error
+  }
+
+  try {
+    return await callback(checkouts)
+  } finally {
+    await Promise.all([...checkouts.values()].map(checkout => checkout.dispose?.()))
+  }
+}
+
+function requireRepository(
+  checkouts: Map<string, Git.CloneResult>,
+  request: RepositoryRequest,
+  skillName: string
+): Git.CloneResult {
+  const checkout = checkouts.get(repositoryRequestKey(request))
+  if (!checkout) {
+    throw new Error(`Missing checkout for ${skillName}`)
+  }
+
+  return checkout
 }

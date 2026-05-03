@@ -138,20 +138,12 @@ function migrateLegacyLock(lock: unknown, scope: Scope): { lock: Lock.Document; 
 }
 
 function formatSource(entry: Record<string, unknown>): string {
-  if (typeof entry.source === 'string' && entry.source.trim()) {
-    return entry.source.trim()
-  }
-
-  if (typeof entry.sourceUrl === 'string' && entry.sourceUrl.trim()) {
-    return entry.sourceUrl.trim()
-  }
-
-  return ''
+  return firstText(entry, ['source', 'sourceUrl']) ?? ''
 }
 
 function formatSkillPath(entry: Record<string, unknown>, skillName: string): string {
-  if (typeof entry.skillPath === 'string' && entry.skillPath.trim()) {
-    const skillPath = entry.skillPath.trim()
+  const skillPath = firstText(entry, ['skillPath'])
+  if (skillPath) {
     return skillPath.endsWith('/SKILL.md') ? dirname(skillPath) : skillPath
   }
 
@@ -186,8 +178,11 @@ function formatRef(entry: Record<string, unknown>): string | undefined {
 function firstText(entry: Record<string, unknown>, fields: string[]): string | undefined {
   for (const field of fields) {
     const value = entry[field]
-    if (typeof value === 'string' && value.trim()) {
-      return value.trim()
+    if (typeof value === 'string') {
+      const text = value.trim()
+      if (text) {
+        return text
+      }
     }
   }
 

@@ -2,8 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-
-import { $ } from 'zx'
+import { $ } from 'bun'
 
 import { removeCommand } from '../../src/commands/remove.js'
 import { readJson, tempDir, writeProjectLock, writeProjectManifest } from '../helpers/fs.js'
@@ -73,7 +72,7 @@ describe('remove command', () => {
     await writeInstalledSkill(cwd, 'b')
     await writeInstalledSkill(cwd, 'c')
 
-    await $({ cwd, quiet: true })`bun ${cliPath()} remove a c`
+    await $`bun ${cliPath()} remove a c`.cwd(cwd).quiet()
 
     expect(await readJson(join(cwd, '.agents', 'skills.json'))).toEqual({
       schemaVersion: 1,

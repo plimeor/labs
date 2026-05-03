@@ -13,10 +13,7 @@ export function optionalStringArray(description: string) {
 }
 
 export function nonBlankString(description?: string) {
-  const schema = v.pipe(
-    v.string(),
-    v.check(value => value.trim().length > 0, 'Expected a non-empty string')
-  )
+  const schema = v.pipe(v.string(), v.trim(), v.minLength(1, 'Expected a non-empty string'))
   if (!description) {
     return schema
   }
