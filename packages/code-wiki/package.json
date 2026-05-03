@@ -12,10 +12,10 @@
   "dependencies": {
     "@clack/prompts": "catalog:",
     "@plimeor/command-kit": "workspace:*",
+    "@plimeor/git-kit": "workspace:*",
     "@valibot/to-json-schema": "catalog:",
     "es-toolkit": "catalog:",
-    "valibot": "catalog:",
-    "zx": "catalog:"
+    "valibot": "catalog:"
   },
   "files": [
     "src"

@@ -14,8 +14,7 @@
     "@plimeor/command-kit": "workspace:*",
     "@plimeor/git-kit": "workspace:*",
     "@valibot/to-json-schema": "catalog:",
-    "valibot": "catalog:",
-    "zx": "catalog:"
+    "valibot": "catalog:"
   },
   "files": [
     "src"

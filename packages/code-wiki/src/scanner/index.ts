@@ -1,5 +1,6 @@
 import { join, relative } from 'node:path'
 
+import * as Git from '@plimeor/git-kit'
 import { groupBy, uniq } from 'es-toolkit/array'
 import * as v from 'valibot'
 
@@ -536,14 +537,15 @@ async function appendScanLog(wikiRoot: string, target: ScanTarget, scanTime: str
 
 async function collectSourceFiles(root: string): Promise<SourceFile[]> {
   const paths = await walk(root)
-  const ignoredPaths = await gitIgnoredPaths(root, paths)
+  const ignoredAbsolutePaths = await Git.collectIgnorePaths(root)
+  const ignoredPaths = new Set([...ignoredAbsolutePaths].map(path => toPosixPath(relative(root, path))))
   const files: SourceFile[] = []
   for (const path of paths.sort((a, b) => a.localeCompare(b))) {
     if (!isCandidateSource(path)) {
       continue
     }
 
-    if (ignoredPaths.has(path)) {
+    if (isIgnoredByRulePath(path, ignoredPaths)) {
       continue
     }
 
@@ -551,6 +553,16 @@ async function collectSourceFiles(root: string): Promise<SourceFile[]> {
   }
 
   return files
+}
+
+function isIgnoredByRulePath(path: string, ignoredPaths: Set<string>): boolean {
+  for (const ignoredPath of ignoredPaths) {
+    if (path === ignoredPath || path.startsWith(`${ignoredPath}/`)) {
+      return true
+    }
+  }
+
+  return false
 }
 
 async function analyzeSourceFile(root: string, path: string): Promise<SourceFile> {
@@ -596,32 +608,6 @@ async function walk(root: string, current = root): Promise<string[]> {
   }
 
   return paths
-}
-
-async function gitIgnoredPaths(root: string, paths: string[]): Promise<Set<string>> {
-  if (paths.length === 0) {
-    return new Set()
-  }
-
-  const process = Bun.spawn(['git', 'check-ignore', '--no-index', '--stdin'], {
-    cwd: root,
-    stderr: 'pipe',
-    stdin: 'pipe',
-    stdout: 'pipe'
-  })
-  process.stdin.write(`${paths.join('\n')}\n`)
-  process.stdin.end()
-
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(process.stdout).text(),
-    new Response(process.stderr).text(),
-    process.exited
-  ])
-  if (exitCode !== 0 && exitCode !== 1) {
-    throw new Error(`git check-ignore failed: ${stderr.trim()}`)
-  }
-
-  return new Set(stdout.split('\n').filter(Boolean))
 }
 
 function extractSymbols(text: string): string[] {

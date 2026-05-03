@@ -1,8 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-
-import { $ } from 'zx'
+import { $ } from 'bun'
 
 import { initCommand } from '../../src/commands/init.js'
 import { scanCommand } from '../../src/commands/scan.js'
@@ -101,7 +100,7 @@ describe('scan command', () => {
             {
               branch: 'release',
               id: 'app',
-              repoUrl: remote
+              repoUrl: `file://${remote}`
             }
           ]
         },
@@ -131,7 +130,7 @@ describe('scan command', () => {
     await writeFile(join(remote, 'src', 'index.ts'), 'export function LegacySymbol() { return "legacy" }\n')
     await run('git', ['add', '.'], remote)
     await run('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-qm', 'legacy'], remote)
-    const legacyCommit = (await $({ cwd: remote, quiet: true })`git rev-parse HEAD`).stdout.trim()
+    const legacyCommit = await $`printf "%s" "$(git rev-parse HEAD)"`.cwd(remote).quiet().text()
     await writeFile(join(remote, 'src', 'index.ts'), 'export function ModernSymbol() { return "modern" }\n')
     await run('git', ['add', '.'], remote)
     await run('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-qm', 'modern'], remote)
@@ -150,7 +149,7 @@ describe('scan command', () => {
             {
               commit: legacyCommit,
               id: 'app',
-              repoUrl: remote
+              repoUrl: `file://${remote}`
             }
           ]
         },

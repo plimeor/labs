@@ -1,9 +1,9 @@
 import { dirname, join, relative, resolve } from 'node:path'
 
+import * as Git from '@plimeor/git-kit'
 import * as v from 'valibot'
 
 import { Files } from './files.js'
-import { requireGitRoot } from './git.js'
 import { type CodeWikiConfig, CodeWikiConfigSchema, type ProjectsDocument } from './types.js'
 
 export type Workspace = {
@@ -18,7 +18,7 @@ export function statePath(workspace: Workspace, ...segments: string[]): string {
 }
 
 export async function initSharedWorkspace(cwd: string): Promise<Workspace> {
-  const root = await requireGitRoot(resolve(cwd))
+  const root = (await Git.stat(resolve(cwd))).path
   const stateDir = join(root, '.code-wiki')
   await assertWorkspaceDoesNotExist(stateDir)
   const config: CodeWikiConfig = { schemaVersion: 1 }

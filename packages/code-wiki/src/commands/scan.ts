@@ -1,18 +1,17 @@
 import { join } from 'node:path'
 
 import { log } from '@clack/prompts'
+import * as Git from '@plimeor/git-kit'
 import * as v from 'valibot'
-import { $ } from 'zx'
 
 import { Files } from '../files.js'
-import { ensureManagedClone, fetchProjectRef } from '../git.js'
 import { readProjects, requireProject } from '../projects.js'
 import { readMetadata, scanRepository } from '../scanner/index.js'
 import { codeWikiPath, type ProjectEntry, type ProjectMetadata } from '../types.js'
 import { resolveWorkspace } from '../workspace.js'
 
 export const scanArgsSchema = v.object({
-  project: v.optional(v.pipe(v.string(), v.trim(), v.minLength(1)))
+  project: v.optional(v.pipe(v.string(), v.minLength(1)))
 })
 
 export type ScanCommandContext = {
@@ -35,23 +34,28 @@ async function scanShared(workspace: Awaited<ReturnType<typeof resolveWorkspace>
   let scanned = 0
   for (const project of projects) {
     const repoPath = join(workspace.root, codeWikiPath('repos', project.id))
+    const ref = projectRef(project)
     log.info(`Fetching ${project.id}`)
-    await ensureManagedClone(project.repoUrl, repoPath)
-    const latest = await fetchProjectRef(repoPath, projectRef(project))
+    await Git.clone({ path: repoPath, repo: project.repoUrl, skipExisting: true })
+    const latest = await Git.fetch({ path: repoPath, ref })
     const wikiRoot = join(workspace.root, codeWikiPath('projects', project.id))
     const metadata = await readMetadata(join(wikiRoot, 'metadata.json'))
-    if (!projectId && isSharedScanUpToDate(project, metadata, latest) && (await isWikiRootContractCurrent(wikiRoot))) {
-      log.info(`${project.id} is up to date at ${latest.commit.slice(0, 7)}`)
+    if (
+      !projectId &&
+      isSharedScanUpToDate(project, metadata, latest, ref) &&
+      (await isWikiRootContractCurrent(wikiRoot))
+    ) {
+      log.info(`${project.id} is up to date at ${latest.HEAD.slice(0, 7)}`)
       continue
     }
 
-    await checkoutProject(repoPath, latest.commit)
-    log.info(`Scanning ${project.id} at ${latest.commit.slice(0, 7)}`)
+    await Git.switch({ detach: true, path: repoPath, ref: latest.HEAD })
+    log.info(`Scanning ${project.id} at ${latest.HEAD.slice(0, 7)}`)
     await scanRepository({
-      branch: latest.branch,
-      commit: latest.commit,
+      branch: latest.ref,
+      commit: latest.HEAD,
       project,
-      ref: latest.ref,
+      ref,
       repoRoot: repoPath,
       wikiRoot
     })
@@ -71,25 +75,22 @@ function projectRef(project: ProjectEntry): string {
 function isSharedScanUpToDate(
   project: ProjectEntry,
   metadata: ProjectMetadata | undefined,
-  latest: { branch: string; commit: string; ref: string }
+  latest: { HEAD: string; ref: string },
+  ref: string
 ): boolean {
   if (!metadata) {
     return false
   }
 
   return (
-    metadata.lastScannedCommit === latest.commit &&
-    metadata.branch === latest.branch &&
+    metadata.lastScannedCommit === latest.HEAD &&
+    metadata.branch === latest.ref &&
     metadata.projectId === project.id &&
-    metadata.ref === latest.ref &&
+    metadata.ref === ref &&
     metadata.repoUrl === project.repoUrl
   )
 }
 
 async function isWikiRootContractCurrent(wikiRoot: string): Promise<boolean> {
   return Files.pathExists(join(wikiRoot, 'AGENTS.md'))
-}
-
-async function checkoutProject(repoPath: string, commit: string): Promise<void> {
-  await $({ cwd: repoPath, quiet: true })`git checkout --detach ${commit}`
 }
