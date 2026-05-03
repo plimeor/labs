@@ -2,9 +2,9 @@ import * as v from 'valibot'
 
 import { Files } from './files.js'
 import {
-  normalizeProjectId,
   type ProjectEntry,
   ProjectEntrySchema,
+  ProjectIdSchema,
   type ProjectsDocument,
   ProjectsDocumentSchema
 } from './types.js'
@@ -30,7 +30,7 @@ export async function addProject(
     repo: string
   }
 ): Promise<ProjectEntry> {
-  const id = normalizeProjectId(input.id)
+  const id = v.parse(ProjectIdSchema, input.id)
   const document = await readProjects(workspace)
   if (document.projects.some(project => project.id === id)) {
     throw new Error(`Project already exists: ${id}`)
@@ -53,7 +53,7 @@ export async function updateProject(
     ref?: string
   }
 ): Promise<ProjectEntry> {
-  const id = normalizeProjectId(projectId)
+  const id = v.parse(ProjectIdSchema, projectId)
   const document = await readProjects(workspace)
   const index = document.projects.findIndex(project => project.id === id)
   if (index < 0) {
@@ -72,7 +72,7 @@ export async function updateProject(
 }
 
 export function requireProject(document: ProjectsDocument, projectId: string): ProjectEntry {
-  const id = normalizeProjectId(projectId)
+  const id = v.parse(ProjectIdSchema, projectId)
   const project = document.projects.find(entry => entry.id === id)
   if (!project) {
     throw new Error(`Unknown project: ${id}`)

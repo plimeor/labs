@@ -14,6 +14,12 @@ export const ProjectIdSchema = v.pipe(
   v.check(input => input === gitIdentity(input), 'Invalid project id')
 )
 
+const StoredTextSchema = v.pipe(
+  v.string(),
+  v.minLength(1),
+  v.check(input => input === input.trim(), 'Invalid leading or trailing whitespace')
+)
+
 export function normalizeProjectId(input: unknown): string {
   return v.parse(ProjectIdInputSchema, input)
 }
@@ -53,9 +59,9 @@ export type ProjectsDocument = v.InferOutput<typeof ProjectsDocumentSchema>
 
 export const ProjectMetadataSchema = v.strictObject({
   artifactVersion: v.literal(1),
-  branch: v.pipe(v.string(), v.trim(), v.minLength(1)),
-  lastScannedAt: v.pipe(v.string(), v.trim(), v.minLength(1)),
-  lastScannedCommit: v.pipe(v.string(), v.trim(), v.minLength(1)),
+  branch: StoredTextSchema,
+  lastScannedAt: StoredTextSchema,
+  lastScannedCommit: StoredTextSchema,
   projectId: ProjectIdSchema,
   ref: v.optional(v.pipe(v.string(), v.minLength(1))),
   repo: v.optional(v.pipe(v.string(), v.minLength(1))),
@@ -69,25 +75,25 @@ export type WikiPageKind = v.InferOutput<typeof WikiPageKindSchema>
 export const WikiPageAuthoritySchema = v.literal('generated')
 export type WikiPageAuthority = v.InferOutput<typeof WikiPageAuthoritySchema>
 
-const TextArraySchema = v.array(v.pipe(v.string(), v.trim(), v.minLength(1)))
+const TextArraySchema = v.array(StoredTextSchema)
 
 export const WikiIndexPageSchema = v.strictObject({
   authority: WikiPageAuthoritySchema,
-  contentHash: v.pipe(v.string(), v.trim(), v.minLength(1)),
-  id: v.pipe(v.string(), v.trim(), v.minLength(1)),
+  contentHash: StoredTextSchema,
+  id: StoredTextSchema,
   kind: WikiPageKindSchema,
-  lastScannedCommit: v.pipe(v.string(), v.trim(), v.minLength(1)),
-  path: v.pipe(v.string(), v.trim(), v.minLength(1)),
+  lastScannedCommit: StoredTextSchema,
+  path: StoredTextSchema,
   sourceRefs: TextArraySchema,
-  summary: v.pipe(v.string(), v.trim(), v.minLength(1)),
+  summary: StoredTextSchema,
   symbols: TextArraySchema,
-  title: v.pipe(v.string(), v.trim(), v.minLength(1))
+  title: StoredTextSchema
 })
 export type WikiIndexPage = v.InferOutput<typeof WikiIndexPageSchema>
 
 export const WikiIndexDocumentSchema = v.pipe(
   v.strictObject({
-    commit: v.pipe(v.string(), v.trim(), v.minLength(1)),
+    commit: StoredTextSchema,
     pages: v.array(WikiIndexPageSchema),
     projectId: ProjectIdSchema,
     schemaVersion: v.literal(1)

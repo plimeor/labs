@@ -10,14 +10,14 @@ import { readMetadata, scanRepository } from '../scanner/index.js'
 import {
   codeWikiPath,
   type ProjectEntry,
-  ProjectIdInputSchema,
+  ProjectIdSchema,
   type ProjectMetadata,
   WikiIndexDocumentSchema
 } from '../types.js'
 import { resolveWorkspace } from '../workspace.js'
 
 export const scanArgsSchema = v.object({
-  project: v.optional(ProjectIdInputSchema)
+  project: v.optional(ProjectIdSchema)
 })
 
 export type ScanCommandContext = {
@@ -100,16 +100,43 @@ async function isSharedScanUpToDate(
 }
 
 async function hasRequiredWikiArtifacts(wikiRoot: string): Promise<boolean> {
-  const requiredFiles = ['AGENTS.md', 'overview.md', 'index.md', 'index.json', 'metadata.json']
+  const requiredFiles = ['AGENTS.md', 'overview.md', 'index.md', 'index.json', 'metadata.json', 'log.md']
   const results = await Promise.all(requiredFiles.map(path => Files.pathExists(join(wikiRoot, path))))
   if (!results.every(Boolean)) {
     return false
   }
 
-  try {
-    await Files.readJson(join(wikiRoot, 'index.json'), input => v.parse(WikiIndexDocumentSchema, input))
-    return true
-  } catch {
+  const requiredDirectories = ['modules', 'contracts']
+  const directoryResults = await Promise.all(requiredDirectories.map(path => isDirectory(join(wikiRoot, path))))
+  if (!directoryResults.every(Boolean)) {
     return false
   }
+
+  let indexDocument: v.InferOutput<typeof WikiIndexDocumentSchema>
+  try {
+    indexDocument = await Files.readJson(join(wikiRoot, 'index.json'), input => v.parse(WikiIndexDocumentSchema, input))
+  } catch (error) {
+    if (Files.isNotFound(error) || isInvalidGeneratedIndex(error)) {
+      return false
+    }
+    throw error
+  }
+
+  const pageResults = await Promise.all(indexDocument.pages.map(page => Files.pathExists(join(wikiRoot, page.path))))
+  return pageResults.every(Boolean)
+}
+
+async function isDirectory(path: string): Promise<boolean> {
+  try {
+    return (await Files.statPath(path)).isDirectory()
+  } catch (error) {
+    if (Files.isNotFound(error)) {
+      return false
+    }
+    throw error
+  }
+}
+
+function isInvalidGeneratedIndex(error: unknown): boolean {
+  return error instanceof SyntaxError || (error instanceof Error && error.name === 'ValiError')
 }
