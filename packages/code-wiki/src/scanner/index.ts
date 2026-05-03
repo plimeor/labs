@@ -1,4 +1,4 @@
-import { dirname, join, relative } from 'node:path'
+import { dirname, join } from 'node:path'
 
 import * as Git from '@plimeor/git-kit'
 import { groupBy, uniq } from 'es-toolkit/array'
@@ -158,31 +158,60 @@ async function writeWikiArtifact(
   validatePageSpecs(pageSpecs)
 
   const temporaryRoot = `${wikiRoot}.tmp-${process.pid}-${Date.now()}`
-  await Files.removePath(temporaryRoot, { force: true, recursive: true })
-  await prepareWikiRoot(temporaryRoot)
+  let installed = false
+  try {
+    await Files.removePath(temporaryRoot, { force: true, recursive: true })
+    await prepareWikiRoot(temporaryRoot)
 
-  const pages: WikiIndexPage[] = []
-  for (const spec of pageSpecs) {
-    const page = await writePage(temporaryRoot, target, spec, scanTime)
-    pages.push(page)
+    const pages: WikiIndexPage[] = []
+    for (const spec of pageSpecs) {
+      const page = await writePage(temporaryRoot, target, spec, scanTime)
+      pages.push(page)
+    }
+
+    const indexDocument = v.parse(WikiIndexDocumentSchema, {
+      commit: target.commit,
+      pages: pages.sort((a, b) => a.id.localeCompare(b.id)),
+      projectId: target.project.id,
+      schemaVersion: 1
+    })
+
+    await Files.writeJson(join(temporaryRoot, 'index.json'), indexDocument)
+    await writeAgentsFile(temporaryRoot)
+    await appendScanLog(temporaryRoot, target, scanTime)
+    await Files.writeJson(join(temporaryRoot, 'metadata.json'), metadata)
+    await replaceWikiRoot(temporaryRoot, wikiRoot)
+    installed = true
+
+    return indexDocument
+  } finally {
+    if (!installed) {
+      await Files.removePath(temporaryRoot, { force: true, recursive: true })
+    }
+  }
+}
+
+async function replaceWikiRoot(temporaryRoot: string, wikiRoot: string): Promise<void> {
+  const backupRoot = `${wikiRoot}.backup-${process.pid}-${Date.now()}`
+  await Files.ensureDir(dirname(wikiRoot))
+  await Files.removePath(backupRoot, { force: true, recursive: true })
+
+  if (!(await Files.pathExists(wikiRoot))) {
+    await Files.movePath(temporaryRoot, wikiRoot)
+    return
   }
 
-  const indexDocument = v.parse(WikiIndexDocumentSchema, {
-    commit: target.commit,
-    pages: pages.sort((a, b) => a.id.localeCompare(b.id)),
-    projectId: target.project.id,
-    schemaVersion: 1
-  })
+  await Files.movePath(wikiRoot, backupRoot)
+  try {
+    await Files.movePath(temporaryRoot, wikiRoot)
+  } catch (error) {
+    if (!(await Files.pathExists(wikiRoot)) && (await Files.pathExists(backupRoot))) {
+      await Files.movePath(backupRoot, wikiRoot)
+    }
+    throw error
+  }
 
-  await Files.writeJson(join(temporaryRoot, 'index.json'), indexDocument)
-  await writeAgentsFile(temporaryRoot)
-  await appendScanLog(temporaryRoot, target, scanTime)
-  await Files.writeJson(join(temporaryRoot, 'metadata.json'), metadata)
-  await Files.ensureDir(dirname(wikiRoot))
-  await Files.removePath(wikiRoot, { force: true, recursive: true })
-  await Files.movePath(temporaryRoot, wikiRoot)
-
-  return indexDocument
+  await Files.removePath(backupRoot, { force: true, recursive: true })
 }
 
 async function prepareWikiRoot(wikiRoot: string): Promise<void> {
@@ -361,7 +390,8 @@ function buildModulePages(projectId: string, sourceFiles: SourceFile[]): PageSpe
         .sort((a, b) => a.localeCompare(b))
         .slice(0, 30)
       const id = `module.${logicalId(group)}`
-      const sourceRefs = group === 'root' ? keyFiles : [`${group}/**`]
+      const sourceRefs =
+        group === 'root' ? files.map(file => file.path).sort((a, b) => a.localeCompare(b)) : [`${group}/**`]
       const title = `${titleize(group)} Module`
       const body = [
         `# ${title}`,
@@ -560,28 +590,29 @@ async function appendScanLog(wikiRoot: string, target: ScanTarget, scanTime: str
 }
 
 async function collectSourceFiles(root: string): Promise<SourceFile[]> {
-  const paths = await walk(root)
-  const ignoredAbsolutePaths = await Git.collectIgnorePaths(root)
-  const ignoredPaths = new Set([...ignoredAbsolutePaths].map(path => toPosixPath(relative(root, path))))
+  const paths = await Git.listFiles(root)
   const files: SourceFile[] = []
   for (const path of paths.sort((a, b) => a.localeCompare(b))) {
+    if (isIgnoredDirectoryPath(path)) {
+      continue
+    }
+
     if (!isCandidateSource(path)) {
       continue
     }
 
-    if (isIgnoredByRulePath(path, ignoredPaths)) {
-      continue
+    const file = await analyzeSourceFile(root, path)
+    if (file) {
+      files.push(file)
     }
-
-    files.push(await analyzeSourceFile(root, path))
   }
 
   return files
 }
 
-function isIgnoredByRulePath(path: string, ignoredPaths: Set<string>): boolean {
-  for (const ignoredPath of ignoredPaths) {
-    if (path === ignoredPath || path.startsWith(`${ignoredPath}/`)) {
+function isIgnoredDirectoryPath(path: string): boolean {
+  for (const segment of path.split('/')) {
+    if (ignoredDirectories.has(segment)) {
       return true
     }
   }
@@ -589,9 +620,17 @@ function isIgnoredByRulePath(path: string, ignoredPaths: Set<string>): boolean {
   return false
 }
 
-async function analyzeSourceFile(root: string, path: string): Promise<SourceFile> {
+async function analyzeSourceFile(root: string, path: string): Promise<SourceFile | undefined> {
   const absolutePath = join(root, path)
-  const stats = await Files.statPath(absolutePath)
+  let stats: Awaited<ReturnType<typeof Files.statPath>>
+  try {
+    stats = await Files.statPath(absolutePath)
+  } catch (error) {
+    if (Files.isNotFound(error)) {
+      return undefined
+    }
+    throw error
+  }
   const extension = fileExtension(path)
   if (Number(stats.size) > 250_000) {
     return {
@@ -606,9 +645,10 @@ async function analyzeSourceFile(root: string, path: string): Promise<SourceFile
   try {
     text = await Files.readText(absolutePath)
   } catch (error) {
-    if (!Files.isNotFound(error)) {
-      throw error
+    if (Files.isNotFound(error)) {
+      return undefined
     }
+    throw error
   }
   return {
     extension,
@@ -616,29 +656,6 @@ async function analyzeSourceFile(root: string, path: string): Promise<SourceFile
     path,
     symbols: extractSymbols(text)
   }
-}
-
-async function walk(root: string, current = root): Promise<string[]> {
-  const entries = await Files.readDir(current)
-  const paths: string[] = []
-  for (const entry of entries) {
-    const absolute = join(current, entry)
-    const type = await pathType(absolute)
-    if (type === 'directory' && ignoredDirectories.has(entry)) {
-      continue
-    }
-
-    if (type === 'directory') {
-      paths.push(...(await walk(root, absolute)))
-      continue
-    }
-
-    if (type === 'file') {
-      paths.push(toPosixPath(relative(root, absolute)))
-    }
-  }
-
-  return paths
 }
 
 function extractSymbols(text: string): string[] {
@@ -723,28 +740,6 @@ function entryPointRank(path: string): number {
   }
 
   return 4
-}
-
-async function pathType(path: string): Promise<'directory' | 'file' | 'other'> {
-  try {
-    await Files.readSymbolicLink(path)
-    return 'other'
-  } catch (error) {
-    if (!Files.isNotFound(error) && !Files.isNotSymbolicLinkReadError(error)) {
-      throw error
-    }
-  }
-
-  const stats = await Files.statPath(path)
-  if (stats.isDirectory()) {
-    return 'directory'
-  }
-
-  if (stats.isFile()) {
-    return 'file'
-  }
-
-  return 'other'
 }
 
 function isCandidateSource(path: string): boolean {
@@ -845,8 +840,4 @@ function formatPackageBins(bin: unknown): string {
   }
 
   return 'none'
-}
-
-function toPosixPath(path: string): string {
-  return path.split('\\').join('/')
 }

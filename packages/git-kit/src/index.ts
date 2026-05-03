@@ -148,6 +148,15 @@ export async function fetch(options: FetchOptions): Promise<FetchResult> {
   return { HEAD, ref: options.ref }
 }
 
+export async function listFiles(path: string): Promise<string[]> {
+  const root = (await stat(path)).path
+  const output = await $`git ls-files -co --exclude-standard -z`.cwd(root).quiet().text()
+  return output
+    .split('\0')
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b))
+}
+
 async function switchTo(options: SwitchOptions): Promise<SwitchResult> {
   if (options.detach) {
     await $`git checkout --detach ${options.ref}`.cwd(options.path).quiet()

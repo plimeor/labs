@@ -30,7 +30,7 @@ export function createCli() {
       defineCommand('set', {
         argBindings: [{ name: 'project' }],
         args: projectSetArgsSchema,
-        description: 'Update a registered project ref or remote',
+        description: 'Update a registered project ref',
         options: projectSetOptionsSchema,
         run: projectSetCommand
       }),

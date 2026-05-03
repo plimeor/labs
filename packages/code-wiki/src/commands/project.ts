@@ -2,11 +2,11 @@ import { log } from '@clack/prompts'
 import * as v from 'valibot'
 
 import { addProject, readProjects, updateProject } from '../projects.js'
-import { ProjectIdInputSchema } from '../types.js'
+import { ProjectIdSchema } from '../types.js'
 import { resolveWorkspace } from '../workspace.js'
 
 export const projectAddArgsSchema = v.object({
-  project: ProjectIdInputSchema
+  project: ProjectIdSchema
 })
 
 export const projectAddOptionsSchema = v.object({
@@ -15,7 +15,7 @@ export const projectAddOptionsSchema = v.object({
 })
 
 export const projectSetArgsSchema = v.object({
-  project: ProjectIdInputSchema
+  project: ProjectIdSchema
 })
 
 export const projectSetOptionsSchema = v.object({

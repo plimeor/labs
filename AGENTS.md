@@ -16,6 +16,7 @@
 - Every package under `packages/` must define a `prepack` script. If the package publishes generated artifacts, `prepack` must build them; if it publishes source directly, `prepack` must run a package-level smoke check for the published entrypoint or equivalent packaging boundary.
 - New publishable packages under `packages/` must define npm metadata before publishing: `repository` with `directory`, `homepage`, `bugs`, and a `files` whitelist.
 - README files for publishable CLI packages must include installation instructions and a minimal first command using the installed executable.
+- Bun pack/publish rewrites `catalog:` and `workspace:*` dependency specifiers for packed packages; do not flag those protocols as publishability issues by themselves.
 
 ## Boundaries
 
