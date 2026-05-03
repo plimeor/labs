@@ -7,6 +7,7 @@ export type InferSchema<T extends StandardSchemaV1> = StandardSchemaV1.InferOutp
 
 export type JsonSchemaProperty = JSONSchema7Definition
 export type JsonObjectSchema = JSONSchema7
+export type JsonSchemaPrimitiveType = 'array' | 'boolean' | 'string'
 
 export type SchemaAdapter = {
   toStandardJsonSchema: (schema: any) => StandardJSONSchemaV1 | undefined
@@ -47,10 +48,30 @@ export function resolveJsonObjectSchema(
         ignoreActions: ['check']
       }
     })
-    return isJsonObjectSchema(jsonSchema) ? jsonSchema : undefined
+    return isResolvedJsonObjectSchema(jsonSchema) ? jsonSchema : undefined
   } catch {
     return undefined
   }
+}
+
+export function hasJsonSchemaType(schema: JsonSchemaProperty, type: JsonSchemaPrimitiveType): boolean {
+  if (!isJsonSchemaObject(schema)) {
+    return false
+  }
+
+  if (Array.isArray(schema.type) && schema.type.includes(type)) {
+    return true
+  }
+
+  if (schema.type === type) {
+    return true
+  }
+
+  return [...(schema.anyOf ?? []), ...(schema.oneOf ?? [])].some(option => hasJsonSchemaType(option, type))
+}
+
+export function isJsonSchemaObject(schema: unknown): schema is JsonObjectSchema {
+  return typeof schema === 'object' && schema !== null && !Array.isArray(schema)
 }
 
 function resolveStandardJsonSchema(
@@ -69,8 +90,8 @@ function isStandardJsonSchema(schema: StandardSchemaV1): schema is StandardSchem
   return typeof candidate['~standard'].jsonSchema?.input === 'function'
 }
 
-function isJsonObjectSchema(value: unknown): value is JSONSchema7 {
-  if (!isRecord(value)) {
+function isResolvedJsonObjectSchema(value: unknown): value is JSONSchema7 {
+  if (!isJsonSchemaObject(value)) {
     return false
   }
 

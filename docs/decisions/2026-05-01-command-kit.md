@@ -1,132 +1,95 @@
-# Adopt command-kit for repo-local CLI and agent tools
+# 采用 command-kit 作为仓库内 CLI 和 agent tools 的命令层
 
-## Status
+## 状态
 
-Accepted
+已接受
 
-Updated 2026-05-02: the schema boundary moved from TypeBox-only to
-Standard Schema plus optional Standard JSON Schema metadata.
+2026-05-02 更新：schema 边界从 TypeBox-only 调整为 Standard Schema，并可选接入 Standard JSON Schema metadata。
 
-## Date
+## 日期
 
 2026-05-01
 
-## Context
+## 背景
 
-This repository is accumulating small CLI and agent-facing tools. These tools
-need to define commands, validate inputs, expose typed command contexts, render
-consistent help, and produce predictable output for both humans and agents.
+这个仓库已经不止一个 CLI 了。后续工具都要重复处理几件事：定义命令、校验输入、拿到 typed command context、生成一致的 help，并给人和 agent 都留下稳定输出。
 
-The current `packages/skills` CLI uses `incur`, which works for basic command
-routing and typed handlers but does not model the positional argument shape that
-`skills` needs next:
+当时 `packages/skills` CLI 使用 `incur`。它能处理基础 command routing 和 typed handlers，但不能表达 `skills` 接下来需要的 positional argument 形状：
 
 ```bash
 skills add plimeor/agent-skills skill-1 skill-2 skill-3
 ```
 
-In this command, `plimeor/agent-skills` should bind to the first positional
-argument and the remaining values should bind to a second positional array. This
-is not an edge case for the planned CLI shape; it is the primary command flow.
+这条命令里，`plimeor/agent-skills` 要绑定到第一个 positional argument，后续值要绑定到第二个 positional array。这不是边缘情况；如果这一点做不好，`skills add` 的主要路径就不成立。
 
-The first users are repo-local tools and agents. The package may be public later,
-but the first design pass should validate the local `packages/skills` use case
-before generalizing it into a broader framework.
+第一批用户就是 repo-local tools 和 agents。`command-kit` 以后可以公开发布，但现在不提前支付外部框架的成本；先让 `packages/skills` 这条真实路径跑通。
 
-## Decision
+## 决策
 
-Adopt `@plimeor/command-kit` as the Bun-first command declaration package for
-repo-local CLI and agent-facing tools.
+采用 `@plimeor/command-kit`，把它定位成 Bun-first 的 command declaration package，服务 repo-local CLI 和 agent-facing tools。
 
-The first validation target is a complete replacement of `incur` usage in
-`packages/skills`. `command-kit` should support the command shapes needed by
-`packages/skills` before it is generalized for other packages.
+第一步用它完整替换 `packages/skills` 中的 `incur`。只有它能覆盖 `packages/skills` 的 command shapes 后，才考虑让其他 package 跟进。
 
-Bun-first means:
+Bun-first 的含义：
 
-- CLI entrypoints may run TypeScript source directly with Bun.
-- `#!/usr/bin/env bun` is an acceptable default for repo-local executables.
-- Node.js runtime compatibility is not a v1 requirement.
-- External publishing and Node-compatible build output require a separate future
-  decision.
+- CLI entrypoints 可以直接用 Bun 运行 TypeScript source。
+- `#!/usr/bin/env bun` 是 repo-local executables 的可接受默认值。
+- Node.js runtime compatibility 不是 v1 要求。
+- 如果未来要面向 Node-compatible build output 或外部发布，再单独做决策。
 
-The schema boundary means:
+Schema 边界：
 
-- `StandardSchemaV1` is the command args and options contract.
-- The runtime should infer typed `ctx.args` and `ctx.options` from
-  `StandardSchemaV1.InferOutput`.
-- `defineCli` may receive `schemaAdapter.toStandardJsonSchema` so command help
-  can read field descriptions without binding the public API to one schema
-  library.
-- Command output is not schema-validated by `command-kit`; command handlers own
-  the shape of their returned data.
-- `packages/skills` uses Valibot as its concrete schema library.
+- `StandardSchemaV1` 是 command args 和 options 的契约。
+- runtime 从 `StandardSchemaV1.InferOutput` 推导 typed `ctx.args` 和 `ctx.options`。
+- `defineCli` 可以接收 `schemaAdapter.toStandardJsonSchema`，让 command help 读取字段描述，同时不把 public API 绑定到某个 schema library。
+- command output 不由 `command-kit` 做 schema validation；handler 自己拥有返回数据形状。
+- `packages/skills` 当前使用 Valibot 作为具体 schema library。
 
-## Alternatives Considered
+## 备选方案
 
-### Continue using `incur`
+### 继续使用 `incur`
 
-`incur` already provides command routing, option parsing, help output, and typed
-handlers. It remains a good default for simple CLI packages.
+`incur` 已经能做 command routing、option parsing、help output 和 typed handlers。简单 CLI 用它没有问题。
 
-Rejected for `command-kit` because the next `packages/skills` command shape
-requires first-class support for rest positional arguments. Hand-rolling that
-parsing inside individual commands would keep the core mismatch in place.
+拒绝原因：`packages/skills` 现在缺的正是 first-class rest positional arguments。如果把这段 parsing 手写到每个 command 里，表面能跑，底层 mismatch 还在。
 
-### Wrap `incur`
+### 包一层 `incur`
 
-A wrapper could keep the existing dependency while adding repo-local helpers for
-validation and output.
+可以保留现有依赖，再补 repo-local helpers 做 validation 和 output。
 
-Rejected because the main problem is below the wrapper boundary: positional
-argument binding. A wrapper would either inherit the same limitation or bypass
-enough of `incur` that it is effectively a separate command runtime.
+拒绝原因：主要问题在 wrapper 边界之下，是 positional argument binding。wrapper 要么继承限制，要么绕过足够多 `incur`，最后其实还是在写另一个 command runtime。
 
-### Build an external general-purpose CLI framework
+### 从一开始做外部通用 CLI framework
 
-The desired API could be designed as a publishable framework from the start.
+可以一开始就把 API 当成可发布 framework 来设计。
 
-Rejected for v1. The immediate need is a repo-local tool layer for this codebase
-and its agents. Designing for external users would add compatibility,
-documentation, packaging, and API-stability work before the local command model
-has been validated.
+拒绝原因：v1 的需求是这个 codebase 和 agents 的 repo-local tool layer。面向外部用户会提前引入 compatibility、documentation、packaging 和 API-stability 工作，而本地 command model 还没证明自己。
 
-### Build only an agent tool declaration layer
+### 只做 agent tool declaration layer
 
-An agent-only declaration layer would avoid CLI details and focus on structured
-inputs and outputs.
+agent-only declaration layer 可以避开 CLI 细节，只处理 structured inputs 和 outputs。
 
-Rejected because `packages/skills` remains a real CLI. The same command
-definitions should serve both local shell usage and agent-friendly output.
+拒绝原因：`packages/skills` 仍然是真 CLI。这里更想要的是同一组 command definitions 同时服务 shell usage 和 agent-friendly output。
 
-## Consequences
+## 后果
 
-- Future repo-local CLI tools can share one command declaration model instead of
-  choosing parser behavior package by package.
-- `packages/skills` becomes the proving ground for `command-kit`, especially for
-  positional binding, option parsing, Standard Schema validation, help output,
-  and result formatting.
-- The repository owns a small amount of CLI runtime behavior: argv parsing, help
-  text, error formatting, JSON-mode output suppression, and output envelopes.
-- `@standard-schema/spec` becomes the schema dependency for the command runtime.
-- Concrete command packages can choose any Standard Schema-compatible library;
-  the current `packages/skills` implementation uses Valibot.
-- Bun is the assumed runtime for v1, which keeps local TypeScript execution
-  simple but postpones Node.js compatibility.
-- The root agent guidance should continue to mention `incur` until the new
-  package proves out. After implementation, update repo guidance to point new
-  internal CLI work at `command-kit`.
+- 未来 repo-local CLI tools 可以共享一个 command declaration model，不用每个 package 重新选择 parser 行为。
+- `packages/skills` 是 `command-kit` 的验证场，重点验证 positional binding、option parsing、Standard Schema validation、help output 和 result formatting。
+- 仓库会自己拥有一小层 CLI runtime 行为：argv parsing、help text、error formatting、JSON-mode output suppression 和 output envelopes。
+- `@standard-schema/spec` 成为 command runtime 的 schema dependency。
+- 具体 command package 可以选择任何 Standard Schema-compatible library；当前 `packages/skills` 使用 Valibot。
+- Bun 是 v1 假定 runtime。本地 TypeScript 执行因此更简单，代价是 Node.js compatibility 被推迟。
+- 实现验证后，repo guidance 应指向 `command-kit`，不要再让新的 internal CLI work 默认走 `incur`。
 
-## Boundaries
+## 边界
 
-The v1 runtime should not include:
+v1 runtime 不包含：
 
-- Plugin systems.
-- Automatic MCP server generation.
-- Shell completion.
-- OpenAPI mounting.
-- Custom schema DSLs or schema-library-specific public APIs.
-- External publish-readiness guarantees.
+- plugin systems
+- automatic MCP server generation
+- shell completion
+- OpenAPI mounting
+- custom schema DSLs 或 schema-library-specific public APIs
+- external publish-readiness guarantees
 
-These may be reconsidered later only after the repo-local runtime proves useful
-in `packages/skills`.
+这些能力等 repo-local runtime 先在 `packages/skills` 中证明有用后，再重新讨论。
