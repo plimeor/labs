@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { lstat, mkdir, readFile, symlink, writeFile } from 'node:fs/promises'
+import { mkdir, symlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { Files } from '../src/files.js'
@@ -64,36 +64,36 @@ describe('Files', () => {
     expect(await Files.readJson(filePath, input => input)).toEqual({ a: { b: 3, y: 2 }, z: 1 })
   })
 
-  test('writes through absolute symlinks without replacing the link', async () => {
+  test('rejects writes through absolute symlinks', async () => {
     const cwd = await tempDir('code-wiki-files-symlink-')
     const linkPath = join(cwd, 'state.json')
     const targetPath = join(cwd, 'real', 'state.json')
+    await mkdir(join(cwd, 'real'), { recursive: true })
+    await writeFile(targetPath, 'existing\n')
     await symlink(targetPath, linkPath)
 
-    await Files.writeText(linkPath, 'linked content\n')
-
-    expect(await readFile(targetPath, 'utf-8')).toBe('linked content\n')
-    expect((await lstat(linkPath)).isSymbolicLink()).toBe(true)
+    await expect(Files.writeText(linkPath, 'linked content\n')).rejects.toThrow(
+      'Refusing to write through symbolic link'
+    )
   })
 
-  test('writes through relative symlinks relative to the link directory', async () => {
+  test('rejects writes through relative symlinks', async () => {
     const cwd = await tempDir('code-wiki-files-relative-symlink-')
     const linkDir = join(cwd, 'links')
     const linkPath = join(linkDir, 'state.json')
-    const targetPath = join(cwd, 'real', 'state.json')
     await mkdir(linkDir, { recursive: true })
     await symlink('../real/state.json', linkPath)
 
-    await Files.writeText(linkPath, 'relative linked content\n')
+    await expect(Files.writeText(linkPath, 'relative linked content\n')).rejects.toThrow(
+      'Refusing to write through symbolic link'
+    )
 
     expect(await Files.readSymbolicLink(linkPath)).toBe('../real/state.json')
-    expect(await readFile(targetPath, 'utf-8')).toBe('relative linked content\n')
-    expect((await lstat(linkPath)).isSymbolicLink()).toBe(true)
   })
 
-  test('creates temporary directories and removes paths recursively', async () => {
+  test('removes paths recursively', async () => {
     const cwd = await tempDir('code-wiki-files-remove-')
-    const temp = await Files.makeTempDir({ directory: cwd, prefix: 'workspace-' })
+    const temp = join(cwd, 'workspace')
     const filePath = join(temp, 'nested', 'state.txt')
     await Files.writeText(filePath, 'temporary\n')
 

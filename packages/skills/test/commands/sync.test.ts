@@ -175,7 +175,11 @@ async function createGitRepo(): Promise<{ commit: string; source: string }> {
   await writeSkill(source, 'b')
   await $`git add skills`.cwd(source).quiet()
   await $`git -c user.email=skills@example.com -c user.name=Skills commit -m init`.cwd(source).quiet()
-  const commit = await $`git rev-parse HEAD`.cwd(source).quiet().text()
+  const commit = await $`git rev-parse HEAD`
+    .cwd(source)
+    .quiet()
+    .text()
+    .then(text => text.trim())
   return { commit, source: `file://${source}` }
 }
 

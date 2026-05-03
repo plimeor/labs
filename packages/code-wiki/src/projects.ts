@@ -27,7 +27,7 @@ export async function addProject(
   input: {
     id: string
     ref?: string
-    repoUrl: string
+    repo: string
   }
 ): Promise<ProjectEntry> {
   const id = normalizeProjectId(input.id)
@@ -39,7 +39,7 @@ export async function addProject(
   const entry = v.parse(ProjectEntrySchema, {
     id,
     ...(input.ref ? { ref: input.ref } : {}),
-    repoUrl: input.repoUrl
+    repo: input.repo
   })
   const projects = [...document.projects, entry].sort((a, b) => a.id.localeCompare(b.id))
   await writeProjects(workspace, { projects, schemaVersion: 1 })
@@ -51,7 +51,6 @@ export async function updateProject(
   projectId: string,
   input: {
     ref?: string
-    repoUrl?: string
   }
 ): Promise<ProjectEntry> {
   const id = normalizeProjectId(projectId)
@@ -63,8 +62,7 @@ export async function updateProject(
 
   const current = document.projects[index]
   const updated: ProjectEntry = {
-    ...current,
-    ...(input.repoUrl ? { repoUrl: input.repoUrl } : {})
+    ...current
   }
   setProjectRef(updated, input.ref)
   const projects = [...document.projects]

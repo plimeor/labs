@@ -36,7 +36,7 @@ Shared workspace state：
   repos/                 Ignored managed clones
 ```
 
-`.code-wiki/.gitignore` 由工具写入，忽略 managed clones、generated wiki outputs 和 reports，不要求调用方手动调整外层 repo 的 `.gitignore`。
+`.code-wiki/.gitignore` 由工具写入，忽略 managed clones 和 generated wiki outputs，不要求调用方手动调整外层 repo 的 `.gitignore`。
 
 `config.json` 只存 schema version。Runtime selection 不进入 workspace state。Project entries 要保持可移植，不能写入 developer-local checkout paths。`project add` 的 repo URL 不做 GitHub `/tree/<ref>` 等额外规范化；ref 通过通用 `--ref` 传入，由 Git 解析 branch、tag、commit 或 remote ref。
 
@@ -57,7 +57,7 @@ Generated Markdown pages 以 frontmatter 开头，记录 stable id、kind、titl
 ## Scanner 规则
 
 - 默认忽略 managed clones、dependency directories、build output、fixtures 和 test-only directories。
-- 扫描时遵循目标 repo 当前的 `.gitignore`，包括子目录里的 `.gitignore`；每次更新 repo 后重新读取 Git ignore 规则。
+- 扫描时使用目标 repo 当前 `.gitignore` 解析出的 ignored path 集合；这是路径集合过滤，不承诺完整 Git ignore pattern、negation 或 Git 自身 matcher 语义。每次更新 repo 后重新读取该路径集合。
 - Module groups 优先贴近真实 ownership boundaries，例如 `packages/<name>`、`apps/<name>`、`src/<area>` 或 root-level configuration。
 - Scanner 不硬编码 framework-specific capability signals。Generated wiki facts 只能来自观测到的 files、symbols、imports、package metadata 和 module boundaries。
 - Project ref 变化后，不把 old-ref claims 带到新输出里。

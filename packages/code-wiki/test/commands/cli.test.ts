@@ -52,7 +52,7 @@ describe('cli command groups', () => {
       await cli.serve(['init'])
       await cli.serve(['project', 'add', 'web-app', '--repo', 'git@github.com:org/web-app.git'])
       const error = await captureStderr(() => cli.serve(['project', 'set', 'web-app']))
-      expect(error).toContain('Use at least one of --ref or --repo')
+      expect(error).toContain('Use --ref to update the project ref')
     })
   })
 })

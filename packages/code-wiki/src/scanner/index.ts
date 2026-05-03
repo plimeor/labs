@@ -1,4 +1,4 @@
-import { join, relative } from 'node:path'
+import { dirname, join, relative } from 'node:path'
 
 import * as Git from '@plimeor/git-kit'
 import { groupBy, uniq } from 'es-toolkit/array'
@@ -8,7 +8,7 @@ import { Files } from '../files.js'
 import { isRecord } from '../json.js'
 import { markdownList, renderGeneratedPage, slugify } from '../markdown/pages.js'
 import type { ProjectEntry, ProjectMetadata, WikiIndexDocument, WikiIndexPage, WikiPageKind } from '../types.js'
-import { ProjectMetadataSchema } from '../types.js'
+import { ProjectMetadataSchema, WikiIndexDocumentSchema } from '../types.js'
 
 export type ScanTarget = {
   branch: string
@@ -113,7 +113,7 @@ export async function readMetadata(path: string): Promise<ProjectMetadata | unde
   try {
     return await Files.readJson(path, input => v.parse(ProjectMetadataSchema, input))
   } catch (error) {
-    if (Files.isNotFound(error)) {
+    if (Files.isNotFound(error) || isInvalidGeneratedMetadata(error)) {
       return undefined
     }
 
@@ -121,23 +121,26 @@ export async function readMetadata(path: string): Promise<ProjectMetadata | unde
   }
 }
 
+function isInvalidGeneratedMetadata(error: unknown): boolean {
+  return error instanceof SyntaxError || (error instanceof Error && error.name === 'ValiError')
+}
+
 export async function scanRepository(target: ScanTarget): Promise<ScanResult> {
   const scanTime = new Date().toISOString()
   const sourceFiles = await collectSourceFiles(target.repoRoot)
   const pageSpecs = await buildPageSpecs(target, sourceFiles)
   const metadata: ProjectMetadata = {
+    artifactVersion: 1,
     branch: target.branch,
     lastScannedAt: scanTime,
     lastScannedCommit: target.commit,
     projectId: target.project.id,
     ref: target.ref,
-    repoUrl: target.project.repoUrl,
+    repo: target.project.repo,
     schemaVersion: 1
   }
 
-  const indexDocument = await writeWikiArtifact(target.wikiRoot, target, pageSpecs, scanTime)
-  await appendScanLog(target.wikiRoot, target, scanTime)
-  await Files.writeJson(join(target.wikiRoot, 'metadata.json'), metadata)
+  const indexDocument = await writeWikiArtifact(target.wikiRoot, target, metadata, pageSpecs, scanTime)
 
   return {
     index: indexDocument,
@@ -148,26 +151,36 @@ export async function scanRepository(target: ScanTarget): Promise<ScanResult> {
 async function writeWikiArtifact(
   wikiRoot: string,
   target: ScanTarget,
+  metadata: ProjectMetadata,
   pageSpecs: PageSpec[],
   scanTime: string
 ): Promise<WikiIndexDocument> {
-  await prepareWikiRoot(wikiRoot)
+  validatePageSpecs(pageSpecs)
+
+  const temporaryRoot = `${wikiRoot}.tmp-${process.pid}-${Date.now()}`
+  await Files.removePath(temporaryRoot, { force: true, recursive: true })
+  await prepareWikiRoot(temporaryRoot)
 
   const pages: WikiIndexPage[] = []
   for (const spec of pageSpecs) {
-    const page = await writePage(wikiRoot, target, spec, scanTime)
+    const page = await writePage(temporaryRoot, target, spec, scanTime)
     pages.push(page)
   }
 
-  const indexDocument: WikiIndexDocument = {
+  const indexDocument = v.parse(WikiIndexDocumentSchema, {
     commit: target.commit,
     pages: pages.sort((a, b) => a.id.localeCompare(b.id)),
     projectId: target.project.id,
     schemaVersion: 1
-  }
+  })
 
-  await Files.writeJson(join(wikiRoot, 'index.json'), indexDocument)
-  await writeAgentsFile(wikiRoot)
+  await Files.writeJson(join(temporaryRoot, 'index.json'), indexDocument)
+  await writeAgentsFile(temporaryRoot)
+  await appendScanLog(temporaryRoot, target, scanTime)
+  await Files.writeJson(join(temporaryRoot, 'metadata.json'), metadata)
+  await Files.ensureDir(dirname(wikiRoot))
+  await Files.removePath(wikiRoot, { force: true, recursive: true })
+  await Files.movePath(temporaryRoot, wikiRoot)
 
   return indexDocument
 }
@@ -177,6 +190,22 @@ async function prepareWikiRoot(wikiRoot: string): Promise<void> {
   await Files.ensureDir(wikiRoot)
   for (const path of ['modules', 'contracts']) {
     await Files.ensureDir(join(wikiRoot, path))
+  }
+}
+
+function validatePageSpecs(pageSpecs: PageSpec[]): void {
+  assertUniquePageSpecValues(pageSpecs, 'id')
+  assertUniquePageSpecValues(pageSpecs, 'path')
+}
+
+function assertUniquePageSpecValues(pageSpecs: PageSpec[], key: 'id' | 'path'): void {
+  const seen = new Set<string>()
+  for (const spec of pageSpecs) {
+    const value = spec[key]
+    if (seen.has(value)) {
+      throw new Error(`Duplicate wiki page ${key}: ${value}`)
+    }
+    seen.add(value)
   }
 }
 
@@ -237,7 +266,7 @@ function buildOverviewPage(
     '',
     markdownList([
       `Project id: ${target.project.id}`,
-      `Repository source: ${target.project.repoUrl}`,
+      `Repository source: ${target.project.repo}`,
       `Configured ref: ${target.ref}`,
       `Scanned commit: ${target.commit}`,
       `Scanned branch: ${target.branch}`,
@@ -523,7 +552,7 @@ async function appendScanLog(wikiRoot: string, target: ScanTarget, scanTime: str
     `- Branch: ${target.branch}`,
     `- Ref: ${target.ref}`,
     `- Commit: ${target.commit}`,
-    `- Repository: ${target.project.repoUrl}`,
+    `- Repository: ${target.project.repo}`,
     ''
   ].join('\n')
   const existing = (await Files.pathExists(logPath)) ? await Files.readText(logPath) : `# ${target.project.id} Log\n\n`

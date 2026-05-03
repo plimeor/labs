@@ -2,10 +2,11 @@ import { log } from '@clack/prompts'
 import * as v from 'valibot'
 
 import { addProject, readProjects, updateProject } from '../projects.js'
+import { ProjectIdInputSchema } from '../types.js'
 import { resolveWorkspace } from '../workspace.js'
 
 export const projectAddArgsSchema = v.object({
-  project: v.pipe(v.string(), v.minLength(1))
+  project: ProjectIdInputSchema
 })
 
 export const projectAddOptionsSchema = v.object({
@@ -14,12 +15,11 @@ export const projectAddOptionsSchema = v.object({
 })
 
 export const projectSetArgsSchema = v.object({
-  project: v.pipe(v.string(), v.minLength(1))
+  project: ProjectIdInputSchema
 })
 
 export const projectSetOptionsSchema = v.object({
-  ref: v.optional(v.pipe(v.string(), v.minLength(1))),
-  repo: v.optional(v.pipe(v.string(), v.minLength(1)))
+  ref: v.optional(v.pipe(v.string(), v.minLength(1)))
 })
 
 export type ProjectAddCommandContext = {
@@ -37,19 +37,18 @@ export async function projectAddCommand(context: ProjectAddCommandContext) {
   const project = await addProject(workspace, {
     id: context.args.project,
     ref: context.options.ref,
-    repoUrl: context.options.repo
+    repo: context.options.repo
   })
-  log.success(`Registered ${project.id} from ${project.repoUrl} at ${formatProjectRef(project)}`)
+  log.success(`Registered ${project.id} from ${project.repo} at ${formatProjectRef(project)}`)
 }
 
 export async function projectSetCommand(context: ProjectSetCommandContext) {
   assertHasMutationOption(context.options)
   const workspace = await resolveWorkspace()
   const project = await updateProject(workspace, context.args.project, {
-    ref: context.options.ref,
-    repoUrl: context.options.repo
+    ref: context.options.ref
   })
-  log.success(`Updated ${project.id} to ${project.repoUrl} at ${formatProjectRef(project)}`)
+  log.success(`Updated ${project.id} to ${project.repo} at ${formatProjectRef(project)}`)
 }
 
 export async function projectListCommand() {
@@ -61,13 +60,13 @@ export async function projectListCommand() {
   }
 
   process.stdout.write(
-    `${document.projects.map(project => `${project.id}\t${project.repoUrl}\t${formatProjectRef(project)}`).join('\n')}\n`
+    `${document.projects.map(project => `${project.id}\t${project.repo}\t${formatProjectRef(project)}`).join('\n')}\n`
   )
 }
 
-function assertHasMutationOption(options: { ref?: string; repo?: string }): void {
-  if (!options.ref && !options.repo) {
-    throw new Error('Use at least one of --ref or --repo')
+function assertHasMutationOption(options: { ref?: string }): void {
+  if (!options.ref) {
+    throw new Error('Use --ref to update the project ref')
   }
 }
 

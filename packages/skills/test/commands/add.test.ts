@@ -240,7 +240,11 @@ async function createGitSource(prefix: string, skillNames: string[]): Promise<{ 
   }
   await $`git add skills`.cwd(repo).quiet()
   await $`git -c user.email=skills@example.com -c user.name=Skills commit -m init`.cwd(repo).quiet()
-  const commit = await $`git rev-parse HEAD`.cwd(repo).quiet().text()
+  const commit = await $`git rev-parse HEAD`
+    .cwd(repo)
+    .quiet()
+    .text()
+    .then(text => text.trim())
   return { commit, source: `file://${repo}` }
 }
 
