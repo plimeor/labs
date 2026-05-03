@@ -160,7 +160,7 @@ skills sync -g --locked
 Use project-local state instead of global state:
 
 ```bash
-skills add ./internal-skills --skill project-review
+skills add plimeor/agent-skills --skill project-review
 skills sync
 ```
 

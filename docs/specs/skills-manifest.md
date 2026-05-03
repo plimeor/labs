@@ -92,7 +92,7 @@ Rules:
 
 - `schemaVersion` must be `1`.
 - `scope` must be `global` or `project`.
-- `sources[].source` accepts GitHub shorthand, Git URLs, HTTP Git URLs, or local paths.
+- `sources[].source` accepts GitHub shorthand, Git URLs, or HTTP Git URLs.
 - `sources[].skills` is either an explicit skill list or `"all"`.
 - `sources[].ref` or `sources[].commit` applies to the source group; skill-level `ref` or `commit` may override it for explicit skills.
 - Skill names are unique after source groups are expanded.

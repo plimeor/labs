@@ -44,17 +44,17 @@ export type SwitchResult = {
 }
 
 export async function stat(path: string): Promise<StatResult> {
-  const root = await $`printf "%s" "$(git rev-parse --show-toplevel)"`.cwd(path).quiet().text()
+  const root = await $`git rev-parse --show-toplevel`.cwd(path).quiet().text()
   const [HEAD, ref, remoteOutput] = await Promise.all([
-    $`printf "%s" "$(git rev-parse --verify HEAD 2> /dev/null || printf HEAD)"`.cwd(root).quiet().text(),
-    currentRef(root),
-    $`git remote -v`.cwd(root).quiet().text()
+    currentHEAD(path),
+    currentRef(path),
+    $`git remote -v`.cwd(path).quiet().text()
   ])
   const repo = parseOriginRemote(remoteOutput)
 
   return {
     HEAD,
-    identity: repo ? remoteIdentity(repo) : basename(root),
+    identity: repo ? remoteIdentity(repo) : pathIdentity(root),
     path: root,
     ref,
     ...(repo ? { repo } : {})
@@ -68,13 +68,13 @@ export async function clone(options: CloneOptions): Promise<CloneResult> {
 
   try {
     if (options.skipExisting && (await isGitRepository(path))) {
-      await $`git remote set-url origin ${repo}`.cwd(path).quiet()
+      await reuseExistingCheckout({ path, ref: options.ref, repo })
     } else {
       await $`git clone ${repo} ${path}`.quiet()
-    }
 
-    if (options.ref) {
-      await switchTo({ path, ref: options.ref })
+      if (options.ref) {
+        await switchTo({ path, ref: options.ref })
+      }
     }
 
     const result = await stat(path)
@@ -95,10 +95,7 @@ export async function fetch(options: FetchOptions): Promise<FetchResult> {
 
   if (options.ref === 'HEAD') {
     const ref = await remoteDefaultRef(options.path)
-    const HEAD = await $`printf "%s" "$(git rev-parse ${`refs/remotes/origin/${ref}^{commit}`})"`
-      .cwd(options.path)
-      .quiet()
-      .text()
+    const HEAD = await $`git rev-parse ${`refs/remotes/origin/${ref}^{commit}`}`.cwd(options.path).quiet().text()
     return { HEAD, ref }
   }
 
@@ -106,7 +103,7 @@ export async function fetch(options: FetchOptions): Promise<FetchResult> {
     await $`git fetch origin ${`+refs/heads/${options.ref}:refs/remotes/origin/${options.ref}`}`
       .cwd(options.path)
       .quiet()
-    const HEAD = await $`printf "%s" "$(git rev-parse ${`refs/remotes/origin/${options.ref}^{commit}`})"`
+    const HEAD = await $`git rev-parse ${`refs/remotes/origin/${options.ref}^{commit}`}`
       .cwd(options.path)
       .quiet()
       .text()
@@ -114,22 +111,21 @@ export async function fetch(options: FetchOptions): Promise<FetchResult> {
   }
 
   if (await remoteTagExists(options.path, options.ref)) {
-    await $`git fetch origin ${`+refs/tags/${options.ref}:refs/tags/${options.ref}`}`.cwd(options.path).quiet()
-    const HEAD = await $`printf "%s" "$(git rev-parse ${`refs/tags/${options.ref}^{commit}`})"`
-      .cwd(options.path)
-      .quiet()
-      .text()
+    await $`git fetch origin tag ${options.ref}`.cwd(options.path).quiet()
+    const HEAD = await $`git rev-parse ${`refs/tags/${options.ref}^{commit}`}`.cwd(options.path).quiet().text()
     return { HEAD, ref: options.ref }
   }
 
   try {
     await $`git fetch origin ${options.ref}`.cwd(options.path).quiet()
+    const HEAD = await $`git rev-parse ${'FETCH_HEAD^{commit}'}`.cwd(options.path).quiet().text()
+    return { HEAD, ref: options.ref }
   } catch {
     await $`git fetch origin ${'+refs/heads/*:refs/remotes/origin/*'} ${'+refs/tags/*:refs/tags/*'}`
       .cwd(options.path)
       .quiet()
   }
-  const HEAD = await $`printf "%s" "$(git rev-parse ${`${options.ref}^{commit}`})"`.cwd(options.path).quiet().text()
+  const HEAD = await $`git rev-parse ${`${options.ref}^{commit}`}`.cwd(options.path).quiet().text()
   return { HEAD, ref: options.ref }
 }
 
@@ -145,7 +141,7 @@ async function switchTo(options: SwitchOptions): Promise<SwitchResult> {
 
 export { switchTo as switch }
 
-export async function collectIgnoreRules(path: string): Promise<Set<string>> {
+export async function collectIgnorePaths(path: string): Promise<Set<string>> {
   const input = resolve(path)
   const realInput = await realpath(input)
   const root = (await stat(realInput)).path
@@ -200,11 +196,16 @@ async function isGitRepository(path: string): Promise<boolean> {
 }
 
 async function currentRef(path: string): Promise<string> {
-  const ref = await $`printf "%s" "$(git symbolic-ref --short HEAD 2> /dev/null || git rev-parse --abbrev-ref HEAD)"`
-    .cwd(path)
-    .quiet()
-    .text()
+  const ref = await $`git rev-parse --abbrev-ref HEAD`.cwd(path).quiet().text()
   return ref && ref !== 'HEAD' ? ref : 'HEAD'
+}
+
+async function currentHEAD(path: string): Promise<string> {
+  try {
+    return await $`git rev-parse --verify HEAD`.cwd(path).quiet().text()
+  } catch {
+    return 'HEAD'
+  }
 }
 
 async function remoteDefaultRef(path: string): Promise<string> {
@@ -237,7 +238,30 @@ function parseOriginRemote(output: string): string | undefined {
 
 function remoteIdentity(repo: string): string {
   const source = repo.replace(/\.git$/, '')
-  return source.split(/[/:]/).filter(Boolean).at(-1) ?? basename(source)
+  const parts = source.split(/[/:]/).filter(Boolean)
+  const repoName = parts.at(-1) ?? basename(source)
+  const owner = parts.at(-2)
+  return owner ? `${owner}__${repoName}` : repoName
+}
+
+function pathIdentity(path: string): string {
+  const parent = basename(dirname(path))
+  const name = basename(path)
+  return parent ? `${parent}__${name}` : name
+}
+
+async function reuseExistingCheckout(options: { path: string; ref?: string; repo: string }): Promise<void> {
+  const result = await stat(options.path)
+  if (result.repo !== options.repo) {
+    throw new Error(`Existing checkout origin does not match requested repo: ${result.repo ?? 'none'}`)
+  }
+
+  const expected = await fetch({ path: options.path, ref: options.ref ?? 'HEAD' })
+  await switchTo({ path: options.path, ref: expected.ref })
+  const current = await stat(options.path)
+  if (current.HEAD !== expected.HEAD) {
+    throw new Error(`Existing checkout did not resolve requested ref: ${expected.ref}`)
+  }
 }
 
 async function walkIgnoreFiles(root: string, current = root): Promise<string[]> {

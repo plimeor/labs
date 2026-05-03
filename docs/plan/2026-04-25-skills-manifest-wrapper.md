@@ -22,7 +22,7 @@ Replace the upstream-wrapper implementation with a native installer that manages
 
 ### Phase 2: Native Backend
 
-- Resolve source strings into Git URLs or local paths.
+- Resolve source strings into Git URLs.
 - Add checkout planning keyed by `{source, commit || ref || default ref}`.
 - Implement grouped checkout with parallel clone work.
 - Implement directory copy installation and installed directory removal.
