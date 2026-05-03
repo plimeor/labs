@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { mkdir, mkdtemp, readdir, stat as readStat, realpath, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, stat as readStat, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import { $ } from 'bun'
@@ -46,6 +46,7 @@ describe('git-kit', () => {
     expect(temporary.HEAD).toBe(commit)
     await temporary.dispose?.()
     await expect(readStat(temporaryPath)).rejects.toThrow()
+    await expect(readStat(dirname(temporaryPath))).resolves.toBeDefined()
   })
 
   test('clone rejects skipExisting when origin does not match', async () => {
@@ -66,7 +67,10 @@ describe('git-kit', () => {
     const checkout = Git.clone({ ref: 'missing', repo: `file://${source}` })
 
     await expect(checkout).rejects.toThrow()
-    expect(await cloneTempDirs()).toEqual(before)
+    const createdRoots = (await cloneTempDirs()).filter(path => !before.includes(path))
+    expect(createdRoots).toHaveLength(1)
+    await expect(readStat(join(createdRoots[0] as string, 'repo'))).rejects.toThrow()
+    await Promise.all(createdRoots.map(path => rm(path, { force: true, recursive: true })))
   })
 
   test('clone normalizes GitHub shorthand to an origin URL', async () => {
@@ -182,6 +186,6 @@ async function cloneTempDirs(): Promise<string[]> {
   const entries = await readdir(tmpdir(), { withFileTypes: true })
   return entries
     .filter(entry => entry.isDirectory() && entry.name.startsWith('git-kit-clone-'))
-    .map(entry => entry.name)
+    .map(entry => join(tmpdir(), entry.name))
     .sort()
 }

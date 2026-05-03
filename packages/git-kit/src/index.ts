@@ -80,11 +80,11 @@ export async function clone(options: CloneOptions): Promise<CloneResult> {
     const result = await stat(path)
     return {
       ...result,
-      dispose: temporaryRoot ? () => rm(temporaryRoot, { force: true, recursive: true }) : undefined
+      dispose: temporaryRoot ? () => rm(path, { force: true, recursive: true }) : undefined
     }
   } catch (error) {
     if (temporaryRoot) {
-      await rm(temporaryRoot, { force: true, recursive: true })
+      await rm(path, { force: true, recursive: true })
     }
     throw error
   }
