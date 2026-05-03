@@ -256,12 +256,12 @@ async function withRepositories<T>(
 ): Promise<T> {
   const checkouts = new Map<string, Git.CloneResult>()
   try {
-    await Promise.all(
-      uniqueRepositoryRequests(requests).map(async request => {
-        const checkout = await Git.clone({ ref: repositoryRequestRef(request), repo: request.source })
-        checkouts.set(repositoryRequestKey(request), checkout)
-      })
-    )
+    for (const request of uniqueRepositoryRequests(requests)) {
+      checkouts.set(
+        repositoryRequestKey(request),
+        await Git.clone({ ref: repositoryRequestRef(request), repo: request.source })
+      )
+    }
   } catch (error) {
     await Promise.all([...checkouts.values()].map(checkout => checkout.dispose?.()))
     throw error
