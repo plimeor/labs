@@ -9,10 +9,8 @@ export const projectAddArgsSchema = v.object({
 })
 
 export const projectAddOptionsSchema = v.object({
-  branch: v.optional(v.pipe(v.string(), v.minLength(1))),
-  commit: v.optional(v.pipe(v.string(), v.minLength(1))),
-  repo: v.pipe(v.string(), v.minLength(1)),
-  tag: v.optional(v.pipe(v.string(), v.minLength(1)))
+  ref: v.optional(v.pipe(v.string(), v.minLength(1))),
+  repo: v.pipe(v.string(), v.minLength(1))
 })
 
 export const projectSetArgsSchema = v.object({
@@ -20,10 +18,8 @@ export const projectSetArgsSchema = v.object({
 })
 
 export const projectSetOptionsSchema = v.object({
-  branch: v.optional(v.pipe(v.string(), v.minLength(1))),
-  commit: v.optional(v.pipe(v.string(), v.minLength(1))),
-  repo: v.optional(v.pipe(v.string(), v.minLength(1))),
-  tag: v.optional(v.pipe(v.string(), v.minLength(1)))
+  ref: v.optional(v.pipe(v.string(), v.minLength(1))),
+  repo: v.optional(v.pipe(v.string(), v.minLength(1)))
 })
 
 export type ProjectAddCommandContext = {
@@ -37,26 +33,21 @@ export type ProjectSetCommandContext = {
 }
 
 export async function projectAddCommand(context: ProjectAddCommandContext) {
-  assertSingleRefOption(context.options)
   const workspace = await resolveWorkspace()
   const project = await addProject(workspace, {
-    branch: context.options.branch,
-    commit: context.options.commit,
     id: context.args.project,
-    repoUrl: context.options.repo,
-    tag: context.options.tag
+    ref: context.options.ref,
+    repoUrl: context.options.repo
   })
   log.success(`Registered ${project.id} from ${project.repoUrl} at ${formatProjectRef(project)}`)
 }
 
 export async function projectSetCommand(context: ProjectSetCommandContext) {
-  assertSingleRefOption(context.options)
+  assertHasMutationOption(context.options)
   const workspace = await resolveWorkspace()
   const project = await updateProject(workspace, context.args.project, {
-    branch: context.options.branch,
-    commit: context.options.commit,
-    repoUrl: context.options.repo,
-    tag: context.options.tag
+    ref: context.options.ref,
+    repoUrl: context.options.repo
   })
   log.success(`Updated ${project.id} to ${project.repoUrl} at ${formatProjectRef(project)}`)
 }
@@ -74,12 +65,12 @@ export async function projectListCommand() {
   )
 }
 
-function assertSingleRefOption(options: { branch?: string; commit?: string; tag?: string }): void {
-  if ([options.branch, options.commit, options.tag].filter(Boolean).length > 1) {
-    throw new Error('Use only one of --branch, --commit, or --tag')
+function assertHasMutationOption(options: { ref?: string; repo?: string }): void {
+  if (!options.ref && !options.repo) {
+    throw new Error('Use at least one of --ref or --repo')
   }
 }
 
-function formatProjectRef(project: { branch?: string; commit?: string; tag?: string }): string {
-  return project.commit ?? project.branch ?? project.tag ?? 'HEAD'
+function formatProjectRef(project: { ref?: string }): string {
+  return project.ref ?? 'HEAD'
 }

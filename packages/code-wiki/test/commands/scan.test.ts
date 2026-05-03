@@ -98,8 +98,8 @@ describe('scan command', () => {
           schemaVersion: 1,
           projects: [
             {
-              branch: 'release',
               id: 'app',
+              ref: 'release',
               repoUrl: `file://${remote}`
             }
           ]
@@ -121,6 +121,12 @@ describe('scan command', () => {
     expect(await readText(join(cwd, '.code-wiki', 'projects', 'app', 'AGENTS.md'))).toContain(
       'CodeWiki Reading Protocol'
     )
+
+    const metadata = await readText(join(cwd, '.code-wiki', 'projects', 'app', 'metadata.json'))
+    const log = await readText(join(cwd, '.code-wiki', 'projects', 'app', 'log.md'))
+    await withCwd(cwd, () => scanCommand({ args: { project: 'app' } }))
+    expect(await readText(join(cwd, '.code-wiki', 'projects', 'app', 'metadata.json'))).toBe(metadata)
+    expect(await readText(join(cwd, '.code-wiki', 'projects', 'app', 'log.md'))).toBe(log)
   })
 
   test('resolves a configured commit ref before scanning a managed clone', async () => {
@@ -147,8 +153,8 @@ describe('scan command', () => {
           schemaVersion: 1,
           projects: [
             {
-              commit: legacyCommit,
               id: 'app',
+              ref: legacyCommit,
               repoUrl: `file://${remote}`
             }
           ]
@@ -181,12 +187,16 @@ describe('scan command', () => {
       ref: 'v15.6.2',
       project: {
         id: 'react',
-        repoUrl: 'https://github.com/facebook/react.git',
-        tag: 'v15.6.2'
+        ref: 'v15.6.2',
+        repoUrl: 'https://github.com/facebook/react.git'
       },
       repoRoot,
       wikiRoot
     })
+    await writeFile(join(wikiRoot, 'versions.json'), '{"stale":true}\n')
+    await mkdir(join(wikiRoot, 'versions', 'react15'), { recursive: true })
+    await writeFile(join(wikiRoot, 'versions', 'react15', 'overview.md'), '# stale\n')
+    await writeFile(join(wikiRoot, 'obsolete.md'), '# stale\n')
 
     await Bun.write(join(repoRoot, 'src', 'legacy', 'stack.ts'), '')
     await mkdir(join(repoRoot, 'packages', 'react-reconciler'), { recursive: true })
@@ -200,8 +210,8 @@ describe('scan command', () => {
       ref: 'v16.14.0',
       project: {
         id: 'react',
-        repoUrl: 'https://github.com/facebook/react.git',
-        tag: 'v16.14.0'
+        ref: 'v16.14.0',
+        repoUrl: 'https://github.com/facebook/react.git'
       },
       repoRoot,
       wikiRoot
@@ -213,5 +223,8 @@ describe('scan command', () => {
     expect(await readText(join(wikiRoot, 'modules', 'packages', 'react-reconciler.md'))).toContain(
       'ReactFiberWorkLoop.ts'
     )
+    expect(await Bun.file(join(wikiRoot, 'versions.json')).exists()).toBe(false)
+    expect(await Bun.file(join(wikiRoot, 'versions', 'react15', 'overview.md')).exists()).toBe(false)
+    expect(await Bun.file(join(wikiRoot, 'obsolete.md')).exists()).toBe(false)
   })
 })

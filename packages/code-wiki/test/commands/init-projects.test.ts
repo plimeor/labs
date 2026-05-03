@@ -8,7 +8,7 @@ import { readJson, tempDir } from '../helpers/fs.js'
 import { captureStdout, run, withCwd } from '../helpers/process.js'
 
 describe('init and project commands', () => {
-  test('initializes a wiki and registers portable projects by repo URL and branch', async () => {
+  test('initializes a wiki and registers portable projects by repo URL and ref', async () => {
     const cwd = await tempDir('code-wiki-init-')
     await run('git', ['init', '-q', '-b', 'main'], cwd)
 
@@ -16,7 +16,7 @@ describe('init and project commands', () => {
       await initCommand()
       await projectAddCommand({
         args: { project: 'Web App' },
-        options: { branch: 'main', repo: 'git@github.com:org/web-app.git' }
+        options: { ref: 'main', repo: 'git@github.com:org/web-app.git' }
       })
     })
 
@@ -27,8 +27,8 @@ describe('init and project commands', () => {
       schemaVersion: 1,
       projects: [
         {
-          branch: 'main',
           id: 'web-app',
+          ref: 'main',
           repoUrl: 'git@github.com:org/web-app.git'
         }
       ]
@@ -47,19 +47,19 @@ describe('init and project commands', () => {
       await initCommand()
       await projectAddCommand({
         args: { project: 'react' },
-        options: { repo: 'https://github.com/facebook/react.git', tag: 'v15.6.2' }
+        options: { ref: 'v15.6.2', repo: 'https://github.com/facebook/react.git' }
       })
       await projectSetCommand({
         args: { project: 'react' },
-        options: { commit: 'v16.14.0' }
+        options: { ref: 'v16.14.0' }
       })
     })
 
     expect(await readJson(join(cwd, '.code-wiki', 'projects.json'))).toMatchObject({
       projects: [
         {
-          commit: 'v16.14.0',
           id: 'react',
+          ref: 'v16.14.0',
           repoUrl: 'https://github.com/facebook/react.git'
         }
       ]

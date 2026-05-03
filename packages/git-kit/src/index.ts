@@ -43,8 +43,18 @@ export type SwitchResult = {
   ref: string
 }
 
+export function identity(input: string): string {
+  const value = input
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+
+  return value || 'root'
+}
+
 export async function stat(path: string): Promise<StatResult> {
-  const root = await $`git rev-parse --show-toplevel`.cwd(path).quiet().text()
+  const root = await $`git rev-parse --show-toplevel`.cwd(path).quiet().text().then(trimText)
   const [HEAD, ref, remoteOutput] = await Promise.all([
     currentHEAD(path),
     currentRef(path),
@@ -95,7 +105,11 @@ export async function fetch(options: FetchOptions): Promise<FetchResult> {
 
   if (options.ref === 'HEAD') {
     const ref = await remoteDefaultRef(options.path)
-    const HEAD = await $`git rev-parse ${`refs/remotes/origin/${ref}^{commit}`}`.cwd(options.path).quiet().text()
+    const HEAD = await $`git rev-parse ${`refs/remotes/origin/${ref}^{commit}`}`
+      .cwd(options.path)
+      .quiet()
+      .text()
+      .then(trimText)
     return { HEAD, ref }
   }
 
@@ -107,25 +121,30 @@ export async function fetch(options: FetchOptions): Promise<FetchResult> {
       .cwd(options.path)
       .quiet()
       .text()
+      .then(trimText)
     return { HEAD, ref: options.ref }
   }
 
   if (await remoteTagExists(options.path, options.ref)) {
     await $`git fetch origin tag ${options.ref}`.cwd(options.path).quiet()
-    const HEAD = await $`git rev-parse ${`refs/tags/${options.ref}^{commit}`}`.cwd(options.path).quiet().text()
+    const HEAD = await $`git rev-parse ${`refs/tags/${options.ref}^{commit}`}`
+      .cwd(options.path)
+      .quiet()
+      .text()
+      .then(trimText)
     return { HEAD, ref: options.ref }
   }
 
   try {
     await $`git fetch origin ${options.ref}`.cwd(options.path).quiet()
-    const HEAD = await $`git rev-parse ${'FETCH_HEAD^{commit}'}`.cwd(options.path).quiet().text()
+    const HEAD = await $`git rev-parse ${'FETCH_HEAD^{commit}'}`.cwd(options.path).quiet().text().then(trimText)
     return { HEAD, ref: options.ref }
   } catch {
     await $`git fetch origin ${'+refs/heads/*:refs/remotes/origin/*'} ${'+refs/tags/*:refs/tags/*'}`
       .cwd(options.path)
       .quiet()
   }
-  const HEAD = await $`git rev-parse ${`${options.ref}^{commit}`}`.cwd(options.path).quiet().text()
+  const HEAD = await $`git rev-parse ${`${options.ref}^{commit}`}`.cwd(options.path).quiet().text().then(trimText)
   return { HEAD, ref: options.ref }
 }
 
@@ -196,13 +215,18 @@ async function isGitRepository(path: string): Promise<boolean> {
 }
 
 async function currentRef(path: string): Promise<string> {
-  const ref = await $`git rev-parse --abbrev-ref HEAD`.cwd(path).quiet().text()
+  const ref = await $`git rev-parse --abbrev-ref HEAD`
+    .cwd(path)
+    .quiet()
+    .text()
+    .then(trimText)
+    .catch(() => 'HEAD')
   return ref && ref !== 'HEAD' ? ref : 'HEAD'
 }
 
 async function currentHEAD(path: string): Promise<string> {
   try {
-    return await $`git rev-parse --verify HEAD`.cwd(path).quiet().text()
+    return await $`git rev-parse --verify HEAD`.cwd(path).quiet().text().then(trimText)
   } catch {
     return 'HEAD'
   }
@@ -218,12 +242,12 @@ async function remoteDefaultRef(path: string): Promise<string> {
 }
 
 async function remoteBranchExists(path: string, ref: string): Promise<boolean> {
-  const output = await $`git ls-remote --heads origin ${ref}`.cwd(path).quiet().text()
+  const output = await $`git ls-remote --heads origin ${ref}`.cwd(path).quiet().text().then(trimText)
   return Boolean(output)
 }
 
 async function remoteTagExists(path: string, ref: string): Promise<boolean> {
-  const output = await $`git ls-remote --tags origin ${ref}`.cwd(path).quiet().text()
+  const output = await $`git ls-remote --tags origin ${ref}`.cwd(path).quiet().text().then(trimText)
   return Boolean(output)
 }
 
@@ -241,13 +265,13 @@ function remoteIdentity(repo: string): string {
   const parts = source.split(/[/:]/).filter(Boolean)
   const repoName = parts.at(-1) ?? basename(source)
   const owner = parts.at(-2)
-  return owner ? `${owner}__${repoName}` : repoName
+  return owner ? identity(`${owner}__${repoName}`) : identity(repoName)
 }
 
 function pathIdentity(path: string): string {
   const parent = basename(dirname(path))
   const name = basename(path)
-  return parent ? `${parent}__${name}` : name
+  return parent ? identity(`${parent}__${name}`) : identity(name)
 }
 
 async function reuseExistingCheckout(options: { path: string; ref?: string; repo: string }): Promise<void> {
@@ -300,4 +324,8 @@ function normalizeIgnoreRule(input: string): string | undefined {
 
 function toPosixPath(path: string): string {
   return path.split(/[\\/]+/).join('/')
+}
+
+function trimText(input: string): string {
+  return input.trim()
 }
