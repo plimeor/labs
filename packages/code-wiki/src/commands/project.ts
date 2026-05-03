@@ -5,25 +5,25 @@ import { addProject, readProjects, updateProject } from '../projects.js'
 import { resolveWorkspace } from '../workspace.js'
 
 export const projectAddArgsSchema = v.object({
-  project: v.pipe(v.string(), v.trim(), v.minLength(1))
+  project: v.pipe(v.string(), v.minLength(1))
 })
 
 export const projectAddOptionsSchema = v.object({
-  branch: v.optional(v.pipe(v.string(), v.trim(), v.minLength(1))),
-  commit: v.optional(v.pipe(v.string(), v.trim(), v.minLength(1))),
-  repo: v.pipe(v.string(), v.trim(), v.minLength(1)),
-  tag: v.optional(v.pipe(v.string(), v.trim(), v.minLength(1)))
+  branch: v.optional(v.pipe(v.string(), v.minLength(1))),
+  commit: v.optional(v.pipe(v.string(), v.minLength(1))),
+  repo: v.pipe(v.string(), v.minLength(1)),
+  tag: v.optional(v.pipe(v.string(), v.minLength(1)))
 })
 
 export const projectSetArgsSchema = v.object({
-  project: v.pipe(v.string(), v.trim(), v.minLength(1))
+  project: v.pipe(v.string(), v.minLength(1))
 })
 
 export const projectSetOptionsSchema = v.object({
-  branch: v.optional(v.pipe(v.string(), v.trim(), v.minLength(1))),
-  commit: v.optional(v.pipe(v.string(), v.trim(), v.minLength(1))),
-  repo: v.optional(v.pipe(v.string(), v.trim(), v.minLength(1))),
-  tag: v.optional(v.pipe(v.string(), v.trim(), v.minLength(1)))
+  branch: v.optional(v.pipe(v.string(), v.minLength(1))),
+  commit: v.optional(v.pipe(v.string(), v.minLength(1))),
+  repo: v.optional(v.pipe(v.string(), v.minLength(1))),
+  tag: v.optional(v.pipe(v.string(), v.minLength(1)))
 })
 
 export type ProjectAddCommandContext = {

@@ -1,4 +1,4 @@
-import { $ } from 'zx'
+import { $ } from 'bun'
 
 export async function withCwd<T>(cwd: string, callback: () => Promise<T>): Promise<T> {
   const previousCwd = process.cwd()
@@ -27,10 +27,7 @@ export async function captureStdout(callback: () => Promise<void>): Promise<stri
 }
 
 export async function run(command: string, args: string[], cwd: string): Promise<void> {
-  const output = await $({
-    cwd,
-    quiet: true
-  })`${command} ${args}`.nothrow()
+  const output = await $`${command} ${args}`.cwd(cwd).nothrow().quiet()
 
   if (output.exitCode !== 0) {
     throw new Error(`${command} ${args.join(' ')} failed\n${output.stderr || output.stdout}`)

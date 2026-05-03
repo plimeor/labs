@@ -1,8 +1,13 @@
 import * as v from 'valibot'
 
 import { Files } from './files.js'
-import { normalizeGitRemote } from './git.js'
-import { normalizeProjectId, type ProjectEntry, type ProjectsDocument, ProjectsDocumentSchema } from './types.js'
+import {
+  normalizeProjectId,
+  type ProjectEntry,
+  ProjectEntrySchema,
+  type ProjectsDocument,
+  ProjectsDocumentSchema
+} from './types.js'
 import { statePath, type Workspace } from './workspace.js'
 
 export function projectsPath(workspace: Workspace): string {
@@ -28,20 +33,18 @@ export async function addProject(
   }
 ): Promise<ProjectEntry> {
   const id = normalizeProjectId(input.id)
-  const remote = normalizeGitRemote(v.parse(v.pipe(v.string(), v.trim(), v.minLength(1)), input.repoUrl))
-  const repoUrl = remote.repoUrl
   const document = await readProjects(workspace)
   if (document.projects.some(project => project.id === id)) {
     throw new Error(`Project already exists: ${id}`)
   }
 
-  const entry: ProjectEntry = {
-    ...(input.branch ? { branch: v.parse(v.pipe(v.string(), v.trim(), v.minLength(1)), input.branch) } : {}),
-    ...(input.commit ? { commit: v.parse(v.pipe(v.string(), v.trim(), v.minLength(1)), input.commit) } : {}),
+  const entry = v.parse(ProjectEntrySchema, {
+    ...(input.branch ? { branch: input.branch } : {}),
+    ...(input.commit ? { commit: input.commit } : {}),
     id,
-    repoUrl,
-    ...(input.tag ? { tag: v.parse(v.pipe(v.string(), v.trim(), v.minLength(1)), input.tag) } : {})
-  }
+    repoUrl: input.repoUrl,
+    ...(input.tag ? { tag: input.tag } : {})
+  })
   const projects = [...document.projects, entry].sort((a, b) => a.id.localeCompare(b.id))
   await writeProjects(workspace, { projects, schemaVersion: 1 })
   return entry
@@ -65,12 +68,9 @@ export async function updateProject(
   }
 
   const current = document.projects[index]
-  const remote = input.repoUrl
-    ? normalizeGitRemote(v.parse(v.pipe(v.string(), v.trim(), v.minLength(1)), input.repoUrl))
-    : undefined
   const updated: ProjectEntry = {
     ...current,
-    ...(remote ? { repoUrl: remote.repoUrl } : {})
+    ...(input.repoUrl ? { repoUrl: input.repoUrl } : {})
   }
   setProjectRef(updated, {
     branch: input.branch,
@@ -78,9 +78,9 @@ export async function updateProject(
     tag: input.tag
   })
   const projects = [...document.projects]
-  projects[index] = updated
+  projects[index] = v.parse(ProjectEntrySchema, updated)
   await writeProjects(workspace, { projects, schemaVersion: 1 })
-  return updated
+  return projects[index]
 }
 
 export function requireProject(document: ProjectsDocument, projectId: string): ProjectEntry {
@@ -103,12 +103,12 @@ function setProjectRef(project: ProjectEntry, input: { branch?: string; commit?:
   delete project.tag
 
   if (input.branch !== undefined) {
-    project.branch = v.parse(v.pipe(v.string(), v.trim(), v.minLength(1)), input.branch)
+    project.branch = input.branch
   }
   if (input.commit !== undefined) {
-    project.commit = v.parse(v.pipe(v.string(), v.trim(), v.minLength(1)), input.commit)
+    project.commit = input.commit
   }
   if (input.tag !== undefined) {
-    project.tag = v.parse(v.pipe(v.string(), v.trim(), v.minLength(1)), input.tag)
+    project.tag = input.tag
   }
 }
