@@ -32,7 +32,7 @@ describe('scan command', () => {
       ref: 'HEAD',
       project: {
         id: 'filtered-app',
-        repoUrl: 'git@example.com:org/filtered-app.git'
+        repo: 'git@example.com:org/filtered-app.git'
       },
       repoRoot,
       wikiRoot
@@ -62,7 +62,7 @@ describe('scan command', () => {
       wikiRoot,
       project: {
         id: 'generic',
-        repoUrl: 'git@example.com:org/generic.git'
+        repo: 'git@example.com:org/generic.git'
       }
     })
 
@@ -100,7 +100,7 @@ describe('scan command', () => {
             {
               id: 'app',
               ref: 'release',
-              repoUrl: `file://${remote}`
+              repo: `file://${remote}`
             }
           ]
         },
@@ -155,7 +155,7 @@ describe('scan command', () => {
             {
               id: 'app',
               ref: legacyCommit,
-              repoUrl: `file://${remote}`
+              repo: `file://${remote}`
             }
           ]
         },
@@ -188,7 +188,7 @@ describe('scan command', () => {
       project: {
         id: 'react',
         ref: 'v15.6.2',
-        repoUrl: 'https://github.com/facebook/react.git'
+        repo: 'https://github.com/facebook/react.git'
       },
       repoRoot,
       wikiRoot
@@ -211,7 +211,7 @@ describe('scan command', () => {
       project: {
         id: 'react',
         ref: 'v16.14.0',
-        repoUrl: 'https://github.com/facebook/react.git'
+        repo: 'https://github.com/facebook/react.git'
       },
       repoRoot,
       wikiRoot

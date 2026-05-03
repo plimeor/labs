@@ -29,11 +29,11 @@ describe('init and project commands', () => {
         {
           id: 'web-app',
           ref: 'main',
-          repoUrl: 'git@github.com:org/web-app.git'
+          repo: 'git@github.com:org/web-app.git'
         }
       ]
     })
-    expect(await readFile(join(cwd, '.code-wiki', '.gitignore'), 'utf-8')).toBe('repos/\nprojects/\nreports/\n')
+    expect(await readFile(join(cwd, '.code-wiki', '.gitignore'), 'utf-8')).toBe('repos/\nprojects/\n')
 
     const output = await captureStdout(() => withCwd(cwd, () => projectListCommand()))
     expect(output).toContain('web-app\tgit@github.com:org/web-app.git\tmain')
@@ -60,7 +60,7 @@ describe('init and project commands', () => {
         {
           id: 'react',
           ref: 'v16.14.0',
-          repoUrl: 'https://github.com/facebook/react.git'
+          repo: 'https://github.com/facebook/react.git'
         }
       ]
     })

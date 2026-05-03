@@ -1,6 +1,6 @@
 import type { Stats } from 'node:fs'
-import { mkdir, mkdtemp, readdir, readlink, rm } from 'node:fs/promises'
-import { dirname, isAbsolute, join, resolve } from 'node:path'
+import { mkdir, readdir, readlink, rename, rm } from 'node:fs/promises'
+import { dirname } from 'node:path'
 
 import { stableStringify } from './json.js'
 
@@ -43,12 +43,9 @@ export namespace Files {
   }
 
   export async function writeText(path: string, content: string): Promise<void> {
-    await mkdir(await parentDirForWritablePath(path), { recursive: true })
+    await assertWritablePathIsNotSymbolicLink(path)
+    await mkdir(dirname(path), { recursive: true })
     await Bun.write(path, content)
-  }
-
-  export async function makeTempDir(options: { directory: string; prefix: string }): Promise<string> {
-    return mkdtemp(join(options.directory, options.prefix))
   }
 
   export async function removePath(
@@ -59,6 +56,10 @@ export namespace Files {
     }
   ): Promise<void> {
     await rm(path, options)
+  }
+
+  export async function movePath(source: string, destination: string): Promise<void> {
+    await rename(source, destination)
   }
 
   export async function readJson<T>(path: string, parse: (input: unknown) => T): Promise<T> {
@@ -93,25 +94,16 @@ export namespace Files {
     return errorKind(error) === 'not_symbolic_link'
   }
 
-  async function parentDirForWritablePath(path: string): Promise<string> {
+  async function assertWritablePathIsNotSymbolicLink(path: string): Promise<void> {
     try {
-      const target = await readlink(path)
-      return dirname(isAbsolute(target) ? target : resolve(dirname(path), target))
+      await readlink(path)
+      throw new Error(`Refusing to write through symbolic link: ${path}`)
     } catch (error) {
       if (isNotFound(error) || isNotSymbolicLinkReadError(error)) {
-        return dirname(path)
+        return
       }
 
-      try {
-        await statPath(path)
-        return dirname(path)
-      } catch (statError) {
-        if (isNotFound(statError)) {
-          return dirname(path)
-        }
-
-        throw statError
-      }
+      throw error
     }
   }
 

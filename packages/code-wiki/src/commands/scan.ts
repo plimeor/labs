@@ -4,13 +4,20 @@ import { log } from '@clack/prompts'
 import * as Git from '@plimeor/git-kit'
 import * as v from 'valibot'
 
+import { Files } from '../files.js'
 import { readProjects, requireProject } from '../projects.js'
 import { readMetadata, scanRepository } from '../scanner/index.js'
-import { codeWikiPath, type ProjectEntry, type ProjectMetadata } from '../types.js'
+import {
+  codeWikiPath,
+  type ProjectEntry,
+  ProjectIdInputSchema,
+  type ProjectMetadata,
+  WikiIndexDocumentSchema
+} from '../types.js'
 import { resolveWorkspace } from '../workspace.js'
 
 export const scanArgsSchema = v.object({
-  project: v.optional(v.pipe(v.string(), v.minLength(1)))
+  project: v.optional(ProjectIdInputSchema)
 })
 
 export type ScanCommandContext = {
@@ -35,11 +42,11 @@ async function scanShared(workspace: Awaited<ReturnType<typeof resolveWorkspace>
     const repoPath = join(workspace.root, codeWikiPath('repos', project.id))
     const ref = projectRef(project)
     log.info(`Fetching ${project.id}`)
-    await Git.clone({ path: repoPath, repo: project.repoUrl, skipExisting: true })
+    await Git.clone({ path: repoPath, repo: project.repo, skipExisting: true })
     const latest = await Git.fetch({ path: repoPath, ref })
     const wikiRoot = join(workspace.root, codeWikiPath('projects', project.id))
     const metadata = await readMetadata(join(wikiRoot, 'metadata.json'))
-    if (isSharedScanUpToDate(project, metadata, latest, ref)) {
+    if (await isSharedScanUpToDate(wikiRoot, project, metadata, latest, ref)) {
       log.info(`${project.id} is up to date at ${latest.HEAD.slice(0, 7)}`)
       continue
     }
@@ -59,7 +66,7 @@ async function scanShared(workspace: Awaited<ReturnType<typeof resolveWorkspace>
   }
 
   if (scanned === 0) {
-    log.success('All registered projects are up to date')
+    log.success(projectId ? `${projectId} is up to date` : 'All registered projects are up to date')
   }
 }
 
@@ -67,21 +74,42 @@ function projectRef(project: ProjectEntry): string {
   return project.ref ?? 'HEAD'
 }
 
-function isSharedScanUpToDate(
+async function isSharedScanUpToDate(
+  wikiRoot: string,
   project: ProjectEntry,
   metadata: ProjectMetadata | undefined,
   latest: { HEAD: string; ref: string },
   ref: string
-): boolean {
+): Promise<boolean> {
   if (!metadata) {
     return false
   }
 
-  return (
+  if (
+    metadata.artifactVersion === 1 &&
     metadata.lastScannedCommit === latest.HEAD &&
     metadata.branch === latest.ref &&
     metadata.projectId === project.id &&
     metadata.ref === ref &&
-    metadata.repoUrl === project.repoUrl
-  )
+    metadata.repo === project.repo
+  ) {
+    return hasRequiredWikiArtifacts(wikiRoot)
+  }
+
+  return false
+}
+
+async function hasRequiredWikiArtifacts(wikiRoot: string): Promise<boolean> {
+  const requiredFiles = ['AGENTS.md', 'overview.md', 'index.md', 'index.json', 'metadata.json']
+  const results = await Promise.all(requiredFiles.map(path => Files.pathExists(join(wikiRoot, path))))
+  if (!results.every(Boolean)) {
+    return false
+  }
+
+  try {
+    await Files.readJson(join(wikiRoot, 'index.json'), input => v.parse(WikiIndexDocumentSchema, input))
+    return true
+  } catch {
+    return false
+  }
 }

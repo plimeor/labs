@@ -28,7 +28,6 @@ export async function initSharedWorkspace(cwd: string): Promise<Workspace> {
   await Files.writeJson(join(stateDir, 'projects.json'), { projects: [], schemaVersion: 1 } satisfies ProjectsDocument)
   await ensureManagedReposGitignore(stateDir)
   await Files.ensureDir(join(stateDir, 'projects'))
-  await Files.ensureDir(join(stateDir, 'reports'))
 
   return { config, configPath: join(stateDir, 'config.json'), root, stateDir }
 }
@@ -77,11 +76,11 @@ async function writeConfig(path: string, config: CodeWikiConfig): Promise<void> 
 }
 
 async function assertWorkspaceDoesNotExist(stateDir: string): Promise<void> {
-  if (await Files.pathExists(join(stateDir, 'config.json'))) {
+  if (await Files.pathExists(stateDir)) {
     throw new Error('CodeWiki workspace already exists.')
   }
 }
 
 async function ensureManagedReposGitignore(stateDir: string): Promise<void> {
-  await Files.writeText(join(stateDir, '.gitignore'), 'repos/\nprojects/\nreports/\n')
+  await Files.writeText(join(stateDir, '.gitignore'), 'repos/\nprojects/\n')
 }

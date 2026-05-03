@@ -50,8 +50,8 @@ code-wiki scan
 code-wiki scan react
 ```
 
-`project add` and `project set` accept `--ref`. Repo URLs are stored as provided and passed to Git
-without GitHub `/tree/<ref>` URL normalization.
+`project add` accepts a repo URL and optional `--ref`; `project set` only updates `--ref`. Repo URLs
+are stored as provided and passed to Git without GitHub `/tree/<ref>` URL normalization.
 
 ## Generated Wiki
 
