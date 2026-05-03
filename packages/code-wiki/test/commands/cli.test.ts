@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import { createCli } from '../../src/cli.js'
 import { tempDir } from '../helpers/fs.js'
-import { captureStdout, run, withCwd } from '../helpers/process.js'
+import { captureStderr, captureStdout, run, withCwd } from '../helpers/process.js'
 
 describe('cli command groups', () => {
   test('prints root and group help through command-kit', async () => {
@@ -35,11 +35,24 @@ describe('cli command groups', () => {
 
     await withCwd(cwd, async () => {
       await cli.serve(['init'])
-      await cli.serve(['project', 'add', 'web-app', '--repo', 'git@github.com:org/web-app.git', '--branch', 'main'])
-      await cli.serve(['project', 'set', 'web-app', '--tag', 'v1'])
+      await cli.serve(['project', 'add', 'web-app', '--repo', 'git@github.com:org/web-app.git', '--ref', 'main'])
+      await cli.serve(['project', 'set', 'web-app', '--ref', 'v1'])
     })
     const output = await captureStdout(() => withCwd(cwd, () => cli.serve(['project', 'list'])))
 
     expect(output).toContain('web-app\tgit@github.com:org/web-app.git\tv1')
+  })
+
+  test('rejects project set with no mutation option', async () => {
+    const cwd = await tempDir('code-wiki-cli-projects-noop-')
+    await run('git', ['init', '-q', '-b', 'main'], cwd)
+    const cli = createCli()
+
+    await withCwd(cwd, async () => {
+      await cli.serve(['init'])
+      await cli.serve(['project', 'add', 'web-app', '--repo', 'git@github.com:org/web-app.git'])
+      const error = await captureStderr(() => cli.serve(['project', 'set', 'web-app']))
+      expect(error).toContain('Use at least one of --ref or --repo')
+    })
   })
 })

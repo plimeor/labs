@@ -26,6 +26,24 @@ export async function captureStdout(callback: () => Promise<void>): Promise<stri
   }
 }
 
+export async function captureStderr(callback: () => Promise<void>): Promise<string> {
+  let output = ''
+  const write = process.stderr.write
+  const previousExitCode = process.exitCode
+  process.stderr.write = ((chunk: string | Uint8Array) => {
+    output += chunk.toString()
+    return true
+  }) as typeof process.stderr.write
+
+  try {
+    await callback()
+    return output
+  } finally {
+    process.stderr.write = write
+    process.exitCode = previousExitCode ?? 0
+  }
+}
+
 export async function run(command: string, args: string[], cwd: string): Promise<void> {
   const output = await $`${command} ${args}`.cwd(cwd).nothrow().quiet()
 

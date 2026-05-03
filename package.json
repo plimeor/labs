@@ -10,14 +10,16 @@
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
     "typescript": "^6.0.3",
-    "valibot": "^1.3.1"
+    "valibot": "^1.3.1",
+    "zx": "^8.8.5"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
     "@types/bun": "catalog:",
     "husky": "catalog:",
     "lint-staged": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "zx": "catalog:"
   },
   "lint-staged": {
     "*.{js,ts,jsx,tsx,json,css}": "biome check --write --no-errors-on-unmatched"

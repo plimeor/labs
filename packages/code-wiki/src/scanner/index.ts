@@ -33,7 +33,6 @@ type SourceFile = {
 
 type PageSpec = {
   body: string
-  dependsOn?: string[]
   id: string
   kind: WikiPageKind
   path: string
@@ -125,7 +124,7 @@ export async function readMetadata(path: string): Promise<ProjectMetadata | unde
 export async function scanRepository(target: ScanTarget): Promise<ScanResult> {
   const scanTime = new Date().toISOString()
   const sourceFiles = await collectSourceFiles(target.repoRoot)
-  const pageSpecs = await buildPageSpecs(target, sourceFiles, scanTime)
+  const pageSpecs = await buildPageSpecs(target, sourceFiles)
   const metadata: ProjectMetadata = {
     branch: target.branch,
     lastScannedAt: scanTime,
@@ -136,8 +135,9 @@ export async function scanRepository(target: ScanTarget): Promise<ScanResult> {
     schemaVersion: 1
   }
 
-  const indexDocument = await writeWikiArtifact(target.wikiRoot, target, pageSpecs, metadata, scanTime)
+  const indexDocument = await writeWikiArtifact(target.wikiRoot, target, pageSpecs, scanTime)
   await appendScanLog(target.wikiRoot, target, scanTime)
+  await Files.writeJson(join(target.wikiRoot, 'metadata.json'), metadata)
 
   return {
     index: indexDocument,
@@ -149,7 +149,6 @@ async function writeWikiArtifact(
   wikiRoot: string,
   target: ScanTarget,
   pageSpecs: PageSpec[],
-  metadata: ProjectMetadata,
   scanTime: string
 ): Promise<WikiIndexDocument> {
   await prepareWikiRoot(wikiRoot)
@@ -168,16 +167,15 @@ async function writeWikiArtifact(
   }
 
   await Files.writeJson(join(wikiRoot, 'index.json'), indexDocument)
-  await Files.writeJson(join(wikiRoot, 'metadata.json'), metadata)
   await writeAgentsFile(wikiRoot)
 
   return indexDocument
 }
 
 async function prepareWikiRoot(wikiRoot: string): Promise<void> {
+  await Files.removePath(wikiRoot, { force: true, recursive: true })
   await Files.ensureDir(wikiRoot)
   for (const path of ['modules', 'contracts']) {
-    await Files.removePath(join(wikiRoot, path), { force: true, recursive: true })
     await Files.ensureDir(join(wikiRoot, path))
   }
 }
@@ -202,11 +200,11 @@ async function writeAgentsFile(wikiRoot: string): Promise<void> {
   )
 }
 
-async function buildPageSpecs(target: ScanTarget, sourceFiles: SourceFile[], scanTime: string): Promise<PageSpec[]> {
+async function buildPageSpecs(target: ScanTarget, sourceFiles: SourceFile[]): Promise<PageSpec[]> {
   const moduleSpecs = buildModulePages(target.project.id, sourceFiles)
   const contractSpecs = await buildContractPages(target, sourceFiles)
   const overviewSpec = buildOverviewPage(target, sourceFiles, moduleSpecs, contractSpecs)
-  const indexSpec = buildHumanIndexPage(target, [...moduleSpecs, ...contractSpecs], scanTime)
+  const indexSpec = buildHumanIndexPage(target, [...moduleSpecs, ...contractSpecs])
 
   return [overviewSpec, indexSpec, ...moduleSpecs, ...contractSpecs].sort((a, b) => a.id.localeCompare(b.id))
 }
@@ -280,14 +278,12 @@ function buildOverviewPage(
   }
 }
 
-function buildHumanIndexPage(target: ScanTarget, pages: PageSpec[], scanTime: string): PageSpec {
+function buildHumanIndexPage(target: ScanTarget, pages: PageSpec[]): PageSpec {
   const pageLines = pages.map(page => `${page.id} -> \`${page.path}\`: ${page.summary}`)
   const body = [
     `# ${target.project.id} Routing Index`,
     '',
     'Use this index before loading page bodies. Prefer focused module and contract pages over the whole wiki.',
-    '',
-    `Last generated: ${scanTime}`,
     '',
     '## Pages',
     '',
@@ -300,7 +296,7 @@ function buildHumanIndexPage(target: ScanTarget, pages: PageSpec[], scanTime: st
     id: 'index',
     kind: 'index',
     path: 'index.md',
-    sourceRefs: ['.code-wiki/index.json'],
+    sourceRefs: ['index.json'],
     summary: 'Human-readable routing index for selecting focused wiki pages.',
     symbols: [],
     title: `${target.project.id} Routing Index`
@@ -508,7 +504,6 @@ async function writePage(
   return {
     authority: 'generated',
     contentHash: rendered.contentHash,
-    dependsOn: spec.dependsOn,
     id: spec.id,
     kind: spec.kind,
     lastScannedCommit: target.commit,
@@ -578,7 +573,14 @@ async function analyzeSourceFile(root: string, path: string): Promise<SourceFile
     }
   }
 
-  const text = await Files.readText(absolutePath).catch(() => '')
+  let text = ''
+  try {
+    text = await Files.readText(absolutePath)
+  } catch (error) {
+    if (!Files.isNotFound(error)) {
+      throw error
+    }
+  }
   return {
     extension,
     imports: extractImports(text),
@@ -774,7 +776,7 @@ function moduleGroup(path: string): string {
 }
 
 function logicalId(group: string): string {
-  return group.split('/').map(slugify).join('.')
+  return group.split('/').map(Git.identity).join('.')
 }
 
 function titleize(group: string): string {

@@ -7,13 +7,19 @@ import { $ } from 'bun'
 import * as Git from '@plimeor/git-kit'
 
 describe('git-kit', () => {
+  test('creates reusable lowercase identities', () => {
+    expect(Git.identity('Packages/Foo Bar')).toBe('packages-foo-bar')
+    expect(Git.identity('packages/foo_bar')).toBe('packages-foo_bar')
+    expect(Git.identity('packages/foo-bar')).toBe('packages-foo-bar')
+  })
+
   test('stat reports repository identity on branches and detached HEAD', async () => {
     const { commit, source } = await createGitSource()
     const checkout = await Git.clone({ ref: 'main', repo: `file://${source}` })
     try {
       expect(await Git.stat(checkout.path)).toMatchObject({
         HEAD: commit,
-        identity: `${basename(dirname(source))}__${basename(source)}`,
+        identity: Git.identity(`${basename(dirname(source))}__${basename(source)}`),
         path: checkout.path,
         ref: 'main',
         repo: `file://${source}`
@@ -160,7 +166,11 @@ async function createGitSource(): Promise<{
   await writeFile(join(source, 'README.md'), 'main\n')
   await $`git add README.md`.cwd(source).quiet()
   await $`git -c user.email=git-kit@example.com -c user.name=GitKit commit -m main`.cwd(source).quiet()
-  const commit = await $`git rev-parse HEAD`.cwd(source).quiet().text()
+  const commit = await $`git rev-parse HEAD`
+    .cwd(source)
+    .quiet()
+    .text()
+    .then(text => text.trim())
   const tag = 'v1.0.0'
   const pullRef = 'pull/1/head'
   await $`git tag ${tag}`.cwd(source).quiet()
@@ -169,7 +179,11 @@ async function createGitSource(): Promise<{
   await writeFile(join(source, 'README.md'), 'release\n')
   await $`git add README.md`.cwd(source).quiet()
   await $`git -c user.email=git-kit@example.com -c user.name=GitKit commit -m release`.cwd(source).quiet()
-  const releaseCommit = await $`git rev-parse HEAD`.cwd(source).quiet().text()
+  const releaseCommit = await $`git rev-parse HEAD`
+    .cwd(source)
+    .quiet()
+    .text()
+    .then(text => text.trim())
   await $`git checkout main`.cwd(source).quiet()
   return { commit, pullRef, releaseCommit, source, tag }
 }

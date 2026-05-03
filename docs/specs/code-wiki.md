@@ -14,8 +14,8 @@
 
 ```bash
 code-wiki init
-code-wiki project add react --repo https://github.com/facebook/react.git --tag v15.6.2
-code-wiki project set react --tag v16.14.0
+code-wiki project add react --repo https://github.com/facebook/react.git --ref v15.6.2
+code-wiki project set react --ref v16.14.0
 code-wiki project list
 code-wiki scan
 code-wiki scan react
@@ -38,13 +38,13 @@ Shared workspace state：
 
 `.code-wiki/.gitignore` 由工具写入，忽略 managed clones、generated wiki outputs 和 reports，不要求调用方手动调整外层 repo 的 `.gitignore`。
 
-`config.json` 只存 schema version。Runtime selection 不进入 workspace state。Project entries 要保持可移植，不能写入 developer-local checkout paths。`project add` 的 repo URL 不做 GitHub `/tree/<ref>` 等额外规范化；ref 只支持 `--commit`、`--branch`、`--tag` 三种显式形态，不提供通用 `--ref`。
+`config.json` 只存 schema version。Runtime selection 不进入 workspace state。Project entries 要保持可移植，不能写入 developer-local checkout paths。`project add` 的 repo URL 不做 GitHub `/tree/<ref>` 等额外规范化；ref 通过通用 `--ref` 传入，由 Git 解析 branch、tag、commit 或 remote ref。
 
 ## 扫描流程
 
-Scan 从 `projects.json` 开始。它维护 ignored managed clones，fetch `origin`，把 project ref 解析成 `HEAD`、branch、tag 或 commit，detached checkout 到 resolved commit，然后把当前 wiki output 写到 `.code-wiki/projects/<project-id>/`。
+Scan 从 `projects.json` 开始。它维护 ignored managed clones，fetch `origin`，把 project ref 解析成 resolved commit，detached checkout 到该 commit，然后把当前 wiki output 写到 `.code-wiki/projects/<project-id>/`。
 
-Skip 条件：commit 和 scan contract inputs 都没变，并且 wiki root 已经满足当前 contract。Scan 会重写 generated module/contract pages，写入 `AGENTS.md`、`overview.md`、`index.md`、`index.json`、`metadata.json`，追加 `log.md`，并清理 legacy `versions.json` / `versions/` outputs。
+Skip 条件：commit 和 scan contract inputs 都没变。每次实际扫描会先删除该 project 的旧 generated wiki root，再写入 `AGENTS.md`、`overview.md`、`index.md`、`index.json`、`metadata.json`、`log.md`、`modules/` 和 `contracts/`。
 
 ## Wiki 契约
 
@@ -64,13 +64,9 @@ Generated Markdown pages 以 frontmatter 开头，记录 stable id、kind、titl
 - 不写入或读取 `versions.json` 或 `versions/<commit>` snapshots。
 - Generated wiki content 是 routing 和 inspection evidence，不是最终 human design judgment。
 
-## 内部 Runtime Adapter
-
-Runtime 只是一层内部 code adapter boundary，不通过 CLI 暴露，也不参与 scan/query orchestration。当前形状：`RuntimeId = 'codex'`，`RuntimeRunOptions = { cwd, prompt, outputPath? }`，`RuntimeAdapter = { id, assertAvailable(), run(options) }`。目前只有 `codex` adapter。
-
 ## 测试
 
-测试覆盖 CLI surface、portable project refs、project ref updates、managed-clone scans、repo `.gitignore` handling、unchanged-scan skips、包含 `AGENTS.md` 的 generated wiki outputs、stale-page cleanup、无 version snapshots，以及 internal codex adapter contract。
+测试覆盖 CLI surface、portable project refs、project ref updates、managed-clone scans、repo `.gitignore` handling、unchanged-scan skips、包含 `AGENTS.md` 的 generated wiki outputs、stale-page cleanup，以及无 version snapshots。
 
 验证 commands：
 

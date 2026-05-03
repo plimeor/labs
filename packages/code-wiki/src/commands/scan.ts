@@ -4,7 +4,6 @@ import { log } from '@clack/prompts'
 import * as Git from '@plimeor/git-kit'
 import * as v from 'valibot'
 
-import { Files } from '../files.js'
 import { readProjects, requireProject } from '../projects.js'
 import { readMetadata, scanRepository } from '../scanner/index.js'
 import { codeWikiPath, type ProjectEntry, type ProjectMetadata } from '../types.js'
@@ -40,11 +39,7 @@ async function scanShared(workspace: Awaited<ReturnType<typeof resolveWorkspace>
     const latest = await Git.fetch({ path: repoPath, ref })
     const wikiRoot = join(workspace.root, codeWikiPath('projects', project.id))
     const metadata = await readMetadata(join(wikiRoot, 'metadata.json'))
-    if (
-      !projectId &&
-      isSharedScanUpToDate(project, metadata, latest, ref) &&
-      (await isWikiRootContractCurrent(wikiRoot))
-    ) {
+    if (isSharedScanUpToDate(project, metadata, latest, ref)) {
       log.info(`${project.id} is up to date at ${latest.HEAD.slice(0, 7)}`)
       continue
     }
@@ -69,7 +64,7 @@ async function scanShared(workspace: Awaited<ReturnType<typeof resolveWorkspace>
 }
 
 function projectRef(project: ProjectEntry): string {
-  return project.commit ?? project.branch ?? project.tag ?? 'HEAD'
+  return project.ref ?? 'HEAD'
 }
 
 function isSharedScanUpToDate(
@@ -89,8 +84,4 @@ function isSharedScanUpToDate(
     metadata.ref === ref &&
     metadata.repoUrl === project.repoUrl
   )
-}
-
-async function isWikiRootContractCurrent(wikiRoot: string): Promise<boolean> {
-  return Files.pathExists(join(wikiRoot, 'AGENTS.md'))
 }

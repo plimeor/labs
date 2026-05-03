@@ -28,13 +28,10 @@ export function codeWikiPath(...segments: string[]): string {
 
 export const ProjectEntrySchema = v.pipe(
   v.strictObject({
-    branch: v.optional(v.pipe(v.string(), v.trim(), v.minLength(1))),
-    commit: v.optional(v.pipe(v.string(), v.trim(), v.minLength(1))),
     id: ProjectIdSchema,
-    repoUrl: v.pipe(v.string(), v.trim(), v.minLength(1)),
-    tag: v.optional(v.pipe(v.string(), v.trim(), v.minLength(1)))
-  }),
-  v.check(input => [input.branch, input.commit, input.tag].filter(Boolean).length <= 1, 'Use only one project ref')
+    ref: v.optional(v.pipe(v.string(), v.trim(), v.minLength(1))),
+    repoUrl: v.pipe(v.string(), v.trim(), v.minLength(1))
+  })
 )
 export type ProjectEntry = v.InferOutput<typeof ProjectEntrySchema>
 
@@ -88,7 +85,6 @@ const FallbackTextArraySchema = v.pipe(
 export const WikiIndexPageSchema = v.strictObject({
   authority: WikiPageAuthoritySchema,
   contentHash: v.pipe(v.string(), v.trim(), v.minLength(1)),
-  dependsOn: v.optional(v.array(v.pipe(v.string(), v.trim(), v.minLength(1)))),
   id: v.pipe(v.string(), v.trim(), v.minLength(1)),
   kind: WikiPageKindSchema,
   lastScannedCommit: v.pipe(v.string(), v.trim(), v.minLength(1)),

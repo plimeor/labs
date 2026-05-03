@@ -28,9 +28,9 @@ mkdir team-code-wiki
 cd team-code-wiki
 git init
 code-wiki init
-code-wiki project add react --repo https://github.com/facebook/react.git --tag v15.6.2
+code-wiki project add react --repo https://github.com/facebook/react.git --ref v15.6.2
 code-wiki scan
-code-wiki project set react --tag v16.14.0
+code-wiki project set react --ref v16.14.0
 code-wiki scan react
 ```
 
@@ -42,16 +42,16 @@ CodeWiki stores portable Git remote URLs and refs. Managed clones live under
 
 ```bash
 code-wiki init
-code-wiki project add react --repo https://github.com/facebook/react.git --tag v15.6.2
-code-wiki project add chakra --repo https://github.com/chakra-ui/chakra-ui.git --branch main
-code-wiki project set react --tag v19.0.0
+code-wiki project add react --repo https://github.com/facebook/react.git --ref v15.6.2
+code-wiki project add chakra --repo https://github.com/chakra-ui/chakra-ui.git --ref main
+code-wiki project set react --ref v19.0.0
 code-wiki project list
 code-wiki scan
 code-wiki scan react
 ```
 
-`project add` and `project set` accept one of `--commit`, `--branch`, or `--tag`. Repo URLs are
-stored as provided and passed to Git without GitHub `/tree/<ref>` URL normalization.
+`project add` and `project set` accept `--ref`. Repo URLs are stored as provided and passed to Git
+without GitHub `/tree/<ref>` URL normalization.
 
 ## Generated Wiki
 

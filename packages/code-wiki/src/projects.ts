@@ -25,11 +25,9 @@ export async function writeProjects(workspace: Workspace, document: ProjectsDocu
 export async function addProject(
   workspace: Workspace,
   input: {
-    branch?: string
-    commit?: string
     id: string
+    ref?: string
     repoUrl: string
-    tag?: string
   }
 ): Promise<ProjectEntry> {
   const id = normalizeProjectId(input.id)
@@ -39,11 +37,9 @@ export async function addProject(
   }
 
   const entry = v.parse(ProjectEntrySchema, {
-    ...(input.branch ? { branch: input.branch } : {}),
-    ...(input.commit ? { commit: input.commit } : {}),
     id,
-    repoUrl: input.repoUrl,
-    ...(input.tag ? { tag: input.tag } : {})
+    ...(input.ref ? { ref: input.ref } : {}),
+    repoUrl: input.repoUrl
   })
   const projects = [...document.projects, entry].sort((a, b) => a.id.localeCompare(b.id))
   await writeProjects(workspace, { projects, schemaVersion: 1 })
@@ -54,10 +50,8 @@ export async function updateProject(
   workspace: Workspace,
   projectId: string,
   input: {
-    branch?: string
-    commit?: string
+    ref?: string
     repoUrl?: string
-    tag?: string
   }
 ): Promise<ProjectEntry> {
   const id = normalizeProjectId(projectId)
@@ -72,11 +66,7 @@ export async function updateProject(
     ...current,
     ...(input.repoUrl ? { repoUrl: input.repoUrl } : {})
   }
-  setProjectRef(updated, {
-    branch: input.branch,
-    commit: input.commit,
-    tag: input.tag
-  })
+  setProjectRef(updated, input.ref)
   const projects = [...document.projects]
   projects[index] = v.parse(ProjectEntrySchema, updated)
   await writeProjects(workspace, { projects, schemaVersion: 1 })
@@ -93,22 +83,10 @@ export function requireProject(document: ProjectsDocument, projectId: string): P
   return project
 }
 
-function setProjectRef(project: ProjectEntry, input: { branch?: string; commit?: string; tag?: string }): void {
-  if (input.branch === undefined && input.commit === undefined && input.tag === undefined) {
+function setProjectRef(project: ProjectEntry, ref: string | undefined): void {
+  if (ref === undefined) {
     return
   }
 
-  delete project.branch
-  delete project.commit
-  delete project.tag
-
-  if (input.branch !== undefined) {
-    project.branch = input.branch
-  }
-  if (input.commit !== undefined) {
-    project.commit = input.commit
-  }
-  if (input.tag !== undefined) {
-    project.tag = input.tag
-  }
+  project.ref = ref
 }
