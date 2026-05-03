@@ -2,18 +2,19 @@ import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { cancel, isCancel, log, multiselect, tasks } from '@clack/prompts'
+import * as Git from '@plimeor/git-kit'
 import * as v from 'valibot'
 
-import { Checkout } from '../checkout.js'
 import { type InstallResult, installSkill } from '../installer.js'
 import { Lock } from '../lock.js'
 import { Manifest } from '../manifest.js'
+import { type RepositoryRequest, repositoryRequestRef } from '../repository.js'
 import { formatDisplayPath, resolveScope } from '../scope.js'
 import { nonBlankString, optionalBoolean, optionalString, optionalStringArray } from './schemas.js'
 
 export const addArgsSchema = v.object({
   skills: v.pipe(v.array(nonBlankString()), v.description('Skill names to install from the source repository')),
-  source: nonBlankString('Source repository, local path, or repository shorthand')
+  source: nonBlankString('Source repository or repository shorthand')
 })
 export const addOptionsSchema = v.object({
   all: optionalBoolean('Install every skill from the source repository'),
@@ -35,10 +36,10 @@ export async function addCommand(context: AddCommandContext) {
 
   const request = checkoutRequest(context)
   log.step(`Resolving ${formatCheckoutTarget(request)}`)
-  await Checkout.withAll([request], async checkouts => {
-    const checkout = Checkout.requireResult(checkouts, request, context.args.source)
+  const checkout = await Git.clone({ ref: repositoryRequestRef(request), repo: request.source })
+  try {
     const selectionLock = await readLockOrEmpty(scope)
-    const skills = await resolveSkills(context, checkout.dir, selectionLock)
+    const skills = await resolveSkills(context, checkout.path, selectionLock)
     if (skills.length === 0) {
       log.info('No new skills selected.')
       return
@@ -82,7 +83,9 @@ export async function addCommand(context: AddCommandContext) {
     await Manifest.write(scope, manifest)
     await Lock.write(scope, lock)
     log.success(`Updated ${formatDisplayPath(scope.manifestPath)} and ${formatDisplayPath(scope.lockPath)}`)
-  })
+  } finally {
+    await checkout.dispose?.()
+  }
 }
 
 function validateAddRequest(context: AddCommandContext): void {
@@ -98,7 +101,7 @@ function validateAddRequest(context: AddCommandContext): void {
   }
 }
 
-function checkoutRequest({ args, options }: AddCommandContext): Checkout.Request {
+function checkoutRequest({ args, options }: AddCommandContext): RepositoryRequest {
   return {
     commit: options.commit,
     ref: options.ref,
@@ -291,12 +294,12 @@ function isNotFoundError(error: unknown): boolean {
 }
 
 function normalizeSkills(values: string[]): string[] {
-  return [...new Set(values.map(value => value.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b))
+  return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b))
 }
 
 async function installSkillWithContext(
   skill: Manifest.Skill,
-  checkout: Checkout.Result,
+  checkout: Git.CloneResult,
   scope: ReturnType<typeof resolveScope>
 ) {
   try {
@@ -313,10 +316,10 @@ function formatScope(scope: ReturnType<typeof resolveScope>): string {
     : `project (${formatDisplayPath(process.cwd())})`
 }
 
-function formatCheckoutTarget(request: Checkout.Request): string {
+function formatCheckoutTarget(request: RepositoryRequest): string {
   const source = formatDisplayPath(request.source)
   if (request.commit) {
-    const commit = request.commit === 'local' ? request.commit : request.commit.slice(0, 7)
+    const commit = request.commit.slice(0, 7)
     return `${source} at commit ${commit}`
   }
 

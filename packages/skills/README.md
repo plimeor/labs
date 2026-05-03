@@ -116,9 +116,7 @@ skills add plimeor/agent-skills --skill code-scope-gate --commit abc123 -g
 Supported sources:
 
 - GitHub shorthand: `owner/repo`
-- `github:owner/repo`
 - Git URLs: `git@`, `https://`, `http://`
-- Local paths: `/path`, `./path`, `../path`
 
 ## Common Workflows
 

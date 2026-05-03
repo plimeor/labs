@@ -1,6 +1,5 @@
 import { readFile } from 'node:fs/promises'
 
-import type { Checkout } from './checkout.js'
 import { isNotFound, isRecord, omitUndefined, optionalText, requireText } from './json.js'
 import type { Manifest } from './manifest.js'
 import type { Scope } from './scope.js'
@@ -119,12 +118,12 @@ export namespace Lock {
 
   export function createEntry(
     skill: Manifest.Skill,
-    checkout: Checkout.Result,
+    checkout: { HEAD: string },
     installPath: string,
     installedAt: string
   ): Entry {
     return {
-      commit: checkout.commit,
+      commit: checkout.HEAD,
       installedAt,
       installPath,
       method: 'copy',

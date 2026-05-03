@@ -1,12 +1,12 @@
-import { Checkout } from './checkout.js'
 import type { Lock } from './lock.js'
 import type { Manifest } from './manifest.js'
+import { type RepositoryRequest, repositoryRequestKey } from './repository.js'
 import { formatDisplayPath, type Scope } from './scope.js'
 
 export namespace SyncPlan {
   export type Document = {
-    installRequests: Checkout.Request[]
-    installRequestsBySkillName: Record<string, Checkout.Request>
+    installRequests: RepositoryRequest[]
+    installRequestsBySkillName: Record<string, RepositoryRequest>
     installSkills: Manifest.Skill[]
     pruneNames: string[]
     useLockedCommits: boolean
@@ -27,7 +27,7 @@ export namespace SyncPlan {
     const installRequestsBySkillName = Object.fromEntries(
       installSkills.map(skill => [
         skill.name,
-        checkoutRequest(skill, useLockedCommits ? lock.skills[skill.name]?.commit : undefined)
+        repositoryRequest(skill, useLockedCommits ? lock.skills[skill.name]?.commit : undefined)
       ])
     )
     const installRequests = installSkills.map(skill => installRequestsBySkillName[skill.name])
@@ -41,7 +41,7 @@ export namespace SyncPlan {
     }
   }
 
-  export function checkoutRequest(skill: Manifest.Skill, lockedCommit?: string): Checkout.Request {
+  export function repositoryRequest(skill: Manifest.Skill, lockedCommit?: string): RepositoryRequest {
     return {
       commit: skill.commit ?? lockedCommit,
       ref: skill.commit || lockedCommit ? undefined : skill.ref,
@@ -55,9 +55,9 @@ export namespace SyncPlan {
       lines.push(`remove ${skillName} from ${formatDisplayPath(scope.installDir)}`)
     }
 
-    const uniqueRequests = new Map<string, Checkout.Request>()
+    const uniqueRequests = new Map<string, RepositoryRequest>()
     for (const request of syncPlan.installRequests) {
-      uniqueRequests.set(Checkout.key(request), request)
+      uniqueRequests.set(repositoryRequestKey(request), request)
     }
 
     for (const request of [...uniqueRequests.values()].sort(formatRequestSort)) {
@@ -88,7 +88,7 @@ export namespace SyncPlan {
     }
   }
 
-  function formatRequest(request: Checkout.Request): string {
+  function formatRequest(request: RepositoryRequest): string {
     let target = 'default ref'
     if (request.commit) {
       target = `commit ${request.commit}`
@@ -99,7 +99,7 @@ export namespace SyncPlan {
     return `${formatDisplayPath(request.source)} at ${target}`
   }
 
-  function formatRequestSort(a: Checkout.Request, b: Checkout.Request): number {
+  function formatRequestSort(a: RepositoryRequest, b: RepositoryRequest): number {
     return formatRequest(a).localeCompare(formatRequest(b))
   }
 }

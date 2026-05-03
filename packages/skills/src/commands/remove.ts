@@ -50,7 +50,7 @@ export async function removeCommand(context: RemoveCommandContext) {
 }
 
 function parseSkillNames(context: RemoveCommandContext): string[] {
-  return [...new Set(context.args.skills.map(value => value.trim()))]
+  return [...new Set(context.args.skills)]
 }
 
 function formatScope(scope: ReturnType<typeof resolveScope>): string {

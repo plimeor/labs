@@ -1,8 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-
-import { $ } from 'zx'
+import { $ } from 'bun'
 
 import { syncCommand } from '../../src/commands/sync.js'
 import { SyncPlan } from '../../src/sync-plan.js'
@@ -167,13 +166,13 @@ async function writeProjectManifestFixture(): Promise<{ commit: string; cwd: str
 
 async function createGitRepo(): Promise<{ commit: string; source: string }> {
   const source = await tempDir('skills-sync-source-')
-  await $({ cwd: source, quiet: true })`git init -b main`
+  await $`git init -b main`.cwd(source).quiet()
   await writeSkill(source, 'a')
   await writeSkill(source, 'b')
-  await $({ cwd: source, quiet: true })`git add skills`
-  await $({ cwd: source, quiet: true })`git -c user.email=skills@example.com -c user.name=Skills commit -m init`
-  const commit = (await $({ cwd: source, quiet: true })`git rev-parse HEAD`).text().trim()
-  return { commit, source }
+  await $`git add skills`.cwd(source).quiet()
+  await $`git -c user.email=skills@example.com -c user.name=Skills commit -m init`.cwd(source).quiet()
+  const commit = await $`printf "%s" "$(git rev-parse HEAD)"`.cwd(source).text()
+  return { commit, source: `file://${source}` }
 }
 
 async function readProjectLock(cwd: string): Promise<{ skills: Record<string, { commit: string }> }> {
