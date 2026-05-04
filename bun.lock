@@ -15,14 +15,14 @@
     },
     "packages/bear-sdk": {
       "name": "@plimeor/bear-sdk",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "dependencies": {
         "valibot": "catalog:",
       },
     },
     "packages/code-wiki": {
       "name": "@plimeor/code-wiki",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "bin": {
         "code-wiki": "./src/cli.ts",
       },
@@ -37,7 +37,7 @@
     },
     "packages/command-kit": {
       "name": "@plimeor/command-kit",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "dependencies": {
         "@standard-schema/spec": "^1.1.0",
         "@types/json-schema": "^7.0.15",
@@ -45,11 +45,11 @@
     },
     "packages/git-kit": {
       "name": "@plimeor/git-kit",
-      "version": "0.1.0",
+      "version": "0.1.1",
     },
     "packages/skills": {
       "name": "@plimeor/skills",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "bin": {
         "skills": "./src/cli.ts",
       },
