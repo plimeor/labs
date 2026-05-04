@@ -1,3 +1,5 @@
+import { $ } from 'bun'
+
 import * as v from 'valibot'
 
 export namespace Bear {
@@ -24,6 +26,10 @@ export namespace Bear {
   const NonNegativeIntegerSchema = v.pipe(v.number(), v.integer(), v.minValue(0))
   const NonEmptyStringSchema = v.pipe(v.string(), v.minLength(1))
   const StringArraySchema = v.array(v.string())
+  const LockedSchema = v.pipe(
+    v.picklist(['no', 'yes']),
+    v.transform(input => input === 'yes')
+  )
 
   export const ListOptionsSchema = v.strictObject({
     command: v.optional(NonEmptyStringSchema),
@@ -147,6 +153,24 @@ export namespace Bear {
   })
   export type PinsOptions = v.InferOutput<typeof PinsOptionsSchema>
 
+  export const RenameTagGloballyOptionsSchema = v.strictObject({
+    command: v.optional(NonEmptyStringSchema),
+    cwd: v.optional(NonEmptyStringSchema),
+    env: v.optional(v.record(v.string(), v.optional(v.string()))),
+    force: v.optional(v.boolean()),
+    from: NonEmptyStringSchema,
+    to: NonEmptyStringSchema
+  })
+  export type RenameTagGloballyOptions = v.InferOutput<typeof RenameTagGloballyOptionsSchema>
+
+  export const DeleteTagGloballyOptionsSchema = v.strictObject({
+    command: v.optional(NonEmptyStringSchema),
+    cwd: v.optional(NonEmptyStringSchema),
+    env: v.optional(v.record(v.string(), v.optional(v.string()))),
+    name: NonEmptyStringSchema
+  })
+  export type DeleteTagGloballyOptions = v.InferOutput<typeof DeleteTagGloballyOptionsSchema>
+
   export const AttachmentListOptionsSchema = RuntimeOptionsSchema
   export type AttachmentListOptions = RuntimeOptions
 
@@ -170,6 +194,15 @@ export namespace Bear {
     filename: NonEmptyStringSchema
   })
   export type AttachmentSaveOptions = v.InferOutput<typeof AttachmentSaveOptionsSchema>
+
+  export const AttachmentDeleteOptionsSchema = v.strictObject({
+    command: v.optional(NonEmptyStringSchema),
+    cwd: v.optional(NonEmptyStringSchema),
+    env: v.optional(v.record(v.string(), v.optional(v.string()))),
+    filename: NonEmptyStringSchema,
+    preserveModified: v.optional(v.boolean())
+  })
+  export type AttachmentDeleteOptions = v.InferOutput<typeof AttachmentDeleteOptionsSchema>
 
   export const MoveOptionsSchema = RuntimeOptionsSchema
   export type MoveOptions = RuntimeOptions
@@ -207,7 +240,7 @@ export namespace Bear {
     hash: v.string(),
     id: v.string(),
     location: v.picklist(['notes', 'trash', 'archive']),
-    locked: v.boolean(),
+    locked: LockedSchema,
     modified: v.string(),
     tags: StringArraySchema,
     title: v.string()
@@ -262,38 +295,6 @@ export namespace Bear {
   export const SuccessSchema = v.strictObject({
     ok: v.literal(true)
   })
-
-  export const CliErrorSchema = v.strictObject({
-    error: v.strictObject({
-      code: v.string(),
-      message: v.string()
-    })
-  })
-  export type CliErrorOutput = v.InferOutput<typeof CliErrorSchema>
-
-  export type CommandFailure = {
-    code: string
-    exitCode: number | null
-    message: string
-    stderr: string
-    stdout: string
-  }
-
-  export class CliError extends Error {
-    readonly code: string
-    readonly exitCode: number | null
-    readonly stderr: string
-    readonly stdout: string
-
-    constructor(failure: CommandFailure) {
-      super(failure.message)
-      this.name = 'Bear.CliError'
-      this.code = failure.code
-      this.exitCode = failure.exitCode
-      this.stderr = failure.stderr
-      this.stdout = failure.stdout
-    }
-  }
 
   export async function list(options: ListOptions = {}): Promise<NoteSummary[]> {
     const input = v.parse(ListOptionsSchema, options)
@@ -460,6 +461,18 @@ export namespace Bear {
     await mutateTags('remove', target, options)
   }
 
+  export async function renameTagGlobally(options: RenameTagGloballyOptions): Promise<void> {
+    const input = v.parse(RenameTagGloballyOptionsSchema, options)
+    const args = ['tags', 'rename', '--from', input.from, '--to', input.to]
+    appendBooleanArg(args, '--force', input.force)
+    await runSuccess(args, input)
+  }
+
+  export async function deleteTagGlobally(options: DeleteTagGloballyOptions): Promise<void> {
+    const input = v.parse(DeleteTagGloballyOptionsSchema, options)
+    await runSuccess(['tags', 'delete', '--name', input.name], input)
+  }
+
   export async function listPins(target?: NoteTarget, options: RuntimeOptions = {}): Promise<PinEntry[]> {
     const input = v.parse(RuntimeOptionsSchema, options)
     const args = ['pin', 'list']
@@ -507,6 +520,16 @@ export namespace Bear {
     appendTargetArgs(args, parsedTarget)
     args.push('--filename', input.filename, '--format', 'json')
     return runJson(args, SavedAttachmentSchema, input)
+  }
+
+  export async function deleteAttachment(target: NoteTarget, options: AttachmentDeleteOptions): Promise<void> {
+    const parsedTarget = v.parse(NoteTargetSchema, target)
+    const input = v.parse(AttachmentDeleteOptionsSchema, options)
+    const args = ['attachments', 'delete']
+    appendTargetArgs(args, parsedTarget)
+    args.push('--filename', input.filename)
+    appendPreserveModifiedArg(args, input.preserveModified)
+    await runSuccess(args, input)
   }
 
   export async function trash(target: NoteTarget, options: MoveOptions = {}): Promise<void> {
@@ -618,108 +641,30 @@ export namespace Bear {
     await runJson(argsWithJson(args), SuccessSchema, options, stdin)
   }
 
-  async function runJson<TSchema>(
+  async function runJson<TSchema extends v.GenericSchema>(
     args: string[],
     schema: TSchema,
     options: RuntimeOptions,
     stdin?: AttachmentData
   ): Promise<v.InferOutput<TSchema>> {
-    const output = await run(args, options, stdin)
-    const json = parseJson(output.stdout, output)
-    return parseSchema(schema, json, output)
+    const stdout = await runText(args, options, stdin)
+    return v.parse(schema, JSON.parse(stdout))
   }
 
-  async function run(
-    args: string[],
-    options: RuntimeOptions,
-    stdin?: AttachmentData
-  ): Promise<{ exitCode: number; stderr: string; stdout: string }> {
+  async function runText(args: string[], options: RuntimeOptions, stdin?: AttachmentData): Promise<string> {
     const command = options.command ?? 'bear'
-    const proc = Bun.spawn([command, ...args], {
-      cwd: options.cwd,
-      env: options.env,
-      stderr: 'pipe',
-      stdin: stdin === undefined ? 'ignore' : 'pipe',
-      stdout: 'pipe'
-    })
-
-    if (stdin !== undefined) {
-      proc.stdin.write(stdin)
-      proc.stdin.end()
+    const shell = stdin === undefined ? $`${command} ${args}` : $`${command} ${args} < ${new Response(stdin)}`
+    let configuredShell = shell.quiet()
+    if (options.cwd) {
+      configuredShell = configuredShell.cwd(options.cwd)
     }
-
-    const [stdout, stderr, exitCode] = await Promise.all([
-      new Response(proc.stdout).text(),
-      new Response(proc.stderr).text(),
-      proc.exited
-    ])
-    const output = { exitCode, stderr, stdout }
-    if (exitCode === 0) {
-      return output
+    if (options.env) {
+      configuredShell = configuredShell.env(options.env)
     }
-
-    const parsed = parseCliError(stdout)
-    if (parsed) {
-      throw new CliError({
-        code: parsed.error.code,
-        exitCode,
-        message: parsed.error.message,
-        stderr,
-        stdout
-      })
-    }
-
-    const message = stderr.trim() || stdout.trim() || `${command} exited with code ${exitCode}`
-    throw new CliError({
-      code: exitCode === 64 ? 'USAGE_ERROR' : 'COMMAND_FAILED',
-      exitCode,
-      message,
-      stderr,
-      stdout
-    })
+    return configuredShell.text()
   }
 
   function argsWithJson(args: string[]): string[] {
     return [...args, '--format', 'json']
-  }
-
-  function parseJson(stdout: string, output: { exitCode: number; stderr: string; stdout: string }): unknown {
-    try {
-      return JSON.parse(stdout)
-    } catch {
-      throw new CliError({
-        code: 'INVALID_JSON',
-        exitCode: output.exitCode,
-        message: 'Bear CLI did not return valid JSON',
-        stderr: output.stderr,
-        stdout: output.stdout
-      })
-    }
-  }
-
-  function parseCliError(stdout: string): CliErrorOutput | undefined {
-    try {
-      return v.parse(CliErrorSchema, JSON.parse(stdout))
-    } catch {
-      return undefined
-    }
-  }
-
-  function parseSchema<TSchema>(
-    schema: TSchema,
-    json: unknown,
-    output: { exitCode: number; stderr: string; stdout: string }
-  ): v.InferOutput<TSchema> {
-    try {
-      return v.parse(schema, json)
-    } catch (error) {
-      throw new CliError({
-        code: 'INVALID_OUTPUT',
-        exitCode: output.exitCode,
-        message: error instanceof Error ? error.message : 'Bear CLI returned JSON that does not match the SDK schema',
-        stderr: output.stderr,
-        stdout: output.stdout
-      })
-    }
   }
 }

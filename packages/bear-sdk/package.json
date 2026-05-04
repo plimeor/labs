@@ -26,7 +26,8 @@
     "url": "git+https://github.com/plimeor/labs.git"
   },
   "scripts": {
-    "lint": "biome check src",
-    "prepack": "bun -e \"await import('./src/index.ts')\""
+    "lint": "biome check src test",
+    "prepack": "bun -e \"await import('./src/index.ts')\"",
+    "test": "bun test test"
   }
 }
