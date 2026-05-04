@@ -3,6 +3,8 @@ import { $ } from 'bun'
 import * as v from 'valibot'
 
 export namespace Bear {
+  const DEFAULT_COMMANDS = ['bear', 'bearcli'] as const
+
   export const NoteLocationSchema = v.picklist(['notes', 'trash', 'archive', 'all'])
   export type NoteLocation = v.InferOutput<typeof NoteLocationSchema>
 
@@ -652,7 +654,7 @@ export namespace Bear {
   }
 
   async function runText(args: string[], options: RuntimeOptions, stdin?: AttachmentData): Promise<string> {
-    const command = options.command ?? 'bear'
+    const command = options.command ?? (await resolveDefaultCommand(options))
     const shell = stdin === undefined ? $`${command} ${args}` : $`${command} ${args} < ${new Response(stdin)}`
     let configuredShell = shell.quiet()
     if (options.cwd) {
@@ -662,6 +664,23 @@ export namespace Bear {
       configuredShell = configuredShell.env(options.env)
     }
     return configuredShell.text()
+  }
+
+  async function resolveDefaultCommand(options: RuntimeOptions): Promise<string> {
+    for (const command of DEFAULT_COMMANDS) {
+      try {
+        let shell = $`which ${command}`.quiet()
+        if (options.cwd) {
+          shell = shell.cwd(options.cwd)
+        }
+        if (options.env) {
+          shell = shell.env(options.env)
+        }
+        return (await shell.text()).trim() || command
+      } catch {}
+    }
+
+    return DEFAULT_COMMANDS[0]
   }
 
   function argsWithJson(args: string[]): string[] {

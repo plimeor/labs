@@ -1,8 +1,40 @@
 import { describe, expect, test } from 'bun:test'
+import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 import { Bear } from '../src/index.js'
 
 describe('bear-sdk', () => {
+  test('falls back to bearcli when bear is unavailable on PATH', async () => {
+    const bin = await mkdtemp(join(tmpdir(), 'bear-sdk-bin-'))
+    try {
+      const bearcli = join(bin, 'bearcli')
+      await writeFile(
+        bearcli,
+        `#!/bin/sh
+if [ "$1" = "list" ]; then
+  printf '%s' '[{"id":"1","title":"Fallback","tags":[],"modified":"2026-05-04T00:00:00Z"}]'
+  exit 0
+fi
+exit 1
+`
+      )
+      await chmod(bearcli, 0o755)
+
+      await expect(Bear.list({ env: { ...process.env, PATH: bin } })).resolves.toEqual([
+        {
+          id: '1',
+          modified: '2026-05-04T00:00:00Z',
+          tags: [],
+          title: 'Fallback'
+        }
+      ])
+    } finally {
+      await rm(bin, { force: true, recursive: true })
+    }
+  })
+
   test('creates Bear notes, validates SDK reads and mutations, then trashes test notes', async () => {
     const runId = testRunId()
     const tag = `bear-sdk-test/${runId}`
