@@ -219,42 +219,38 @@ export namespace Bear {
   })
   export type OpenOptions = v.InferOutput<typeof OpenOptionsSchema>
 
-  export const NoteSummarySchema = v.strictObject({
+  const NoteMetadataEntries = {
+    attachments: StringArraySchema,
+    created: v.string(),
+    done: NonNegativeIntegerSchema,
+    hash: v.string(),
     id: v.string(),
+    length: NonNegativeIntegerSchema,
+    location: v.picklist(['notes', 'trash', 'archive']),
+    locked: LockedSchema,
     modified: v.string(),
+    pins: StringArraySchema,
     tags: StringArraySchema,
-    title: v.string()
-  })
-  export type NoteSummary = v.InferOutput<typeof NoteSummarySchema>
+    title: v.string(),
+    todos: NonNegativeIntegerSchema
+  }
+
+  export const NoteMetadataSchema = v.strictObject(NoteMetadataEntries)
+  export type NoteMetadata = v.InferOutput<typeof NoteMetadataSchema>
 
   export const SearchResultSchema = v.strictObject({
-    id: v.string(),
-    matches: v.number(),
-    modified: v.string(),
-    tags: StringArraySchema,
-    title: v.string()
+    ...NoteMetadataEntries,
+    matches: v.number()
   })
   export type SearchResult = v.InferOutput<typeof SearchResultSchema>
 
   export const NoteSchema = v.strictObject({
-    content: v.optional(v.string()),
-    created: v.string(),
-    hash: v.string(),
-    id: v.string(),
-    location: v.picklist(['notes', 'trash', 'archive']),
-    locked: LockedSchema,
-    modified: v.string(),
-    tags: StringArraySchema,
-    title: v.string()
+    ...NoteMetadataEntries,
+    content: v.optional(v.string())
   })
   export type Note = v.InferOutput<typeof NoteSchema>
 
-  export const CreatedNoteSchema = v.strictObject({
-    hash: v.string(),
-    id: v.string(),
-    tags: StringArraySchema,
-    title: v.string()
-  })
+  export const CreatedNoteSchema = NoteMetadataSchema
   export type CreatedNote = v.InferOutput<typeof CreatedNoteSchema>
 
   export const CatResultSchema = v.strictObject({
@@ -298,11 +294,11 @@ export namespace Bear {
     ok: v.literal(true)
   })
 
-  export async function list(options: ListOptions = {}): Promise<NoteSummary[]> {
+  export async function list(options: ListOptions = {}): Promise<NoteMetadata[]> {
     const input = v.parse(ListOptionsSchema, options)
-    const args = ['list', '--format', 'json', '--fields', 'id,title,tags,modified']
+    const args = ['list', '--format', 'json', '--fields', 'all']
     appendListArgs(args, input)
-    return runJson(args, v.array(NoteSummarySchema), input)
+    return runJson(args, v.array(NoteMetadataSchema), input)
   }
 
   export async function count(options: ListOptions = {}): Promise<number> {
@@ -316,7 +312,7 @@ export namespace Bear {
   export async function search(query: string, options: SearchOptions = {}): Promise<SearchResult[]> {
     const parsedQuery = v.parse(NonEmptyStringSchema, query)
     const input = v.parse(SearchOptionsSchema, options)
-    const args = ['search', '--query', parsedQuery, '--format', 'json', '--fields', 'id,title,tags,matches,modified']
+    const args = ['search', '--query', parsedQuery, '--format', 'json', '--fields', 'all']
     appendSearchArgs(args, input)
     return runJson(args, v.array(SearchResultSchema), input)
   }
@@ -333,9 +329,7 @@ export namespace Bear {
   export async function show(target: NoteTarget, options: ShowOptions = {}): Promise<Note> {
     const parsedTarget = v.parse(NoteTargetSchema, target)
     const input = v.parse(ShowOptionsSchema, options)
-    const fields = input.includeContent
-      ? 'id,title,tags,hash,created,modified,location,locked,content'
-      : 'id,title,tags,hash,created,modified,location,locked'
+    const fields = input.includeContent ? 'all,content' : 'all'
     const args = ['show']
     appendTargetArgs(args, parsedTarget)
     args.push('--format', 'json', '--fields', fields)
@@ -396,7 +390,7 @@ export namespace Bear {
     if (input.ifNotExists) {
       args.push('--if-not-exists')
     }
-    args.push('--format', 'json', '--fields', 'id,title,tags,hash')
+    args.push('--format', 'json', '--fields', 'all')
     return runJson(args, CreatedNoteSchema, input)
   }
 

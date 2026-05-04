@@ -62,6 +62,12 @@ await Bear.cat({ id: note.id })
 await Bear.searchIn({ id: note.id }, { string: 'TODO' })
 ```
 
+`list`, `search`, `create`, and `show` return Bear's full non-content metadata:
+`id`, `title`, `locked`, `tags`, `hash`, `length`, `created`, `modified`,
+`pins`, `location`, `todos`, `done`, and `attachments`. `search` also includes
+`matches`. `show({ includeContent: true })` adds `content`; `list` and `search`
+do not fetch note bodies.
+
 Write operations:
 
 ```ts

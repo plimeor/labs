@@ -14,7 +14,7 @@ describe('bear-sdk', () => {
         bearcli,
         `#!/bin/sh
 if [ "$1" = "list" ]; then
-  printf '%s' '[{"id":"1","title":"Fallback","tags":[],"modified":"2026-05-04T00:00:00Z"}]'
+  printf '%s' '[{"id":"1","title":"Fallback","locked":"no","tags":[],"hash":"abc123","length":10,"created":"2026-05-04T00:00:00Z","modified":"2026-05-04T00:00:00Z","pins":[],"location":"notes","todos":0,"done":0,"attachments":[]}]'
   exit 0
 fi
 exit 1
@@ -24,10 +24,19 @@ exit 1
 
       await expect(Bear.list({ env: { ...process.env, PATH: bin } })).resolves.toEqual([
         {
+          attachments: [],
+          created: '2026-05-04T00:00:00Z',
+          done: 0,
+          hash: 'abc123',
           id: '1',
+          length: 10,
+          location: 'notes',
+          locked: false,
           modified: '2026-05-04T00:00:00Z',
+          pins: [],
           tags: [],
-          title: 'Fallback'
+          title: 'Fallback',
+          todos: 0
         }
       ])
     } finally {
@@ -62,12 +71,25 @@ exit 1
 
       const listed = await Bear.list({ tag })
       expect(listed.map(note => note.id)).toEqual(expect.arrayContaining(createdIds))
+      expect(listed.find(note => note.id === firstId)).toMatchObject({
+        created: expect.any(String),
+        hash: expect.any(String),
+        location: 'notes',
+        locked: false,
+        pins: expect.any(Array)
+      })
 
       const count = await Bear.count({ tag })
       expect(count).toBeGreaterThanOrEqual(2)
 
       const searchResults = await Bear.search(`"${runId}"`)
       expect(searchResults.map(note => note.id)).toEqual(expect.arrayContaining(createdIds))
+      expect(searchResults.find(note => note.id === firstId)).toMatchObject({
+        created: expect.any(String),
+        hash: expect.any(String),
+        location: 'notes',
+        matches: expect.any(Number)
+      })
 
       const shown = await Bear.show({ id: firstId }, { includeContent: true })
       expect(shown).toMatchObject({
