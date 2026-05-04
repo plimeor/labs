@@ -33,5 +33,6 @@
 - For CLI packages and commands, prefer `@plimeor/command-kit` for command routing, argument parsing, help output, and typed handlers.
 - For command args and options, use `StandardSchemaV1` as the `command-kit` contract; package implementations may use Valibot schemas plus `@valibot/to-json-schema` for help metadata.
 - For terminal interaction, prefer `@clack/prompts` for prompts, task progress, and interactive feedback.
+- In Bun applications, use Bun Shell (`$` from `bun`) by default for script execution; reach for Node `child_process`, `execa`, or similar wrappers only when Bun Shell cannot express the required behavior.
 - Use `es-toolkit` as the default general-purpose utility library before adding one-off helpers or alternative utility dependencies.
 - Use `effect` for genuinely complex logic or workflows that need explicit control over errors, retries, concurrency, resource management, or dependency flow; keep simple linear code plain.
