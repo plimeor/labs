@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec'
 import type { JSONSchema7, JSONSchema7Definition } from 'json-schema'
 
-import { defineCli, defineCommand, defineGroup } from '../src/index.js'
+import { createCommandInvocation, defineCli, defineCommand, defineGroup } from '../src/index.js'
 
 type TestSchema<T extends Record<string, unknown>> = StandardSchemaV1<unknown, T> & StandardJSONSchemaV1<unknown, T>
 
@@ -166,38 +166,44 @@ describe('command runtime', () => {
     })
   })
 
-  test('supports option aliases, kebab-case options, and json option triggers', async () => {
+  test('supports option shortcuts, option aliases, kebab-case options, and json option triggers', async () => {
     const cli = defineCli({
       description: 'Test CLI',
       name: 'test',
       commands: [
         defineCommand('sync', {
           description: 'Sync',
-          options: objectSchema<{ dryRun?: boolean; global?: boolean; json?: boolean }>({
+          options: objectSchema<{ dryRun?: boolean; global?: boolean; json?: boolean; preserveModified?: boolean }>({
             dryRun: { type: 'boolean' },
             global: { type: 'boolean' },
-            json: { type: 'boolean' }
+            json: { type: 'boolean' },
+            preserveModified: { type: 'boolean' }
           }),
           optionAliases: {
+            preserveModified: 'no-update-modified'
+          },
+          optionShortcuts: {
             global: 'g'
           },
           run: context => ({
             dryRun: context.options.dryRun ?? false,
-            global: context.options.global ?? false
+            global: context.options.global ?? false,
+            preserveModified: context.options.preserveModified ?? false
           })
         })
       ]
     })
 
     const output = await captureStdout(async () => {
-      await cli.serve(['sync', '-g', '--dry-run', '--json'])
+      await cli.serve(['sync', '-g', '--dry-run', '--no-update-modified', '--json'])
     })
 
     expect(JSON.parse(output)).toEqual({
       ok: true,
       data: {
         dryRun: true,
-        global: true
+        global: true,
+        preserveModified: true
       }
     })
   })
@@ -404,7 +410,7 @@ describe('command runtime', () => {
               type: 'array'
             }
           }),
-          optionAliases: {
+          optionShortcuts: {
             global: 'g'
           },
           run: () => ({})
@@ -611,7 +617,7 @@ describe('command runtime', () => {
       description: 'Typed command',
       options,
       argBindings: [{ name: 'name' }, { name: 'age' }],
-      optionAliases: {
+      optionShortcuts: {
         global: 'g'
       },
       run: () => ({})
@@ -625,6 +631,16 @@ describe('command runtime', () => {
       run: () => ({})
     })
 
+    defineCommand('bad-option-shortcut', {
+      description: 'Bad option shortcut',
+      options,
+      optionShortcuts: {
+        // @ts-expect-error optionShortcuts must reference options schema fields
+        missing: 'm'
+      },
+      run: () => ({})
+    })
+
     defineCommand('bad-option-alias', {
       description: 'Bad option alias',
       options,
@@ -634,5 +650,106 @@ describe('command runtime', () => {
       },
       run: () => ({})
     })
+  })
+})
+
+describe('command invocation', () => {
+  test('creates an invocation for commands without args or options', () => {
+    expect(
+      createCommandInvocation('status', {
+        description: 'Show status'
+      })
+    ).toEqual({
+      argv: ['status'],
+      commandLine: 'status'
+    })
+  })
+
+  test('creates executable argv from positional args, rest args, and options', () => {
+    const invocation = createCommandInvocation(
+      'add',
+      {
+        argBindings: [{ name: 'source' }, { name: 'items', rest: true }],
+        args: objectSchema<{ items: string[]; source: string }>({
+          items: { items: { type: 'string' }, type: 'array' },
+          source: { type: 'string' }
+        }),
+        description: 'Add items',
+        options: objectSchema<{
+          dryRun?: boolean
+          global?: boolean
+          preserveModified?: boolean
+          ref?: string
+          tag?: string[]
+        }>({
+          dryRun: { type: 'boolean' },
+          global: { type: 'boolean' },
+          preserveModified: { type: 'boolean' },
+          ref: { type: 'string' },
+          tag: { items: { type: 'string' }, type: 'array' }
+        }),
+        optionAliases: {
+          preserveModified: 'no-update-modified'
+        },
+        optionShortcuts: {
+          global: 'g'
+        }
+      },
+      {
+        args: {
+          items: ['one', 'two'],
+          source: 'repo'
+        },
+        options: {
+          dryRun: false,
+          global: true,
+          preserveModified: true,
+          ref: 'main',
+          tag: ['a', 'b']
+        }
+      }
+    )
+
+    expect(invocation.argv).toEqual([
+      'add',
+      'repo',
+      'one',
+      'two',
+      '--global',
+      '--no-update-modified',
+      '--ref',
+      'main',
+      '--tag',
+      'a',
+      '--tag',
+      'b'
+    ])
+  })
+
+  test('creates a shell-quoted display command line from argv tokens', () => {
+    const invocation = createCommandInvocation(
+      'open',
+      {
+        argBindings: [{ name: 'title' }],
+        args: objectSchema<{ title: string }>({
+          title: { type: 'string' }
+        }),
+        description: 'Open item',
+        options: objectSchema<{ query?: string }>({
+          query: { type: 'string' }
+        })
+      },
+      {
+        args: {
+          title: "Bob's note"
+        },
+        options: {
+          query: 'hello world'
+        }
+      }
+    )
+
+    expect(invocation.argv).toEqual(['open', "Bob's note", '--query', 'hello world'])
+    expect(invocation.commandLine).toBe("open 'Bob'\\''s note' --query 'hello world'")
   })
 })

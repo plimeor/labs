@@ -1,10 +1,10 @@
 {
-  "description": "Bun-first command declaration runtime for CLI and agent tools",
+  "description": "Bun-first command declaration and argv utilities for CLI and agent tools",
   "homepage": "https://github.com/plimeor/labs/tree/main/packages/command-kit",
   "name": "@plimeor/command-kit",
   "type": "module",
   "types": "./src/index.ts",
-  "version": "0.1.1",
+  "version": "1.0.1",
   "bugs": {
     "url": "https://github.com/plimeor/labs/issues"
   },

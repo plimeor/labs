@@ -23,7 +23,7 @@ export function createCli() {
         description: 'Install skills and update skills.json plus skills.lock.json',
         options: addOptionsSchema,
         run: addCommand,
-        optionAliases: {
+        optionShortcuts: {
           global: 'g'
         }
       }),
@@ -34,7 +34,7 @@ export function createCli() {
         description: 'Remove installed skills and update state files',
         options: removeOptionsSchema,
         run: removeCommand,
-        optionAliases: {
+        optionShortcuts: {
           global: 'g'
         }
       }),
@@ -43,7 +43,7 @@ export function createCli() {
         description: 'Refresh lock entries and reinstall manifest skills',
         options: updateOptionsSchema,
         run: updateCommand,
-        optionAliases: {
+        optionShortcuts: {
           global: 'g'
         }
       }),
@@ -51,7 +51,7 @@ export function createCli() {
         description: 'Converge installed skills to skills.json',
         options: syncOptionsSchema,
         run: syncCommand,
-        optionAliases: {
+        optionShortcuts: {
           global: 'g'
         }
       }),
@@ -60,7 +60,7 @@ export function createCli() {
         description: 'List installed skills from skills.lock.json',
         options: listOptionsSchema,
         run: listCommand,
-        optionAliases: {
+        optionShortcuts: {
           global: 'g'
         }
       }),
@@ -70,7 +70,7 @@ export function createCli() {
         description: 'Convert an old skills lock file into skills.json',
         options: migrateOptionsSchema,
         run: migrateCommand,
-        optionAliases: {
+        optionShortcuts: {
           global: 'g'
         }
       })

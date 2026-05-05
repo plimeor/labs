@@ -1,6 +1,8 @@
 import { CommandErrorCode, CommandRuntimeError } from './errors.js'
 import { hasJsonSchemaType, isJsonSchemaObject, type JsonObjectSchema, type JsonSchemaProperty } from './schema.js'
 
+export type OptionTokenMap = Partial<Record<string, string | string[]>>
+
 export type ArgBindingSpec = {
   name: string
   optional?: boolean
@@ -14,7 +16,8 @@ export type ParsedArgv = {
 
 export type ParseArgvOptions = {
   argBindings: ArgBindingSpec[]
-  optionAliases?: Partial<Record<string, string>>
+  optionAliases?: OptionTokenMap
+  optionShortcuts?: OptionTokenMap
   optionSchema: JsonObjectSchema | undefined
 }
 
@@ -31,11 +34,12 @@ export function parseArgv(argv: string[], options: ParseArgvOptions): ParsedArgv
 
 function parseOptionsAndArgValues(
   argv: string[],
-  { optionAliases = {}, optionSchema }: ParseArgvOptions
+  { optionAliases = {}, optionSchema, optionShortcuts = {} }: ParseArgvOptions
 ): { argValues: string[]; options: Record<string, unknown> } {
   const argValues: string[] = []
   const options: Record<string, unknown> = {}
-  const aliasMap = new Map(Object.entries(optionAliases).map(([name, alias]) => [alias, name]))
+  const longAliasMap = createTokenMap(optionAliases, stripLongPrefix)
+  const shortcutMap = createTokenMap(optionShortcuts, stripShortPrefix)
   let argValuesOnly = false
 
   for (let index = 0; index < argv.length; index++) {
@@ -52,7 +56,7 @@ function parseOptionsAndArgValues(
 
     if (token.startsWith('--') && token.length > 2) {
       const [rawName, inlineValue] = splitLongOption(token)
-      const name = kebabToCamel(rawName)
+      const name = longAliasMap.get(rawName) ?? kebabToCamel(rawName)
       const property = optionProperty(optionSchema, name, rawName)
       const kind = optionKind(property)
       if (kind === 'boolean') {
@@ -66,20 +70,20 @@ function parseOptionsAndArgValues(
     }
 
     if (token.startsWith('-') && token.length > 1) {
-      const alias = token.slice(1)
-      const name = aliasMap.get(alias)
+      const shortcut = token.slice(1)
+      const name = shortcutMap.get(shortcut)
       if (!name) {
-        throw new CommandRuntimeError(CommandErrorCode.UnknownOption, `Unknown option: -${alias}`)
+        throw new CommandRuntimeError(CommandErrorCode.UnknownOption, `Unknown option: -${shortcut}`)
       }
 
-      const property = optionProperty(optionSchema, name, alias)
+      const property = optionProperty(optionSchema, name, shortcut)
       const kind = optionKind(property)
       if (kind === 'boolean') {
         setOption(options, name, true)
         continue
       }
 
-      const value = readOptionValue(argv, ++index, alias)
+      const value = readOptionValue(argv, ++index, shortcut)
       setOption(options, name, value, kind === 'array')
       continue
     }
@@ -125,6 +129,33 @@ function validateArgBindings(bindings: ArgBindingSpec[]): void {
   if (restIndex !== -1 && restIndex !== bindings.length - 1) {
     throw new CommandRuntimeError(CommandErrorCode.InvalidArguments, 'Only the final arg binding may use rest: true')
   }
+}
+
+function createTokenMap(optionTokens: OptionTokenMap, normalize: (token: string) => string): Map<string, string> {
+  const map = new Map<string, string>()
+
+  for (const [name, tokens] of Object.entries(optionTokens)) {
+    if (!tokens) {
+      continue
+    }
+    for (const token of asArray(tokens)) {
+      map.set(normalize(token), name)
+    }
+  }
+
+  return map
+}
+
+function asArray(value: string | string[]): string[] {
+  return Array.isArray(value) ? value : [value]
+}
+
+function stripLongPrefix(value: string): string {
+  return value.startsWith('--') ? value.slice(2) : value
+}
+
+function stripShortPrefix(value: string): string {
+  return value.startsWith('-') ? value.slice(1) : value
 }
 
 function splitLongOption(token: string): [string, string | undefined] {

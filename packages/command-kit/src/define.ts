@@ -1,6 +1,6 @@
 import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec'
 
-import { type ArgBindingSpec, parseArgv } from './argv.js'
+import { type ArgBindingSpec, type OptionTokenMap, parseArgv } from './argv.js'
 import { type CommandError, CommandErrorCode, CommandRuntimeError } from './errors.js'
 import { type CommandResult, normalizeFailure, normalizeSuccess, writeJsonResult } from './output.js'
 import {
@@ -21,8 +21,14 @@ export type CommandArgBinding<ArgsSchema extends StandardSchemaV1> = Omit<ArgBin
   name: SchemaFieldName<ArgsSchema>
 }
 
-export type CommandOptionAliases<OptionsSchema extends StandardSchemaV1> =
-  SchemaFieldName<OptionsSchema> extends never ? never : Partial<Record<SchemaFieldName<OptionsSchema>, string>>
+type CommandOptionTokens<OptionsSchema extends StandardSchemaV1> =
+  SchemaFieldName<OptionsSchema> extends never
+    ? never
+    : Partial<Record<SchemaFieldName<OptionsSchema>, string | string[]>>
+
+export type CommandOptionAliases<OptionsSchema extends StandardSchemaV1> = CommandOptionTokens<OptionsSchema>
+
+export type CommandOptionShortcuts<OptionsSchema extends StandardSchemaV1> = CommandOptionTokens<OptionsSchema>
 
 export type CommandContext<ArgsSchema extends StandardSchemaV1, OptionsSchema extends StandardSchemaV1> = {
   args: StandardSchemaV1.InferOutput<ArgsSchema>
@@ -49,6 +55,7 @@ export type CommandConfig<
   args?: ArgsSchema
   description: string
   optionAliases?: CommandOptionAliases<OptionsSchema>
+  optionShortcuts?: CommandOptionShortcuts<OptionsSchema>
   options?: OptionsSchema
   argBindings?: CommandArgBinding<ArgsSchema>[]
   run: (
@@ -134,7 +141,8 @@ async function serve(cli: CliDefinition, argv: string[]): Promise<void> {
     const parsed = parseArgv(argv.slice(1), {
       argBindings: command.argBindings ?? [],
       optionAliases: command.optionAliases,
-      optionSchema: resolveJsonObjectSchema(getOptionsSchema(command), cli.schemaAdapter)
+      optionSchema: resolveJsonObjectSchema(getOptionsSchema(command), cli.schemaAdapter),
+      optionShortcuts: command.optionShortcuts
     })
     json = isJsonResult(parsed.options, command, cli.schemaAdapter)
     const args = await validateSchema(
@@ -399,9 +407,34 @@ function formatOptions(
 }
 
 function formatOptionName(name: string, command: CommandDefinition<any, any>): string {
-  const longName = `--${camelToKebab(name)}`
-  const alias = command.optionAliases?.[name]
-  return alias ? `${longName}, -${alias}` : longName
+  return [
+    ...formatLongOptionNames(name, command.optionAliases),
+    ...formatShortOptionNames(name, command.optionShortcuts)
+  ].join(', ')
+}
+
+function formatLongOptionNames(name: string, aliases: OptionTokenMap | undefined): string[] {
+  return [...optionTokens(aliases?.[name]).map(token => `--${stripLongPrefix(token)}`), `--${camelToKebab(name)}`]
+}
+
+function formatShortOptionNames(name: string, shortcuts: OptionTokenMap | undefined): string[] {
+  return optionTokens(shortcuts?.[name]).map(token => `-${stripShortPrefix(token)}`)
+}
+
+function optionTokens(value: string | string[] | undefined): string[] {
+  if (!value) {
+    return []
+  }
+
+  return Array.isArray(value) ? value : [value]
+}
+
+function stripLongPrefix(value: string): string {
+  return value.startsWith('--') ? value.slice(2) : value
+}
+
+function stripShortPrefix(value: string): string {
+  return value.startsWith('-') ? value.slice(1) : value
 }
 
 function formatOptionValue(schema: JsonSchemaProperty): string {

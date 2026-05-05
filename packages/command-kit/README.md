@@ -1,6 +1,6 @@
 # @plimeor/command-kit
 
-Bun-first command declaration runtime for CLI and agent tools.
+Bun-first command declaration and argv utility package for CLI and agent tools.
 
 Schemas are accepted through `StandardSchemaV1`. A CLI can optionally provide a
 `schemaAdapter.toStandardJsonSchema` function when help output should include
@@ -16,7 +16,7 @@ bun add @plimeor/command-kit valibot @valibot/to-json-schema
 ## Minimal Usage
 
 ```ts
-import { defineCli, defineCommand, defineGroup } from '@plimeor/command-kit'
+import { createCommandInvocation, defineCli, defineCommand, defineGroup } from '@plimeor/command-kit'
 import { toStandardJsonSchema } from '@valibot/to-json-schema'
 import * as v from 'valibot'
 
@@ -65,6 +65,35 @@ await cli.serve(process.argv.slice(2))
 bun example.ts add repo item-a item-b --json
 bun example.ts projects add web-app
 ```
+
+## Command Invocations
+
+Use `createCommandInvocation` when another tool needs executable argv tokens
+from the same command declaration model:
+
+```ts
+const invocation = createCommandInvocation(
+  'add',
+  {
+    argBindings: [{ name: 'source' }, { name: 'items', rest: true }],
+    args: v.object({
+      items: v.array(v.string()),
+      source: v.string()
+    }),
+    description: 'Add items from a source'
+  },
+  {
+    args: {
+      items: ['item-a', 'item-b'],
+      source: 'repo'
+    }
+  }
+)
+```
+
+`createCommandInvocation` returns executable argv tokens and a display string.
+Use `invocation.argv` for process execution and `invocation.commandLine` only
+for logs or documentation.
 
 When a command declares a boolean `json` option, command-kit writes the JSON
 envelope and suppresses handler stdout/stderr while the handler runs. Commands

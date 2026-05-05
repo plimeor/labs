@@ -2,7 +2,7 @@
 
 ## 目标
 
-`@plimeor/command-kit` 是 Bun-runtime-first 的 command declaration package，用于 repo-local CLI 和 agent tools。
+`@plimeor/command-kit` 是 Bun-first 的 command declaration 和 argv utility package，用于 repo-local CLI 和 agent tools。
 
 第一个 production user 是 `packages/skills`。Runtime 要替换它的 command layer，同时保留业务行为，并补上旧 command stack 表达不了的 positional argument model：
 
@@ -16,6 +16,7 @@ skills add plimeor/agent-skills code-scope-gate writing-blog
 
 - Bun first、TypeScript、ESM。
 - 通过 `defineCommand(name, config)` 声明 commands。
+- 通过 `createCommandInvocation(name, config, input)` 从 command declaration 生成一次具体 CLI 调用。
 - 通过 `defineGroup(name, config)` 声明 one-level command groups。
 - 通过 `defineCli({ ..., schemaAdapter })` 声明 CLI。
 - `args` 和 `options` schemas 使用 `@standard-schema/spec` 的 `StandardSchemaV1`。
@@ -68,13 +69,19 @@ type CommandArgBinding<ArgsSchema extends StandardSchemaV1> = {
 type CommandOptionAliases<OptionsSchema extends StandardSchemaV1> =
   Extract<keyof StandardSchemaV1.InferOutput<OptionsSchema>, string> extends never
     ? never
-    : Partial<Record<Extract<keyof StandardSchemaV1.InferOutput<OptionsSchema>, string>, string>>
+    : Partial<Record<Extract<keyof StandardSchemaV1.InferOutput<OptionsSchema>, string>, string | string[]>>
+
+type CommandOptionShortcuts<OptionsSchema extends StandardSchemaV1> =
+  Extract<keyof StandardSchemaV1.InferOutput<OptionsSchema>, string> extends never
+    ? never
+    : Partial<Record<Extract<keyof StandardSchemaV1.InferOutput<OptionsSchema>, string>, string | string[]>>
 
 type CommandConfig<ArgsSchema extends StandardSchemaV1, OptionsSchema extends StandardSchemaV1> = {
   aliases?: string[]
   args?: ArgsSchema
   description: string
   optionAliases?: CommandOptionAliases<OptionsSchema>
+  optionShortcuts?: CommandOptionShortcuts<OptionsSchema>
   options?: OptionsSchema
   argBindings?: CommandArgBinding<ArgsSchema>[]
   run: (ctx: CommandContext<ArgsSchema, OptionsSchema>) => unknown | Promise<unknown>
@@ -95,11 +102,27 @@ function defineCli(definition: {
   name: string
   schemaAdapter?: SchemaAdapter
 }): CliDefinition & { serve(argv: string[]): Promise<void> }
+
+type CommandInvocationInput<ArgsSchema extends StandardSchemaV1, OptionsSchema extends StandardSchemaV1> = {
+  args?: Partial<StandardSchemaV1.InferOutput<ArgsSchema>>
+  options?: Partial<StandardSchemaV1.InferOutput<OptionsSchema>>
+}
+
+type CommandInvocation = {
+  argv: string[]
+  commandLine: string
+}
+
+function createCommandInvocation<ArgsSchema extends StandardSchemaV1, OptionsSchema extends StandardSchemaV1>(
+  name: string,
+  config: Omit<CommandConfig<ArgsSchema, OptionsSchema>, 'run'>,
+  input?: CommandInvocationInput<ArgsSchema, OptionsSchema>
+): CommandInvocation
 ```
 
 `ctx.args` 和 `ctx.options` 从 `StandardSchemaV1.InferOutput<typeof schema>` 推导。某个 command 不需要 args 或 options 时，调用方省略对应字段，command-kit 将其视为空对象。
 
-`argBindings[].name` 必须是 command args schema output 的 string key。`optionAliases` 的 keys 必须是 command options schema output 的 string keys。例如 `args` 输出 `{ name: string; age: string }` 时，binding names 只允许 `'name' | 'age'`。
+`argBindings[].name` 必须是 command args schema output 的 string key。`optionAliases` 和 `optionShortcuts` 的 keys 必须是 command options schema output 的 string keys。例如 `args` 输出 `{ name: string; age: string }` 时，binding names 只允许 `'name' | 'age'`。
 
 `command-kit` 只校验声明出来的 `args` 和 `options` schemas。跨字段 business rules 放在具体 command implementation 里。
 
@@ -181,13 +204,27 @@ argBindings: [{ name: 'source' }, { name: 'skills', optional: true, rest: true }
 支持形式：
 
 - `--global`、`--dry-run`、`--locked`
-- 通过 `optionAliases` 支持 `-g`
+- 通过 `optionShortcuts` 支持 `-g`
+- 通过 `optionAliases` 支持额外 long option token，例如 `preserveModified` 可以声明 `no-update-modified` 并接受 `--no-update-modified`
 - `--ref main`、`--commit abc123`、`--output path`
 - 当 JSON Schema property 是 array 时，支持 repeatable string options
 
 Unknown options 在 command execution 前失败。Parsed values 继续交给 `options` Standard Schema 校验。
 
 Negated boolean options 不在范围内。
+
+## 命令行生成
+
+`createCommandInvocation(name, config, input)` 使用同一份 command declaration 生成一次具体 CLI 调用：
+
+- `argv` 的第一个 token 是 command `name`。
+- `commandLine` 是 shell-quoted 展示字符串。
+- `argBindings` 决定 `input.args` 如何展开为 positional argv；`rest: true` 的类型契约要求对应值是 array。
+- `input.options` 中的 `true` boolean 生成 flag，`false` 和 `undefined` 省略。
+- array option 生成 repeatable option，例如 `tag: ['a', 'b']` 生成 `--tag a --tag b`。
+- long option token 优先使用 `optionAliases` 的第一个值；否则使用 schema field name 的 kebab-case。
+
+执行层应优先使用 `invocation.argv`，避免 shell quoting 成为隐性行为；`invocation.commandLine` 只用于展示、日志或文档。
 
 ## 输出模型
 
@@ -248,7 +285,7 @@ Runtime tests 只盯 public behavior：
 
 - first positional 加 rest-array binding
 - missing、extra 和 unknown arguments
-- boolean、string、alias 和 repeatable options
+- boolean、string、shortcut、long alias 和 repeatable options
 - args、options 和 request validation 的 Standard Schema validation failures
 - 从 JSON Schema metadata 派生 help descriptions
 - JSON mode suppress command output，并只写 envelope
