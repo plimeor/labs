@@ -5,12 +5,12 @@ import { cancel, isCancel, log, multiselect, tasks } from '@clack/prompts'
 import * as Git from '@plimeor/git-kit'
 import * as v from 'valibot'
 
-import { type InstallResult, installSkill } from '../installer.js'
-import { Lock } from '../lock.js'
-import { Manifest } from '../manifest.js'
-import { type RepositoryRequest, repositoryRequestRef } from '../repository.js'
-import { formatDisplayPath, resolveScope } from '../scope.js'
-import { nonBlankString, optionalBoolean, optionalString, optionalStringArray } from './schemas.js'
+import { type InstallResult, installSkill } from '../installer'
+import { Lock } from '../lock'
+import { Manifest } from '../manifest'
+import { type RepositoryRequest, repositoryRequestRef } from '../repository'
+import { formatDisplayPath, resolveScope } from '../scope'
+import { nonBlankString, optionalBoolean, optionalString, optionalStringArray } from './schemas'
 
 export const addArgsSchema = v.object({
   skills: v.pipe(v.array(nonBlankString()), v.description('Skill names to install from the source repository')),
@@ -18,9 +18,9 @@ export const addArgsSchema = v.object({
 })
 export const addOptionsSchema = v.object({
   all: optionalBoolean('Install every skill from the source repository'),
-  commit: optionalString('Git commit to install from'),
+  commit: optionalString('Git commit to install from '),
   global: optionalBoolean('Use the global skills manifest and lock file'),
-  ref: optionalString('Git ref to install from'),
+  ref: optionalString('Git ref to install from '),
   skill: optionalStringArray('Skill name to install; can be repeated')
 })
 

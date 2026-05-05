@@ -4,7 +4,7 @@ import { defineCli, defineCommand } from '@plimeor/command-kit'
 import { toStandardJsonSchema } from '@valibot/to-json-schema'
 import * as v from 'valibot'
 
-import { BearNoteGateway } from './bear-adapter.js'
+import { BearNoteGateway } from './bear-adapter'
 
 const optionalBoolean = (description: string) => v.optional(v.pipe(v.boolean(), v.description(description)))
 const optionalString = (description: string) => v.optional(v.pipe(v.string(), v.description(description)))

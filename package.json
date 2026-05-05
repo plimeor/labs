@@ -30,7 +30,9 @@
     "format": "biome format --write",
     "link-package": "bun run scripts/link-package.ts",
     "lint": "biome check --write",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test": "bun run --filter './packages/*' test",
+    "test:changed": "bun test --changed --pass-with-no-tests"
   },
   "workspaces": [
     "apps/*",

@@ -1,9 +1,9 @@
 import { readFile } from 'node:fs/promises'
 
-import { isNotFound, isRecord, omitUndefined, optionalText, requireText } from './json.js'
-import type { Manifest } from './manifest.js'
-import type { Scope } from './scope.js'
-import { writeTextFilePreservingFile } from './state-file.js'
+import { isNotFound, isRecord, omitUndefined, optionalText, requireText } from './json'
+import type { Manifest } from './manifest'
+import type { Scope } from './scope'
+import { writeTextFilePreservingFile } from './state-file'
 
 export namespace Lock {
   export type Entry = {

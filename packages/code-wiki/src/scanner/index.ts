@@ -4,11 +4,11 @@ import * as Git from '@plimeor/git-kit'
 import { groupBy, uniq } from 'es-toolkit/array'
 import * as v from 'valibot'
 
-import { Files } from '../files.js'
-import { isRecord } from '../json.js'
-import { markdownList, renderGeneratedPage, slugify } from '../markdown/pages.js'
-import type { ProjectEntry, ProjectMetadata, WikiIndexDocument, WikiIndexPage, WikiPageKind } from '../types.js'
-import { ProjectMetadataSchema, WikiIndexDocumentSchema } from '../types.js'
+import { Files } from '../files'
+import { isRecord } from '../json'
+import { markdownList, renderGeneratedPage, slugify } from '../markdown/pages'
+import type { ProjectEntry, ProjectMetadata, WikiIndexDocument, WikiIndexPage, WikiPageKind } from '../types'
+import { ProjectMetadataSchema, WikiIndexDocumentSchema } from '../types'
 
 export type ScanTarget = {
   branch: string

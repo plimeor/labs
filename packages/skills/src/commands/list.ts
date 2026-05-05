@@ -1,9 +1,9 @@
 import { log } from '@clack/prompts'
 import * as v from 'valibot'
 
-import { Lock } from '../lock.js'
-import { formatDisplayPath, resolveScope } from '../scope.js'
-import { optionalBoolean } from './schemas.js'
+import { Lock } from '../lock'
+import { formatDisplayPath, resolveScope } from '../scope'
+import { optionalBoolean } from './schemas'
 
 export const listOptionsSchema = v.object({
   global: optionalBoolean('Use the global skills manifest and lock file'),

@@ -2,7 +2,7 @@ import type { Stats } from 'node:fs'
 import { mkdir, readdir, readlink, rename, rm } from 'node:fs/promises'
 import { dirname } from 'node:path'
 
-import { stableStringify } from './json.js'
+import { stableStringify } from './json'
 
 export namespace Files {
   export type ErrorKind = 'not_found' | 'not_symbolic_link'

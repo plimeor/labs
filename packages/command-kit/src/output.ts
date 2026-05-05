@@ -1,4 +1,4 @@
-import { type CommandError, normalizeError } from './errors.js'
+import { type CommandError, normalizeError } from './errors'
 
 export type OutputMode = 'json' | 'pretty'
 

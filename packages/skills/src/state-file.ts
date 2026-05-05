@@ -1,7 +1,7 @@
 import { lstat, mkdir, readlink, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, resolve } from 'node:path'
 
-import { isNotFound } from './json.js'
+import { isNotFound } from './json'
 
 export async function writeTextFilePreservingFile(path: string, content: string): Promise<void> {
   await mkdir(await parentDirForWritablePath(path), { recursive: true })

@@ -4,17 +4,17 @@ import { log } from '@clack/prompts'
 import * as Git from '@plimeor/git-kit'
 import * as v from 'valibot'
 
-import { Files } from '../files.js'
-import { readProjects, requireProject } from '../projects.js'
-import { readMetadata, scanRepository } from '../scanner/index.js'
+import { Files } from '../files'
+import { readProjects, requireProject } from '../projects'
+import { readMetadata, scanRepository } from '../scanner/index'
 import {
   codeWikiPath,
   type ProjectEntry,
   ProjectIdSchema,
   type ProjectMetadata,
   WikiIndexDocumentSchema
-} from '../types.js'
-import { resolveWorkspace } from '../workspace.js'
+} from '../types'
+import { resolveWorkspace } from '../workspace'
 
 export const scanArgsSchema = v.object({
   project: v.optional(ProjectIdSchema)

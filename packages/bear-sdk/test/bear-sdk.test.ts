@@ -3,7 +3,7 @@ import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { Bear } from '../src/index.js'
+import { Bear } from '../src/index'
 
 describe('bear-sdk', () => {
   test('falls back to bearcli when bear is unavailable on PATH', async () => {

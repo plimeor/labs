@@ -1,2 +1,2 @@
-export * from './agent-runner/index.js'
-export * from './note-gateway/index.js'
+export * from './agent-runner'
+export * from './note-gateway'

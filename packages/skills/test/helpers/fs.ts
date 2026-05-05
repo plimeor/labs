@@ -2,8 +2,8 @@ import { mkdtemp, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { Lock } from '../../src/lock.js'
-import { Manifest } from '../../src/manifest.js'
+import { Lock } from '../../src/lock'
+import { Manifest } from '../../src/manifest'
 
 export async function tempDir(prefix: string): Promise<string> {
   return await mkdtemp(join(tmpdir(), prefix))

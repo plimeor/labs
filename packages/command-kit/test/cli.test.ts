@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec'
 import type { JSONSchema7, JSONSchema7Definition } from 'json-schema'
 
-import { createArgvTokens, defineCli, defineCommand, defineGroup } from '../src/index.js'
+import { createArgvTokens, defineCli, defineCommand, defineGroup } from '../src/index'
 
 type TestSchema<T extends Record<string, unknown>> = StandardSchemaV1<unknown, T> & StandardJSONSchemaV1<unknown, T>
 

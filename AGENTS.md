@@ -9,6 +9,8 @@
 ## Conventions
 
 - Use English for pull request titles and pull request bodies.
+- In TS/JS source files, relative module specifiers must be extensionless: use `./foo`, not `./foo.js` or `./foo.ts`. This applies to static `import` / `export` and dynamic `import()`. Do not carry over Node ESM emitted-JS conventions unless a package explicitly switches to NodeNext / emitted JS runtime.
+- Concrete file paths outside source module specifiers should keep their real suffixes when they name files, including Markdown documentation and package metadata/scripts such as `src/cli.ts` or `scripts/link-package.ts`.
 
 ## Packages
 

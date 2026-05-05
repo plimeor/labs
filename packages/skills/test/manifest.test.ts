@@ -2,9 +2,9 @@ import { describe, expect, test } from 'bun:test'
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { Manifest } from '../src/manifest.js'
-import type { Scope } from '../src/scope.js'
-import { tempDir } from './helpers/fs.js'
+import { Manifest } from '../src/manifest'
+import type { Scope } from '../src/scope'
+import { tempDir } from './helpers/fs'
 
 describe('manifest parsing', () => {
   test('rejects unsupported schemaVersion and scope', async () => {

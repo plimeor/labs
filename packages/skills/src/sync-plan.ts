@@ -1,7 +1,7 @@
-import type { Lock } from './lock.js'
-import type { Manifest } from './manifest.js'
-import { type RepositoryRequest, repositoryRequestKey } from './repository.js'
-import { formatDisplayPath, type Scope } from './scope.js'
+import type { Lock } from './lock'
+import type { Manifest } from './manifest'
+import { type RepositoryRequest, repositoryRequestKey } from './repository'
+import { formatDisplayPath, type Scope } from './scope'
 
 export namespace SyncPlan {
   export type Document = {

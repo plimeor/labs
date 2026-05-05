@@ -1,8 +1,8 @@
 import { readFile } from 'node:fs/promises'
 
-import { isNotFound, isRecord, omitUndefined, optionalText, requireText } from './json.js'
-import type { Scope as ResolvedScope } from './scope.js'
-import { writeTextFilePreservingFile } from './state-file.js'
+import { isNotFound, isRecord, omitUndefined, optionalText, requireText } from './json'
+import type { Scope as ResolvedScope } from './scope'
+import { writeTextFilePreservingFile } from './state-file'
 
 export namespace Manifest {
   export type Scope = 'global' | 'project'

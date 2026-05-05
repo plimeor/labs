@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 import { join } from 'node:path'
 
-import { listCommand } from '../../src/commands/list.js'
-import { tempDir, writeProjectLock } from '../helpers/fs.js'
-import { withCwd } from '../helpers/process.js'
+import { listCommand } from '../../src/commands/list'
+import { tempDir, writeProjectLock } from '../helpers/fs'
+import { withCwd } from '../helpers/process'
 
 describe('list command', () => {
   test('returns installed skills from the lock file for JSON output', async () => {

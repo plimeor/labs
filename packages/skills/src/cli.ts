@@ -3,12 +3,12 @@
 import { defineCli, defineCommand } from '@plimeor/command-kit'
 import { toStandardJsonSchema } from '@valibot/to-json-schema'
 
-import { addArgsSchema, addCommand, addOptionsSchema } from './commands/add.js'
-import { listCommand, listOptionsSchema } from './commands/list.js'
-import { migrateArgsSchema, migrateCommand, migrateOptionsSchema } from './commands/migrate.js'
-import { removeArgsSchema, removeCommand, removeOptionsSchema } from './commands/remove.js'
-import { syncCommand, syncOptionsSchema } from './commands/sync.js'
-import { updateCommand, updateOptionsSchema } from './commands/update.js'
+import { addArgsSchema, addCommand, addOptionsSchema } from './commands/add'
+import { listCommand, listOptionsSchema } from './commands/list'
+import { migrateArgsSchema, migrateCommand, migrateOptionsSchema } from './commands/migrate'
+import { removeArgsSchema, removeCommand, removeOptionsSchema } from './commands/remove'
+import { syncCommand, syncOptionsSchema } from './commands/sync'
+import { updateCommand, updateOptionsSchema } from './commands/update'
 
 export function createCli() {
   return defineCli({

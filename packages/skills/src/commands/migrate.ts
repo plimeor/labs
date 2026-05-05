@@ -4,11 +4,11 @@ import { dirname, join, resolve } from 'node:path'
 import { log, tasks } from '@clack/prompts'
 import * as v from 'valibot'
 
-import { isNotFound } from '../json.js'
-import { Lock } from '../lock.js'
-import { Manifest } from '../manifest.js'
-import { formatDisplayPath, resolveScope, type Scope } from '../scope.js'
-import { nonBlankString, optionalBoolean, optionalString } from './schemas.js'
+import { isNotFound } from '../json'
+import { Lock } from '../lock'
+import { Manifest } from '../manifest'
+import { formatDisplayPath, resolveScope, type Scope } from '../scope'
+import { nonBlankString, optionalBoolean, optionalString } from './schemas'
 
 export const migrateArgsSchema = v.object({
   input: v.optional(nonBlankString('Legacy lock file path to read'))

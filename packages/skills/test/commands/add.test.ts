@@ -1,11 +1,10 @@
 import { afterEach, describe, expect, mock, test } from 'bun:test'
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { $ } from 'bun'
 
-import { readJson, tempDir, writeGlobalLock } from '../helpers/fs.js'
-import { withHome } from '../helpers/process.js'
+import { readJson, tempDir, writeGlobalLock } from '../helpers/fs'
+import { withHome } from '../helpers/process'
 
 type PromptOption = {
   disabled?: boolean
@@ -44,7 +43,7 @@ mock.module('@clack/prompts', () => ({
   }
 }))
 
-const { addCommand } = await import('../../src/commands/add.js')
+const { addCommand } = await import('../../src/commands/add')
 
 afterEach(() => {
   multiselectCalls.length = 0
@@ -262,5 +261,5 @@ async function fileExists(path: string): Promise<boolean> {
 }
 
 function cliPath(): string {
-  return fileURLToPath(new URL('../../src/cli.ts', import.meta.url))
+  return Bun.resolveSync('../../src/cli', import.meta.dir)
 }

@@ -1,6 +1,6 @@
 import { log } from '@clack/prompts'
 
-import { initSharedWorkspace, workspaceRelative } from '../workspace.js'
+import { initSharedWorkspace, workspaceRelative } from '../workspace'
 
 export type InitCommandContext = {
   options: Record<string, never>

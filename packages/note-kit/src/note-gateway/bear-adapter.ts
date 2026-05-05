@@ -27,7 +27,7 @@ import {
   type UpdateNoteTagsInput,
   UpdateNoteTagsInputSchema,
   uniqueTags
-} from './core.js'
+} from './core'
 
 export class BearNoteGateway extends NoteGateway {
   public override async search(query: NoteSearchQueryInput = {}): Promise<NoteSummary[]> {

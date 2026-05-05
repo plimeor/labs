@@ -1,2 +1,2 @@
-export * from './bear-adapter.js'
-export * from './core.js'
+export * from './bear-adapter'
+export * from './core'

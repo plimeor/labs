@@ -3,10 +3,10 @@ import { mkdir, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { $ } from 'bun'
 
-import { syncCommand } from '../../src/commands/sync.js'
-import { SyncPlan } from '../../src/sync-plan.js'
-import { tempDir, writeGlobalManifest, writeProjectLock, writeProjectManifest } from '../helpers/fs.js'
-import { captureStdout, withCwd, withHome } from '../helpers/process.js'
+import { syncCommand } from '../../src/commands/sync'
+import { SyncPlan } from '../../src/sync-plan'
+import { tempDir, writeGlobalManifest, writeProjectLock, writeProjectManifest } from '../helpers/fs'
+import { captureStdout, withCwd, withHome } from '../helpers/process'
 
 describe('sync planning', () => {
   test('refreshes refs by default and uses locked commits only in locked mode', () => {

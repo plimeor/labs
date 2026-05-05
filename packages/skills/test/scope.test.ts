@@ -2,9 +2,9 @@ import { describe, expect, test } from 'bun:test'
 import { realpath } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { resolveScope } from '../src/scope.js'
-import { tempDir } from './helpers/fs.js'
-import { withCwd, withHome } from './helpers/process.js'
+import { resolveScope } from '../src/scope'
+import { tempDir } from './helpers/fs'
+import { withCwd, withHome } from './helpers/process'
 
 describe('scope planning', () => {
   test('maps global scope to ~/.agents state paths', async () => {

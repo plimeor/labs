@@ -5,13 +5,13 @@ import { log, tasks } from '@clack/prompts'
 import * as Git from '@plimeor/git-kit'
 import * as v from 'valibot'
 
-import { type InstallResult, installSkill, removeInstalledSkill } from '../installer.js'
-import { Lock } from '../lock.js'
-import { Manifest } from '../manifest.js'
-import { type RepositoryRequest, repositoryRequestKey, repositoryRequestRef } from '../repository.js'
-import { formatDisplayPath, resolveScope } from '../scope.js'
-import { SyncPlan } from '../sync-plan.js'
-import { optionalBoolean } from './schemas.js'
+import { type InstallResult, installSkill, removeInstalledSkill } from '../installer'
+import { Lock } from '../lock'
+import { Manifest } from '../manifest'
+import { type RepositoryRequest, repositoryRequestKey, repositoryRequestRef } from '../repository'
+import { formatDisplayPath, resolveScope } from '../scope'
+import { SyncPlan } from '../sync-plan'
+import { optionalBoolean } from './schemas'
 
 export const syncOptionsSchema = v.object({
   dryRun: optionalBoolean('Print the planned changes without writing state'),

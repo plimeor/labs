@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 
-import type { WikiPageAuthority, WikiPageKind } from '../types.js'
+import type { WikiPageAuthority, WikiPageKind } from '../types'
 
 export type PageInput = {
   authority?: WikiPageAuthority

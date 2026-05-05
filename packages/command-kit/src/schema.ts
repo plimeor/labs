@@ -1,7 +1,7 @@
 import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec'
 import type { JSONSchema7, JSONSchema7Definition } from 'json-schema'
 
-import { type CommandErrorCode, CommandRuntimeError } from './errors.js'
+import { type CommandErrorCode, CommandRuntimeError } from './errors'
 
 export type InferSchema<T extends StandardSchemaV1> = StandardSchemaV1.InferOutput<T>
 

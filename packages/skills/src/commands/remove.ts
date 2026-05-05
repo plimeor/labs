@@ -1,11 +1,11 @@
 import { log, tasks } from '@clack/prompts'
 import * as v from 'valibot'
 
-import { removeInstalledSkill } from '../installer.js'
-import { Lock } from '../lock.js'
-import { Manifest } from '../manifest.js'
-import { formatDisplayPath, resolveScope } from '../scope.js'
-import { nonEmptyStringArray, optionalBoolean } from './schemas.js'
+import { removeInstalledSkill } from '../installer'
+import { Lock } from '../lock'
+import { Manifest } from '../manifest'
+import { formatDisplayPath, resolveScope } from '../scope'
+import { nonEmptyStringArray, optionalBoolean } from './schemas'
 
 export const removeArgsSchema = v.object({
   skills: nonEmptyStringArray('Skill names to remove')

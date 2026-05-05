@@ -1,5 +1,5 @@
-import { CommandErrorCode, CommandRuntimeError } from './errors.js'
-import { hasJsonSchemaType, isJsonSchemaObject, type JsonObjectSchema, type JsonSchemaProperty } from './schema.js'
+import { CommandErrorCode, CommandRuntimeError } from './errors'
+import { hasJsonSchemaType, isJsonSchemaObject, type JsonObjectSchema, type JsonSchemaProperty } from './schema'
 
 export type OptionTokenMap = Partial<Record<string, string | string[]>>
 

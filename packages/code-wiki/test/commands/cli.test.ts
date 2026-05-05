@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 
-import { createCli } from '../../src/cli.js'
-import { tempDir } from '../helpers/fs.js'
-import { captureStderr, captureStdout, run, withCwd } from '../helpers/process.js'
+import { createCli } from '../../src/cli'
+import { tempDir } from '../helpers/fs'
+import { captureStderr, captureStdout, run, withCwd } from '../helpers/process'
 
 describe('cli command groups', () => {
   test('prints root and group help through command-kit', async () => {

@@ -1,9 +1,9 @@
 import { log } from '@clack/prompts'
 import * as v from 'valibot'
 
-import { addProject, readProjects, updateProject } from '../projects.js'
-import { ProjectIdSchema } from '../types.js'
-import { resolveWorkspace } from '../workspace.js'
+import { addProject, readProjects, updateProject } from '../projects'
+import { ProjectIdSchema } from '../types'
+import { resolveWorkspace } from '../workspace'
 
 export const projectAddArgsSchema = v.object({
   project: ProjectIdSchema

@@ -3,7 +3,7 @@
 import { defineCli, defineCommand, defineGroup } from '@plimeor/command-kit'
 import { toStandardJsonSchema } from '@valibot/to-json-schema'
 
-import { initCommand } from './commands/init.js'
+import { initCommand } from './commands/init'
 import {
   projectAddArgsSchema,
   projectAddCommand,
@@ -12,8 +12,8 @@ import {
   projectSetArgsSchema,
   projectSetCommand,
   projectSetOptionsSchema
-} from './commands/project.js'
-import { scanArgsSchema, scanCommand } from './commands/scan.js'
+} from './commands/project'
+import { scanArgsSchema, scanCommand } from './commands/scan'
 
 export function createCli() {
   const schemaAdapter = { toStandardJsonSchema }

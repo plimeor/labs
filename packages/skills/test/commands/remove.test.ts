@@ -1,12 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { $ } from 'bun'
 
-import { removeCommand } from '../../src/commands/remove.js'
-import { readJson, tempDir, writeProjectLock, writeProjectManifest } from '../helpers/fs.js'
-import { withCwd } from '../helpers/process.js'
+import { removeCommand } from '../../src/commands/remove'
+import { readJson, tempDir, writeProjectLock, writeProjectManifest } from '../helpers/fs'
+import { withCwd } from '../helpers/process'
 
 describe('remove command', () => {
   test('removes installed directory and deletes manifest plus lock entries', async () => {
@@ -93,7 +92,7 @@ describe('remove command', () => {
 })
 
 function cliPath(): string {
-  return fileURLToPath(new URL('../../src/cli.ts', import.meta.url))
+  return Bun.resolveSync('../../src/cli', import.meta.dir)
 }
 
 function lockedSkill(cwd: string, name: string) {

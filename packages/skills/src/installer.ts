@@ -1,8 +1,8 @@
 import { cp, mkdir, rm, stat } from 'node:fs/promises'
 import { basename, isAbsolute, join, normalize, resolve, sep } from 'node:path'
 
-import { Manifest } from './manifest.js'
-import type { Scope } from './scope.js'
+import { Manifest } from './manifest'
+import type { Scope } from './scope'
 
 export type InstallResult = {
   installPath: string

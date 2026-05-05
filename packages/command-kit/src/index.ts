@@ -9,11 +9,11 @@ export type {
   CommandGroupDefinition,
   CommandOptionAliases,
   CommandOptionShortcuts
-} from './define.js'
-export { defineCli, defineCommand, defineGroup } from './define.js'
-export type { CommandError } from './errors.js'
-export { CommandErrorCode, CommandRuntimeError } from './errors.js'
-export type { ArgvTokenAliases, ArgvTokenBinding, ArgvTokensInput } from './invocation.js'
-export { createArgvTokens } from './invocation.js'
-export type { CommandResult, OutputMode } from './output.js'
-export type { InferSchema, SchemaAdapter } from './schema.js'
+} from './define'
+export { defineCli, defineCommand, defineGroup } from './define'
+export type { CommandError } from './errors'
+export { CommandErrorCode, CommandRuntimeError } from './errors'
+export type { ArgvTokenAliases, ArgvTokenBinding, ArgvTokensInput } from './invocation'
+export { createArgvTokens } from './invocation'
+export type { CommandResult, OutputMode } from './output'
+export type { InferSchema, SchemaAdapter } from './schema'

@@ -1,7 +1,7 @@
 import { homedir } from 'node:os'
 import { join, sep } from 'node:path'
 
-import type { Manifest } from './manifest.js'
+import type { Manifest } from './manifest'
 
 export type Scope = {
   createGlobalDir: boolean

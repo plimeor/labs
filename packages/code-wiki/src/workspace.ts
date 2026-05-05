@@ -3,8 +3,8 @@ import { dirname, join, relative, resolve } from 'node:path'
 import * as Git from '@plimeor/git-kit'
 import * as v from 'valibot'
 
-import { Files } from './files.js'
-import { type CodeWikiConfig, CodeWikiConfigSchema, type ProjectsDocument } from './types.js'
+import { Files } from './files'
+import { type CodeWikiConfig, CodeWikiConfigSchema, type ProjectsDocument } from './types'
 
 export type Workspace = {
   config: CodeWikiConfig

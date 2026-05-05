@@ -1,8 +1,8 @@
 import { log } from '@clack/prompts'
 import * as v from 'valibot'
 
-import { optionalBoolean } from './schemas.js'
-import { syncCommand } from './sync.js'
+import { optionalBoolean } from './schemas'
+import { syncCommand } from './sync'
 
 export const updateOptionsSchema = v.object({
   dryRun: optionalBoolean('Print the planned changes without writing state'),

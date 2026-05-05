@@ -2,8 +2,8 @@ import { describe, expect, test } from 'bun:test'
 import { mkdir, symlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { Files } from '../src/files.js'
-import { tempDir } from './helpers/fs.js'
+import { Files } from '../src/files'
+import { tempDir } from './helpers/fs'
 
 describe('Files', () => {
   test('classifies missing paths consistently', async () => {

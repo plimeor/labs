@@ -495,7 +495,7 @@ export namespace Bear {
 
   export async function renameTagGlobally(options: RenameTagGloballyOptions): Promise<void> {
     const input = v.parse(RenameTagGloballyOptionsSchema, options)
-    const args = ['tags', 'rename', '--from', input.from, '--to', input.to]
+    const args = ['tags', 'rename', '--from ', input.from, '--to', input.to]
     appendBooleanArg(args, '--force', input.force)
     await runSuccess(args, input)
   }

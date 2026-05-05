@@ -2,9 +2,9 @@ import { describe, expect, test } from 'bun:test'
 import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { migrateCommand } from '../../src/commands/migrate.js'
-import { readJson, tempDir } from '../helpers/fs.js'
-import { withCwd, withHome } from '../helpers/process.js'
+import { migrateCommand } from '../../src/commands/migrate'
+import { readJson, tempDir } from '../helpers/fs'
+import { withCwd, withHome } from '../helpers/process'
 
 describe('migrate command', () => {
   test('writes output manifest without mutating the input lock file', async () => {

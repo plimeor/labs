@@ -3,11 +3,11 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { $ } from 'bun'
 
-import { initCommand } from '../../src/commands/init.js'
-import { scanCommand } from '../../src/commands/scan.js'
-import { scanRepository } from '../../src/scanner/index.js'
-import { readJson, readText, tempDir } from '../helpers/fs.js'
-import { run, withCwd } from '../helpers/process.js'
+import { initCommand } from '../../src/commands/init'
+import { scanCommand } from '../../src/commands/scan'
+import { scanRepository } from '../../src/scanner/index'
+import { readJson, readText, tempDir } from '../helpers/fs'
+import { run, withCwd } from '../helpers/process'
 
 describe('scan command', () => {
   test('honors repository gitignore rules when generating wiki content', async () => {

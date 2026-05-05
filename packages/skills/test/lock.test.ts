@@ -2,9 +2,9 @@ import { describe, expect, test } from 'bun:test'
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { Lock } from '../src/lock.js'
-import type { Scope } from '../src/scope.js'
-import { tempDir } from './helpers/fs.js'
+import { Lock } from '../src/lock'
+import type { Scope } from '../src/scope'
+import { tempDir } from './helpers/fs'
 
 describe('lock parsing', () => {
   test('rejects unsupported schema, scope, missing commit, and unsafe names', async () => {

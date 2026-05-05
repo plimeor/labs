@@ -1,8 +1,8 @@
 import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec'
 
-import { type ArgBindingSpec, type OptionTokenMap, parseArgv } from './argv.js'
-import { type CommandError, CommandErrorCode, CommandRuntimeError } from './errors.js'
-import { type CommandResult, normalizeFailure, normalizeSuccess, writeJsonResult } from './output.js'
+import { type ArgBindingSpec, type OptionTokenMap, parseArgv } from './argv'
+import { type CommandError, CommandErrorCode, CommandRuntimeError } from './errors'
+import { type CommandResult, normalizeFailure, normalizeSuccess, writeJsonResult } from './output'
 import {
   hasJsonSchemaType,
   isJsonSchemaObject,
@@ -11,7 +11,7 @@ import {
   resolveJsonObjectSchema,
   type SchemaAdapter,
   validateSchema
-} from './schema.js'
+} from './schema'
 
 type EmptyObject = Record<never, never>
 type EmptyObjectSchema = typeof emptyObjectSchema

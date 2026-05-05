@@ -1,14 +1,14 @@
 import * as v from 'valibot'
 
-import { Files } from './files.js'
+import { Files } from './files'
 import {
   type ProjectEntry,
   ProjectEntrySchema,
   ProjectIdSchema,
   type ProjectsDocument,
   ProjectsDocumentSchema
-} from './types.js'
-import { statePath, type Workspace } from './workspace.js'
+} from './types'
+import { statePath, type Workspace } from './workspace'
 
 export function projectsPath(workspace: Workspace): string {
   return statePath(workspace, 'projects.json')

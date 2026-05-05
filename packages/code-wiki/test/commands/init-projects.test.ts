@@ -2,10 +2,10 @@ import { describe, expect, test } from 'bun:test'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { initCommand } from '../../src/commands/init.js'
-import { projectAddCommand, projectListCommand, projectSetCommand } from '../../src/commands/project.js'
-import { readJson, tempDir } from '../helpers/fs.js'
-import { captureStdout, run, withCwd } from '../helpers/process.js'
+import { initCommand } from '../../src/commands/init'
+import { projectAddCommand, projectListCommand, projectSetCommand } from '../../src/commands/project'
+import { readJson, tempDir } from '../helpers/fs'
+import { captureStdout, run, withCwd } from '../helpers/process'
 
 describe('init and project commands', () => {
   test('initializes a wiki and registers portable projects by repo URL and ref', async () => {
@@ -15,7 +15,7 @@ describe('init and project commands', () => {
     await withCwd(cwd, async () => {
       await initCommand()
       await projectAddCommand({
-        args: { project: 'Web App' },
+        args: { project: 'web-app' },
         options: { ref: 'main', repo: 'git@github.com:org/web-app.git' }
       })
     })
