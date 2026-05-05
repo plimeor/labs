@@ -62,12 +62,12 @@ async function runCodex(prompt: string, outputSchemaFile?: string): Promise<$.Sh
   const stdin = new Response(prompt)
 
   if (outputSchemaFile) {
-    return await $`codex -a never -s danger-full-access exec --json --ephemeral -C ${process.cwd()} --output-schema ${outputSchemaFile} - < ${stdin}`
+    return await $`codex -a never -s danger-full-access exec --json --ephemeral -C ${process.cwd()} --skip-git-repo-check --output-schema ${outputSchemaFile} - < ${stdin}`
       .quiet()
       .nothrow()
   }
 
-  return await $`codex -a never -s danger-full-access exec --json --ephemeral -C ${process.cwd()} - < ${stdin}`
+  return await $`codex -a never -s danger-full-access exec --json --ephemeral -C ${process.cwd()} --skip-git-repo-check - < ${stdin}`
     .quiet()
     .nothrow()
 }
