@@ -73,8 +73,8 @@ Write operations:
 ```ts
 await Bear.create({ title: 'Draft', content: 'Body', tags: ['draft'] })
 await Bear.append({ id: note.id }, { content: '\nMore' })
-await Bear.edit({ id: note.id }, { at: 'TODO', replace: 'DONE' })
-await Bear.write({ id: note.id }, { base: current.hash, content: '# Title\nBody' })
+await Bear.edit({ id: note.id }, { find: 'TODO', replace: 'DONE' })
+await Bear.overwrite({ id: note.id }, { base: current.hash, content: '# Title\nBody' })
 await Bear.trash({ id: note.id })
 await Bear.archive({ id: note.id })
 await Bear.restore({ id: note.id })

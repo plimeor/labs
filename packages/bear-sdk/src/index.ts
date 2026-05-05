@@ -137,12 +137,14 @@ export namespace Bear {
     v.strictObject({
       ...RuntimeOptionsEntries,
       all: v.optional(v.pipe(v.boolean(), v.description('Edit every match instead of only the first match.'))),
-      at: v.pipe(
-        NonEmptyStringSchema,
-        v.description('Text position or match expression where the edit should be applied.')
-      ),
+      find: v.pipe(NonEmptyStringSchema, v.description('Exact text to find before replacing or inserting content.')),
       ignoreCase: v.optional(v.pipe(v.boolean(), v.description('Match the edit target without case sensitivity.'))),
-      insert: v.optional(v.pipe(v.string(), v.description('Content to insert after the matched text.'))),
+      insertAfter: v.optional(
+        v.pipe(v.string(), v.description('Content to insert immediately after the matched text.'))
+      ),
+      insertBefore: v.optional(
+        v.pipe(v.string(), v.description('Content to insert immediately before the matched text.'))
+      ),
       preserveModified: v.optional(
         v.pipe(v.boolean(), v.description("Keep the note's modified timestamp unchanged when Bear supports it."))
       ),
@@ -150,14 +152,13 @@ export namespace Bear {
       word: v.optional(v.pipe(v.boolean(), v.description('Match only whole words when finding the edit target.')))
     }),
     v.check(input => {
-      const hasInsert = input.insert !== undefined
-      const hasReplace = input.replace !== undefined
-      return hasInsert !== hasReplace
-    }, 'Edit requires exactly one of insert or replace')
+      const operations = [input.insertAfter, input.insertBefore, input.replace].filter(value => value !== undefined)
+      return operations.length === 1
+    }, 'Edit requires exactly one of insertAfter, insertBefore, or replace')
   )
   export type EditOptions = v.InferOutput<typeof EditOptionsSchema>
 
-  export const WriteOptionsSchema = v.strictObject({
+  export const OverwriteOptionsSchema = v.strictObject({
     ...RuntimeOptionsEntries,
     base: v.optional(
       v.pipe(NonEmptyStringSchema, v.description('Expected current note hash used as a conflict guard before writing.'))
@@ -167,7 +168,7 @@ export namespace Bear {
       v.pipe(v.boolean(), v.description("Keep the note's modified timestamp unchanged when Bear supports it."))
     )
   })
-  export type WriteOptions = v.InferOutput<typeof WriteOptionsSchema>
+  export type OverwriteOptions = v.InferOutput<typeof OverwriteOptionsSchema>
 
   export const TagsOptionsSchema = v.strictObject({
     ...RuntimeOptionsEntries,
@@ -444,12 +445,15 @@ export namespace Bear {
     const input = v.parse(EditOptionsSchema, options)
     const args = ['edit']
     appendTargetArgs(args, parsedTarget)
-    args.push('--find', input.at)
+    args.push('--find', input.find)
     if (input.replace !== undefined) {
       args.push('--replace', input.replace)
     }
-    if (input.insert !== undefined) {
-      args.push('--insert-after', input.insert)
+    if (input.insertAfter !== undefined) {
+      args.push('--insert-after', input.insertAfter)
+    }
+    if (input.insertBefore !== undefined) {
+      args.push('--insert-before', input.insertBefore)
     }
     appendBooleanArg(args, '--all', input.all)
     appendBooleanArg(args, '--ignore-case', input.ignoreCase)
@@ -458,9 +462,9 @@ export namespace Bear {
     await runSuccess(args, input)
   }
 
-  export async function write(target: NoteTarget, options: WriteOptions): Promise<void> {
+  export async function overwrite(target: NoteTarget, options: OverwriteOptions): Promise<void> {
     const parsedTarget = v.parse(NoteTargetSchema, target)
-    const input = v.parse(WriteOptionsSchema, options)
+    const input = v.parse(OverwriteOptionsSchema, options)
     const args = ['overwrite']
     appendTargetArgs(args, parsedTarget)
     args.push('--content', input.content)

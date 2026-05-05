@@ -107,11 +107,11 @@ exit 1
       await Bear.append({ id: firstId }, { content: `\nAppended ${runId}` })
       await expect(Bear.cat({ id: firstId })).resolves.toContain(`Appended ${runId}`)
 
-      await Bear.edit({ id: firstId }, { at: `TODO item ${runId}`, replace: `DONE item ${runId}` })
+      await Bear.edit({ id: firstId }, { find: `TODO item ${runId}`, replace: `DONE item ${runId}` })
       await expect(Bear.cat({ id: firstId })).resolves.toContain(`DONE item ${runId}`)
 
       const beforeWrite = await Bear.show({ id: firstId })
-      await Bear.write(
+      await Bear.overwrite(
         { id: firstId },
         {
           base: beforeWrite.hash,
