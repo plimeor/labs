@@ -5,24 +5,17 @@ import * as v from 'valibot'
 export namespace Bear {
   const DEFAULT_COMMANDS = ['bear', 'bearcli'] as const
 
-  export const NoteLocationSchema = v.picklist(['notes', 'trash', 'archive', 'all'])
+  export const NoteLocationSchema = v.pipe(
+    v.picklist(['notes', 'trash', 'archive', 'all']),
+    v.description('Bear note collection to read from: active notes, trash, archive, or all locations.')
+  )
   export type NoteLocation = v.InferOutput<typeof NoteLocationSchema>
 
-  export const AppendPositionSchema = v.picklist(['beginning', 'end'])
+  export const AppendPositionSchema = v.pipe(
+    v.picklist(['beginning', 'end']),
+    v.description('Where appended content should be inserted in the note.')
+  )
   export type AppendPosition = v.InferOutput<typeof AppendPositionSchema>
-
-  export const RuntimeOptionsSchema = v.strictObject({
-    command: v.optional(v.pipe(v.string(), v.minLength(1))),
-    cwd: v.optional(v.pipe(v.string(), v.minLength(1))),
-    env: v.optional(v.record(v.string(), v.optional(v.string())))
-  })
-  export type RuntimeOptions = v.InferOutput<typeof RuntimeOptionsSchema>
-
-  export const NoteTargetSchema = v.union([
-    v.strictObject({ id: v.pipe(v.string(), v.minLength(1)) }),
-    v.strictObject({ title: v.pipe(v.string(), v.minLength(1)) })
-  ])
-  export type NoteTarget = v.InferOutput<typeof NoteTargetSchema>
 
   const PositiveIntegerSchema = v.pipe(v.number(), v.integer(), v.minValue(1))
   const NonNegativeIntegerSchema = v.pipe(v.number(), v.integer(), v.minValue(0))
@@ -30,68 +23,100 @@ export namespace Bear {
   const StringArraySchema = v.array(v.string())
   const LockedSchema = v.pipe(
     v.picklist(['no', 'yes']),
+    v.description('Whether Bear reports the note as locked.'),
     v.transform(input => input === 'yes')
   )
 
+  const RuntimeOptionsEntries = {
+    command: v.optional(
+      v.pipe(
+        NonEmptyStringSchema,
+        v.description('Bear CLI executable to run instead of auto-detecting bear or bearcli.')
+      )
+    ),
+    cwd: v.optional(v.pipe(NonEmptyStringSchema, v.description('Working directory used when running the Bear CLI.'))),
+    env: v.optional(
+      v.pipe(
+        v.record(v.string(), v.optional(v.string())),
+        v.description('Environment variables merged into the Bear CLI process environment.')
+      )
+    )
+  }
+
+  export const RuntimeOptionsSchema = v.strictObject({
+    ...RuntimeOptionsEntries
+  })
+  export type RuntimeOptions = v.InferOutput<typeof RuntimeOptionsSchema>
+
+  export const NoteTargetSchema = v.union([
+    v.strictObject({ id: v.pipe(NonEmptyStringSchema, v.description('Stable Bear note identifier to target.')) }),
+    v.strictObject({
+      title: v.pipe(NonEmptyStringSchema, v.description('Bear note title to target when an id is not used.'))
+    })
+  ])
+  export type NoteTarget = v.InferOutput<typeof NoteTargetSchema>
+
   export const ListOptionsSchema = v.strictObject({
-    command: v.optional(NonEmptyStringSchema),
-    cwd: v.optional(NonEmptyStringSchema),
-    env: v.optional(v.record(v.string(), v.optional(v.string()))),
-    limit: v.optional(PositiveIntegerSchema),
+    ...RuntimeOptionsEntries,
+    limit: v.optional(v.pipe(PositiveIntegerSchema, v.description('Maximum number of notes to return.'))),
     location: v.optional(NoteLocationSchema),
-    offset: v.optional(NonNegativeIntegerSchema),
-    sort: v.optional(NonEmptyStringSchema),
-    tag: v.optional(NonEmptyStringSchema)
+    offset: v.optional(
+      v.pipe(NonNegativeIntegerSchema, v.description('Number of notes to skip before returning results.'))
+    ),
+    sort: v.optional(
+      v.pipe(NonEmptyStringSchema, v.description('Bear CLI sort expression for ordering list results.'))
+    ),
+    tag: v.optional(v.pipe(NonEmptyStringSchema, v.description('Restrict listed notes to a single Bear tag.')))
   })
   export type ListOptions = v.InferOutput<typeof ListOptionsSchema>
 
   export const SearchOptionsSchema = v.strictObject({
-    command: v.optional(NonEmptyStringSchema),
-    cwd: v.optional(NonEmptyStringSchema),
-    env: v.optional(v.record(v.string(), v.optional(v.string()))),
-    limit: v.optional(PositiveIntegerSchema),
+    ...RuntimeOptionsEntries,
+    limit: v.optional(v.pipe(PositiveIntegerSchema, v.description('Maximum number of matching notes to return.'))),
     location: v.optional(NoteLocationSchema),
-    offset: v.optional(NonNegativeIntegerSchema),
-    sort: v.optional(NonEmptyStringSchema)
+    offset: v.optional(
+      v.pipe(NonNegativeIntegerSchema, v.description('Number of matching notes to skip before returning results.'))
+    ),
+    sort: v.optional(
+      v.pipe(NonEmptyStringSchema, v.description('Bear CLI sort expression for ordering search results.'))
+    )
   })
   export type SearchOptions = v.InferOutput<typeof SearchOptionsSchema>
 
   export const ShowOptionsSchema = v.strictObject({
-    command: v.optional(NonEmptyStringSchema),
-    cwd: v.optional(NonEmptyStringSchema),
-    env: v.optional(v.record(v.string(), v.optional(v.string()))),
-    includeContent: v.optional(v.boolean())
+    ...RuntimeOptionsEntries,
+    includeContent: v.optional(v.pipe(v.boolean(), v.description('Include the note body in addition to metadata.')))
   })
   export type ShowOptions = v.InferOutput<typeof ShowOptionsSchema>
 
   export const CatOptionsSchema = v.strictObject({
-    command: v.optional(NonEmptyStringSchema),
-    cwd: v.optional(NonEmptyStringSchema),
-    env: v.optional(v.record(v.string(), v.optional(v.string()))),
-    limit: v.optional(PositiveIntegerSchema),
-    offset: v.optional(NonNegativeIntegerSchema)
+    ...RuntimeOptionsEntries,
+    limit: v.optional(v.pipe(PositiveIntegerSchema, v.description('Maximum number of content characters to return.'))),
+    offset: v.optional(
+      v.pipe(NonNegativeIntegerSchema, v.description('Number of content characters to skip before reading.'))
+    )
   })
   export type CatOptions = v.InferOutput<typeof CatOptionsSchema>
 
   export const SearchInOptionsSchema = v.strictObject({
-    command: v.optional(NonEmptyStringSchema),
-    context: v.optional(PositiveIntegerSchema),
-    cwd: v.optional(NonEmptyStringSchema),
-    env: v.optional(v.record(v.string(), v.optional(v.string()))),
-    limit: v.optional(PositiveIntegerSchema),
-    string: NonEmptyStringSchema
+    ...RuntimeOptionsEntries,
+    context: v.optional(
+      v.pipe(PositiveIntegerSchema, v.description('Number of surrounding characters to include around each match.'))
+    ),
+    limit: v.optional(v.pipe(PositiveIntegerSchema, v.description('Maximum number of in-note matches to return.'))),
+    string: v.pipe(NonEmptyStringSchema, v.description('Text to search for inside the target note.'))
   })
   export type SearchInOptions = v.InferOutput<typeof SearchInOptionsSchema>
 
   export const CreateOptionsSchema = v.pipe(
     v.strictObject({
-      command: v.optional(NonEmptyStringSchema),
-      content: v.optional(v.string()),
-      cwd: v.optional(NonEmptyStringSchema),
-      env: v.optional(v.record(v.string(), v.optional(v.string()))),
-      ifNotExists: v.optional(v.boolean()),
-      tags: v.optional(v.array(NonEmptyStringSchema)),
-      title: v.optional(NonEmptyStringSchema)
+      ...RuntimeOptionsEntries,
+      content: v.optional(v.pipe(v.string(), v.description('Initial Markdown content for the new Bear note.'))),
+      ifNotExists: v.optional(
+        v.pipe(v.boolean(), v.description('Create the note only when no note with the requested title already exists.'))
+      ),
+      tags: v.optional(v.pipe(v.array(NonEmptyStringSchema), v.description('Bear tags to assign to the new note.'))),
+      title: v.optional(v.pipe(NonEmptyStringSchema, v.description('Title for the new Bear note.')))
     }),
     v.check(input => Boolean(input.title ?? input.content), 'Create requires a title or content'),
     v.check(input => !input.ifNotExists || Boolean(input.title), 'ifNotExists requires a title')
@@ -99,27 +124,30 @@ export namespace Bear {
   export type CreateOptions = v.InferOutput<typeof CreateOptionsSchema>
 
   export const AppendOptionsSchema = v.strictObject({
-    command: v.optional(NonEmptyStringSchema),
-    content: v.string(),
-    cwd: v.optional(NonEmptyStringSchema),
-    env: v.optional(v.record(v.string(), v.optional(v.string()))),
+    ...RuntimeOptionsEntries,
+    content: v.pipe(v.string(), v.description('Markdown content to append to the target note.')),
     position: v.optional(AppendPositionSchema),
-    preserveModified: v.optional(v.boolean())
+    preserveModified: v.optional(
+      v.pipe(v.boolean(), v.description("Keep the note's modified timestamp unchanged when Bear supports it."))
+    )
   })
   export type AppendOptions = v.InferOutput<typeof AppendOptionsSchema>
 
   export const EditOptionsSchema = v.pipe(
     v.strictObject({
-      all: v.optional(v.boolean()),
-      at: NonEmptyStringSchema,
-      command: v.optional(NonEmptyStringSchema),
-      cwd: v.optional(NonEmptyStringSchema),
-      env: v.optional(v.record(v.string(), v.optional(v.string()))),
-      ignoreCase: v.optional(v.boolean()),
-      insert: v.optional(v.string()),
-      preserveModified: v.optional(v.boolean()),
-      replace: v.optional(v.string()),
-      word: v.optional(v.boolean())
+      ...RuntimeOptionsEntries,
+      all: v.optional(v.pipe(v.boolean(), v.description('Edit every match instead of only the first match.'))),
+      at: v.pipe(
+        NonEmptyStringSchema,
+        v.description('Text position or match expression where the edit should be applied.')
+      ),
+      ignoreCase: v.optional(v.pipe(v.boolean(), v.description('Match the edit target without case sensitivity.'))),
+      insert: v.optional(v.pipe(v.string(), v.description('Content to insert after the matched text.'))),
+      preserveModified: v.optional(
+        v.pipe(v.boolean(), v.description("Keep the note's modified timestamp unchanged when Bear supports it."))
+      ),
+      replace: v.optional(v.pipe(v.string(), v.description('Content that replaces the matched text.'))),
+      word: v.optional(v.pipe(v.boolean(), v.description('Match only whole words when finding the edit target.')))
     }),
     v.check(input => {
       const hasInsert = input.insert !== undefined
@@ -130,79 +158,84 @@ export namespace Bear {
   export type EditOptions = v.InferOutput<typeof EditOptionsSchema>
 
   export const WriteOptionsSchema = v.strictObject({
-    base: v.optional(NonEmptyStringSchema),
-    command: v.optional(NonEmptyStringSchema),
-    content: v.string(),
-    cwd: v.optional(NonEmptyStringSchema),
-    env: v.optional(v.record(v.string(), v.optional(v.string()))),
-    preserveModified: v.optional(v.boolean())
+    ...RuntimeOptionsEntries,
+    base: v.optional(
+      v.pipe(NonEmptyStringSchema, v.description('Expected current note hash used as a conflict guard before writing.'))
+    ),
+    content: v.pipe(v.string(), v.description('Complete Markdown content to write into the target note.')),
+    preserveModified: v.optional(
+      v.pipe(v.boolean(), v.description("Keep the note's modified timestamp unchanged when Bear supports it."))
+    )
   })
   export type WriteOptions = v.InferOutput<typeof WriteOptionsSchema>
 
   export const TagsOptionsSchema = v.strictObject({
-    command: v.optional(NonEmptyStringSchema),
-    cwd: v.optional(NonEmptyStringSchema),
-    env: v.optional(v.record(v.string(), v.optional(v.string()))),
-    tags: v.pipe(v.array(NonEmptyStringSchema), v.minLength(1))
+    ...RuntimeOptionsEntries,
+    tags: v.pipe(
+      v.array(NonEmptyStringSchema),
+      v.minLength(1),
+      v.description('Bear tags to add to or remove from the target note.')
+    )
   })
   export type TagsOptions = v.InferOutput<typeof TagsOptionsSchema>
 
   export const PinsOptionsSchema = v.strictObject({
-    command: v.optional(NonEmptyStringSchema),
-    cwd: v.optional(NonEmptyStringSchema),
-    env: v.optional(v.record(v.string(), v.optional(v.string()))),
-    targets: v.pipe(v.array(NonEmptyStringSchema), v.minLength(1))
+    ...RuntimeOptionsEntries,
+    targets: v.pipe(
+      v.array(NonEmptyStringSchema),
+      v.minLength(1),
+      v.description('Bear pin targets to add to or remove from the note.')
+    )
   })
   export type PinsOptions = v.InferOutput<typeof PinsOptionsSchema>
 
   export const RenameTagGloballyOptionsSchema = v.strictObject({
-    command: v.optional(NonEmptyStringSchema),
-    cwd: v.optional(NonEmptyStringSchema),
-    env: v.optional(v.record(v.string(), v.optional(v.string()))),
-    force: v.optional(v.boolean()),
-    from: NonEmptyStringSchema,
-    to: NonEmptyStringSchema
+    ...RuntimeOptionsEntries,
+    force: v.optional(
+      v.pipe(v.boolean(), v.description('Allow the rename even when Bear would otherwise require confirmation.'))
+    ),
+    from: v.pipe(NonEmptyStringSchema, v.description('Existing Bear tag name to rename.')),
+    to: v.pipe(NonEmptyStringSchema, v.description('Replacement Bear tag name.'))
   })
   export type RenameTagGloballyOptions = v.InferOutput<typeof RenameTagGloballyOptionsSchema>
 
   export const DeleteTagGloballyOptionsSchema = v.strictObject({
-    command: v.optional(NonEmptyStringSchema),
-    cwd: v.optional(NonEmptyStringSchema),
-    env: v.optional(v.record(v.string(), v.optional(v.string()))),
-    name: NonEmptyStringSchema
+    ...RuntimeOptionsEntries,
+    name: v.pipe(NonEmptyStringSchema, v.description('Bear tag name to delete globally.'))
   })
   export type DeleteTagGloballyOptions = v.InferOutput<typeof DeleteTagGloballyOptionsSchema>
 
   export const AttachmentListOptionsSchema = RuntimeOptionsSchema
   export type AttachmentListOptions = RuntimeOptions
 
-  export const AttachmentDataSchema = v.union([v.instance(Uint8Array), v.instance(ArrayBuffer), v.string()])
+  export const AttachmentDataSchema = v.pipe(
+    v.union([v.instance(Uint8Array), v.instance(ArrayBuffer), v.string()]),
+    v.description('Attachment payload passed to the Bear CLI through standard input.')
+  )
   export type AttachmentData = v.InferOutput<typeof AttachmentDataSchema>
 
   export const AttachmentAddOptionsSchema = v.strictObject({
-    command: v.optional(NonEmptyStringSchema),
-    cwd: v.optional(NonEmptyStringSchema),
+    ...RuntimeOptionsEntries,
     data: AttachmentDataSchema,
-    env: v.optional(v.record(v.string(), v.optional(v.string()))),
-    filename: NonEmptyStringSchema,
-    preserveModified: v.optional(v.boolean())
+    filename: v.pipe(NonEmptyStringSchema, v.description('Filename to assign to the attachment in Bear.')),
+    preserveModified: v.optional(
+      v.pipe(v.boolean(), v.description("Keep the note's modified timestamp unchanged when Bear supports it."))
+    )
   })
   export type AttachmentAddOptions = v.InferOutput<typeof AttachmentAddOptionsSchema>
 
   export const AttachmentSaveOptionsSchema = v.strictObject({
-    command: v.optional(NonEmptyStringSchema),
-    cwd: v.optional(NonEmptyStringSchema),
-    env: v.optional(v.record(v.string(), v.optional(v.string()))),
-    filename: NonEmptyStringSchema
+    ...RuntimeOptionsEntries,
+    filename: v.pipe(NonEmptyStringSchema, v.description('Name of the attachment to read from the target note.'))
   })
   export type AttachmentSaveOptions = v.InferOutput<typeof AttachmentSaveOptionsSchema>
 
   export const AttachmentDeleteOptionsSchema = v.strictObject({
-    command: v.optional(NonEmptyStringSchema),
-    cwd: v.optional(NonEmptyStringSchema),
-    env: v.optional(v.record(v.string(), v.optional(v.string()))),
-    filename: NonEmptyStringSchema,
-    preserveModified: v.optional(v.boolean())
+    ...RuntimeOptionsEntries,
+    filename: v.pipe(NonEmptyStringSchema, v.description('Name of the attachment to remove from the target note.')),
+    preserveModified: v.optional(
+      v.pipe(v.boolean(), v.description("Keep the note's modified timestamp unchanged when Bear supports it."))
+    )
   })
   export type AttachmentDeleteOptions = v.InferOutput<typeof AttachmentDeleteOptionsSchema>
 
@@ -210,29 +243,30 @@ export namespace Bear {
   export type MoveOptions = RuntimeOptions
 
   export const OpenOptionsSchema = v.strictObject({
-    command: v.optional(NonEmptyStringSchema),
-    cwd: v.optional(NonEmptyStringSchema),
-    edit: v.optional(v.boolean()),
-    env: v.optional(v.record(v.string(), v.optional(v.string()))),
-    header: v.optional(NonEmptyStringSchema),
-    newWindow: v.optional(v.boolean())
+    ...RuntimeOptionsEntries,
+    edit: v.optional(v.pipe(v.boolean(), v.description('Open the note directly in edit mode.'))),
+    header: v.optional(v.pipe(NonEmptyStringSchema, v.description('Header inside the note to focus after opening.'))),
+    newWindow: v.optional(v.pipe(v.boolean(), v.description('Open the note in a new Bear window.')))
   })
   export type OpenOptions = v.InferOutput<typeof OpenOptionsSchema>
 
   const NoteMetadataEntries = {
-    attachments: StringArraySchema,
-    created: v.string(),
-    done: NonNegativeIntegerSchema,
-    hash: v.string(),
-    id: v.string(),
-    length: NonNegativeIntegerSchema,
-    location: v.picklist(['notes', 'trash', 'archive']),
+    attachments: v.pipe(StringArraySchema, v.description('Attachment filenames currently associated with the note.')),
+    created: v.pipe(v.string(), v.description('Bear-created timestamp reported by the CLI.')),
+    done: v.pipe(NonNegativeIntegerSchema, v.description('Number of completed todo items in the note.')),
+    hash: v.pipe(v.string(), v.description('Bear content hash for optimistic write checks.')),
+    id: v.pipe(v.string(), v.description('Stable Bear note identifier.')),
+    length: v.pipe(NonNegativeIntegerSchema, v.description('Length of the note content reported by Bear.')),
+    location: v.pipe(
+      v.picklist(['notes', 'trash', 'archive']),
+      v.description('Current Bear collection containing the note.')
+    ),
     locked: LockedSchema,
-    modified: v.string(),
-    pins: StringArraySchema,
-    tags: StringArraySchema,
-    title: v.string(),
-    todos: NonNegativeIntegerSchema
+    modified: v.pipe(v.string(), v.description('Bear-modified timestamp reported by the CLI.')),
+    pins: v.pipe(StringArraySchema, v.description('Pin targets currently assigned to the note.')),
+    tags: v.pipe(StringArraySchema, v.description('Bear tags currently assigned to the note.')),
+    title: v.pipe(v.string(), v.description('Current Bear note title.')),
+    todos: v.pipe(NonNegativeIntegerSchema, v.description('Total number of todo items in the note.'))
   }
 
   export const NoteMetadataSchema = v.strictObject(NoteMetadataEntries)
@@ -240,13 +274,15 @@ export namespace Bear {
 
   export const SearchResultSchema = v.strictObject({
     ...NoteMetadataEntries,
-    matches: v.number()
+    matches: v.pipe(v.number(), v.description('Number of query matches reported for this note.'))
   })
   export type SearchResult = v.InferOutput<typeof SearchResultSchema>
 
   export const NoteSchema = v.strictObject({
     ...NoteMetadataEntries,
-    content: v.optional(v.string())
+    content: v.optional(
+      v.pipe(v.string(), v.description('Markdown body included when the caller requests note content.'))
+    )
   })
   export type Note = v.InferOutput<typeof NoteSchema>
 
@@ -254,45 +290,41 @@ export namespace Bear {
   export type CreatedNote = v.InferOutput<typeof CreatedNoteSchema>
 
   export const CatResultSchema = v.strictObject({
-    content: v.string()
+    content: v.pipe(v.string(), v.description('Markdown content returned by Bear cat.'))
   })
 
   export const CountResultSchema = v.strictObject({
-    count: NonNegativeIntegerSchema
+    count: v.pipe(NonNegativeIntegerSchema, v.description('Number of notes or matches reported by Bear.'))
   })
 
   export const SearchInMatchSchema = v.strictObject({
-    offset: NonNegativeIntegerSchema,
-    snippet: v.string()
+    offset: v.pipe(NonNegativeIntegerSchema, v.description('Character offset of the match inside the target note.')),
+    snippet: v.pipe(v.string(), v.description('Matched text with any requested surrounding context.'))
   })
   export type SearchInMatch = v.InferOutput<typeof SearchInMatchSchema>
 
   export const TagEntrySchema = v.strictObject({
-    tag: v.string()
+    tag: v.pipe(v.string(), v.description('Bear tag name.'))
   })
   export type TagEntry = v.InferOutput<typeof TagEntrySchema>
 
   export const PinEntrySchema = v.strictObject({
-    pin: v.string()
+    pin: v.pipe(v.string(), v.description('Bear pin target name.'))
   })
   export type PinEntry = v.InferOutput<typeof PinEntrySchema>
 
   export const AttachmentSchema = v.strictObject({
-    filename: v.string(),
-    size: NonNegativeIntegerSchema
+    filename: v.pipe(v.string(), v.description('Attachment filename stored on the note.')),
+    size: v.pipe(NonNegativeIntegerSchema, v.description('Attachment size in bytes reported by Bear.'))
   })
   export type Attachment = v.InferOutput<typeof AttachmentSchema>
 
   export const SavedAttachmentSchema = v.strictObject({
-    base64: v.string(),
-    filename: v.string(),
-    size: NonNegativeIntegerSchema
+    base64: v.pipe(v.string(), v.description('Base64-encoded attachment content returned by Bear.')),
+    filename: v.pipe(v.string(), v.description('Attachment filename stored on the note.')),
+    size: v.pipe(NonNegativeIntegerSchema, v.description('Attachment size in bytes reported by Bear.'))
   })
   export type SavedAttachment = v.InferOutput<typeof SavedAttachmentSchema>
-
-  export const SuccessSchema = v.strictObject({
-    ok: v.literal(true)
-  })
 
   export async function list(options: ListOptions = {}): Promise<NoteMetadata[]> {
     const input = v.parse(ListOptionsSchema, options)
@@ -412,12 +444,12 @@ export namespace Bear {
     const input = v.parse(EditOptionsSchema, options)
     const args = ['edit']
     appendTargetArgs(args, parsedTarget)
-    args.push('--at', input.at)
+    args.push('--find', input.at)
     if (input.replace !== undefined) {
       args.push('--replace', input.replace)
     }
     if (input.insert !== undefined) {
-      args.push('--insert', input.insert)
+      args.push('--insert-after', input.insert)
     }
     appendBooleanArg(args, '--all', input.all)
     appendBooleanArg(args, '--ignore-case', input.ignoreCase)
@@ -429,7 +461,7 @@ export namespace Bear {
   export async function write(target: NoteTarget, options: WriteOptions): Promise<void> {
     const parsedTarget = v.parse(NoteTargetSchema, target)
     const input = v.parse(WriteOptionsSchema, options)
-    const args = ['write']
+    const args = ['overwrite']
     appendTargetArgs(args, parsedTarget)
     args.push('--content', input.content)
     if (input.base) {
@@ -634,7 +666,7 @@ export namespace Bear {
   }
 
   async function runSuccess(args: string[], options: RuntimeOptions, stdin?: AttachmentData): Promise<void> {
-    await runJson(argsWithJson(args), SuccessSchema, options, stdin)
+    await runText(args, options, stdin)
   }
 
   async function runJson<TSchema extends v.GenericSchema>(
@@ -675,9 +707,5 @@ export namespace Bear {
     }
 
     return DEFAULT_COMMANDS[0]
-  }
-
-  function argsWithJson(args: string[]): string[] {
-    return [...args, '--format', 'json']
   }
 }
