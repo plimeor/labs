@@ -7,7 +7,7 @@ import {
   listWorkspacePackages,
   orderByWorkspaceDependencies,
   type WorkspacePackage
-} from './package-version-bumps.ts'
+} from './package-version-bumps'
 
 class BumpVersionError extends Error {}
 

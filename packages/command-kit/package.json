@@ -4,7 +4,7 @@
   "name": "@plimeor/command-kit",
   "type": "module",
   "types": "./src/index.ts",
-  "version": "1.0.1",
+  "version": "0.1.2",
   "bugs": {
     "url": "https://github.com/plimeor/labs/issues"
   },

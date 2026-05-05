@@ -4,7 +4,7 @@
   "name": "@plimeor/note-kit",
   "type": "module",
   "types": "./src/index.ts",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "bin": {
     "note-gateway": "./src/note-gateway/cli.ts"
   },

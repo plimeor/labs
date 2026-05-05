@@ -2,7 +2,7 @@
   "homepage": "https://github.com/plimeor/labs/tree/main/packages/code-wiki",
   "name": "@plimeor/code-wiki",
   "type": "module",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "bin": {
     "code-wiki": "./src/cli.ts"
   },

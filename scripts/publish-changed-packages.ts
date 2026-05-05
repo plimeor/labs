@@ -8,7 +8,7 @@ import {
   orderByWorkspaceDependencies,
   validateDependentVersionBumps,
   type WorkspacePackage
-} from './package-version-bumps.ts'
+} from './package-version-bumps'
 
 class PublishError extends Error {}
 
@@ -44,7 +44,7 @@ async function publishPackage(pkg: WorkspacePackage, packDir: string) {
 
   const tarballPath = join(packDir, tarballFileName(pkg))
 
-  await $`bun pm pack --destination ${packDir} --filename ${tarballFileName(pkg)}`.cwd(pkg.dir)
+  await $`bun pm pack --filename ${tarballPath}`.cwd(pkg.dir)
   await $`npm publish ${tarballPath}`.cwd(pkg.dir)
 }
 

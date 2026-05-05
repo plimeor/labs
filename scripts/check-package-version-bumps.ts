@@ -4,7 +4,7 @@ import {
   findPackagesWithVersionChanges,
   listWorkspacePackages,
   validateDependentVersionBumps
-} from './package-version-bumps.ts'
+} from './package-version-bumps'
 
 class CheckError extends Error {}
 
