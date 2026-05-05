@@ -2,7 +2,7 @@
   "homepage": "https://github.com/plimeor/labs/tree/main/packages/skills",
   "name": "@plimeor/skills",
   "type": "module",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "bin": {
     "skills": "./src/cli.ts"
   },
