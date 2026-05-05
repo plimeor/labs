@@ -1,0 +1,42 @@
+{
+  "description": "Note gateway and Codex runner utilities for agent workflows",
+  "homepage": "https://github.com/plimeor/labs/tree/main/packages/note-kit",
+  "name": "@plimeor/note-kit",
+  "type": "module",
+  "types": "./src/index.ts",
+  "version": "0.1.0",
+  "bin": {
+    "note-gateway": "./src/note-gateway/cli.ts"
+  },
+  "bugs": {
+    "url": "https://github.com/plimeor/labs/issues"
+  },
+  "dependencies": {
+    "@plimeor/bear-sdk": "workspace:*",
+    "@plimeor/command-kit": "workspace:*",
+    "@valibot/to-json-schema": "catalog:",
+    "valibot": "catalog:"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./agent-runner": "./src/agent-runner/index.ts",
+    "./note-gateway": "./src/note-gateway/index.ts",
+    "./note-gateway/bear-adapter": "./src/note-gateway/bear-adapter.ts",
+    "./note-gateway/cli": "./src/note-gateway/cli.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "directory": "packages/note-kit",
+    "type": "git",
+    "url": "git+https://github.com/plimeor/labs.git"
+  },
+  "scripts": {
+    "lint": "biome check src",
+    "prepack": "bun src/note-gateway/cli.ts --help >/dev/null"
+  }
+}

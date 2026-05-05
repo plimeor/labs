@@ -15,7 +15,7 @@
     },
     "packages/bear-sdk": {
       "name": "@plimeor/bear-sdk",
-      "version": "0.1.2",
+      "version": "0.2.1",
       "dependencies": {
         "valibot": "catalog:",
       },
@@ -46,6 +46,19 @@
     "packages/git-kit": {
       "name": "@plimeor/git-kit",
       "version": "0.1.1",
+    },
+    "packages/note-kit": {
+      "name": "@plimeor/note-kit",
+      "version": "0.1.0",
+      "bin": {
+        "note-gateway": "./src/note-gateway/cli.ts",
+      },
+      "dependencies": {
+        "@plimeor/bear-sdk": "workspace:*",
+        "@plimeor/command-kit": "workspace:*",
+        "@valibot/to-json-schema": "catalog:",
+        "valibot": "catalog:",
+      },
     },
     "packages/skills": {
       "name": "@plimeor/skills",
@@ -104,6 +117,8 @@
     "@plimeor/command-kit": ["@plimeor/command-kit@workspace:packages/command-kit"],
 
     "@plimeor/git-kit": ["@plimeor/git-kit@workspace:packages/git-kit"],
+
+    "@plimeor/note-kit": ["@plimeor/note-kit@workspace:packages/note-kit"],
 
     "@plimeor/skills": ["@plimeor/skills@workspace:packages/skills"],
 

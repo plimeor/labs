@@ -15,6 +15,7 @@ standalone demos can live under `apps/`.
 | [`@plimeor/command-kit`](packages/command-kit) | Bun-first command declaration and argv utility package for repo-local CLI and agent tools. It handles command groups, positional binding, Standard Schema validation, help metadata, JSON result envelopes, and structured command invocation generation. | TypeScript, Bun |
 | [`@plimeor/code-wiki`](packages/code-wiki) | Code wiki CLI. It registers Git projects by portable remote URL and ref, scans managed clones into Markdown wikis with deterministic routing indexes, and writes an `AGENTS.md` reading protocol for external CLIs. | TypeScript, Bun |
 | [`@plimeor/git-kit`](packages/git-kit) | Git repository operations for repo-local CLIs. It normalizes repository inputs, clones and switches refs, fetches remote refs, reads repository status, and applies Git ignore rules. | TypeScript, Bun |
+| [`@plimeor/note-kit`](packages/note-kit) | Note gateway and Codex runner utilities for agent workflows. It provides a scoped Bear-backed note gateway, a readonly `note-gateway` CLI, and a Codex runner that tells agents how to inspect notes through that CLI. | TypeScript, Bun |
 | [`@plimeor/skills`](packages/skills) | Manifest-based CLI for installing and syncing agent skills. It keeps `skills.json` as desired state, `skills.lock.json` as resolved state, and installs skills into global or project-local `.agents/skills` directories. | TypeScript, Bun |
 
 ## Quick Start
