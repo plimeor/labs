@@ -1,13 +1,22 @@
 # Labs
 
-Personal AI tooling and demo monorepo.
+Personal AI tooling and infrastructure monorepo.
 
-This repository is a workspace for small, reusable experiments that are large
-enough to keep under version control but not yet independent products. Current
-work is package-first: shared tools live under `packages/`, while future
-standalone demos can live under `apps/`.
+This repository is a workspace for reusable tools that start as local
+experiments and harden into publishable packages. Current work is package-first:
+shared tools live under `packages/`, while future standalone demos can live
+under `apps/`.
+
+Several packages are already more than prototypes. `@plimeor/skills` is the
+clearest example: it owns a manifest and lock workflow for agent skills, supports
+global and project scopes, provides dry-run and JSON output where those matter,
+and has migration support for earlier lock files. The surrounding packages are
+forming the same toolchain: command routing, Git operations, Bear access, note
+gateway utilities, and code-wiki generation.
 
 ## Packages
+
+All current packages are TypeScript and Bun-first.
 
 | Package | Purpose | Stack |
 | ------- | ------- | ----- |
@@ -17,6 +26,23 @@ standalone demos can live under `apps/`.
 | [`@plimeor/git-kit`](packages/git-kit) | Git repository operations for repo-local CLIs. It normalizes repository inputs, clones and switches refs, fetches remote refs, reads repository status, and applies Git ignore rules. | TypeScript, Bun |
 | [`@plimeor/note-kit`](packages/note-kit) | Note gateway and Codex runner utilities for agent workflows. It provides a scoped Bear-backed note gateway, a readonly `note-gateway` CLI, and a Codex runner that tells agents how to inspect notes through that CLI. | TypeScript, Bun |
 | [`@plimeor/skills`](packages/skills) | Manifest-based CLI for installing and syncing agent skills. It keeps `skills.json` as desired state, `skills.lock.json` as resolved state, and installs skills into global or project-local `.agents/skills` directories. | TypeScript, Bun |
+
+## Package Highlights
+
+- `@plimeor/skills` is the most mature user-facing CLI in the workspace. It is
+  designed around reviewable desired state, reproducible resolved state, scoped
+  installation, dry-run previews, locked sync, source grouping, and migration
+  from the older Vercel Labs lock format.
+- `@plimeor/command-kit` is the shared command layer for Bun CLIs. It keeps
+  command declarations typed through Standard Schema, supports one-level command
+  groups, and generates argv token fragments for agent tools that should avoid
+  shell-string assembly.
+- `@plimeor/git-kit`, `@plimeor/bear-sdk`, and `@plimeor/note-kit` are small
+  infrastructure packages that keep local Git, Bear, and note access behind
+  explicit package boundaries instead of embedding those operations in each CLI.
+- `@plimeor/code-wiki` is the current code-inspection workflow package. It is
+  still intentionally scan-first, but it already produces deterministic Markdown
+  and index files for external agent context.
 
 ## Quick Start
 
