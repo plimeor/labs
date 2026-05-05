@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec'
 import type { JSONSchema7, JSONSchema7Definition } from 'json-schema'
 
-import { createCommandInvocation, defineCli, defineCommand, defineGroup } from '../src/index.js'
+import { createArgvTokens, defineCli, defineCommand, defineGroup } from '../src/index.js'
 
 type TestSchema<T extends Record<string, unknown>> = StandardSchemaV1<unknown, T> & StandardJSONSchemaV1<unknown, T>
 
@@ -653,103 +653,25 @@ describe('command runtime', () => {
   })
 })
 
-describe('command invocation', () => {
-  test('creates an invocation for commands without args or options', () => {
+describe('argv token generation', () => {
+  test('creates argv tokens from positional args, rest args, and options', () => {
     expect(
-      createCommandInvocation('status', {
-        description: 'Show status'
-      })
-    ).toEqual({
-      argv: ['status'],
-      commandLine: 'status'
-    })
-  })
-
-  test('creates executable argv from positional args, rest args, and options', () => {
-    const invocation = createCommandInvocation(
-      'add',
-      {
+      createArgvTokens({
         argBindings: [{ name: 'source' }, { name: 'items', rest: true }],
-        args: objectSchema<{ items: string[]; source: string }>({
-          items: { items: { type: 'string' }, type: 'array' },
-          source: { type: 'string' }
-        }),
-        description: 'Add items',
-        options: objectSchema<{
-          dryRun?: boolean
-          global?: boolean
-          preserveModified?: boolean
-          ref?: string
-          tag?: string[]
-        }>({
-          dryRun: { type: 'boolean' },
-          global: { type: 'boolean' },
-          preserveModified: { type: 'boolean' },
-          ref: { type: 'string' },
-          tag: { items: { type: 'string' }, type: 'array' }
-        }),
-        optionAliases: {
-          preserveModified: 'no-update-modified'
-        },
-        optionShortcuts: {
-          global: 'g'
-        }
-      },
-      {
         args: {
           items: ['one', 'two'],
           source: 'repo'
         },
+        optionAliases: {
+          preserveModified: 'no-update-modified'
+        },
         options: {
           dryRun: false,
-          global: true,
           preserveModified: true,
           ref: 'main',
           tag: ['a', 'b']
         }
-      }
-    )
-
-    expect(invocation.argv).toEqual([
-      'add',
-      'repo',
-      'one',
-      'two',
-      '--global',
-      '--no-update-modified',
-      '--ref',
-      'main',
-      '--tag',
-      'a',
-      '--tag',
-      'b'
-    ])
-  })
-
-  test('creates a shell-quoted display command line from argv tokens', () => {
-    const invocation = createCommandInvocation(
-      'open',
-      {
-        argBindings: [{ name: 'title' }],
-        args: objectSchema<{ title: string }>({
-          title: { type: 'string' }
-        }),
-        description: 'Open item',
-        options: objectSchema<{ query?: string }>({
-          query: { type: 'string' }
-        })
-      },
-      {
-        args: {
-          title: "Bob's note"
-        },
-        options: {
-          query: 'hello world'
-        }
-      }
-    )
-
-    expect(invocation.argv).toEqual(['open', "Bob's note", '--query', 'hello world'])
-    expect(invocation.commandLine).toBe("open 'Bob'\\''s note' --query 'hello world'")
+      })
+    ).toEqual(['repo', 'one', 'two', '--no-update-modified', '--ref', 'main', '--tag', 'a', '--tag', 'b'])
   })
 })

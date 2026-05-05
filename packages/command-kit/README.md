@@ -16,7 +16,7 @@ bun add @plimeor/command-kit valibot @valibot/to-json-schema
 ## Minimal Usage
 
 ```ts
-import { createCommandInvocation, defineCli, defineCommand, defineGroup } from '@plimeor/command-kit'
+import { createArgvTokens, defineCli, defineCommand, defineGroup } from '@plimeor/command-kit'
 import { toStandardJsonSchema } from '@valibot/to-json-schema'
 import * as v from 'valibot'
 
@@ -66,34 +66,30 @@ bun example.ts add repo item-a item-b --json
 bun example.ts projects add web-app
 ```
 
-## Command Invocations
+## Argv Tokens
 
-Use `createCommandInvocation` when another tool needs executable argv tokens
-from the same command declaration model:
+Use `createArgvTokens` when another package only needs argv fragments for a
+CLI:
 
 ```ts
-const invocation = createCommandInvocation(
-  'add',
-  {
-    argBindings: [{ name: 'source' }, { name: 'items', rest: true }],
-    args: v.object({
-      items: v.array(v.string()),
-      source: v.string()
-    }),
-    description: 'Add items from a source'
+const tokens = createArgvTokens({
+  argBindings: [{ name: 'title' }],
+  args: {
+    title: 'Release notes'
   },
-  {
-    args: {
-      items: ['item-a', 'item-b'],
-      source: 'repo'
-    }
+  optionAliases: {
+    ifNotExists: 'if-not-exists'
+  },
+  options: {
+    ifNotExists: true,
+    tag: ['docs', 'release']
   }
-)
+})
 ```
 
-`createCommandInvocation` returns executable argv tokens and a display string.
-Use `invocation.argv` for process execution and `invocation.commandLine` only
-for logs or documentation.
+`createArgvTokens` does not prepend a command name and does not produce a shell
+string. Execution layers should pass argv tokens directly to their process
+runner instead of depending on shell quoting.
 
 When a command declares a boolean `json` option, command-kit writes the JSON
 envelope and suppresses handler stdout/stderr while the handler runs. Commands

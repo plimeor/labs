@@ -16,7 +16,7 @@ skills add plimeor/agent-skills code-scope-gate writing-blog
 
 - Bun first、TypeScript、ESM。
 - 通过 `defineCommand(name, config)` 声明 commands。
-- 通过 `createCommandInvocation(name, config, input)` 从 command declaration 生成一次具体 CLI 调用。
+- 通过 `createArgvTokens(input)` 从 args、arg bindings、options 和 option aliases 生成 argv token fragments。
 - 通过 `defineGroup(name, config)` 声明 one-level command groups。
 - 通过 `defineCli({ ..., schemaAdapter })` 声明 CLI。
 - `args` 和 `options` schemas 使用 `@standard-schema/spec` 的 `StandardSchemaV1`。
@@ -103,21 +103,22 @@ function defineCli(definition: {
   schemaAdapter?: SchemaAdapter
 }): CliDefinition & { serve(argv: string[]): Promise<void> }
 
-type CommandInvocationInput<ArgsSchema extends StandardSchemaV1, OptionsSchema extends StandardSchemaV1> = {
-  args?: Partial<StandardSchemaV1.InferOutput<ArgsSchema>>
-  options?: Partial<StandardSchemaV1.InferOutput<OptionsSchema>>
+type ArgvTokenBinding = {
+  name: string
+  rest?: boolean
 }
 
-type CommandInvocation = {
-  argv: string[]
-  commandLine: string
+type ArgvTokenAliases = Record<string, string | string[]>
+
+type ArgvTokensInput = {
+  args?: Record<string, unknown>
+  argBindings?: ArgvTokenBinding[]
+  optionAliases?: ArgvTokenAliases
+  options?: Record<string, unknown>
 }
 
-function createCommandInvocation<ArgsSchema extends StandardSchemaV1, OptionsSchema extends StandardSchemaV1>(
-  name: string,
-  config: Omit<CommandConfig<ArgsSchema, OptionsSchema>, 'run'>,
-  input?: CommandInvocationInput<ArgsSchema, OptionsSchema>
-): CommandInvocation
+function createArgvTokens(input?: ArgvTokensInput): string[]
+
 ```
 
 `ctx.args` 和 `ctx.options` 从 `StandardSchemaV1.InferOutput<typeof schema>` 推导。某个 command 不需要 args 或 options 时，调用方省略对应字段，command-kit 将其视为空对象。
@@ -215,16 +216,14 @@ Negated boolean options 不在范围内。
 
 ## 命令行生成
 
-`createCommandInvocation(name, config, input)` 使用同一份 command declaration 生成一次具体 CLI 调用：
+`createArgvTokens(input)` 生成不包含 command name 的 argv token fragments：
 
-- `argv` 的第一个 token 是 command `name`。
-- `commandLine` 是 shell-quoted 展示字符串。
-- `argBindings` 决定 `input.args` 如何展开为 positional argv；`rest: true` 的类型契约要求对应值是 array。
-- `input.options` 中的 `true` boolean 生成 flag，`false` 和 `undefined` 省略。
+- `argBindings` 决定 `input.args` 如何展开为 positional argv；`rest: true` 接受 array，并逐个展开。
+- 未提供的 args、`false` options 和 `undefined` options 会被省略。
 - array option 生成 repeatable option，例如 `tag: ['a', 'b']` 生成 `--tag a --tag b`。
-- long option token 优先使用 `optionAliases` 的第一个值；否则使用 schema field name 的 kebab-case。
+- long option token 优先使用 `optionAliases` 的第一个值；否则使用 field name 的 kebab-case。
 
-执行层应优先使用 `invocation.argv`，避免 shell quoting 成为隐性行为；`invocation.commandLine` 只用于展示、日志或文档。
+`createArgvTokens` 不包含 command name，也不生成 shell-quoted 字符串。执行层应直接使用 argv tokens，避免 shell quoting 成为隐性行为。
 
 ## 输出模型
 
