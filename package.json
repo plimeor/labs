@@ -25,6 +25,7 @@
     "*.{js,ts,jsx,tsx,json,css}": "biome check --write --no-errors-on-unmatched"
   },
   "scripts": {
+    "bump": "bun run scripts/bump-version.ts",
     "check": "tsc --noEmit",
     "format": "biome format --write",
     "link-package": "bun run scripts/link-package.ts",

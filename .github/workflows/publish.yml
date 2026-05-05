@@ -1,0 +1,58 @@
+name: Publish Packages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/publish.yml'
+      - 'scripts/package-version-bumps.ts'
+      - 'scripts/publish-changed-packages.ts'
+      - 'packages/*/package.json'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: publish-packages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'plimeor/labs'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Setup npm
+        run: npm install -g 'npm@^11.10.0'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.13'
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Check package version bumps
+        run: bun run scripts/check-package-version-bumps.ts
+        env:
+          PACKAGE_VERSION_BUMP_BASE: ${{ github.event.before }}
+          PACKAGE_VERSION_BUMP_HEAD: ${{ github.sha }}
+
+      - name: Publish changed packages
+        run: bun run scripts/publish-changed-packages.ts
+        env:
+          PUBLISH_BEFORE: ${{ github.event.before }}
+          PUBLISH_CURRENT: ${{ github.sha }}

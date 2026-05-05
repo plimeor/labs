@@ -1,0 +1,42 @@
+name: Check Package Versions
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/check-package-versions.yml'
+      - '.husky/pre-push'
+      - 'scripts/check-package-version-bumps.ts'
+      - 'scripts/package-version-bumps.ts'
+      - 'packages/*/package.json'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/check-package-versions.yml'
+      - '.husky/pre-push'
+      - 'scripts/check-package-version-bumps.ts'
+      - 'scripts/package-version-bumps.ts'
+      - 'packages/*/package.json'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.13'
+
+      - name: Check package version bumps
+        run: bun run scripts/check-package-version-bumps.ts
+        env:
+          PACKAGE_VERSION_BUMP_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          PACKAGE_VERSION_BUMP_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
