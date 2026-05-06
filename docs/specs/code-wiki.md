@@ -1,14 +1,24 @@
 # 规格：Code Wiki
 
 创建日期：2026-04-29
-状态：仅扫描实现
+更新日期：2026-05-06
+状态：本地 scan-only CLI；下一阶段对齐 Google Code Wiki 3.2、3.3、3.4 的生成契约
 来源 idea：`docs/ideas/2026-04-29-code-wiki.md`
+参考调研：`/Users/plimeor/Documents/Codex/2026-05-06/google-code-wiki-spec/google-code-wiki-spec.md`
 
 ## 目标
 
-`code-wiki` 是一个本地 CLI，把 Git repositories 扫描成 durable Markdown wikis。外部 CLIs/agents 只通过生成的 `AGENTS.md` 读取 wiki；本阶段不暴露 runtime-backed query surface。
+`code-wiki` 是一个本地 CLI，把 Git repositories 扫描成 durable Markdown wikis。外部 CLIs/agents 只通过生成的 `AGENTS.md`、`index.json` 和 page files 读取 wiki；本阶段不暴露 runtime-backed query surface。
 
-## 当前范围
+对齐 Google Code Wiki 时，先只采纳这三类能力：
+
+- 3.2 Wiki 自动生成：从源码生成结构化 topic pages，并显示 snapshot commit/date。
+- 3.3 源码链接与证据回跳：wiki 结论必须能回到生成 snapshot 中的文件、目录、符号或行号。
+- 3.4 图示能力：从源码关系生成可读的架构/依赖图，并把图示节点、边和证据绑定。
+
+不采纳 Google public hosted product 的首页、搜索、badge、repo chat、FAQ、opt-out、私有仓库等待名单、web viewer 和 hosted service 行为。这些不是当前 CLI 的公开边界。
+
+## 当前 CLI 范围
 
 当前只承诺这些 commands：
 
@@ -40,19 +50,213 @@ Shared workspace state：
 
 `config.json` 只存 schema version。Runtime selection 不进入 workspace state。Project entries 要保持可移植，不能写入 developer-local checkout paths。`project add` 的 repo URL 不做 GitHub `/tree/<ref>` 等额外规范化；ref 通过通用 `--ref` 传入，由 Git 解析 branch、tag、commit 或 remote ref。
 
+一个 project 可以是独立仓库，也可以是 monorepo 根目录。Monorepo 不拆成多个 `project` 才能工作；workspace 内的 packages/apps/libs 是同一个 project 的内部 ownership units。
+
 ## 扫描流程
 
 Scan 从 `projects.json` 开始。它维护 ignored managed clones，fetch `origin`，把 project ref 解析成 resolved commit，detached checkout 到该 commit，然后把当前 wiki output 写到 `.code-wiki/projects/<project-id>/`。
 
-Skip 条件：commit 和 scan contract inputs 都没变。每次实际扫描会先删除该 project 的旧 generated wiki root，再写入 `AGENTS.md`、`overview.md`、`index.md`、`index.json`、`metadata.json`、`log.md`、`modules/` 和 `contracts/`。
+Skip 条件：commit 和 scan contract inputs 都没变。每次实际扫描会先删除该 project 的旧 generated wiki root，再写入当前 snapshot output。Project ref 变化后，不把 old-ref claims 带到新输出里。
 
-## Wiki 契约
+扫描分四层：
 
-每个 generated wiki root 包含 `AGENTS.md`、`overview.md`、`index.md`、`index.json`、`metadata.json`、`log.md`、`modules/**/*.md`，以及扫描时观测到的 `contracts/*.md`。
+1. 收集 Git-tracked candidate source files，并应用工具内置忽略规则和目标 repo 当前 `.gitignore` 解析出的 ignored path 集合。
+2. 识别 repository shape，包括 entry points、module/package ownership、package metadata、imports、symbols、route-like files、workspace/package-manager metadata 和 shared config。
+3. 生成 wiki pages、index 和 metadata。所有 page facts 都绑定到当前 resolved commit。
+4. 生成 diagram source 和 diagram metadata。图示只能表达已观测到的路径、依赖、package/workspace metadata 或 import 关系。
+
+## 生成输出
+
+每个 generated wiki root 包含：
+
+```text
+AGENTS.md
+overview.md
+index.md
+index.json
+metadata.json
+log.md
+modules/**/*.md
+contracts/*.md
+diagrams/
+  index.md
+  *.mmd
+  *.json
+```
+
+`AGENTS.md` 定义读取顺序：先 `index.json`，再 `overview.md` 和 `index.md`，最后只打开相关 module/contract/diagram pages。它还要要求回答引用 wiki page paths 和 `sourceRefs`；证据不足时说清 missing evidence；code review 时检查真实 diff/source；不要直接编辑 generated wiki files。
 
 Generated Markdown pages 以 frontmatter 开头，记录 stable id、kind、title、authority、source refs、symbols、generated commit、content hash 和 verification time。
 
-`index.json` 要保持 deterministic，并小到足以在打开 page bodies 前先读完。`AGENTS.md` 定义读取顺序：先 `index.json`，再 `overview.md` 和 `index.md`，最后只打开相关 module/contract pages。它还要要求回答引用 wiki page paths 和 `sourceRefs`；证据不足时说清 missing evidence；code review 时检查真实 diff/source；不要直接编辑 generated wiki files。
+`index.json` 要保持 deterministic，并小到足以在打开 page bodies 前先读完。它是 routing index，不是完整知识库。
+
+## 3.2 Wiki 自动生成契约
+
+Wiki 自动生成的目标不是写一篇完整长文，而是产出可路由、可审计、可增量重扫的 topic graph。
+
+每个 snapshot 必须记录：
+
+- `projectId`
+- repository source
+- configured ref
+- resolved commit
+- scanned branch
+- scan time
+- indexed source file count
+- generated artifact schema version
+
+最小 topic tree：
+
+- `overview.md`：project/repo 级事实、source shape、entry points、major subsystems、monorepo workspace summary。
+- `index.md`：human-readable routing index，只帮助选择 page，不重复 page body。
+- `modules/**/*.md`：ownership unit pages，记录 responsibility、entry files、key files、symbols、dependency hints、change points、regression hints。
+- `contracts/*.md`：跨模块或公开边界，例如 package metadata、workspace metadata、route-like files、CLI/API/configuration surface。
+- `diagrams/index.md`：列出 generated diagrams、适用范围、证据质量和读取提示。
+
+每个 page body 至少包含：
+
+- `Responsibility` 或 `Observed Facts`，只写源码和 metadata 能支持的事实。
+- `Source Shape`，说明 indexed files、extensions、source refs。
+- `Key Files` 或 `Entry Files`，用于人工继续查证。
+- `Dependency Hints`，区分 internal/imported package/workspace dependency。
+- `Common Change Points` 和 `Regression Hints`，用于 PRD review 和 code review 的初始定位。
+
+生成内容必须满足：
+
+- 不把 AI 推断写成源码事实。无法从文件、symbols、imports、package metadata 或 module boundaries 观察到的内容，只能标成 `Inference` 或不写。
+- 不硬编码 framework-specific capability signals。Framework 识别只能来自 repo 自身配置、依赖、目录、文件和符号。
+- 不把 old snapshot 的 claim 带到新 snapshot。
+- 不保留手工编辑。用户修正路径以后再设计，不能混在 generated output 里。
+
+## 3.3 源码链接与证据回跳契约
+
+`sourceRefs` 是 generated wiki 的信任边界。每个关键结论都必须能回到当前 snapshot 的 source reference。
+
+Source reference 的逻辑结构：
+
+```ts
+type SourceReference = {
+  projectId: string
+  commit: string
+  path: string
+  startLine?: number
+  endLine?: number
+  symbolName?: string
+  packageId?: string
+  externalUrl?: string
+}
+```
+
+Markdown frontmatter 可以继续用 compact string 表示，但 `index.json` 和 diagram metadata 必须保留足够字段，让 reader 能判断 evidence scope。
+
+引用规则：
+
+- Repo 内路径必须相对 scanned repository root。
+- `commit` 必须是 resolved commit，不允许用 moving branch 作为证据身份。
+- GitHub remote 可以额外渲染 pinned commit URL，例如 `https://github.com/{owner}/{repo}/blob/{commit}/{path}#L{line}`。
+- 非 GitHub remote 仍保留 `projectId + commit + path + line`，不伪造外部链接。
+- 文件级证据用 `path`；行级证据用 `path + startLine/endLine`；目录级证据必须明确是 coarse evidence。
+- Section 级 page content 应列出本 section 主要 `sourceRefs`，避免整页只有一个宽泛 `**/*`。
+- `index.json` 的 page entries 必须暴露 page-level `sourceRefs`，让 external agent 不打开 body 也能判断页面是否相关。
+
+禁止行为：
+
+- 不生成指向 branch head 的源码链接。
+- 不引用 ignored files、dependency directories、build output 或 stale generated pages。
+- 不让 diagram、overview 或 summary 使用比其证据更强的措辞。
+
+## 3.4 图示契约
+
+图示是 source-derived routing aid，不是设计权威。第一阶段使用 durable Mermaid source；以后可派生 SVG，但 Mermaid source 和 metadata 仍是 source of truth。
+
+输出结构：
+
+```text
+diagrams/
+  index.md
+  workspace-graph.mmd
+  workspace-graph.json
+  dependency-graph.mmd
+  dependency-graph.json
+```
+
+每个 diagram metadata：
+
+```ts
+type DiagramDocument = {
+  id: string
+  title: string
+  kind: 'workspace' | 'dependency' | 'module' | 'route' | 'sequence'
+  commit: string
+  mermaidPath: string
+  nodes: Array<{
+    id: string
+    label: string
+    kind: 'repo' | 'workspace' | 'package' | 'app' | 'module' | 'file' | 'symbol' | 'external'
+    sourceRefs: SourceReference[]
+  }>
+  edges: Array<{
+    from: string
+    to: string
+    kind: 'declares' | 'depends_on' | 'imports' | 'exports' | 'routes_to' | 'calls' | 'configures'
+    sourceRefs: SourceReference[]
+  }>
+}
+```
+
+第一阶段图示优先级：
+
+- `workspace-graph`：monorepo root、apps、packages/libs、shared config、workspace dependency 关系。
+- `dependency-graph`：module/package import 和 declared dependency 关系。
+- `module` diagram：单个 ownership unit 内部 key files/symbols 的关系，只有证据足够时生成。
+- `route` 或 `sequence` diagram：只有 route-like files、call/import direction 和 entrypoint 足够明确时生成；否则不生成，避免编造流程。
+
+图示要求：
+
+- Mermaid node/edge 必须能在 companion JSON 中找到 source refs。
+- 图示只表达已观测关系：workspace manifest、package metadata、TypeScript project reference、import/export、route file placement、symbol declaration。
+- 图示必须绑定当前 commit。
+- 大型 repo/monorepo 中，图示必须有规模控制：优先 workspace/package 级图，避免把所有文件画成一个不可读的大图。
+- `diagrams/index.md` 必须说明每张图的 evidence scope、omitted detail 和推荐继续阅读的 module/contract pages。
+
+## Monorepo 支持
+
+Monorepo 是一等场景。Scanner 不能只把 `packages/`、`apps/` 当普通目录列表，也不能把整个仓库压扁成一个 symbol bucket。
+
+Monorepo discovery inputs：
+
+- root `package.json` workspaces
+- `pnpm-workspace.yaml`
+- `turbo.json`
+- `nx.json`
+- `lerna.json`
+- package-level `package.json`
+- package manager lockfile 的 workspace hint
+- `tsconfig.json` project references
+- root-level shared configs，例如 Biome、ESLint、TypeScript、Vite、Next、Bun、Changesets、release scripts
+
+Ownership units：
+
+- `apps/<name>`：deployable or runnable applications。
+- `packages/<name>`：libraries、CLIs、SDKs、shared tooling。
+- `libs/<name>` 或 repo-specific workspace directories：按 workspace manifest 识别。
+- root configuration：workspace-level contracts，不归入任意 package。
+
+Monorepo wiki contract：
+
+- `overview.md` 只总结 workspace shape，不列出所有 package 文件。
+- 每个 app/package 有独立 module page，page id 和 path 必须稳定。
+- root shared configs 进入 `modules/root.md` 或 `contracts/workspace.md`。
+- package metadata、bin、exports、scripts、dependencies、workspace dependency edges 进入 package/module page 或 workspace contract。
+- 跨 package import、workspace dependency 和 project reference 必须作为 dependency hints 或 diagram edges 暴露。
+- 当一个 package 发布 npm artifact 时，spec 应把 package boundary、entrypoint、files whitelist、prepack/publish scripts 当成 contract evidence。
+
+Monorepo acceptance examples：
+
+- React、Kubernetes、Flutter 这类大型 repo 不应该只生成一个 root overview 和一个 `src` page。
+- `packages/code-wiki` 这类 workspace package 应生成独立 package/module topic，且 root `package.json` 和 package `package.json` 的职责不同。
+- `apps/web` 依赖 `packages/ui` 时，dependency graph 应有 app-to-package edge，并引用 app/package manifests 或 imports。
+- Root build/test/lint/release config 影响所有 packages 时，必须出现在 workspace contract 或 root module page。
 
 ## Scanner 规则
 
@@ -64,9 +268,16 @@ Generated Markdown pages 以 frontmatter 开头，记录 stable id、kind、titl
 - 不写入或读取 `versions.json` 或 `versions/<commit>` snapshots。
 - Generated wiki content 是 routing 和 inspection evidence，不是最终 human design judgment。
 
-## 测试
+## 测试与验证
 
 测试覆盖 CLI surface、portable project refs、project ref updates、managed-clone scans、repo `.gitignore` handling、unchanged-scan skips、包含 `AGENTS.md` 的 generated wiki outputs、stale-page cleanup，以及无 version snapshots。
+
+下一阶段补充覆盖：
+
+- 结构化 wiki pages：overview/index/module/contract pages 都带 snapshot commit/date 和 source refs。
+- Source reference：GitHub remote 生成 pinned commit URL；非 GitHub remote 保留 local source identity；line refs 不指向 moving branch。
+- Diagram：生成 Mermaid 和 companion JSON；diagram nodes/edges 都有 source refs；diagram commit 与 page commit 一致。
+- Monorepo：root workspace、apps、packages、shared configs、workspace dependency edges 被分开建模。
 
 验证 commands：
 
@@ -86,3 +297,4 @@ bun run lint
 - Ref changes 会重新生成当前 wiki output，且没有 stale current-ref claims。
 - Generated wiki roots 包含带 external CLI reading protocol 的 `AGENTS.md`。
 - README 和本 spec 都描述 scan-only product boundary。
+- Wiki 自动生成、source evidence 和 diagrams 对齐 Google Code Wiki 3.2、3.3、3.4，但保持本地 CLI、Markdown artifact 和 monorepo-aware 边界。
