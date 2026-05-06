@@ -1,4 +1,4 @@
-import { writeFile } from 'node:fs/promises'
+import { rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { $ } from 'bun'
 
@@ -23,7 +23,7 @@ async function main() {
     await bumpPackageVersion(pkg)
   }
 
-  await $`bun install`.cwd(rootDir)
+  await regenerateLockfile(rootDir)
 
   console.log(
     `Bumped package versions: ${bumpOrder.map(pkg => `${pkg.name}@${nextPatchVersion(pkg.version)}`).join(', ')}`
@@ -69,6 +69,11 @@ async function bumpPackageVersion(pkg: WorkspacePackage) {
   packageJson.version = nextPatchVersion(pkg.version)
 
   await writeFile(path, `${JSON.stringify(packageJson, null, 2)}\n`)
+}
+
+async function regenerateLockfile(rootDir: string) {
+  await rm(join(rootDir, 'bun.lock'), { force: true })
+  await $`bun install`.cwd(rootDir)
 }
 
 function nextPatchVersion(version: string): string {
