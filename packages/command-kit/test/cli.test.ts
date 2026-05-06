@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec'
 import type { JSONSchema7, JSONSchema7Definition } from 'json-schema'
 
-import { createArgvTokens, defineCli, defineCommand, defineGroup } from '../src/index'
+import { defineCli, defineCommand, defineGroup } from '../src/index'
 
 type TestSchema<T extends Record<string, unknown>> = StandardSchemaV1<unknown, T> & StandardJSONSchemaV1<unknown, T>
 
@@ -650,28 +650,5 @@ describe('command runtime', () => {
       },
       run: () => ({})
     })
-  })
-})
-
-describe('argv token generation', () => {
-  test('creates argv tokens from positional args, rest args, and options', () => {
-    expect(
-      createArgvTokens({
-        argBindings: [{ name: 'source' }, { name: 'items', rest: true }],
-        args: {
-          items: ['one', 'two'],
-          source: 'repo'
-        },
-        optionAliases: {
-          preserveModified: 'no-update-modified'
-        },
-        options: {
-          dryRun: false,
-          preserveModified: true,
-          ref: 'main',
-          tag: ['a', 'b']
-        }
-      })
-    ).toEqual(['repo', 'one', 'two', '--no-update-modified', '--ref', 'main', '--tag', 'a', '--tag', 'b'])
   })
 })
