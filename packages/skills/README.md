@@ -8,9 +8,17 @@ into `.agents/skills`.
 
 ## Why This Exists
 
-Agent skills are infrastructure. Once a machine, project, or dotfiles setup
-depends on them, a one-off install command is not enough: the expected skill set
-needs to be reviewable, repeatable, and recoverable.
+Agent skills are infrastructure. I maintain my personal skills repository at
+[plimeor/agent-skills](https://github.com/plimeor/agent-skills) and use it
+across multiple computers. That repository changes often: skills get added,
+rewritten, renamed, and deleted as my workflows change. A one-off install
+command turns every source change into repeated manual work on every machine.
+
+The contract I want is simpler: keep one manifest under dotfile or project
+sync, then run one command to make the local `.agents/skills` directory match
+that manifest. When I subscribe to all skills from a source, `all` is a live
+source subscription, not a snapshot of the skills that existed on the day I ran
+the command.
 
 This package was built to make skills installation manifest-driven:
 
@@ -19,6 +27,8 @@ This package was built to make skills installation manifest-driven:
 - `sync` converges the filesystem back to the manifest.
 - `sync --locked` can reproduce the locked commits instead of refreshing refs.
 - Global and project scopes use the same commands, with different state files.
+- An `all` source follows later source changes, so new skills are installed and
+  removed skills are pruned on the next sync.
 
 It is not a wrapper around the Vercel Labs `skills` CLI. It owns installation,
 removal, listing, sync, update, and migration behavior directly.
@@ -119,6 +129,19 @@ Supported sources:
 - Git URLs: `git@`, `https://`, `http://`
 
 ## Common Workflows
+
+Keep a personal skills repository synced across machines:
+
+```bash
+skills add plimeor/agent-skills --all -g
+skills sync -g --dry-run
+skills sync -g
+```
+
+Put `~/.agents/skills.json` under dotfile sync. On each machine, `skills sync -g`
+installs the current set from the source repository. If the source gains a new
+skill, the next sync installs it. If the source removes a skill, the next sync
+removes the installed copy and lock entry.
 
 Choose global skills from an interactive prompt:
 
