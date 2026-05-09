@@ -58,7 +58,7 @@ export const ProjectsDocumentSchema = v.pipe(
 export type ProjectsDocument = v.InferOutput<typeof ProjectsDocumentSchema>
 
 export const ProjectMetadataSchema = v.strictObject({
-  artifactVersion: v.literal(1),
+  artifactVersion: v.literal(2),
   branch: StoredTextSchema,
   lastScannedAt: StoredTextSchema,
   lastScannedCommit: StoredTextSchema,
@@ -69,13 +69,25 @@ export const ProjectMetadataSchema = v.strictObject({
 })
 export type ProjectMetadata = v.InferOutput<typeof ProjectMetadataSchema>
 
-export const WikiPageKindSchema = v.picklist(['overview', 'index', 'module', 'contract'])
+export const WikiPageKindSchema = v.picklist(['overview', 'index', 'module', 'contract', 'diagram'])
 export type WikiPageKind = v.InferOutput<typeof WikiPageKindSchema>
 
 export const WikiPageAuthoritySchema = v.literal('generated')
 export type WikiPageAuthority = v.InferOutput<typeof WikiPageAuthoritySchema>
 
 const TextArraySchema = v.array(StoredTextSchema)
+
+export const SourceReferenceSchema = v.strictObject({
+  commit: StoredTextSchema,
+  endLine: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1))),
+  externalUrl: v.optional(StoredTextSchema),
+  packageId: v.optional(StoredTextSchema),
+  path: StoredTextSchema,
+  projectId: ProjectIdSchema,
+  startLine: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1))),
+  symbolName: v.optional(StoredTextSchema)
+})
+export type SourceReference = v.InferOutput<typeof SourceReferenceSchema>
 
 export const WikiIndexPageSchema = v.strictObject({
   authority: WikiPageAuthoritySchema,
@@ -84,12 +96,61 @@ export const WikiIndexPageSchema = v.strictObject({
   kind: WikiPageKindSchema,
   lastScannedCommit: StoredTextSchema,
   path: StoredTextSchema,
+  sourceReferences: v.array(SourceReferenceSchema),
   sourceRefs: TextArraySchema,
   summary: StoredTextSchema,
   symbols: TextArraySchema,
   title: StoredTextSchema
 })
 export type WikiIndexPage = v.InferOutput<typeof WikiIndexPageSchema>
+
+export const DiagramNodeKindSchema = v.picklist([
+  'repo',
+  'workspace',
+  'package',
+  'app',
+  'module',
+  'file',
+  'symbol',
+  'external'
+])
+export type DiagramNodeKind = v.InferOutput<typeof DiagramNodeKindSchema>
+
+export const DiagramEdgeKindSchema = v.picklist([
+  'declares',
+  'depends_on',
+  'imports',
+  'exports',
+  'routes_to',
+  'calls',
+  'configures'
+])
+export type DiagramEdgeKind = v.InferOutput<typeof DiagramEdgeKindSchema>
+
+export const DiagramDocumentSchema = v.strictObject({
+  commit: StoredTextSchema,
+  edges: v.array(
+    v.strictObject({
+      from: StoredTextSchema,
+      kind: DiagramEdgeKindSchema,
+      sourceRefs: v.array(SourceReferenceSchema),
+      to: StoredTextSchema
+    })
+  ),
+  id: StoredTextSchema,
+  kind: v.picklist(['workspace', 'dependency', 'module', 'route', 'sequence']),
+  mermaidPath: StoredTextSchema,
+  nodes: v.array(
+    v.strictObject({
+      id: StoredTextSchema,
+      kind: DiagramNodeKindSchema,
+      label: StoredTextSchema,
+      sourceRefs: v.array(SourceReferenceSchema)
+    })
+  ),
+  title: StoredTextSchema
+})
+export type DiagramDocument = v.InferOutput<typeof DiagramDocumentSchema>
 
 export const WikiIndexDocumentSchema = v.pipe(
   v.strictObject({

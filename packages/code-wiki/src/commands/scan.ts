@@ -86,7 +86,7 @@ async function isSharedScanUpToDate(
   }
 
   if (
-    metadata.artifactVersion === 1 &&
+    metadata.artifactVersion === 2 &&
     metadata.lastScannedCommit === latest.HEAD &&
     metadata.branch === latest.ref &&
     metadata.projectId === project.id &&
@@ -106,7 +106,7 @@ async function hasRequiredWikiArtifacts(wikiRoot: string): Promise<boolean> {
     return false
   }
 
-  const requiredDirectories = ['modules', 'contracts']
+  const requiredDirectories = ['modules', 'contracts', 'diagrams']
   const directoryResults = await Promise.all(requiredDirectories.map(path => isDirectory(join(wikiRoot, path))))
   if (!directoryResults.every(Boolean)) {
     return false

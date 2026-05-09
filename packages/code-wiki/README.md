@@ -3,8 +3,9 @@
 Scan Git repositories into durable Markdown wikis for source inspection and external agent context.
 
 `code-wiki` stores state under `.code-wiki/`, keeps managed clones under `.code-wiki/repos/`,
-and generates deterministic Markdown plus JSON indexes. This phase is scan-only: no `query`,
-`context`, `review`, runtime configuration, or runtime selection commands.
+and generates deterministic Markdown, JSON indexes, source references, and Mermaid diagram
+artifacts. This phase is scan-only: no `query`, `context`, `review`, runtime configuration,
+runtime selection commands, hosted service, database, embedding store, dashboard, or web viewer.
 
 ## Installation
 
@@ -56,6 +57,19 @@ are stored as provided and passed to Git without GitHub `/tree/<ref>` URL normal
 ## Generated Wiki
 
 Generated wikis include `AGENTS.md`, `overview.md`, `index.md`, `index.json`, `metadata.json`,
-`log.md`, `modules/`, and `contracts/`. `AGENTS.md` tells external CLIs to read `index.json`,
-`overview.md`, then `index.md`, open only relevant pages, cite page paths and `sourceRefs`, and
-inspect real diff/source before using the wiki for code review.
+`log.md`, `modules/`, `contracts/`, and `diagrams/`.
+
+`index.json` is a deterministic routing index. Its page entries include compact `sourceRefs` plus
+structured `sourceReferences` with the scanned commit, repo-relative path, optional line range,
+symbol name, package id, and pinned GitHub URL when the registered repo is a GitHub remote.
+
+`diagrams/` contains durable Mermaid sources and companion JSON metadata. The default scan emits
+workspace and dependency diagrams, and emits module or route diagrams only when the repository has
+enough source evidence for those views. Diagram nodes and edges carry source references and are
+bound to the same scanned commit as the wiki pages.
+
+`AGENTS.md` tells external CLIs to read `index.json`, `overview.md`, then `index.md`, open only
+relevant pages, cite page paths and `sourceRefs` or `sourceReferences`, and inspect real diff/source
+before using the wiki for code review. Generated pages are source inspection evidence, not final
+human architecture judgment, and should be regenerated with `code-wiki scan` instead of edited by
+hand.

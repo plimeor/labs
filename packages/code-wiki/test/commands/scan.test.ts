@@ -74,6 +74,163 @@ describe('scan command', () => {
     expect(overview).not.toContain('Server Components and Flight')
   })
 
+  test('generates structured source references and diagram artifacts for a snapshot', async () => {
+    const repoRoot = await tempDir('code-wiki-scan-source-refs-repo-')
+    const wikiRoot = await tempDir('code-wiki-scan-source-refs-wiki-')
+    await run('git', ['init', '-q', '-b', 'main'], repoRoot)
+    await mkdir(join(repoRoot, 'src'), { recursive: true })
+    await mkdir(join(repoRoot, 'app', 'api', 'orders'), { recursive: true })
+    await writeFile(
+      join(repoRoot, 'package.json'),
+      JSON.stringify(
+        {
+          files: ['src'],
+          main: './src/index.ts',
+          name: 'source-refs',
+          type: 'module',
+          exports: {
+            '.': './src/index.ts'
+          },
+          scripts: {
+            prepack: 'bun src/index.ts'
+          }
+        },
+        null,
+        2
+      )
+    )
+    await writeFile(join(repoRoot, 'src', 'index.ts'), 'export function VisibleSymbol() { return 1 }\n')
+    await writeFile(
+      join(repoRoot, 'app', 'api', 'orders', 'route.ts'),
+      'import { VisibleSymbol } from "../../../src/index"\nexport function GET() { return VisibleSymbol() }\n'
+    )
+
+    const result = await scanRepository({
+      branch: 'main',
+      commit: 'abcdef123456',
+      ref: 'HEAD',
+      project: {
+        id: 'source-refs',
+        repo: 'https://github.com/acme/source-refs.git'
+      },
+      repoRoot,
+      wikiRoot
+    })
+
+    const index = await readJson(join(wikiRoot, 'index.json'))
+    const srcPage = index.pages.find((page: { id: string }) => page.id === 'module.src')
+    expect(srcPage?.sourceReferences).toContainEqual(
+      expect.objectContaining({
+        commit: 'abcdef123456',
+        externalUrl: 'https://github.com/acme/source-refs/blob/abcdef123456/src/index.ts#L1',
+        path: 'src/index.ts',
+        projectId: 'source-refs',
+        startLine: 1,
+        symbolName: 'VisibleSymbol'
+      })
+    )
+    expect(result.index.pages.map(page => page.id)).toContain('diagram.index')
+    expect(await Bun.file(join(wikiRoot, 'diagrams', 'workspace-graph.mmd')).exists()).toBe(true)
+    expect(await Bun.file(join(wikiRoot, 'diagrams', 'dependency-graph.json')).exists()).toBe(true)
+    expect(await Bun.file(join(wikiRoot, 'diagrams', 'module-src.json')).exists()).toBe(true)
+    expect(await Bun.file(join(wikiRoot, 'diagrams', 'route-graph.json')).exists()).toBe(true)
+    const routeDiagram = await readJson(join(wikiRoot, 'diagrams', 'route-graph.json'))
+    expect(routeDiagram).toMatchObject({
+      commit: 'abcdef123456',
+      kind: 'route'
+    })
+    expect(routeDiagram.edges).toContainEqual(
+      expect.objectContaining({
+        kind: 'routes_to',
+        sourceRefs: [expect.objectContaining({ path: 'app/api/orders/route.ts' })]
+      })
+    )
+    expect(await readText(join(wikiRoot, 'contracts', 'package.md'))).toContain('Exports: .')
+    expect(await readText(join(wikiRoot, 'contracts', 'package.md'))).toContain('Entry points: main: ./src/index.ts')
+  })
+
+  test('models nonstandard monorepo workspaces and tsconfig dependency edges', async () => {
+    const repoRoot = await tempDir('code-wiki-scan-monorepo-repo-')
+    const wikiRoot = await tempDir('code-wiki-scan-monorepo-wiki-')
+    await run('git', ['init', '-q', '-b', 'main'], repoRoot)
+    await mkdir(join(repoRoot, 'tools', 'kit', 'src'), { recursive: true })
+    await mkdir(join(repoRoot, 'services', 'web', 'src'), { recursive: true })
+    await writeFile(join(repoRoot, 'package.json'), JSON.stringify({ name: 'root', private: true }, null, 2))
+    await writeFile(join(repoRoot, 'pnpm-workspace.yaml'), 'packages:\n  - tools/*\n  - services/*\n')
+    await writeFile(join(repoRoot, 'pnpm-lock.yaml'), 'lockfileVersion: 9.0\n')
+    await writeFile(
+      join(repoRoot, 'tools', 'kit', 'package.json'),
+      JSON.stringify(
+        {
+          files: ['src'],
+          name: '@acme/kit',
+          types: './src/index.ts',
+          scripts: {
+            prepack: 'bun src/index.ts'
+          }
+        },
+        null,
+        2
+      )
+    )
+    await writeFile(join(repoRoot, 'tools', 'kit', 'src', 'index.ts'), 'export function KitTool() { return 1 }\n')
+    await writeFile(
+      join(repoRoot, 'services', 'web', 'package.json'),
+      JSON.stringify(
+        {
+          name: 'web',
+          dependencies: {
+            '@acme/kit': 'workspace:*'
+          }
+        },
+        null,
+        2
+      )
+    )
+    await writeFile(
+      join(repoRoot, 'services', 'web', 'tsconfig.json'),
+      JSON.stringify({ references: [{ path: '../../tools/kit' }] }, null, 2)
+    )
+    await writeFile(
+      join(repoRoot, 'services', 'web', 'src', 'index.ts'),
+      'import { KitTool } from "@acme/kit"\nexport function WebApp() { return KitTool() }\n'
+    )
+
+    await scanRepository({
+      branch: 'main',
+      commit: 'monocommit',
+      ref: 'HEAD',
+      project: {
+        id: 'mono',
+        repo: 'git@example.com:org/mono.git'
+      },
+      repoRoot,
+      wikiRoot
+    })
+
+    const index = await readJson(join(wikiRoot, 'index.json'))
+    expect(index.pages.map((page: { id: string }) => page.id)).toEqual(
+      expect.arrayContaining(['contract.workspace', 'module.services.web', 'module.tools.kit'])
+    )
+    const workspace = await readText(join(wikiRoot, 'contracts', 'workspace.md'))
+    expect(workspace).toContain('`pnpm-lock.yaml`')
+    expect(workspace).toContain('services.web -> tools.kit, package edge observed in `services/web/package.json`')
+    expect(workspace).toContain('services.web -> tools.kit, tsconfig edge observed in `services/web/tsconfig.json`')
+    const workspaceDiagram = await readJson(join(wikiRoot, 'diagrams', 'workspace-graph.json'))
+    expect(workspaceDiagram.edges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'depends_on',
+          sourceRefs: [expect.objectContaining({ path: 'services/web/package.json' })]
+        }),
+        expect.objectContaining({
+          kind: 'depends_on',
+          sourceRefs: [expect.objectContaining({ path: 'services/web/tsconfig.json' })]
+        })
+      ])
+    )
+  })
+
   test('uses the configured shared project ref when scanning managed clones', async () => {
     const remote = await tempDir('code-wiki-scan-remote-')
     await run('git', ['init', '-q', '-b', 'main'], remote)
