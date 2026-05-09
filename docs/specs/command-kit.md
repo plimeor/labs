@@ -114,15 +114,15 @@ function defineCli(definition: {
 Command groups 只解决 one-level subcommand routing，例如：
 
 ```bash
-code-wiki project add web-app --repo git@github.com:org/web-app.git
-code-wiki project list
+tool project add web-app --repo git@github.com:org/web-app.git
+tool project list
 ```
 
 Group 只是 declaration：一个 `name`、一个 `description`、一组扁平 `commands`。不支持 aliases、group-level schema adapter 或 nested groups。Group subcommands 使用 parent CLI 的 `schemaAdapter`，help 使用派生 CLI name：
 
 ```text
-Usage: code-wiki project <command>
-Usage: code-wiki project add <project> [options]
+Usage: tool project <command>
+Usage: tool project add <project> [options]
 ```
 
 ## Standard Schema 校验
