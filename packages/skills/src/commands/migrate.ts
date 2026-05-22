@@ -8,6 +8,7 @@ import { isNotFound } from '../json'
 import { Lock } from '../lock'
 import { Manifest } from '../manifest'
 import { formatDisplayPath, resolveScope, type Scope } from '../scope'
+import { promptForPendingAgentTargetLinks } from './agent-targets'
 import { nonBlankString, optionalBoolean, optionalString } from './schemas'
 
 export const migrateArgsSchema = v.object({
@@ -55,6 +56,8 @@ export async function migrateCommand(context: MigrateCommandContext) {
   log.success(
     `Migrated ${migrated.manifest.skills.length} skills to ${formatDisplayPath(outputPath)} and ${formatDisplayPath(lockPath)}`
   )
+  log.info('Run skills sync to refresh installed skills from the migrated manifest.')
+  await promptForPendingAgentTargetLinks(scope)
 }
 
 async function readLegacyLockWithProgress(path: string): Promise<unknown | undefined> {

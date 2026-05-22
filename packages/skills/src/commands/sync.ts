@@ -11,6 +11,7 @@ import { Manifest } from '../manifest'
 import { type RepositoryRequest, repositoryRequestKey, repositoryRequestRef } from '../repository'
 import { formatDisplayPath, resolveScope } from '../scope'
 import { SyncPlan } from '../sync-plan'
+import { promptForPendingAgentTargetLinks } from './agent-targets'
 import { optionalBoolean } from './schemas'
 
 export const syncOptionsSchema = v.object({
@@ -52,7 +53,7 @@ export async function syncCommand(context: SyncCommandContext) {
 
   if (context.options.dryRun) {
     const dryRunPlan = SyncPlan.formatDryRun(syncPlan, scope)
-    process.stdout.write(dryRunPlan)
+    log.message(dryRunPlan.trimEnd(), { withGuide: false })
     return
   }
 
@@ -123,6 +124,7 @@ export async function syncCommand(context: SyncCommandContext) {
   if (plannedChanges > 0) {
     log.success(`Updated ${formatDisplayPath(scope.lockPath)}`)
   }
+  await promptForPendingAgentTargetLinks(scope)
 }
 
 async function resolveAllSources(

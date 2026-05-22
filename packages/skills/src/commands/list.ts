@@ -1,3 +1,5 @@
+import { styleText } from 'node:util'
+
 import { log } from '@clack/prompts'
 import * as v from 'valibot'
 
@@ -34,7 +36,7 @@ export async function listCommand(context: ListCommandContext) {
   }
 
   log.info(`Installed ${entries.length} skills in ${formatScope(scope)}`)
-  process.stdout.write(`${formatList(entries)}\n`)
+  log.message(formatList(entries), { withGuide: false })
   return entries
 }
 
@@ -63,7 +65,7 @@ function formatList(entries: ListEntry[]): string {
   return [...groups.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .flatMap(([source, skills]) => [
-      `\u001B[1m${formatDisplayPath(source)}\u001B[22m`,
+      styleText('bold', formatDisplayPath(source)),
       ...skills.sort((a, b) => a.localeCompare(b)).map(skill => `  - ${skill}`)
     ])
     .join('\n')

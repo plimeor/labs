@@ -1,9 +1,16 @@
 #!/usr/bin/env bun
 
-import { defineCli, defineCommand } from '@plimeor/command-kit'
+import { defineCli, defineCommand, defineGroup } from '@plimeor/command-kit'
 import { toStandardJsonSchema } from '@valibot/to-json-schema'
 
 import { addArgsSchema, addCommand, addOptionsSchema } from './commands/add'
+import {
+  agentsAddArgsSchema,
+  agentsAddCommand,
+  agentsAddOptionsSchema,
+  agentsListCommand,
+  agentsListOptionsSchema
+} from './commands/agents'
 import { listCommand, listOptionsSchema } from './commands/list'
 import { migrateArgsSchema, migrateCommand, migrateOptionsSchema } from './commands/migrate'
 import { removeArgsSchema, removeCommand, removeOptionsSchema } from './commands/remove'
@@ -63,6 +70,29 @@ export function createCli() {
         optionShortcuts: {
           global: 'g'
         }
+      }),
+      defineGroup('agents', {
+        description: 'Inspect supported coding agent targets',
+        commands: [
+          defineCommand('add', {
+            argBindings: [{ name: 'agentId' }],
+            args: agentsAddArgsSchema,
+            description: 'Link a detected agent skills directory to the current scope skills store',
+            options: agentsAddOptionsSchema,
+            run: agentsAddCommand,
+            optionShortcuts: {
+              global: 'g'
+            }
+          }),
+          defineCommand('list', {
+            description: 'List detected agents with target link status',
+            options: agentsListOptionsSchema,
+            run: agentsListCommand,
+            optionShortcuts: {
+              global: 'g'
+            }
+          })
+        ]
       }),
       defineCommand('migrate', {
         argBindings: [{ name: 'input', optional: true }],

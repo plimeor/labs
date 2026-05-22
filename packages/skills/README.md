@@ -81,7 +81,9 @@ skills sync -g
 For global scope, `migrate -g` reads `~/.agents/.skill-lock.json` and writes
 `~/.agents/skills.json` plus `~/.agents/skills.lock.json`. `skills list -g`
 works immediately after migration; `sync -g` then refreshes the installed state
-from the new manifest.
+from the new manifest. After migration, the CLI asks whether to link detected
+agent targets to `~/.agents/skills`; run `skills agents add <agent-id> -g` later
+when you want to link one target explicitly.
 
 For a project-local migration, run from the project root:
 
@@ -109,6 +111,11 @@ skills sync -g --locked
 skills update -g
 skills list -g
 skills list -g --json
+skills agents list -g
+skills agents list -g --json
+skills agents list -g --all
+skills agents add claude-code
+skills agents add claude-code -g
 skills remove code-scope-gate -g
 skills remove code-scope-gate,writing-blog -g
 skills migrate
@@ -194,6 +201,22 @@ skills list -g
 skills list -g --json
 ```
 
+Inspect supported coding agent targets:
+
+```bash
+skills agents list -g
+skills agents list -g --json
+skills agents list -g --all
+skills agents add claude-code
+skills agents add claude-code -g
+skills agents add kiro-cli -g
+```
+
+When an agent marker directory is missing, `skills agents add <agent-id>` asks
+whether to create it before linking the agent-specific skills directory. For
+example, `skills agents add kiro-cli -g` can create `~/.kiro` and then link
+`~/.kiro/skills` to `~/.agents/skills`.
+
 Remove several named skills in one command:
 
 ```bash
@@ -219,21 +242,48 @@ skills remove code-scope-gate,writing-blog -g
 - **Locked sync**: `sync --locked` installs from the lock file's exact commits
   and fails when the lock cannot satisfy the manifest.
 - **Global or project scope**: `-g` targets `~/.agents`; no `-g` targets the
-  current project's `./.agents`.
+  current project's `./.agents`. In project scope, agent detection only uses
+  project-level markers such as `./.claude`, not globally installed agents in
+  the user's home directory.
+- **Canonical store updates**: `add` and `remove` maintain only the current
+  scope canonical `.agents/skills` store plus manifest/lock state.
+  Already-linked agent target directories update automatically because they
+  point at the canonical store; unlinked agent target directories are left
+  alone by those commands.
+- **Prompted agent linking**: after `sync` or `migrate` finishes its own state
+  work, the CLI asks whether to create or replace directory links for detected
+  agent targets that can point at the canonical store. `update` reuses the
+  normal `sync` path and inherits the same prompt.
+- **Agent target diagnostics**: `skills agents list` shows detected agents,
+  target directory, canonical support, and link mode. Add `--all` to show three
+  groups: standard agents, detected non-standard agents, and non-standard
+  agents that are not detected on this machine. In the Detected group, `🔗`
+  marks an agent target already linked to the standard path and `⚪` marks a
+  detected target that is not linked yet.
+- **Explicit agent target linking**: `skills agents add <agent-id>` links the
+  detected agent's current-scope skills directory to the current-scope
+  `.agents/skills` store. Add `-g` to link the detected agent's global skills
+  directory to `~/.agents/skills`. Native agents read the standard path in both
+  project and global scope, so they do not need duplicate links. Existing target
+  directories, files, or symlinks are replaced after path safety checks pass. If
+  the current-scope agent marker directory is missing, the command asks whether
+  to create it before linking.
 - **Dry-run and JSON output**: `sync --dry-run` previews filesystem changes;
-  `list --json` is available for scripts.
+  `list --json` and `agents list --json` are available for scripts.
 
 ## Missing Compared With Vercel Labs Skills
 
 Verified against Vercel Labs `skills@1.5.1` with `npx skills` from a directory
-outside this workspace. This CLI intentionally covers the manifest-and-lock
-workflow first, so the current gaps are mostly around discovery, agent targeting,
-and authoring UX:
+outside this workspace. Agent registry paths and detection rules were refreshed
+against the Vercel Labs `src/agents.ts` registry on 2026-05-22. This CLI
+intentionally covers the manifest-and-lock workflow first, so the current gaps
+are mostly around discovery, explicit agent selection, and authoring UX:
 
-- **Agent targeting**: Vercel supports `--agent <agents>` and `--agent '*'` for
-  installing, listing, removing, and experimental sync across specific agent
-  directories. This CLI installs into one scope-owned `.agents/skills` directory
-  and has no per-agent target model.
+- **Explicit agent selection**: Vercel supports `--agent <agents>` and
+  `--agent '*'` for selecting target agents. This CLI derives agent target
+  directories from the registry and current machine detection only; it supports
+  explicit one-agent linking through `skills agents add <agent-id>`, but does
+  not maintain an enabled-agents list or provide `skills agents remove`.
 - **Open-ended discovery**: Vercel has `skills find [query]` and `skills add
   --list` for searching or listing skills before installation. This CLI can
   prompt within a known source, but it does not search across unknown sources.
@@ -251,8 +301,9 @@ and authoring UX:
   updates the whole manifest and supports comma-separated batch removal only for
   named skills.
 - **Install method choice**: Vercel defaults to agent-directory symlinks and has
-  `--copy` as an option. This CLI always copies skill directories and records
-  `method: "copy"` in the lock file.
+  `--copy` as an option. This CLI always copies skill directories into the
+  canonical store and records `method: "copy"` in the lock file; agent-specific
+  directories are derived directory-level symlinks.
 - **Compatibility binary**: Vercel exposes an extra `add-skill` binary. This
   CLI supports the common command aliases (`a`, `upgrade`, `ls`, `rm`) but only
   publishes the `skills` binary.

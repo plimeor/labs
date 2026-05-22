@@ -1,10 +1,49 @@
-import { describe, expect, test } from 'bun:test'
-import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises'
+import { afterEach, describe, expect, mock, test } from 'bun:test'
+import { lstat, mkdir, readFile, readlink, realpath, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { migrateCommand } from '../../src/commands/migrate'
 import { readJson, tempDir } from '../helpers/fs'
 import { withCwd, withHome } from '../helpers/process'
+
+type PromptTask = {
+  task: () => Promise<string> | string
+}
+
+type ConfirmOptions = {
+  message: string
+}
+
+const confirmCalls: ConfirmOptions[] = []
+let confirmResult: boolean | symbol = false
+
+mock.module('@clack/prompts', () => ({
+  cancel: () => undefined,
+  confirm: async (options: ConfirmOptions) => {
+    confirmCalls.push({ message: options.message })
+    return confirmResult
+  },
+  isCancel: (value: unknown) => typeof value === 'symbol',
+  isTTY: () => true,
+  log: {
+    info: () => undefined,
+    message: () => undefined,
+    step: () => undefined,
+    success: () => undefined
+  },
+  multiselect: async () => [],
+  tasks: async (items: PromptTask[]) => {
+    for (const item of items) {
+      await item.task()
+    }
+  }
+}))
+
+const { migrateCommand } = await import('../../src/commands/migrate')
+
+afterEach(() => {
+  confirmCalls.length = 0
+  confirmResult = false
+})
 
 describe('migrate command', () => {
   test('writes output manifest without mutating the input lock file', async () => {
@@ -110,4 +149,54 @@ describe('migrate command', () => {
       }
     })
   })
+
+  test('prompts before linking detected agent targets after migration', async () => {
+    const cwd = await tempDir('skills-migrate-agent-target-cwd-')
+    const home = await tempDir('skills-migrate-agent-target-home-')
+    await mkdir(join(home, '.agents'), { recursive: true })
+    await mkdir(join(home, '.claude'), { recursive: true })
+    await writeFile(join(home, '.agents', '.skill-lock.json'), JSON.stringify({ skills: { a: { source: 'repo' } } }))
+    confirmResult = true
+
+    await withIsolatedAgentEnv(home, () => withCwd(cwd, () => migrateCommand({ args: {}, options: { global: true } })))
+
+    const target = join(home, '.claude', 'skills')
+    expect(confirmCalls).toEqual([
+      {
+        message: 'Create links for 1 detected agent target to ~/.agents/skills?'
+      }
+    ])
+    expect((await lstat(target)).isSymbolicLink()).toBe(true)
+    expect(await readlink(target)).toBe(join(home, '.agents', 'skills'))
+  })
 })
+
+async function withIsolatedAgentEnv<T>(home: string, callback: () => Promise<T>): Promise<T> {
+  const previous = {
+    CLAUDE_CONFIG_DIR: process.env.CLAUDE_CONFIG_DIR,
+    CODEX_HOME: process.env.CODEX_HOME,
+    VIBE_HOME: process.env.VIBE_HOME,
+    XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME
+  }
+  process.env.XDG_CONFIG_HOME = join(home, '.config')
+  delete process.env.CLAUDE_CONFIG_DIR
+  delete process.env.CODEX_HOME
+  delete process.env.VIBE_HOME
+  try {
+    return await withHome(home, callback)
+  } finally {
+    restoreEnv('CLAUDE_CONFIG_DIR', previous.CLAUDE_CONFIG_DIR)
+    restoreEnv('CODEX_HOME', previous.CODEX_HOME)
+    restoreEnv('VIBE_HOME', previous.VIBE_HOME)
+    restoreEnv('XDG_CONFIG_HOME', previous.XDG_CONFIG_HOME)
+  }
+}
+
+function restoreEnv(name: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[name]
+    return
+  }
+
+  process.env[name] = value
+}
