@@ -71,7 +71,7 @@ Canonical skill store 仍由现有 manifest/lock 工作流拥有；agent-specifi
 - 在 `sync` 和 `migrate` 完成自身 state 工作后，提示用户是否批量 link 当前 scope 下 detected 且可链接的 non-native agent targets；`update` 继承普通 `sync` 的 prompt。
 - 保持 `add` 和 `remove` 只维护 canonical store 和 manifest/lock state，不主动处理 agent targets。
 - 新增充分的 package-level tests；本计划已授权新增测试文件。
-- 更新 `packages/skills/README.md` 的 commands、features、missing-gap 说明；必要时更新 `docs/specs/skills-manifest.md`。
+- 更新 `packages/skills/README.md` 的 commands、features、missing-gap 和 state file contract 说明。
 
 ## 非目标
 
@@ -105,7 +105,7 @@ Canonical skill store 仍由现有 manifest/lock 工作流拥有；agent-specifi
 - `packages/skills/src/sync-plan.ts`
 - `packages/command-kit/src/define.ts`
 - `docs/decisions/2026-04-25-native-skills-manifest-installer.md`
-- `docs/specs/skills-manifest.md`
+- `packages/skills/README.md`
 
 ## 规划迭代
 
@@ -256,7 +256,7 @@ Canonical skill store 仍由现有 manifest/lock 工作流拥有；agent-specifi
 
 7. 更新文档。
 
-   Touchpoints：`packages/skills/README.md`，必要时更新 `docs/specs/skills-manifest.md`。
+   Touchpoints：`packages/skills/README.md`。
 
    Forward evidence：README command examples 包含 `skills agents list` 和 `skills agents add`，并说明 native agents 不需要 symlink，detected 普通 agents 通过显式命令创建 directory-level symlink。
 

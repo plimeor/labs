@@ -8,33 +8,49 @@
 
 ## Conventions
 
-- Use English for pull request titles and pull request bodies.
-- In TS/JS source files, relative module specifiers must be extensionless: use `./foo`, not `./foo.js` or `./foo.ts`. This applies to static `import` / `export` and dynamic `import()`. Do not carry over Node ESM emitted-JS conventions unless a package explicitly switches to NodeNext / emitted JS runtime.
-- Concrete file paths outside source module specifiers should keep their real suffixes when they name files, including Markdown documentation and package metadata/scripts such as `src/cli.ts` or `scripts/link-package.ts`.
+- Use English for pull request titles and bodies.
+- TS/JS relative module specifiers are extensionless: use `./foo`, not
+  `./foo.js` or `./foo.ts`.
+- Concrete file paths keep real suffixes, including docs, package metadata, and
+  scripts such as `src/cli.ts` or `scripts/link-package.ts`.
+- Package READMEs own public CLI, API, schema, file format, and stable behavior
+  docs. `docs/ideas/`, `docs/plans/`, and `docs/decisions/` are historical
+  records, not current interface contracts.
 
 ## Packages
 
-- Every package under `packages/` must extend the root `tsconfig.json`; package-level `tsconfig.json` files should only override package-local inputs, outputs, and emit settings when needed.
-- Every package under `packages/` must define a `prepack` script. If the package publishes generated artifacts, `prepack` must build them; if it publishes source directly, `prepack` must run a package-level smoke check for the published entrypoint or equivalent packaging boundary.
-- New publishable packages under `packages/` must define npm metadata before publishing: `repository` with `directory`, `homepage`, `bugs`, and a `files` whitelist.
-- README files for publishable CLI packages must include installation instructions and a minimal first command using the installed executable.
-- Bun pack/publish rewrites `catalog:` and `workspace:*` dependency specifiers for packed packages; do not flag those protocols as publishability issues by themselves.
+- Packages under `packages/` extend the root `tsconfig.json`, define
+  `prepack`, and keep package-local `tsconfig` overrides narrow.
+- If a package publishes generated artifacts, `prepack` builds them; if it
+  publishes source directly, `prepack` runs a package-level entrypoint smoke
+  check.
+- New publishable packages define `repository.directory`, `homepage`, `bugs`,
+  and a `files` whitelist before publishing.
+- Publishable CLI package READMEs include install instructions and a minimal
+  first command using the installed executable.
+- Bun pack/publish rewrites `catalog:` and `workspace:*`; do not flag those
+  protocols as publishability issues by themselves.
 
 ## Boundaries
 
-- Do not change package boundaries, workspace structure, or generated lockfiles unless the task explicitly requires it.
-- Do not add test cases or run test commands unless the user explicitly asks for them.
+- Do not change package boundaries, workspace structure, or generated lockfiles
+  unless the task explicitly requires it.
+- Do not add test cases or run test commands unless the user explicitly asks
+  for them.
 
 ## Skills
 
-- For project documentation maintenance, use `meta-project-docs-maintenance`: https://github.com/plimeor/agent-skills/blob/main/skills/meta-project-docs-maintenance/SKILL.md
+- For project documentation maintenance, use `meta-project-docs-maintenance`.
 
 ## Patterns
 
-- Avoid nested ternary expressions. Use guard clauses, named helpers, or explicit `if` branches when conditional logic has more than one decision point.
-- For CLI packages and commands, prefer `@plimeor/command-kit` for command routing, argument parsing, help output, and typed handlers.
-- For command args and options, use `StandardSchemaV1` as the `command-kit` contract; package implementations may use Valibot schemas plus `@valibot/to-json-schema` for help metadata.
-- For terminal interaction, prefer `@clack/prompts` for prompts, task progress, and interactive feedback.
-- In Bun applications, use Bun Shell (`$` from `bun`) by default for script execution; reach for Node `child_process`, `execa`, or similar wrappers only when Bun Shell cannot express the required behavior.
-- Use `es-toolkit` as the default general-purpose utility library before adding one-off helpers or alternative utility dependencies.
-- Use `effect` for genuinely complex logic or workflows that need explicit control over errors, retries, concurrency, resource management, or dependency flow; keep simple linear code plain.
+- Avoid nested ternaries; use guard clauses, named helpers, or explicit `if`
+  branches for multi-step conditions.
+- For CLI command routing, prefer `@plimeor/command-kit`.
+- Command args/options use `StandardSchemaV1`; package implementations may use
+  Valibot plus `@valibot/to-json-schema` for help metadata.
+- Prefer `@clack/prompts` for terminal prompts and progress.
+- In Bun apps, use Bun Shell (`$` from `bun`) by default for subprocess work.
+- Prefer `es-toolkit` for general utilities. Use `effect` only for complex
+  workflows needing explicit errors, retries, concurrency, resources, or
+  dependency flow.

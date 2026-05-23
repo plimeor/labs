@@ -59,27 +59,38 @@ bun run --filter @plimeor/skills build
 bun run --filter @plimeor/skills lint
 ```
 
+## Contributing
+
+This workspace is package-first: keep public contracts in package READMEs,
+change code under `packages/<package>`, and verify with the smallest relevant
+Bun-filtered check.
+
+```bash
+bun run link-package <package>
+```
+
+Use this for local manual testing. It resolves the workspace package, installs
+its dependencies, runs `build` or `prepack`, then runs `bun link` from that
+package directory.
+
 ## Repository Layout
 
 ```text
 apps/            Standalone demos and experiments
 packages/        Reusable local tools and libraries
-docs/specs/      Living implementation specs
 docs/ideas/      Date-prefixed idea snapshots
-docs/plan/       Date-prefixed implementation plans
+docs/plans/      Date-prefixed implementation plans
 docs/decisions/  Date-prefixed historical decision records, created when needed
 ```
 
 ## Conventions
 
-- Specs use stable topic filenames under `docs/specs/`; plans use
-  date-prefixed filenames under `docs/plan/`: `YYYY-MM-DD-description.md`.
-- Idea snapshots use date-prefixed filenames under `docs/ideas/` and are not
-  maintained as living specs.
-- Decision records use date-prefixed filenames under `docs/decisions/` when a
-  significant historical decision needs a durable record.
+- Package README files own public CLI, API, schema, file format, and stable
+  behavior docs.
+- Use `docs/ideas/`, `docs/plans/`, and `docs/decisions/` for date-prefixed
+  historical records, not current interface contracts.
 - Every package under `packages/` extends the root `tsconfig.json`.
-- Package boundaries, workspace structure, and generated lockfiles should stay
-  stable unless a task explicitly requires changing them.
+- Keep package boundaries, workspace structure, and generated lockfiles stable
+  unless a task explicitly requires changing them.
 
 See each package README for package-level usage and maintainer notes.

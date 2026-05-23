@@ -350,6 +350,103 @@ All skills from a pinned source:
 `ref` can be a branch or tag. Use `commit` for an exact commit. A source or
 skill can specify `ref` or `commit`, but not both.
 
+## State File Contract
+
+`skills.json` is desired state. It is deterministic and human-editable, so it
+does not contain install timestamps, folder hashes, or other generated
+installation metadata.
+
+Rules:
+
+- `schemaVersion` must be `1`.
+- `scope` must be `global` or `project`.
+- `sources[].source` accepts GitHub shorthand, Git URLs, HTTP Git URLs, or local
+  paths.
+- `sources[].skills` is either an explicit skill list or `"all"`.
+- `sources[].ref` or `sources[].commit` applies to the source group.
+- Skill-level `ref` or `commit` can override the source group.
+- A source or skill can specify `ref` or `commit`, but not both.
+- Expanded skill names must be unique.
+- `sources[].skills[].path` points to the directory containing `SKILL.md`.
+  When omitted by command code, the default path is `skills/<name>`.
+- `commit` pins desired state to an exact Git commit.
+
+`skills.lock.json` is resolved install state. It records actual commits,
+install paths, timestamps, and copy metadata produced by installation.
+
+Rules:
+
+- `commit` is the resolved commit that was installed.
+- `installedAt` is generated install metadata and only belongs in the lock file.
+- Normal `sync` refreshes refs and writes newly resolved commits.
+- `sync --locked` reuses exact lock commits.
+- `sync --locked` fails when the lock file is missing or cannot satisfy
+  `skills.json`.
+- For `skills: "all"`, normal `sync` and `update` discover skills from the
+  requested source target. `sync --locked` expands from matching lock entries.
+- Agent target directory links are not written to the manifest or lock file.
+
+Global scope uses:
+
+- `~/.agents/skills.json`
+- `~/.agents/skills.lock.json`
+- `~/.agents/skills/<skill-name>`
+
+Project scope uses:
+
+- `./.agents/skills.json`
+- `./.agents/skills.lock.json`
+- `./.agents/skills/<skill-name>`
+
+## Sync Contract
+
+`sync` makes installed state converge to `skills.json`:
+
+1. Read and validate `skills.json`.
+2. Read `skills.lock.json`; if it is missing, use an empty lock in memory.
+3. Expand `skills: "all"` from the requested source target, or from matching
+   lock entries when running `sync --locked`.
+4. Remove lock entries and installed directories for skills no longer declared.
+5. Batch requested skills by `{ source, commit || ref || default ref }`.
+6. Clone or reuse each source target.
+7. Copy each skill directory to the current scope install directory.
+8. Write `skills.lock.json` after successful convergence.
+
+If clone or installation fails, the command exits non-zero and does not write a
+new successful lock.
+
+## Agent Target Contract
+
+The canonical skill store is always the current scope `.agents/skills`
+directory:
+
+- Global scope: `~/.agents/skills`
+- Project scope: `./.agents/skills`
+
+Native agents can read the canonical store directly in both scopes. `codex` is
+treated as native. Non-native agent targets are derived from the agent registry,
+current scope, detection result, and canonical store.
+
+`add` and `remove` maintain only the canonical store, manifest, and lock state.
+Already-linked agent directories update automatically because they point at the
+canonical store. Unlinked agent directories are left alone.
+
+`sync` and `migrate` ask whether to link detected non-native agent targets after
+their own state work completes. `update` reuses the normal `sync` path and
+inherits that prompt. `skills agents add <agent-id>` explicitly links one
+detected agent target in the current scope; add `-g` to operate on global scope.
+
+Safety rules:
+
+- Undetected non-native agents do not get target directories.
+- Missing targets create parent directories and a `targetDir -> scope.installDir`
+  symlink.
+- A target already pointing at the current canonical store is unchanged.
+- A regular file, regular directory, or symlink to another location is replaced
+  only after path safety checks pass.
+- A target is blocked when it is the same path as the canonical store or either
+  path contains the other.
+
 ## Development
 
 This package is Bun-only. The published `skills` binary points at

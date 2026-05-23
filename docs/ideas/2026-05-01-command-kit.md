@@ -1,9 +1,9 @@
 # 想法：command-kit
 
 创建日期：2026-05-01
-状态：已提升到 `docs/specs/command-kit.md` 和 `docs/decisions/2026-05-01-command-kit.md`
+状态：已提升到 `packages/command-kit/README.md` 和 `docs/decisions/2026-05-01-command-kit.md`
 
-这是一份早期想法记录，主要保留当时为什么要做 `command-kit`，以及第一个 adoption target 是什么。后续实现变更以 spec 和 decision record 为准。
+这是一份早期想法记录，主要保留当时为什么要做 `command-kit`，以及第一个 adoption target 是什么。后续实现变更以 package README 和 decision record 为准。
 
 ## 原始动机
 
