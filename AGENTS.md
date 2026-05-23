@@ -40,8 +40,6 @@
 
 ## Skills
 
-- For project documentation maintenance, use `meta-project-docs-maintenance`.
-
 ## Patterns
 
 - Avoid nested ternaries; use guard clauses, named helpers, or explicit `if`
