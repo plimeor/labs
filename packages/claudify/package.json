@@ -1,0 +1,33 @@
+{
+  "description": "Create Claude-compatible project files from AGENTS.md and .agent skills directories",
+  "homepage": "https://github.com/plimeor/labs/tree/main/packages/claudify",
+  "name": "@plimeor/claudify",
+  "type": "module",
+  "types": "./src/index.ts",
+  "version": "0.1.1",
+  "bin": {
+    "claudify": "./src/cli.ts"
+  },
+  "bugs": {
+    "url": "https://github.com/plimeor/labs/issues"
+  },
+  "dependencies": {
+    "@plimeor/command-kit": "workspace:*"
+  },
+  "files": [
+    "src"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "directory": "packages/claudify",
+    "type": "git",
+    "url": "git+https://github.com/plimeor/labs.git"
+  },
+  "scripts": {
+    "lint": "biome check src test",
+    "prepack": "bun src/cli.ts --help >/dev/null",
+    "test": "bun test test"
+  }
+}
