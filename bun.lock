@@ -15,7 +15,7 @@
     },
     "packages/command-kit": {
       "name": "@plimeor/command-kit",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "dependencies": {
         "@standard-schema/spec": "^1.1.0",
         "@types/json-schema": "^7.0.15",
@@ -27,7 +27,7 @@
     },
     "packages/skills": {
       "name": "@plimeor/skills",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "bin": {
         "skills": "./src/cli.ts",
       },

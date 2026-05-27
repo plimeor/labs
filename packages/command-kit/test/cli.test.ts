@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec'
 import type { JSONSchema7, JSONSchema7Definition } from 'json-schema'
 
-import { defineCli, defineCommand, defineGroup } from '../src/index'
+import { DEFAULT_COMMAND, defineCli, defineCommand, defineGroup } from '../src/index'
 
 type TestSchema<T extends Record<string, unknown>> = StandardSchemaV1<unknown, T> & StandardJSONSchemaV1<unknown, T>
 
@@ -468,6 +468,122 @@ describe('command runtime', () => {
     expect(output).toContain('  init               Initialize\n  projects           Manage projects\n  scan')
   })
 
+  test('runs DEFAULT_COMMAND as the root action', async () => {
+    const cli = defineCli({
+      description: 'Test CLI',
+      name: 'test',
+      commands: [
+        defineCommand(DEFAULT_COMMAND, {
+          description: 'Run root action',
+          options: jsonOptionSchema,
+          run: () => ({
+            action: 'root'
+          })
+        })
+      ]
+    })
+
+    const output = await captureStdout(async () => {
+      await cli.serve(['--json'])
+    })
+
+    expect(JSON.parse(output)).toEqual({
+      ok: true,
+      data: {
+        action: 'root'
+      }
+    })
+  })
+
+  test('root help hides DEFAULT_COMMAND when it is the only command', async () => {
+    const cli = defineCli({
+      description: 'Test CLI',
+      name: 'test',
+      commands: [
+        defineCommand(DEFAULT_COMMAND, {
+          description: 'Run root action',
+          run: () => ({})
+        })
+      ]
+    })
+
+    const output = await captureStdout(async () => {
+      await cli.serve(['--help'])
+    })
+
+    expect(output).toContain('test — Run root action')
+    expect(output).toContain('Usage: test [options]')
+    expect(output).not.toContain('Commands:')
+    expect(output).not.toContain('DEFAULT_COMMAND')
+    expect(output).not.toContain('run')
+  })
+
+  test('passes all argv to DEFAULT_COMMAND when no named commands exist', async () => {
+    const cli = defineCli({
+      description: 'Test CLI',
+      name: 'test',
+      commands: [
+        defineCommand(DEFAULT_COMMAND, {
+          description: 'Run root action',
+          run: () => ({})
+        })
+      ]
+    })
+
+    const output = await captureStderr(async () => {
+      await cli.serve(['run'])
+    })
+
+    expect(output).toContain('Unknown argument: run')
+  })
+
+  test('keeps named command selection separate from DEFAULT_COMMAND', async () => {
+    const cli = defineCli({
+      description: 'Test CLI',
+      name: 'test',
+      commands: [
+        defineCommand(DEFAULT_COMMAND, {
+          description: 'Run root action',
+          options: jsonOptionSchema,
+          run: () => ({
+            action: 'root'
+          })
+        }),
+        defineCommand('scan', {
+          description: 'Scan projects',
+          options: jsonOptionSchema,
+          run: () => ({
+            action: 'scan'
+          })
+        })
+      ]
+    })
+
+    const rootOutput = await captureStdout(async () => {
+      await cli.serve(['--json'])
+    })
+    const commandOutput = await captureStdout(async () => {
+      await cli.serve(['scan', '--json'])
+    })
+    const missingOutput = await captureStderr(async () => {
+      await cli.serve(['missing'])
+    })
+
+    expect(JSON.parse(rootOutput)).toEqual({
+      ok: true,
+      data: {
+        action: 'root'
+      }
+    })
+    expect(JSON.parse(commandOutput)).toEqual({
+      ok: true,
+      data: {
+        action: 'scan'
+      }
+    })
+    expect(missingOutput).toContain('Unknown command: missing')
+  })
+
   test('prints group help with the derived cli name', async () => {
     const cli = defineCli({
       description: 'Test CLI',
@@ -648,6 +764,13 @@ describe('command runtime', () => {
         // @ts-expect-error optionAliases must reference options schema fields
         missing: 'm'
       },
+      run: () => ({})
+    })
+
+    defineCommand(DEFAULT_COMMAND, {
+      // @ts-expect-error root actions do not support command aliases
+      aliases: ['root'],
+      description: 'Root action',
       run: () => ({})
     })
   })

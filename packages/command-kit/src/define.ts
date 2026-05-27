@@ -17,6 +17,8 @@ type EmptyObject = Record<never, never>
 type EmptyObjectSchema = typeof emptyObjectSchema
 type SchemaFieldName<Schema extends StandardSchemaV1> = Extract<keyof StandardSchemaV1.InferOutput<Schema>, string>
 
+export const DEFAULT_COMMAND: unique symbol = Symbol('command-kit.defaultCommand')
+
 export type CommandArgBinding<ArgsSchema extends StandardSchemaV1> = Omit<ArgBindingSpec, 'name'> & {
   name: SchemaFieldName<ArgsSchema>
 }
@@ -43,6 +45,13 @@ export type CommandDefinition<
   name: string
 }
 
+export type RootCommandDefinition<
+  ArgsSchema extends StandardSchemaV1 = EmptyObjectSchema,
+  OptionsSchema extends StandardSchemaV1 = EmptyObjectSchema
+> = RootCommandConfig<ArgsSchema, OptionsSchema> & {
+  name: typeof DEFAULT_COMMAND
+}
+
 export type CommandGroupDefinition = CommandGroupConfig & {
   name: string
 }
@@ -63,12 +72,19 @@ export type CommandConfig<
   ) => Promise<unknown | CommandResult<unknown>> | unknown | CommandResult<unknown>
 }
 
+export type RootCommandConfig<
+  ArgsSchema extends StandardSchemaV1 = EmptyObjectSchema,
+  OptionsSchema extends StandardSchemaV1 = EmptyObjectSchema
+> = Omit<CommandConfig<ArgsSchema, OptionsSchema>, 'aliases'>
+
 export type CommandGroupConfig = {
   commands: CommandDefinition<any, any>[]
   description: string
 }
 
-export type CliEntry = CommandDefinition<any, any> | CommandGroupDefinition
+export type CliEntry = CommandDefinition<any, any> | RootCommandDefinition<any, any> | CommandGroupDefinition
+
+type NamedCliEntry = CommandDefinition<any, any> | CommandGroupDefinition
 
 export type CliDefinition = {
   commands: CliEntry[]
@@ -80,11 +96,25 @@ export type CliDefinition = {
 export function defineCommand<
   ArgsSchema extends StandardSchemaV1 = EmptyObjectSchema,
   OptionsSchema extends StandardSchemaV1 = EmptyObjectSchema
->(name: string, config: CommandConfig<ArgsSchema, OptionsSchema>): CommandDefinition<ArgsSchema, OptionsSchema> {
+>(
+  name: typeof DEFAULT_COMMAND,
+  config: RootCommandConfig<ArgsSchema, OptionsSchema>
+): RootCommandDefinition<ArgsSchema, OptionsSchema>
+export function defineCommand<
+  ArgsSchema extends StandardSchemaV1 = EmptyObjectSchema,
+  OptionsSchema extends StandardSchemaV1 = EmptyObjectSchema
+>(name: string, config: CommandConfig<ArgsSchema, OptionsSchema>): CommandDefinition<ArgsSchema, OptionsSchema>
+export function defineCommand<
+  ArgsSchema extends StandardSchemaV1 = EmptyObjectSchema,
+  OptionsSchema extends StandardSchemaV1 = EmptyObjectSchema
+>(
+  name: string | typeof DEFAULT_COMMAND,
+  config: CommandConfig<ArgsSchema, OptionsSchema>
+): CommandDefinition<ArgsSchema, OptionsSchema> | RootCommandDefinition<ArgsSchema, OptionsSchema> {
   return {
     ...config,
     name
-  }
+  } as CommandDefinition<ArgsSchema, OptionsSchema> | RootCommandDefinition<ArgsSchema, OptionsSchema>
 }
 
 export function defineGroup(name: string, config: CommandGroupConfig): CommandGroupDefinition {
@@ -102,13 +132,45 @@ export function defineCli(definition: CliDefinition): CliDefinition & { serve: (
 }
 
 async function serve(cli: CliDefinition, argv: string[]): Promise<void> {
-  if (argv.length === 0 || argv[0] === '--help' || argv[0] === '-h') {
-    process.stdout.write(formatCliHelp(cli))
+  const defaultCommand = findRootCommand(cli.commands)
+  const namedEntries = cli.commands.filter(entry => !isRootCommand(entry))
+
+  if (argv.length === 0) {
+    if (defaultCommand) {
+      await serveCommand(cli, defaultCommand, [], { rootCommand: true })
+      return
+    }
+
+    process.stdout.write(formatCliHelp(cli, namedEntries, defaultCommand))
+    return
+  }
+
+  if (argv[0] === '--help' || argv[0] === '-h') {
+    if (defaultCommand && namedEntries.length === 0) {
+      process.stdout.write(
+        formatCommandHelp(cli, defaultCommand, resolveCommandJsonSchemas(cli, defaultCommand), {
+          rootCommand: true
+        })
+      )
+      return
+    }
+
+    process.stdout.write(formatCliHelp(cli, namedEntries, defaultCommand))
+    return
+  }
+
+  if (defaultCommand && namedEntries.length === 0) {
+    await serveCommand(cli, defaultCommand, argv, { rootCommand: true })
+    return
+  }
+
+  if (defaultCommand && isOptionToken(argv[0] as string)) {
+    await serveCommand(cli, defaultCommand, argv, { rootCommand: true })
     return
   }
 
   const commandName = argv[0]
-  const entry = findEntry(cli.commands, commandName)
+  const entry = findEntry(namedEntries, commandName)
   if (!entry) {
     const result = normalizeFailure(
       new CommandRuntimeError(CommandErrorCode.CommandNotFound, `Unknown command: ${commandName}`)
@@ -130,15 +192,23 @@ async function serve(cli: CliDefinition, argv: string[]): Promise<void> {
     return
   }
 
-  const command = entry
+  await serveCommand(cli, entry, argv.slice(1))
+}
+
+async function serveCommand(
+  cli: CliDefinition,
+  command: CommandConfig<any, any>,
+  argv: string[],
+  options: { rootCommand?: boolean } = {}
+): Promise<void> {
   if (argv.includes('--help') || argv.includes('-h')) {
-    process.stdout.write(formatCommandHelp(cli, command, resolveCommandJsonSchemas(cli, command)))
+    process.stdout.write(formatCommandHelp(cli, command, resolveCommandJsonSchemas(cli, command), options))
     return
   }
 
-  let json = wantsJsonResult(argv.slice(1), command, cli.schemaAdapter)
+  let json = wantsJsonResult(argv, command, cli.schemaAdapter)
   try {
-    const parsed = parseArgv(argv.slice(1), {
+    const parsed = parseArgv(argv, {
       argBindings: command.argBindings ?? [],
       optionAliases: command.optionAliases,
       optionSchema: resolveJsonObjectSchema(getOptionsSchema(command), cli.schemaAdapter),
@@ -175,7 +245,7 @@ async function serve(cli: CliDefinition, argv: string[]): Promise<void> {
       writeErrorResult(
         result,
         shouldPrintCommandHelp(result.error)
-          ? formatCommandHelp(cli, command, resolveCommandJsonSchemas(cli, command))
+          ? formatCommandHelp(cli, command, resolveCommandJsonSchemas(cli, command), options)
           : undefined
       )
     }
@@ -183,7 +253,7 @@ async function serve(cli: CliDefinition, argv: string[]): Promise<void> {
 }
 
 async function runCommand<ArgsSchema extends StandardSchemaV1, OptionsSchema extends StandardSchemaV1>(
-  command: CommandDefinition<ArgsSchema, OptionsSchema>,
+  command: CommandConfig<ArgsSchema, OptionsSchema>,
   context: CommandContext<ArgsSchema, OptionsSchema>,
   json: boolean
 ): Promise<unknown | CommandResult<unknown>> {
@@ -221,12 +291,24 @@ function createInteractiveGuard(json: boolean): () => void {
   }
 }
 
-function findEntry(entries: CliEntry[], name: string): CliEntry | undefined {
+function findEntry(entries: NamedCliEntry[], name: string): NamedCliEntry | undefined {
   return entries.find(entry => entry.name === name || (!isCommandGroup(entry) && entry.aliases?.includes(name)))
 }
 
 function isCommandGroup(entry: CliEntry): entry is CommandGroupDefinition {
   return 'commands' in entry
+}
+
+function findRootCommand(entries: CliEntry[]): RootCommandDefinition<any, any> | undefined {
+  return entries.find(isRootCommand)
+}
+
+function isRootCommand(entry: CliEntry): entry is RootCommandDefinition<any, any> {
+  return !isCommandGroup(entry) && entry.name === DEFAULT_COMMAND
+}
+
+function isOptionToken(token: string): boolean {
+  return token === '--' || (token.startsWith('-') && token.length > 1)
 }
 
 function getArgsSchema<ArgsSchema extends StandardSchemaV1>(command: {
@@ -243,7 +325,7 @@ function getOptionsSchema<OptionsSchema extends StandardSchemaV1>(command: {
 
 function wantsJsonResult(
   argv: string[],
-  command: CommandDefinition<any, any>,
+  command: CommandConfig<any, any>,
   adapter: SchemaAdapter | undefined
 ): boolean {
   for (const token of argv) {
@@ -259,7 +341,7 @@ function wantsJsonResult(
   return false
 }
 
-function hasBooleanJsonOption(command: CommandDefinition<any, any>, adapter: SchemaAdapter | undefined): boolean {
+function hasBooleanJsonOption(command: CommandConfig<any, any>, adapter: SchemaAdapter | undefined): boolean {
   const optionsSchema = resolveJsonObjectSchema(getOptionsSchema(command), adapter)
   const jsonOption = optionsSchema?.properties?.json
   return jsonOption ? hasJsonSchemaType(jsonOption, 'boolean') : false
@@ -267,7 +349,7 @@ function hasBooleanJsonOption(command: CommandDefinition<any, any>, adapter: Sch
 
 function isJsonResult(
   options: Record<string, unknown>,
-  command: CommandDefinition<any, any>,
+  command: CommandConfig<any, any>,
   adapter: SchemaAdapter | undefined
 ): boolean {
   return hasBooleanJsonOption(command, adapter) && options.json === true
@@ -286,12 +368,18 @@ function writeErrorResult(result: { error: CommandError; ok: false }, help?: str
   process.exitCode = 1
 }
 
-function formatCliHelp(cli: CliDefinition): string {
-  const commandLines = cli.commands
-    .map(entry => `  ${formatEntryNames(entry).padEnd(18)} ${entry.description}`)
-    .join('\n')
+function formatCliHelp(
+  cli: CliDefinition,
+  entries: NamedCliEntry[] = cli.commands.filter(entry => !isRootCommand(entry)),
+  defaultCommand = findRootCommand(cli.commands)
+): string {
+  const commandLines = entries.map(entry => `  ${formatEntryNames(entry).padEnd(18)} ${entry.description}`).join('\n')
+  const defaultCommandLine = defaultCommand ? `\nDefault Action:\n  ${defaultCommand.description}\n` : ''
+  const commandsSection = commandLines ? `\nCommands:\n${commandLines}\n` : ''
 
-  return `${cli.name} — ${cli.description}\n\nUsage: ${cli.name} <command>\n\nCommands:\n${commandLines}\n\nGlobal Options:\n  --help, -h  Show help\n`
+  return `${cli.name} — ${cli.description}\n\nUsage: ${cli.name} ${
+    defaultCommand ? '[command]' : '<command>'
+  }\n${defaultCommandLine}${commandsSection}\nGlobal Options:\n  --help, -h  Show help\n`
 }
 
 type CommandJsonSchemas = {
@@ -299,7 +387,7 @@ type CommandJsonSchemas = {
   options: JsonObjectSchema | undefined
 }
 
-function resolveCommandJsonSchemas(cli: CliDefinition, command: CommandDefinition<any, any>): CommandJsonSchemas {
+function resolveCommandJsonSchemas(cli: CliDefinition, command: CommandConfig<any, any>): CommandJsonSchemas {
   return {
     args: resolveJsonObjectSchema(getArgsSchema(command), cli.schemaAdapter),
     options: resolveJsonObjectSchema(getOptionsSchema(command), cli.schemaAdapter)
@@ -308,13 +396,16 @@ function resolveCommandJsonSchemas(cli: CliDefinition, command: CommandDefinitio
 
 function formatCommandHelp(
   cli: CliDefinition,
-  command: CommandDefinition<any, any>,
-  schemas: CommandJsonSchemas
+  command: CommandConfig<any, any> & { name?: string | typeof DEFAULT_COMMAND },
+  schemas: CommandJsonSchemas,
+  options: { rootCommand?: boolean } = {}
 ): string {
+  const commandLabel =
+    options.rootCommand || typeof command.name !== 'string' ? cli.name : `${cli.name} ${command.name}`
   return [
-    `${cli.name} ${command.name} — ${command.description}`,
+    `${commandLabel} — ${command.description}`,
     '',
-    `Usage: ${cli.name} ${command.name}${formatArgBindings(command.argBindings ?? [])} [options]`,
+    `Usage: ${commandLabel}${formatArgBindings(command.argBindings ?? [])} [options]`,
     formatAliases(command),
     formatArguments(command, schemas.args),
     formatOptions(command, schemas.options),
@@ -330,7 +421,7 @@ function formatCommandNames(command: CommandDefinition<any, any>): string {
   return command.aliases?.length ? `${command.name}, ${command.aliases.join(', ')}` : command.name
 }
 
-function formatEntryNames(entry: CliEntry): string {
+function formatEntryNames(entry: NamedCliEntry): string {
   return isCommandGroup(entry) ? entry.name : formatCommandNames(entry)
 }
 
@@ -350,12 +441,12 @@ function formatArgBindings(argBindings: ArgBindingSpec[]): string {
     .join(' ')}`
 }
 
-function formatAliases(command: CommandDefinition<any, any>): string | undefined {
+function formatAliases(command: CommandConfig<any, any>): string | undefined {
   return command.aliases?.length ? `Aliases: ${command.aliases.join(', ')}` : undefined
 }
 
 function formatArguments(
-  command: CommandDefinition<any, any>,
+  command: CommandConfig<any, any>,
   argsSchema: JsonObjectSchema | undefined
 ): string | undefined {
   const argBindings = command.argBindings ?? []
@@ -383,7 +474,7 @@ function formatArgumentName(binding: ArgBindingSpec): string {
 }
 
 function formatOptions(
-  command: CommandDefinition<any, any>,
+  command: CommandConfig<any, any>,
   optionsSchema: JsonObjectSchema | undefined
 ): string | undefined {
   const entries = Object.entries(optionsSchema?.properties ?? {})
@@ -406,7 +497,7 @@ function formatOptions(
   return `Options:\n${lines.join('\n')}`
 }
 
-function formatOptionName(name: string, command: CommandDefinition<any, any>): string {
+function formatOptionName(name: string, command: CommandConfig<any, any>): string {
   return [
     ...formatLongOptionNames(name, command.optionAliases),
     ...formatShortOptionNames(name, command.optionShortcuts)

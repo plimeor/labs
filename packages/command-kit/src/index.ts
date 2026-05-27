@@ -8,9 +8,11 @@ export type {
   CommandGroupConfig,
   CommandGroupDefinition,
   CommandOptionAliases,
-  CommandOptionShortcuts
+  CommandOptionShortcuts,
+  RootCommandConfig,
+  RootCommandDefinition
 } from './define'
-export { defineCli, defineCommand, defineGroup } from './define'
+export { DEFAULT_COMMAND, defineCli, defineCommand, defineGroup } from './define'
 export type { CommandError } from './errors'
 export { CommandErrorCode, CommandRuntimeError } from './errors'
 export type { CommandResult, OutputMode } from './output'

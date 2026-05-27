@@ -79,6 +79,7 @@ nested groups. Group subcommands use the parent CLI's `schemaAdapter`.
 
 `command-kit` exports command declaration helpers:
 
+- `DEFAULT_COMMAND`
 - `defineCommand(name, config)`
 - `defineGroup(name, config)`
 - `defineCli(definition)`
@@ -98,9 +99,38 @@ nested groups. Group subcommands use the parent CLI's `schemaAdapter`.
 `defineGroup` accepts `description` plus a flat `commands` list. Groups are
 only one level deep.
 
-`defineCli` accepts a CLI `name`, `description`, command/group declarations, and
-an optional `schemaAdapter.toStandardJsonSchema` function. `serve(argv)` parses
-the argv list, validates command inputs, and runs the selected handler.
+`defineCli` accepts a CLI `name`, `description`, command/group declarations,
+and an optional `schemaAdapter.toStandardJsonSchema` function. `serve(argv)`
+parses the argv list, validates command inputs, and runs the selected handler.
+
+Use `defineCommand(DEFAULT_COMMAND, config)` when the bare executable should run
+a root action instead of showing command-list help. The root action has no
+command name and is not listed as a command:
+
+```ts
+import { DEFAULT_COMMAND, defineCli, defineCommand } from '@plimeor/command-kit'
+
+const cli = defineCli({
+  name: 'example',
+  description: 'Example CLI',
+  commands: [
+    defineCommand(DEFAULT_COMMAND, {
+      description: 'Run the default action',
+      run: () => {
+        process.stdout.write('running\n')
+      }
+    })
+  ]
+})
+```
+
+When `DEFAULT_COMMAND` is present, `example` runs that root action. If there are
+no named commands, all argv is parsed against the root action. If named commands
+also exist, root options such as `example --json` are parsed against the root
+action, and non-option argv is treated as command selection. Unknown command
+names still fail as unknown commands.
+
+Root actions do not accept `aliases`; aliases belong to named commands.
 
 ## Schema Contract
 
