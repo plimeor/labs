@@ -140,3 +140,5 @@ vite.config.ts.timestamp-*
 
 # Macos
 .DS_STORE
+
+**/src-tauri/target
