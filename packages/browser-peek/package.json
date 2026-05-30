@@ -40,6 +40,7 @@
   },
   "scripts": {
     "lint": "biome check src",
-    "prepack": "bun src/cli.ts --help >/dev/null"
+    "prepack": "bun src/cli.ts --help >/dev/null",
+    "test": "bun test test"
   }
 }
