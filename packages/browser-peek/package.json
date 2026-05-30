@@ -1,0 +1,45 @@
+{
+  "description": "Read cookies and local storage from local browser profiles (Chrome, Safari)",
+  "homepage": "https://github.com/plimeor/labs/tree/main/packages/browser-peek",
+  "name": "@plimeor/browser-peek",
+  "type": "module",
+  "types": "./src/index.ts",
+  "version": "0.1.0",
+  "bin": {
+    "browser-peek": "./src/cli.ts"
+  },
+  "bugs": {
+    "url": "https://github.com/plimeor/labs/issues"
+  },
+  "dependencies": {
+    "@clack/prompts": "catalog:",
+    "@plimeor/command-kit": "workspace:*",
+    "@valibot/to-json-schema": "catalog:",
+    "es-toolkit": "catalog:",
+    "level": "^9.0.0",
+    "valibot": "catalog:"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "directory": "packages/browser-peek",
+    "type": "git",
+    "url": "git+https://github.com/plimeor/labs.git"
+  },
+  "scripts": {
+    "lint": "biome check src",
+    "prepack": "bun src/cli.ts --help >/dev/null"
+  }
+}
