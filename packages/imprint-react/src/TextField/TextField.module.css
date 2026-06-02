@@ -1,0 +1,119 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-ui);
+}
+
+/* Label — matches the specimen's .ds-label, with a 4px-grid gap to the field. */
+.label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-bottom: var(--space-1);
+  font-size: var(--text-sm);
+  line-height: var(--lh-snug);
+  font-weight: var(--w-medium);
+  color: var(--fg-secondary);
+}
+
+.label[data-disabled] {
+  color: var(--fg-disabled);
+}
+
+.requiredIndicator {
+  color: var(--danger-fg);
+}
+
+/* Control — the bordered field surface that holds the optional icon + input. */
+.control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  box-sizing: border-box;
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-content);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  transition:
+    border-color var(--dur-fast) var(--ease-standard),
+    background var(--dur-fast) var(--ease-standard);
+}
+
+/* Search affordance — sunken well with an inset shadow, per the specimen. */
+.control[data-variant="search"] {
+  background: var(--bg-sunken);
+  box-shadow: var(--elev-inset);
+}
+
+/* Always-visible 2px focus ring, surfaced on the control via focus-within. */
+.control:focus-within {
+  outline: var(--focus-width) solid var(--focus-ring);
+  outline-offset: var(--focus-offset);
+  border-color: var(--accent);
+}
+
+/* Invalid — danger border, surfaced from Ark's data-invalid on the root. */
+.root[data-invalid] .control {
+  border-color: var(--danger-border);
+}
+
+.root[data-invalid] .control:focus-within {
+  outline-color: var(--danger);
+}
+
+/* Disabled — muted surface + cursor, surfaced from Ark's data-disabled. */
+.root[data-disabled] .control {
+  background: var(--bg-sunken);
+  border-color: var(--border-subtle);
+  cursor: not-allowed;
+}
+
+.icon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  color: var(--fg-tertiary);
+}
+
+/* Input — borderless; the control wrapper owns the chrome. */
+.input {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  line-height: var(--lh-snug);
+  color: var(--fg-body);
+  outline: none;
+}
+
+.input::placeholder {
+  color: var(--fg-tertiary);
+  opacity: 1;
+}
+
+.input:disabled {
+  color: var(--fg-disabled);
+  cursor: not-allowed;
+  -webkit-text-fill-color: var(--fg-disabled);
+}
+
+/* Hint — quiet helper text under the field. */
+.hint {
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  line-height: var(--lh-snug);
+  color: var(--fg-tertiary);
+}
+
+/* Error — danger-toned message under the field. */
+.error {
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  line-height: var(--lh-snug);
+  color: var(--danger-fg);
+}

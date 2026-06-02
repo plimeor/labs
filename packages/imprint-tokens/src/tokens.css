@@ -1,0 +1,436 @@
+/* ============================================================================
+   IMPRINT DESIGN SYSTEM — Foundations
+   colors_and_type.css
+
+   Plimeor's personal design system for independent software projects.
+   Calm, precise, content-first, structurally rigorous. Warm neutrals, one
+   restrained blue accent, robust light + dark.
+
+   Token layers (cascade in this order):
+     1. PRIMITIVES   — raw values, never used directly in components
+     2. SEMANTIC     — meaning-driven aliases that flip with theme
+     3. COMPONENT    — per-component knobs that point at semantics
+     4. TYPE / SPACE / RADIUS / ELEVATION / MOTION scales
+
+   Fonts are SELF-HOSTED (no CDN, local-first). Load the bundled faces by also
+   importing the sibling stylesheet:
+     import "@plimeor/imprint-tokens/fonts.css";   // or @import in CSS
+   The font families (--font-ui / --font-read / --font-mono) resolve to the
+   vendored woff2 files under ./fonts/. See README for details.
+   ============================================================================ */
+
+/* ----------------------------------------------------------------------------
+   1. PRIMITIVES
+   Warm neutral ramp (never cold blue-gray, never pure black/white).
+   Hue ~40–48deg, low chroma. The ramp is the spine of the whole system.
+---------------------------------------------------------------------------- */
+:root {
+  /* Warm neutrals — modern near-neutral gray with a whisper of warmth (not beige, not cold) */
+  --warm-0: #ffffff;
+  --warm-50: #fdfdfc; /* content surface, highest plane */
+  --warm-100: #f6f5f3; /* app canvas */
+  --warm-150: #f0efec; /* recessed surface (sidebars) */
+  --warm-200: #e7e6e2; /* hairline borders, hover fills */
+  --warm-250: #dddbd6; /* hover fill stronger */
+  --warm-300: #d1cfc9; /* strong borders, dividers */
+  --warm-400: #b3afa8; /* disabled fg, placeholder */
+  --warm-500: #88857d; /* tertiary text */
+  --warm-600: #686560; /* secondary text */
+  --warm-700: #494642; /* strong secondary */
+  --warm-800: #2b2a26; /* body text */
+  --warm-900: #1d1b18; /* headings, ink */
+  --warm-950: #131210; /* deepest ink */
+
+  /* Blue accent — refined royal-cobalt. Calm and confident, never neon. */
+  --blue-50: #eef3fe;
+  --blue-100: #dce7fd;
+  --blue-200: #bbd0fb;
+  --blue-300: #8db0f6;
+  --blue-400: #5588ef;
+  --blue-500: #2d67e0; /* PRIMARY accent (light mode) */
+  --blue-600: #1f4fbf;
+  --blue-700: #173e96;
+  --blue-800: #122f70;
+  --blue-900: #0c1e47;
+
+  /* Semantic hues — gently muted, calm but instantly legible on warm paper */
+  --green-100: #dbf1e3;
+  --green-300: #74d29c;
+  --green-500: #1fa85b; /* success solid */
+  --green-600: #15863f; /* success text */
+  --green-700: #0f6630;
+
+  --amber-100: #f8ebcf;
+  --amber-300: #f2c977;
+  --amber-500: #e0941f; /* warning solid */
+  --amber-600: #9a6610; /* warning text */
+
+  --red-100: #fbe0e2;
+  --red-300: #ee8a92;
+  --red-500: #dc3a4a; /* danger solid */
+  --red-600: #bb2434; /* danger text */
+
+  /* Pure-ish overlays for scrims/shadows, defined in warm terms */
+  --shadow-rgb: 28 26 22; /* near-neutral warm black for shadows */
+  --scrim-rgb: 18 17 14;
+}
+
+/* ----------------------------------------------------------------------------
+   2. SEMANTIC TOKENS — LIGHT (default)
+   These are what components reference. They flip wholesale in dark mode.
+---------------------------------------------------------------------------- */
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+
+  /* Surfaces — content is the brightest/highest-contrast plane */
+  --bg-canvas: var(--warm-100); /* app background */
+  --bg-sidebar: var(--warm-150); /* recessed chrome */
+  --bg-content: var(--warm-50); /* editor / working surface */
+  --bg-raised: var(--warm-0); /* menus, dialogs, popovers */
+  --bg-sunken: var(--warm-150); /* wells, code blocks, insets */
+  --bg-hover: var(--warm-200); /* row / item hover */
+  --bg-active: var(--warm-250); /* pressed / selected fill */
+  --bg-selection: var(--blue-100); /* text selection, range */
+
+  /* Foreground (text + icon) */
+  --fg-primary: var(--warm-900); /* headings, primary text */
+  --fg-body: var(--warm-800); /* body copy */
+  --fg-secondary: var(--warm-600); /* labels, secondary */
+  --fg-tertiary: var(--warm-500); /* captions, meta, hints */
+  --fg-disabled: var(--warm-400);
+  --fg-on-accent: var(--warm-0); /* text on blue fills */
+  --fg-link: var(--blue-600);
+
+  /* Borders & dividers — restrained, never heavy */
+  --border-subtle: var(--warm-200); /* hairlines, card edges */
+  --border-default: var(--warm-300); /* inputs, stronger edges */
+  --border-strong: var(--warm-400); /* emphasis */
+
+  /* Accent */
+  --accent: var(--blue-500);
+  --accent-hover: var(--blue-600);
+  --accent-active: var(--blue-700);
+  --accent-subtle: var(--blue-100); /* tinted fills (active nav) */
+  --accent-fg: var(--blue-700); /* accent-colored text */
+
+  /* Focus ring */
+  --focus-ring: var(--blue-400);
+  --focus-ring-offset: var(--bg-content);
+
+  /* Status — fg/bg pairs */
+  --success-fg: var(--green-600);
+  --success-bg: var(--green-100);
+  --success-border: var(--green-300);
+  --warning-fg: var(--amber-600);
+  --warning-bg: var(--amber-100);
+  --warning-border: var(--amber-300);
+  --danger-fg: var(--red-600);
+  --danger-bg: var(--red-100);
+  --danger-border: var(--red-300);
+  --danger: var(--red-500);
+  --danger-hover: var(--red-600);
+
+  /* AI / diff surfaces — quiet, evidence-forward */
+  --diff-add-bg: #dbf1e3;
+  --diff-add-fg: #15863f;
+  --diff-add-gutter: #1fa85b;
+  --diff-del-bg: #fbe0e2;
+  --diff-del-fg: #bb2434;
+  --diff-del-gutter: #dc3a4a;
+  --agent-bg: var(--blue-50); /* agent transcript surface */
+  --agent-border: var(--blue-200);
+
+  /* Scrim behind dialogs */
+  --scrim: rgba(var(--scrim-rgb) / 0.32);
+}
+
+/* ----------------------------------------------------------------------------
+   2b. SEMANTIC TOKENS — DARK
+   Warm charcoal, never blue-black. Content plane sits slightly raised so
+   prose keeps the highest contrast.
+---------------------------------------------------------------------------- */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg-canvas: #1a1917;
+  --bg-sidebar: #151412;
+  --bg-content: #201e1b; /* raised, neutral-warm — the working plane */
+  --bg-raised: #262320; /* menus, dialogs */
+  --bg-sunken: #151412;
+  --bg-hover: #2a2825;
+  --bg-active: #322f2b;
+  --bg-selection: #1b355e; /* low-chroma blue wash */
+
+  --fg-primary: #efede8;
+  --fg-body: #dedbd4;
+  --fg-secondary: #a8a49c;
+  --fg-tertiary: #817d75;
+  --fg-disabled: #585551;
+  --fg-on-accent: #06121f;
+  --fg-link: #8fbeff;
+
+  --border-subtle: #2a2825;
+  --border-default: #383531;
+  --border-strong: #48443f;
+
+  --accent: #5e9bff;
+  --accent-hover: #7fb0ff;
+  --accent-active: #9dc4ff;
+  --accent-subtle: #16335c;
+  --accent-fg: #8fb9ff;
+
+  --focus-ring: #5e9bff;
+  --focus-ring-offset: var(--bg-content);
+
+  --success-fg: #5bd08c;
+  --success-bg: #122a1c;
+  --success-border: #1f5235;
+  --warning-fg: #e6c566;
+  --warning-bg: #2e2410;
+  --warning-border: #5a4520;
+  --danger-fg: #ff7a85;
+  --danger-bg: #2e1518;
+  --danger-border: #5c2a2e;
+  --danger: #f65c68;
+  --danger-hover: #ff7a85;
+
+  --diff-add-bg: #122a1c;
+  --diff-add-fg: #5bd08c;
+  --diff-add-gutter: #1fa85b;
+  --diff-del-bg: #2e1518;
+  --diff-del-fg: #ff8a93;
+  --diff-del-gutter: #dc3a4a;
+  --agent-bg: #0e2742;
+  --agent-border: #15406e;
+
+  --scrim: rgba(10 8 5 / 0.55);
+  --shadow-rgb: 0 0 0;
+}
+
+/* ----------------------------------------------------------------------------
+   3. TYPE SCALE
+   Three families, each with a job:
+     • Hanken Grotesk — UI chrome, labels, navigation, controls
+     • Literata        — reading & writing surface (editor, prose, long body)
+     • JetBrains Mono  — code, technical metadata, agent operations, IDs
+---------------------------------------------------------------------------- */
+:root {
+  --font-ui: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-read: "Literata", Georgia, "Iowan Old Style", "Times New Roman", serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", "Menlo", "Consolas", monospace;
+
+  /* Font size ramp — modular, tuned for dense-but-readable UI */
+  --text-xs: 0.75rem; /* 12px — meta, captions */
+  --text-sm: 0.8125rem; /* 13px — secondary UI, code inline */
+  --text-base: 0.875rem; /* 14px — default UI body */
+  --text-md: 0.9375rem; /* 15px — comfortable UI body */
+  --text-lg: 1.0625rem; /* 17px — section leads */
+  --text-xl: 1.25rem; /* 20px — h3 / dialog titles */
+  --text-2xl: 1.5rem; /* 24px — h2 */
+  --text-3xl: 1.9375rem; /* 31px — h1 */
+  --text-4xl: 2.5rem; /* 40px — display */
+
+  /* Reading surface uses a slightly larger, looser scale */
+  --read-body: 1.125rem; /* 18px prose */
+  --read-lh: 1.7;
+
+  /* Line heights */
+  --lh-tight: 1.2;
+  --lh-snug: 1.35;
+  --lh-normal: 1.5;
+  --lh-relaxed: 1.65;
+
+  /* Weights */
+  --w-regular: 400;
+  --w-medium: 500;
+  --w-semibold: 600;
+  --w-bold: 700;
+
+  /* Tracking */
+  --track-tight: -0.011em;
+  --track-normal: 0;
+  --track-wide: 0.02em;
+  --track-caps: 0.06em; /* eyebrow / all-caps labels */
+}
+
+/* ----------------------------------------------------------------------------
+   4. SPACING — 4px base grid
+---------------------------------------------------------------------------- */
+:root {
+  --space-0: 0;
+  --space-1: 0.25rem; /* 4  */
+  --space-2: 0.5rem; /* 8  */
+  --space-3: 0.75rem; /* 12 */
+  --space-4: 1rem; /* 16 */
+  --space-5: 1.25rem; /* 20 */
+  --space-6: 1.5rem; /* 24 */
+  --space-8: 2rem; /* 32 */
+  --space-10: 2.5rem; /* 40 */
+  --space-12: 3rem; /* 48 */
+  --space-16: 4rem; /* 64 */
+
+  /* Layout rhythm */
+  --reading-measure: 68ch; /* max line length for prose */
+  --sidebar-w: 272px;
+  --metadata-w: 300px;
+  --topbar-h: 48px;
+}
+
+/* ----------------------------------------------------------------------------
+   5. RADIUS — crisp, clean house style (4–16px). Tighter = purer.
+---------------------------------------------------------------------------- */
+:root {
+  --radius-xs: 4px; /* inline code, tiny chips */
+  --radius-sm: 8px; /* buttons, inputs, menu items */
+  --radius-md: 11px; /* cards, panels, dialogs */
+  --radius-lg: 16px; /* large containers */
+  --radius-full: 999px; /* pills, avatars */
+}
+
+/* ----------------------------------------------------------------------------
+   6. ELEVATION — quiet, warm, low-spread. Light leans on borders first.
+---------------------------------------------------------------------------- */
+:root {
+  --elev-0: none;
+  --elev-1: 0 1px 2px rgba(var(--shadow-rgb) / 0.05), 0 1px 1px rgba(var(--shadow-rgb) / 0.03);
+  --elev-2: 0 2px 4px rgba(var(--shadow-rgb) / 0.06), 0 1px 2px rgba(var(--shadow-rgb) / 0.04);
+  --elev-3: 0 4px 14px rgba(var(--shadow-rgb) / 0.08), 0 2px 5px rgba(var(--shadow-rgb) / 0.05);
+  --elev-4: 0 10px 34px rgba(var(--shadow-rgb) / 0.13), 0 3px 10px rgba(var(--shadow-rgb) / 0.06);
+  /* inner shadow for sunken wells */
+  --elev-inset: inset 0 1px 2px rgba(var(--shadow-rgb) / 0.05);
+}
+[data-theme="dark"] {
+  --elev-1: 0 1px 2px rgba(0 0 0 / 0.4);
+  --elev-2: 0 2px 6px rgba(0 0 0 / 0.45);
+  --elev-3: 0 8px 22px rgba(0 0 0 / 0.55);
+  --elev-4: 0 18px 48px rgba(0 0 0 / 0.65);
+  --elev-inset: inset 0 1px 2px rgba(0 0 0 / 0.3);
+}
+
+/* ----------------------------------------------------------------------------
+   7. FOCUS — single, consistent ring. Always visible, never removed.
+---------------------------------------------------------------------------- */
+:root {
+  --focus-width: 2px;
+  --focus-offset: 2px;
+}
+.focus-ring,
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: var(--focus-width) solid var(--focus-ring);
+  outline-offset: var(--focus-offset);
+  border-radius: var(--radius-sm);
+}
+
+/* ----------------------------------------------------------------------------
+   8. MOTION — restrained. Short, eased, never bouncy. Respects reduced motion.
+---------------------------------------------------------------------------- */
+:root {
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1); /* default */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); /* enter */
+  --ease-in: cubic-bezier(0.4, 0, 1, 1); /* exit */
+  --dur-fast: 120ms; /* hover, press, small state */
+  --dur-base: 180ms; /* most transitions */
+  --dur-slow: 260ms; /* dialog/menu enter */
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur-base: 0ms;
+    --dur-slow: 0ms;
+  }
+}
+
+/* ----------------------------------------------------------------------------
+   9. SEMANTIC TYPOGRAPHY CLASSES
+   Convenience classes that compose the scale above. Components may also map
+   these directly to element selectors in their own scope.
+---------------------------------------------------------------------------- */
+.ds-display {
+  font-family: var(--font-read);
+  font-size: var(--text-4xl);
+  line-height: var(--lh-tight);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--track-tight);
+  color: var(--fg-primary);
+}
+.ds-h1 {
+  font-family: var(--font-ui);
+  font-size: var(--text-3xl);
+  line-height: var(--lh-tight);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--track-tight);
+  color: var(--fg-primary);
+}
+.ds-h2 {
+  font-family: var(--font-ui);
+  font-size: var(--text-2xl);
+  line-height: var(--lh-snug);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--track-tight);
+  color: var(--fg-primary);
+}
+.ds-h3 {
+  font-family: var(--font-ui);
+  font-size: var(--text-xl);
+  line-height: var(--lh-snug);
+  font-weight: var(--w-semibold);
+  color: var(--fg-primary);
+}
+.ds-lead {
+  font-family: var(--font-read);
+  font-size: var(--text-lg);
+  line-height: var(--lh-relaxed);
+  font-weight: var(--w-regular);
+  color: var(--fg-body);
+}
+.ds-body {
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  line-height: var(--lh-normal);
+  font-weight: var(--w-regular);
+  color: var(--fg-body);
+}
+.ds-prose {
+  font-family: var(--font-read);
+  font-size: var(--read-body);
+  line-height: var(--read-lh);
+  font-weight: var(--w-regular);
+  color: var(--fg-body);
+}
+.ds-label {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  line-height: var(--lh-snug);
+  font-weight: var(--w-medium);
+  color: var(--fg-secondary);
+}
+.ds-caption {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  line-height: var(--lh-snug);
+  font-weight: var(--w-regular);
+  color: var(--fg-tertiary);
+}
+.ds-eyebrow {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  line-height: var(--lh-snug);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--fg-tertiary);
+}
+.ds-code {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: var(--lh-normal);
+  font-weight: var(--w-regular);
+  color: var(--fg-body);
+}
+.ds-mono-meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0;
+  color: var(--fg-tertiary);
+}

@@ -1,0 +1,86 @@
+.button {
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  font-weight: var(--w-medium);
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-standard),
+    border-color var(--dur-fast) var(--ease-standard);
+}
+
+.button > svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+/* Always-visible 2px focus ring, per tokens. */
+.button:focus-visible {
+  outline: var(--focus-width) solid var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+/* Primary */
+.button[data-variant="primary"] {
+  background: var(--accent);
+  color: var(--fg-on-accent);
+}
+.button[data-variant="primary"]:hover {
+  background: var(--accent-hover);
+}
+.button[data-variant="primary"]:active {
+  background: var(--accent-active);
+}
+
+/* Secondary */
+.button[data-variant="secondary"] {
+  background: var(--bg-raised);
+  color: var(--fg-body);
+  border-color: var(--border-default);
+}
+.button[data-variant="secondary"]:hover {
+  background: var(--bg-hover);
+}
+.button[data-variant="secondary"]:active {
+  background: var(--bg-active);
+}
+
+/* Ghost */
+.button[data-variant="ghost"] {
+  background: transparent;
+  color: var(--fg-secondary);
+}
+.button[data-variant="ghost"]:hover {
+  background: var(--bg-hover);
+}
+.button[data-variant="ghost"]:active {
+  background: var(--bg-active);
+}
+
+/* Danger */
+.button[data-variant="danger"] {
+  background: var(--danger);
+  color: var(--warm-0);
+}
+.button[data-variant="danger"]:hover {
+  background: var(--danger-hover);
+}
+.button[data-variant="danger"]:active {
+  background: var(--danger-hover);
+}
+
+/* Disabled — matches specimen: muted warm fill, disabled fg, not-allowed. */
+.button:disabled,
+.button[aria-disabled="true"] {
+  background: var(--warm-300);
+  color: var(--fg-disabled);
+  border-color: transparent;
+  cursor: not-allowed;
+}

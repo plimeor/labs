@@ -1,0 +1,95 @@
+.root {
+  font-family: var(--font-ui);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* Page cell / trigger — square tap target, snug numerals. */
+.cell {
+  box-sizing: border-box;
+  min-width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--w-medium);
+  line-height: 1;
+  color: var(--fg-secondary);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard);
+}
+
+.cell:hover {
+  background: var(--bg-hover);
+  color: var(--fg-primary);
+}
+
+/* Active page — tinted accent fill, accent text, heavier weight. */
+.cell[data-selected] {
+  background: var(--accent-subtle);
+  color: var(--accent-fg);
+  font-weight: var(--w-semibold);
+}
+
+.cell[data-selected]:hover {
+  background: var(--accent-subtle);
+  color: var(--accent-fg);
+}
+
+/* Always-visible 2px focus ring, per tokens. */
+.cell:focus-visible {
+  outline: var(--focus-width) solid var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+.cell > svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+/* Ellipsis — non-interactive, quiet. */
+.dots {
+  cursor: default;
+  color: var(--fg-tertiary);
+}
+
+.dots:hover {
+  background: transparent;
+  color: var(--fg-tertiary);
+}
+
+/* Prev / Next edge triggers. */
+.nav {
+  color: var(--fg-tertiary);
+}
+
+.nav:hover {
+  color: var(--fg-primary);
+}
+
+.nav[data-disabled],
+.nav:disabled {
+  color: var(--fg-disabled);
+  pointer-events: none;
+  cursor: default;
+}
+
+.nav[data-disabled]:hover,
+.nav:disabled:hover {
+  background: transparent;
+  color: var(--fg-disabled);
+}
+
+.edge {
+  margin: 0 var(--space-1);
+}

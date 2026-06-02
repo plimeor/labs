@@ -1,0 +1,5 @@
+<svg width="168" height="36" viewBox="0 0 168 36" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Imprint">
+  <rect x="2" y="2" width="32" height="32" rx="8" fill="currentColor"></rect>
+  <path d="M9.5 9.5 H26.5 V13.2 H21.6 V22.8 H26.5 V26.5 H9.5 V22.8 H14.4 V13.2 H9.5 Z" fill="var(--mark-knockout, #FCFCFB)"></path>
+  <text x="46" y="25.5" font-family="&#39;Hanken Grotesk&#39;, sans-serif" font-size="22" font-weight="600" letter-spacing="-0.01em" fill="currentColor">Imprint</text>
+</svg>

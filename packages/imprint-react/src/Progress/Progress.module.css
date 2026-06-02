@@ -1,0 +1,139 @@
+/* Imprint Progress — Ark UI behavior skinned with Imprint tokens.
+   Matches preview/cmp-progress.html: linear track/range bar and circular ring.
+   Track on --bg-active, range/arc on --accent, round caps, mono value text. */
+
+.root {
+  font-family: var(--font-ui);
+  color: var(--fg-body);
+}
+
+/* ---------------------------------------------------------------- Linear */
+
+.linear {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+/* Label + value row above the bar. */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.label {
+  font-size: var(--text-xs);
+  line-height: var(--lh-snug);
+  color: var(--fg-secondary);
+}
+
+.valueText {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--lh-snug);
+  color: var(--fg-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Track — recessed pill the range rides inside. */
+.track {
+  position: relative;
+  height: var(--space-2);
+  width: 100%;
+  background: var(--bg-active);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+/* Range — accent fill. Ark sets inline width from --percent. */
+.range {
+  height: 100%;
+  background: var(--accent);
+  border-radius: var(--radius-full);
+  transition: width var(--dur-base) var(--ease-standard);
+}
+
+/* Indeterminate — a travelling sliver, width unknown. */
+.track[data-state="indeterminate"] .range {
+  width: 40%;
+  border-radius: var(--radius-full);
+  animation: imprint-progress-linear-indeterminate 1.4s var(--ease-standard) infinite;
+}
+
+@keyframes imprint-progress-linear-indeterminate {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(310%);
+  }
+}
+
+/* -------------------------------------------------------------- Circular */
+
+.circular {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Ark consumes --size / --thickness to lay out the SVG and arcs. */
+.circle {
+  --size: 58px;
+  --thickness: 6px;
+  display: block;
+}
+
+.circleTrack {
+  stroke: var(--bg-active);
+}
+
+.circleRange {
+  stroke: var(--accent);
+  stroke-linecap: round;
+  transition: stroke-dashoffset var(--dur-base) var(--ease-standard);
+}
+
+/* Indeterminate ring — spin a fixed arc. */
+.circle[data-state="indeterminate"] {
+  animation: imprint-progress-circular-spin 1.2s linear infinite;
+}
+
+.circle[data-state="indeterminate"] .circleRange {
+  stroke-dasharray: 60 200;
+}
+
+@keyframes imprint-progress-circular-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Centered value text inside the ring. */
+.circleTextWrap {
+  display: flex;
+}
+
+.circleValueText {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1;
+  color: var(--fg-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track[data-state="indeterminate"] .range,
+  .circle[data-state="indeterminate"] {
+    animation: none;
+  }
+}

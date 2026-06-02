@@ -1,0 +1,142 @@
+/* Imprint Popover — Ark UI behavior skinned with Imprint tokens.
+   Matches preview/cmp-popover.html: raised surface, radius-md, subtle border,
+   floating elevation, compact title/description, right-aligned action row. */
+
+/* Holds the positioned surface; Ark sets inline transform/placement. */
+.positioner {
+  /* z-index keeps the floating surface above app chrome. */
+  z-index: 50;
+}
+
+/* The raised popover surface. */
+.content {
+  position: relative;
+  width: 260px;
+  max-width: calc(100vw - var(--space-4));
+  background: var(--bg-raised);
+  color: var(--fg-body);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--elev-3);
+  padding: var(--space-4);
+  font-family: var(--font-ui);
+}
+
+.content:focus-visible {
+  outline: var(--focus-width) solid var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+/* Heading — tight to the description below. */
+.title {
+  margin: 0 0 var(--space-1);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: var(--w-semibold);
+  line-height: var(--lh-snug);
+  color: var(--fg-primary);
+}
+
+/* Supporting copy. */
+.description {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+  line-height: var(--lh-normal);
+  color: var(--fg-secondary);
+}
+
+/* Optional custom body content. */
+.body {
+  margin-bottom: var(--space-3);
+  font-size: var(--text-sm);
+  line-height: var(--lh-normal);
+  color: var(--fg-body);
+}
+
+/* Right-aligned action row. */
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* Pointer arrow — picks up the surface fill and border via Ark's CSS vars. */
+.arrow {
+  --arrow-size: var(--space-2);
+  --arrow-background: var(--bg-raised);
+}
+
+.arrowTip {
+  border-top: 1px solid var(--border-subtle);
+  border-left: 1px solid var(--border-subtle);
+}
+
+/* Top-right close affordance. */
+.closeTrigger {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-tertiary);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard);
+}
+
+.closeTrigger > svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.closeTrigger:hover {
+  background: var(--bg-hover);
+  color: var(--fg-secondary);
+}
+
+.closeTrigger:active {
+  background: var(--bg-active);
+}
+
+.closeTrigger:focus-visible {
+  outline: var(--focus-width) solid var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+/* Enter / exit motion driven by Ark's data-state attribute. */
+.content[data-state="open"] {
+  animation: imprint-popover-in var(--dur-base) var(--ease-out);
+}
+.content[data-state="closed"] {
+  animation: imprint-popover-out var(--dur-fast) var(--ease-in);
+}
+
+@keyframes imprint-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes imprint-popover-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(2px) scale(0.98);
+  }
+}

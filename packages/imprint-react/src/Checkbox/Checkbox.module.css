@@ -1,0 +1,72 @@
+.root {
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  color: var(--fg-body);
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+}
+
+.root[data-disabled] {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+/* Box */
+.control {
+  box-sizing: border-box;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 1.5px solid var(--border-strong);
+  background: var(--bg-content);
+  color: var(--fg-on-accent);
+  transition:
+    background var(--dur-fast) var(--ease-standard),
+    border-color var(--dur-fast) var(--ease-standard);
+}
+
+/* Checked + indeterminate — accent fill */
+.control[data-state="checked"],
+.control[data-state="indeterminate"] {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+/* Focus ring — always visible 2px ring on keyboard focus */
+.control[data-focus-visible] {
+  outline: var(--focus-width) solid var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+/* Indicators share the box center */
+.indicator,
+.indeterminate {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Checkmark glyph */
+.check {
+  width: 12px;
+  height: 12px;
+  stroke-width: 2.4;
+}
+
+/* Indeterminate bar */
+.bar {
+  width: 8px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--fg-on-accent);
+}
+
+.label {
+  user-select: none;
+}

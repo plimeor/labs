@@ -1,0 +1,32 @@
+{
+  "description": "Imprint note/Markdown content-layer styles (links, wikilinks, callouts, code, math, tables, tasklists, tags, mentions...) — depends on @plimeor/imprint-tokens CSS variables",
+  "homepage": "https://github.com/plimeor/labs/tree/main/packages/imprint-note-syntax",
+  "name": "@plimeor/imprint-note-syntax",
+  "type": "module",
+  "version": "0.1.0",
+  "bugs": {
+    "url": "https://github.com/plimeor/labs/issues"
+  },
+  "exports": {
+    ".": "./src/note-syntax.css",
+    "./note-syntax.css": "./src/note-syntax.css"
+  },
+  "files": [
+    "src"
+  ],
+  "peerDependencies": {
+    "@plimeor/imprint-tokens": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "directory": "packages/imprint-note-syntax",
+    "type": "git",
+    "url": "git+https://github.com/plimeor/labs.git"
+  },
+  "scripts": {
+    "lint": "biome check .",
+    "prepack": "test -f src/note-syntax.css"
+  }
+}

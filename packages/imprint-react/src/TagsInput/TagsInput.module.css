@@ -1,0 +1,151 @@
+/* Imprint TagsInput — Ark UI behavior skinned with Imprint tokens.
+   Matches preview/cmp-tags-input.html: a wrapping field of accent chips with a
+   leading hash, an inline entry input, and an always-visible focus-within ring. */
+
+.root {
+  font-family: var(--font-ui);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* Field label — mono caption, matching the specimen's ".lbl". */
+.label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-tertiary);
+}
+
+/* The field itself — wrapping chip well with the entry input. */
+.control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--bg-content);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  transition:
+    border-color var(--dur-fast) var(--ease-standard),
+    box-shadow var(--dur-fast) var(--ease-standard);
+}
+
+/* Always-visible focus ring surfaced on the field when the input is focused. */
+.control[data-focus] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus-ring) 30%, transparent);
+}
+
+.control[data-disabled] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.control[data-invalid] {
+  border-color: var(--danger);
+}
+
+/* Chip wrapper — Ark Item; the visible pill lives in ItemPreview. */
+.item {
+  display: inline-flex;
+}
+
+/* The visible accent chip. */
+.itemPreview {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: var(--w-medium);
+  line-height: 1;
+  color: var(--accent-fg);
+  background: var(--accent-subtle);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  border-radius: var(--radius-full);
+  padding: 3px 4px 3px var(--space-2);
+}
+
+/* The selected / highlighted chip state, surfaced by Ark on the preview. */
+.itemPreview[data-highlighted] {
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+.hash {
+  opacity: 0.5;
+  font-weight: var(--w-semibold);
+}
+
+.itemText {
+  line-height: 1;
+}
+
+/* Per-chip delete affordance. */
+.itemDeleteTrigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--accent-fg);
+  opacity: 0.6;
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-standard),
+    opacity var(--dur-fast) var(--ease-standard);
+}
+
+.itemDeleteTrigger:hover {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  opacity: 1;
+}
+
+.itemDeleteTrigger:focus-visible {
+  outline: var(--focus-width) solid var(--focus-ring);
+  outline-offset: var(--focus-offset);
+  opacity: 1;
+}
+
+.itemDeleteTrigger > svg {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+/* The inline edit input shown while editing a chip. */
+.itemInput {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  color: var(--fg-body);
+  background: var(--bg-raised);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-xs);
+  padding: 0 var(--space-1);
+  outline: none;
+}
+
+/* The entry input — borderless, blends into the field. */
+.input {
+  flex: 1;
+  min-width: 80px;
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--fg-body);
+  background: transparent;
+  border: none;
+  padding: 2px;
+  outline: none;
+}
+
+.input::placeholder {
+  color: var(--fg-tertiary);
+}
+
+.input:disabled {
+  cursor: not-allowed;
+}
