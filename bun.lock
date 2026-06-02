@@ -17,7 +17,6 @@
       "name": "imprint-docs",
       "version": "0.0.0",
       "dependencies": {
-        "@plimeor/imprint-note-syntax": "workspace:*",
         "@plimeor/imprint-react": "workspace:*",
         "@plimeor/imprint-tokens": "workspace:*",
       },
@@ -68,16 +67,9 @@
       "name": "@plimeor/git-kit",
       "version": "0.1.2",
     },
-    "packages/imprint-note-syntax": {
-      "name": "@plimeor/imprint-note-syntax",
-      "version": "0.0.0",
-      "peerDependencies": {
-        "@plimeor/imprint-tokens": "workspace:*",
-      },
-    },
     "packages/imprint-react": {
       "name": "@plimeor/imprint-react",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@ark-ui/react": "^5.37.0",
         "lucide-react": "^1.17.0",
@@ -106,7 +98,7 @@
     },
     "packages/imprint-tokens": {
       "name": "@plimeor/imprint-tokens",
-      "version": "0.0.0",
+      "version": "0.1.0",
     },
     "packages/skills": {
       "name": "@plimeor/skills",
@@ -377,8 +369,6 @@
     "@plimeor/command-kit": ["@plimeor/command-kit@workspace:packages/command-kit"],
 
     "@plimeor/git-kit": ["@plimeor/git-kit@workspace:packages/git-kit"],
-
-    "@plimeor/imprint-note-syntax": ["@plimeor/imprint-note-syntax@workspace:packages/imprint-note-syntax"],
 
     "@plimeor/imprint-react": ["@plimeor/imprint-react@workspace:packages/imprint-react"],
 

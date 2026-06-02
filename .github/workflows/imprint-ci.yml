@@ -4,18 +4,14 @@ on:
   pull_request:
     paths:
       - 'packages/imprint-tokens/**'
-      - 'packages/imprint-react/**'
-      - 'packages/imprint-note-syntax/**'
-      - 'apps/imprint-docs/**'
+      - 'packages/imprint-react/**'      - 'apps/imprint-docs/**'
       - '.github/workflows/imprint-ci.yml'
   push:
     branches:
       - main
     paths:
       - 'packages/imprint-tokens/**'
-      - 'packages/imprint-react/**'
-      - 'packages/imprint-note-syntax/**'
-      - 'apps/imprint-docs/**'
+      - 'packages/imprint-react/**'      - 'apps/imprint-docs/**'
       - '.github/workflows/imprint-ci.yml'
 
 permissions:
@@ -40,7 +36,7 @@ jobs:
         run: bun run check
 
       - name: Biome
-        run: bunx biome check packages/imprint-tokens packages/imprint-react packages/imprint-note-syntax apps/imprint-docs
+        run: bunx biome check packages/imprint-tokens packages/imprint-react apps/imprint-docs
 
       - name: Test imprint-react
         run: bun run --filter @plimeor/imprint-react test

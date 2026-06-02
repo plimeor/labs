@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import type { CSSProperties, ReactNode } from 'react'
 
-import '@plimeor/imprint-note-syntax/note-syntax.css'
+import '@plimeor/imprint-tokens/note-syntax.css'
 
-// imprint-note-syntax is a pure-CSS package: there is no component to render, so
+// note-syntax.css ships inside @plimeor/imprint-tokens (pure CSS, no component), so
 // these stories render raw markup that exercises every ns-* class against the
 // imprint-tokens variables (tokens.css + fonts.css are loaded globally in
 // preview.ts). The toolbar Theme global drives data-theme on <html>, so light

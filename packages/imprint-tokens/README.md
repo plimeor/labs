@@ -61,3 +61,17 @@ import markUrl from "@plimeor/imprint-tokens/brand/imprint-mark.svg";
 
 Available marks: `imprint-mark.svg`, `imprint-mark-light.svg`,
 `imprint-mark-accent.svg`, `imprint-wordmark.svg`.
+
+### Note / Markdown content styles
+
+For note-taking and Markdown surfaces, `note-syntax.css` styles rendered
+content — links, wikilinks, callouts, code, math, tables, task lists, tags,
+mentions, footnotes, citations, highlights, and frontmatter. It references the
+token variables, so load `tokens.css` first:
+
+```ts
+import "@plimeor/imprint-tokens/tokens.css";
+import "@plimeor/imprint-tokens/note-syntax.css";
+```
+
+Classes are namespaced `ns-*` (e.g. `.ns-callout`, `.ns-codeblock`).

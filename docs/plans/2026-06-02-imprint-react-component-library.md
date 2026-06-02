@@ -193,3 +193,7 @@
 - **理由**：复用 labs 全部既有 infra（catalog/biome/tsconfig/husky/CI/bump 脚本），切片 0 大幅缩水；labs 内 `apps/*` 可 `workspace:*` 免发布消费，直接服务"盘活/真实消费"；`@plimeor/*` scope 一致；imprint 旧仓库无 commit，现在迁移零成本；发布不受仓库位置影响。
 - **接受的代价**：前端工具链与视觉快照混入偏 CLI 的 labs（git churn，已在风险中给出克制策略）。
 - **翻转条件（未触发）**：若日后要把 Imprint 作为对外公开、独立品牌的开源设计系统，再拆回独立仓库。
+
+## 更新 2026-06-02：note-syntax 并入 tokens
+
+原 `@plimeor/imprint-note-syntax` 已合并进 `@plimeor/imprint-tokens`（新增导出 `./note-syntax.css`）。现为**两个包**：`@plimeor/imprint-tokens`（tokens + 字体 + 品牌 + note-syntax 内容样式）与 `@plimeor/imprint-react`。理由：note-syntax 仅一个依赖 token 的 CSS 文件，单独成包收益不大；在首次发布前合并，无已发布包需废弃。上文中所有"三个包"的描述以此为准更正为两个。

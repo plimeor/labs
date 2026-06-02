@@ -1,5 +1,5 @@
 {
-  "description": "Imprint design system foundations — color/type/spacing/radius/elevation/motion design tokens as CSS variables, plus self-hosted fonts and brand marks",
+  "description": "Imprint design system foundations — color/type/spacing/radius/elevation/motion design tokens (CSS variables), self-hosted fonts, brand marks, and note/Markdown content-layer styles",
   "homepage": "https://github.com/plimeor/labs/tree/main/packages/imprint-tokens",
   "name": "@plimeor/imprint-tokens",
   "type": "module",
@@ -12,6 +12,7 @@
     ".": "./src/tokens.ts",
     "./brand/*": "./src/brand/*",
     "./fonts.css": "./src/fonts.css",
+    "./note-syntax.css": "./src/note-syntax.css",
     "./tokens.css": "./src/tokens.css"
   },
   "files": [
