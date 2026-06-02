@@ -3,13 +3,11 @@
   "homepage": "https://github.com/plimeor/labs/tree/main/packages/imprint-tokens",
   "name": "@plimeor/imprint-tokens",
   "type": "module",
-  "types": "./src/tokens.ts",
   "version": "0.1.0",
   "bugs": {
     "url": "https://github.com/plimeor/labs/issues"
   },
   "exports": {
-    ".": "./src/tokens.ts",
     "./brand/*": "./src/brand/*",
     "./fonts.css": "./src/fonts.css",
     "./note-syntax.css": "./src/note-syntax.css",

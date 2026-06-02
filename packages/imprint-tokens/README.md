@@ -41,16 +41,6 @@ use the semantic tokens so themes flip correctly:
 }
 ```
 
-### Type-safe token references
-
-The package entry exports the declared token names plus a `cssVar` helper:
-
-```ts
-import { cssVar, tokenNames, type TokenName } from "@plimeor/imprint-tokens";
-
-cssVar("--bg-canvas"); // => "var(--bg-canvas)"
-```
-
 ### Brand marks
 
 SVG brand marks are exported under `./brand/*`:
