@@ -44,14 +44,14 @@
 .label {
   font-size: var(--text-sm);
   font-weight: var(--w-regular);
-  line-height: var(--lh-snug);
-  color: var(--fg-secondary);
+  line-height: var(--leading-snug);
+  color: var(--color-secondary);
 }
 
 .valueText {
   font-family: var(--font-mono);
   font-size: var(--text-sm);
-  color: var(--fg-tertiary);
+  color: var(--color-tertiary);
 }
 
 /* Control — the interactive band that hosts the track and thumb. */
@@ -67,14 +67,14 @@
   position: relative;
   flex: 1;
   height: 6px;
-  background: var(--bg-active);
+  background: var(--color-active);
   border-radius: var(--radius-full);
 }
 
 /* Range — accent fill from origin to the thumb. */
 .range {
   height: 6px;
-  background: var(--accent);
+  background: var(--color-accent);
   border-radius: var(--radius-full);
 }
 
@@ -83,9 +83,9 @@
   width: 18px;
   height: 18px;
   border-radius: var(--radius-full);
-  background: var(--bg-content);
-  border: 1.5px solid var(--accent);
-  box-shadow: var(--elev-2);
+  background: var(--color-content);
+  border: 1.5px solid var(--color-accent);
+  box-shadow: var(--shadow-2);
   cursor: grab;
   outline: none;
 }
@@ -96,7 +96,7 @@
 
 /* Always-visible focus ring on the thumb. */
 .thumb[data-focus] {
-  outline: var(--focus-width) solid var(--focus-ring);
+  outline: var(--focus-width) solid var(--color-focus);
   outline-offset: var(--focus-offset);
 }
 

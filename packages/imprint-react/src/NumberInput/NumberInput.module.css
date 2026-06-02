@@ -13,8 +13,8 @@
 .label {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  line-height: var(--lh-snug);
-  color: var(--fg-tertiary);
+  line-height: var(--leading-snug);
+  color: var(--color-tertiary);
   margin-bottom: var(--space-2);
 }
 
@@ -23,9 +23,9 @@
 .control {
   display: flex;
   align-items: stretch;
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: var(--bg-content);
+  background: var(--color-content);
   overflow: hidden;
   transition:
     border-color var(--dur-fast) var(--ease-standard),
@@ -34,12 +34,12 @@
 
 /* Focus ring surfaced on the control when the inner input is focused. */
 .control:focus-within {
-  outline: var(--focus-width) solid var(--focus-ring);
+  outline: var(--focus-width) solid var(--color-focus);
   outline-offset: var(--focus-offset);
 }
 
 .control[data-invalid] {
-  border-color: var(--danger-border);
+  border-color: var(--color-danger-border);
 }
 
 .control[data-disabled] {
@@ -58,19 +58,19 @@
   text-align: center;
   font-family: var(--font-ui);
   font-size: var(--text-base);
-  line-height: var(--lh-normal);
-  color: var(--fg-primary);
+  line-height: var(--leading-normal);
+  color: var(--color-ink);
   font-variant-numeric: tabular-nums;
   padding: var(--space-2) var(--space-1);
 }
 
 .input::placeholder {
-  color: var(--fg-tertiary);
+  color: var(--color-tertiary);
 }
 
 .input:disabled {
   cursor: not-allowed;
-  color: var(--fg-disabled);
+  color: var(--color-disabled);
 }
 
 /* Stepper triggers — divided from the value field, square chevron buttons. */
@@ -82,7 +82,7 @@
   padding: var(--space-2) var(--space-3);
   border: none;
   background: transparent;
-  color: var(--fg-secondary);
+  color: var(--color-secondary);
   cursor: pointer;
   transition:
     background var(--dur-fast) var(--ease-standard),
@@ -90,11 +90,11 @@
 }
 
 .stepper:first-of-type {
-  border-right: 1px solid var(--border-subtle);
+  border-right: 1px solid var(--color-border-subtle);
 }
 
 .stepper:last-of-type {
-  border-left: 1px solid var(--border-subtle);
+  border-left: 1px solid var(--color-border-subtle);
 }
 
 .stepper > svg {
@@ -104,21 +104,21 @@
 }
 
 .stepper:hover {
-  background: var(--bg-hover);
-  color: var(--fg-primary);
+  background: var(--color-hover);
+  color: var(--color-ink);
 }
 
 .stepper:active {
-  background: var(--bg-active);
+  background: var(--color-active);
 }
 
 .stepper:focus-visible {
-  outline: var(--focus-width) solid var(--focus-ring);
+  outline: var(--focus-width) solid var(--color-focus);
   outline-offset: calc(-1 * var(--focus-width));
 }
 
 .stepper:disabled,
 .stepper[data-disabled] {
   cursor: not-allowed;
-  color: var(--fg-disabled);
+  color: var(--color-disabled);
 }

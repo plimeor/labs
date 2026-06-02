@@ -1,9 +1,11 @@
 /*
   Imprint × Tailwind CSS v4 theme.
 
-  Maps Imprint's design tokens onto Tailwind's @theme namespaces so a Tailwind v4
-  project gets Imprint-scaled utilities (bg-*, text-*, border-*, rounded-*,
-  font-*, shadow-*, ease-*, …) that flip with `data-theme`.
+  tokens.css already names everything in Tailwind's vocabulary (--color-*,
+  --shadow-*, --leading-*, --tracking-*, --text-*, --radius-*, --font-*,
+  --ease-*). This file just REGISTERS those tokens with Tailwind's @theme so the
+  matching utilities are generated. Every value references tokens.css via var()
+  — nothing is hardcoded (single source of truth); theme.css owns no values.
 
   Usage (consumer, with @tailwindcss/vite or the PostCSS plugin):
 
@@ -11,79 +13,85 @@
     @import "@plimeor/imprint-tokens/theme.css";   // pulls tokens.css + fonts.css + this map
     // then set data-theme="light" | "dark" on <html>
 
-  SINGLE SOURCE OF TRUTH: every value below references a variable from tokens.css
-  via var() — nothing is hardcoded. Two mechanics, both DRY:
+  `@theme inline` makes the utilities reference var(--token) at the use-site
+  (e.g. .bg-canvas { background: var(--color-canvas) }) so colors/shadows flip
+  with data-theme. Scale keys (--text-*, --radius-*, --font-mono, --ease-in…)
+  share Tailwind's built-in namespace names; their var() resolves against
+  tokens.css's UNLAYERED :root, which wins over Tailwind's @layer theme.
 
-  - NEW key names (--color-*, --shadow-*, --leading-*, --tracking-*) differ from
-    the source token, so `@theme inline` emits them only inside utilities
-    (`.bg-canvas { background: var(--bg-canvas) }`) and they flip live.
-  - Keys that reuse Tailwind's own namespace happen to equal Imprint's token
-    names (--text-xs, --radius-md, --font-ui, --ease-standard). `var(--text-xs)`
-    resolves against tokens.css's :root value, which wins because tokens.css is
-    imported UNLAYERED and unlayered declarations always beat @layer ones.
-
-  No tailwind.config needed — v4 reads @theme directly. Imprint's 4px spacing
-  grid already matches Tailwind's default spacing scale, so spacing is untouched.
+  No tailwind.config needed. Imprint's 4px spacing grid already matches
+  Tailwind's default spacing, and --w-* match Tailwind's font weights, so
+  spacing and weight utilities are left to Tailwind's defaults.
 */
 @import "./tokens.css";
 @import "./fonts.css";
 
 @theme inline {
-  /* ---- Surfaces — bg-canvas / bg-content / bg-raised … (also text-*, border-*) ---- */
-  --color-canvas: var(--bg-canvas);
-  --color-sidebar: var(--bg-sidebar);
-  --color-content: var(--bg-content);
-  --color-raised: var(--bg-raised);
-  --color-sunken: var(--bg-sunken);
-  --color-hover: var(--bg-hover);
-  --color-active: var(--bg-active);
-  --color-selection: var(--bg-selection);
+  /* ---- Surfaces — bg-canvas / bg-content / bg-raised … ---- */
+  --color-canvas: var(--color-canvas);
+  --color-sidebar: var(--color-sidebar);
+  --color-content: var(--color-content);
+  --color-raised: var(--color-raised);
+  --color-sunken: var(--color-sunken);
+  --color-hover: var(--color-hover);
+  --color-active: var(--color-active);
+  --color-selection: var(--color-selection);
 
   /* ---- Foreground — text-ink (headings) / text-body / text-secondary … ---- */
-  --color-ink: var(--fg-primary);
-  --color-body: var(--fg-body);
-  --color-secondary: var(--fg-secondary);
-  --color-tertiary: var(--fg-tertiary);
-  --color-disabled: var(--fg-disabled);
-  --color-on-accent: var(--fg-on-accent);
-  --color-link: var(--fg-link);
+  --color-ink: var(--color-ink);
+  --color-body: var(--color-body);
+  --color-secondary: var(--color-secondary);
+  --color-tertiary: var(--color-tertiary);
+  --color-disabled: var(--color-disabled);
+  --color-on-accent: var(--color-on-accent);
+  --color-link: var(--color-link);
 
-  /* ---- Borders — border-border-subtle / border-border-strong; bare `border` is the hairline (below) ---- */
-  --color-border-subtle: var(--border-subtle);
-  --color-border: var(--border-default);
-  --color-border-strong: var(--border-strong);
+  /* ---- Borders — bare `border` is the hairline (below); border-border-strong for emphasis ---- */
+  --color-border-subtle: var(--color-border-subtle);
+  --color-border: var(--color-border);
+  --color-border-strong: var(--color-border-strong);
 
   /* ---- Accent — bg-accent / text-accent / ring-accent … ---- */
-  --color-accent: var(--accent);
-  --color-accent-hover: var(--accent-hover);
-  --color-accent-active: var(--accent-active);
-  --color-accent-subtle: var(--accent-subtle);
-  --color-accent-fg: var(--accent-fg);
+  --color-accent: var(--color-accent);
+  --color-accent-hover: var(--color-accent-hover);
+  --color-accent-active: var(--color-accent-active);
+  --color-accent-subtle: var(--color-accent-subtle);
+  --color-accent-fg: var(--color-accent-fg);
 
   /* ---- Status — text-success / bg-success-bg / border-success-border … ---- */
-  --color-success: var(--success-fg);
-  --color-success-bg: var(--success-bg);
-  --color-success-border: var(--success-border);
-  --color-warning: var(--warning-fg);
-  --color-warning-bg: var(--warning-bg);
-  --color-warning-border: var(--warning-border);
-  --color-danger: var(--danger-fg);
-  --color-danger-bg: var(--danger-bg);
-  --color-danger-border: var(--danger-border);
-  --color-danger-solid: var(--danger);
+  --color-success: var(--color-success);
+  --color-success-bg: var(--color-success-bg);
+  --color-success-border: var(--color-success-border);
+  --color-warning: var(--color-warning);
+  --color-warning-bg: var(--color-warning-bg);
+  --color-warning-border: var(--color-warning-border);
+  --color-danger: var(--color-danger);
+  --color-danger-bg: var(--color-danger-bg);
+  --color-danger-border: var(--color-danger-border);
+  --color-danger-solid: var(--color-danger-solid);
+  --color-danger-hover: var(--color-danger-hover);
 
-  /* ---- Focus ring — ring-focus / outline-focus ---- */
-  --color-focus: var(--focus-ring);
+  /* ---- Focus / scrim — ring-focus, bg-scrim ---- */
+  --color-focus: var(--color-focus);
+  --color-focus-offset: var(--color-focus-offset);
+  --color-scrim: var(--color-scrim);
 
-  /* ---- AI / agent surfaces — bg-agent / border-agent-border ---- */
-  --color-agent: var(--agent-bg);
-  --color-agent-border: var(--agent-border);
+  /* ---- AI / diff surfaces ---- */
+  --color-agent: var(--color-agent);
+  --color-agent-border: var(--color-agent-border);
+  --color-diff-add-bg: var(--color-diff-add-bg);
+  --color-diff-add-fg: var(--color-diff-add-fg);
+  --color-diff-add-gutter: var(--color-diff-add-gutter);
+  --color-diff-del-bg: var(--color-diff-del-bg);
+  --color-diff-del-fg: var(--color-diff-del-fg);
+  --color-diff-del-gutter: var(--color-diff-del-gutter);
 
   /* ---- Elevation — shadow-1 … shadow-4 (flip via --shadow-rgb) ---- */
-  --shadow-1: var(--elev-1);
-  --shadow-2: var(--elev-2);
-  --shadow-3: var(--elev-3);
-  --shadow-4: var(--elev-4);
+  --shadow-1: var(--shadow-1);
+  --shadow-2: var(--shadow-2);
+  --shadow-3: var(--shadow-3);
+  --shadow-4: var(--shadow-4);
+  --shadow-inset: var(--shadow-inset);
 
   /* ---- Font families — font-ui / font-read / font-mono ---- */
   --font-ui: var(--font-ui);
@@ -101,17 +109,17 @@
   --text-3xl: var(--text-3xl);
   --text-4xl: var(--text-4xl);
 
-  /* ---- Line height — leading-tight … leading-relaxed (source: --lh-*) ---- */
-  --leading-tight: var(--lh-tight);
-  --leading-snug: var(--lh-snug);
-  --leading-normal: var(--lh-normal);
-  --leading-relaxed: var(--lh-relaxed);
+  /* ---- Line height — leading-tight … leading-relaxed ---- */
+  --leading-tight: var(--leading-tight);
+  --leading-snug: var(--leading-snug);
+  --leading-normal: var(--leading-normal);
+  --leading-relaxed: var(--leading-relaxed);
 
-  /* ---- Letter spacing — tracking-* (source: --track-*) ---- */
-  --tracking-tight: var(--track-tight);
-  --tracking-normal: var(--track-normal);
-  --tracking-wide: var(--track-wide);
-  --tracking-caps: var(--track-caps);
+  /* ---- Letter spacing — tracking-tight / tracking-wide / tracking-caps ---- */
+  --tracking-tight: var(--tracking-tight);
+  --tracking-normal: var(--tracking-normal);
+  --tracking-wide: var(--tracking-wide);
+  --tracking-caps: var(--tracking-caps);
 
   /* ---- Radius — rounded-xs … rounded-lg ---- */
   --radius-xs: var(--radius-xs);
@@ -135,6 +143,6 @@
   ::after,
   ::before,
   ::backdrop {
-    border-color: var(--border-subtle);
+    border-color: var(--color-border-subtle);
   }
 }

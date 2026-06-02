@@ -103,10 +103,10 @@ export const Showcase: Story = {
   args: { data: vault, label: 'Vault' },
   render: () => (
     <div style={{ display: 'flex', gap: 40 }}>
-      <div data-theme="light" style={{ background: 'var(--bg-canvas)', borderRadius: 11, padding: 20, width: 240 }}>
+      <div data-theme="light" style={{ background: 'var(--color-canvas)', borderRadius: 11, padding: 20, width: 240 }}>
         <TreeView label="Vault" data={vault} defaultExpandedValue={['vault']} defaultSelectedValue={['field-notes']} />
       </div>
-      <div data-theme="dark" style={{ background: 'var(--bg-canvas)', borderRadius: 11, padding: 20, width: 240 }}>
+      <div data-theme="dark" style={{ background: 'var(--color-canvas)', borderRadius: 11, padding: 20, width: 240 }}>
         <TreeView label="Vault" data={vault} defaultExpandedValue={['vault']} defaultSelectedValue={['field-notes']} />
       </div>
     </div>

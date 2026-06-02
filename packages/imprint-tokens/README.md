@@ -32,11 +32,11 @@ use the semantic tokens so themes flip correctly:
 
 ```css
 .card {
-  background: var(--bg-raised);
-  color: var(--fg-body);
-  border: 1px solid var(--border-subtle);
+  background: var(--color-raised);
+  color: var(--color-body);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
-  box-shadow: var(--elev-2);
+  box-shadow: var(--shadow-2);
   font-family: var(--font-ui);
 }
 ```

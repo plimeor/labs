@@ -10,7 +10,7 @@ import '@plimeor/imprint-tokens/note-syntax.css'
 // and dark are both covered by the existing decorator.
 
 const prose: CSSProperties = {
-  color: 'var(--fg-body)',
+  color: 'var(--color-body)',
   fontFamily: 'var(--font-read)',
   fontSize: 17,
   lineHeight: 1.7,
@@ -21,7 +21,7 @@ const Section = ({ label, children }: { label: string; children: ReactNode }) =>
   <section style={{ marginBottom: 28 }}>
     <div
       style={{
-        color: 'var(--fg-tertiary)',
+        color: 'var(--color-tertiary)',
         fontFamily: 'var(--font-mono)',
         fontSize: 10.5,
         letterSpacing: '0.02em',
@@ -123,8 +123,8 @@ export const Image: Story = {
             className="ns-image"
             style={{
               alignItems: 'center',
-              background: 'var(--bg-sunken)',
-              color: 'var(--fg-tertiary)',
+              background: 'var(--color-sunken)',
+              color: 'var(--color-tertiary)',
               display: 'flex',
               height: 120,
               justifyContent: 'center'
@@ -487,7 +487,7 @@ export const FullNote: Story = {
 
       <h1
         style={{
-          color: 'var(--fg-primary)',
+          color: 'var(--color-ink)',
           fontFamily: 'var(--font-read)',
           fontSize: 30,
           fontWeight: 600,
@@ -542,7 +542,7 @@ export const FullNote: Story = {
 
       <h2
         style={{
-          color: 'var(--fg-primary)',
+          color: 'var(--color-ink)',
           fontFamily: 'var(--font-read)',
           fontSize: 21,
           fontWeight: 600,

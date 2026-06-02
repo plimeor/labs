@@ -87,10 +87,10 @@ export const WithBody: Story = {
       <input
         defaultValue="Field notes"
         style={{
-          background: 'var(--bg-content)',
-          border: '1px solid var(--border-default)',
+          background: 'var(--color-content)',
+          border: '1px solid var(--color-border)',
           borderRadius: 'var(--radius-sm)',
-          color: 'var(--fg-body)',
+          color: 'var(--color-body)',
           fontFamily: 'var(--font-ui)',
           fontSize: 'var(--text-sm)',
           padding: '6px 10px',

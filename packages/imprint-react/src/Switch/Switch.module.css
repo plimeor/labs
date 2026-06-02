@@ -1,7 +1,7 @@
 .root {
   font-family: var(--font-ui);
   font-size: var(--text-base);
-  color: var(--fg-body);
+  color: var(--color-body);
   display: inline-flex;
   align-items: center;
   gap: 9px;
@@ -28,7 +28,7 @@
 
 /* On — accent fill */
 .control[data-state="checked"] {
-  background: var(--accent);
+  background: var(--color-accent);
 }
 
 /* Disabled — muted, per specimen */
@@ -38,7 +38,7 @@
 
 /* Focus ring — driven by the hidden input's focus-visible, surfaced on the control */
 .control[data-focus-visible] {
-  outline: var(--focus-width) solid var(--focus-ring);
+  outline: var(--focus-width) solid var(--color-focus);
   outline-offset: var(--focus-offset);
 }
 
@@ -48,7 +48,7 @@
   height: 18px;
   border-radius: 50%;
   background: var(--warm-0);
-  box-shadow: var(--elev-1);
+  box-shadow: var(--shadow-1);
   transform: translateX(0);
   transition: transform var(--dur-base) var(--ease-standard);
 }

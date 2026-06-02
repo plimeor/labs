@@ -1,7 +1,7 @@
 .root {
   font-family: var(--font-ui);
   font-size: var(--text-base);
-  color: var(--fg-body);
+  color: var(--color-body);
   display: inline-flex;
   align-items: center;
   gap: 9px;
@@ -23,9 +23,9 @@
   align-items: center;
   justify-content: center;
   border-radius: 6px;
-  border: 1.5px solid var(--border-strong);
-  background: var(--bg-content);
-  color: var(--fg-on-accent);
+  border: 1.5px solid var(--color-border-strong);
+  background: var(--color-content);
+  color: var(--color-on-accent);
   transition:
     background var(--dur-fast) var(--ease-standard),
     border-color var(--dur-fast) var(--ease-standard);
@@ -34,13 +34,13 @@
 /* Checked + indeterminate — accent fill */
 .control[data-state="checked"],
 .control[data-state="indeterminate"] {
-  border-color: var(--accent);
-  background: var(--accent);
+  border-color: var(--color-accent);
+  background: var(--color-accent);
 }
 
 /* Focus ring — always visible 2px ring on keyboard focus */
 .control[data-focus-visible] {
-  outline: var(--focus-width) solid var(--focus-ring);
+  outline: var(--focus-width) solid var(--color-focus);
   outline-offset: var(--focus-offset);
 }
 
@@ -64,7 +64,7 @@
   width: 8px;
   height: 2px;
   border-radius: 1px;
-  background: var(--fg-on-accent);
+  background: var(--color-on-accent);
 }
 
 .label {

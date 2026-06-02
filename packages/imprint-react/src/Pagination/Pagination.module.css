@@ -21,7 +21,7 @@
   font-size: var(--text-sm);
   font-weight: var(--w-medium);
   line-height: 1;
-  color: var(--fg-secondary);
+  color: var(--color-secondary);
   cursor: pointer;
   transition:
     background var(--dur-fast) var(--ease-standard),
@@ -29,25 +29,25 @@
 }
 
 .cell:hover {
-  background: var(--bg-hover);
-  color: var(--fg-primary);
+  background: var(--color-hover);
+  color: var(--color-ink);
 }
 
 /* Active page — tinted accent fill, accent text, heavier weight. */
 .cell[data-selected] {
-  background: var(--accent-subtle);
-  color: var(--accent-fg);
+  background: var(--color-accent-subtle);
+  color: var(--color-accent-fg);
   font-weight: var(--w-semibold);
 }
 
 .cell[data-selected]:hover {
-  background: var(--accent-subtle);
-  color: var(--accent-fg);
+  background: var(--color-accent-subtle);
+  color: var(--color-accent-fg);
 }
 
 /* Always-visible 2px focus ring, per tokens. */
 .cell:focus-visible {
-  outline: var(--focus-width) solid var(--focus-ring);
+  outline: var(--focus-width) solid var(--color-focus);
   outline-offset: var(--focus-offset);
 }
 
@@ -60,26 +60,26 @@
 /* Ellipsis — non-interactive, quiet. */
 .dots {
   cursor: default;
-  color: var(--fg-tertiary);
+  color: var(--color-tertiary);
 }
 
 .dots:hover {
   background: transparent;
-  color: var(--fg-tertiary);
+  color: var(--color-tertiary);
 }
 
 /* Prev / Next edge triggers. */
 .nav {
-  color: var(--fg-tertiary);
+  color: var(--color-tertiary);
 }
 
 .nav:hover {
-  color: var(--fg-primary);
+  color: var(--color-ink);
 }
 
 .nav[data-disabled],
 .nav:disabled {
-  color: var(--fg-disabled);
+  color: var(--color-disabled);
   pointer-events: none;
   cursor: default;
 }
@@ -87,7 +87,7 @@
 .nav[data-disabled]:hover,
 .nav:disabled:hover {
   background: transparent;
-  color: var(--fg-disabled);
+  color: var(--color-disabled);
 }
 
 .edge {

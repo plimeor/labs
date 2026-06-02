@@ -1,6 +1,6 @@
 .root {
   font-family: var(--font-ui);
-  color: var(--fg-body);
+  color: var(--color-body);
   width: 100%;
 }
 
@@ -39,8 +39,8 @@
   padding-inline-start: calc(var(--space-2) + (var(--depth, 1) - 1) * var(--space-4));
   border-radius: var(--radius-sm);
   font-size: var(--text-sm);
-  line-height: var(--lh-snug);
-  color: var(--fg-body);
+  line-height: var(--leading-snug);
+  color: var(--color-body);
   cursor: pointer;
   user-select: none;
   transition:
@@ -50,25 +50,25 @@
 
 .control:hover,
 .item:hover {
-  background: var(--bg-hover);
+  background: var(--color-hover);
 }
 
 /* Selected — accent-tinted fill and accent foreground, matching the specimen. */
 .control[data-selected],
 .item[data-selected] {
-  background: var(--accent-subtle);
-  color: var(--accent-fg);
+  background: var(--color-accent-subtle);
+  color: var(--color-accent-fg);
 }
 
 .control[data-selected] .icon,
 .item[data-selected] .icon {
-  color: var(--accent);
+  color: var(--color-accent);
 }
 
 /* Disabled */
 .control[data-disabled],
 .item[data-disabled] {
-  color: var(--fg-disabled);
+  color: var(--color-disabled);
   cursor: not-allowed;
 }
 
@@ -82,7 +82,7 @@
 .item:focus-visible,
 .control[data-focus],
 .item[data-focus] {
-  outline: var(--focus-width) solid var(--focus-ring);
+  outline: var(--focus-width) solid var(--color-focus);
   outline-offset: calc(var(--focus-offset) * -1);
 }
 
@@ -92,7 +92,7 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  color: var(--fg-tertiary);
+  color: var(--color-tertiary);
 }
 
 .chevron {
@@ -111,7 +111,7 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  color: var(--fg-tertiary);
+  color: var(--color-tertiary);
 }
 
 .icon svg {

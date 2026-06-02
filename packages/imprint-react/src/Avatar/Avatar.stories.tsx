@@ -82,14 +82,14 @@ export const Group: Story = {
           key={initial}
           fallback={initial}
           size="sm"
-          style={{ border: '2px solid var(--bg-canvas)', marginLeft: i === 0 ? 0 : -10 }}
+          style={{ border: '2px solid var(--color-canvas)', marginLeft: i === 0 ? 0 : -10 }}
         />
       ))}
       <Avatar
         fallback="+2"
         size="sm"
         tone="neutral"
-        style={{ border: '2px solid var(--bg-canvas)', marginLeft: -10 }}
+        style={{ border: '2px solid var(--color-canvas)', marginLeft: -10 }}
       />
     </div>
   )
@@ -107,14 +107,14 @@ export const Specimen: Story = {
             key={initial}
             fallback={initial}
             size="sm"
-            style={{ border: '2px solid var(--bg-canvas)', marginLeft: i === 0 ? 0 : -10 }}
+            style={{ border: '2px solid var(--color-canvas)', marginLeft: i === 0 ? 0 : -10 }}
           />
         ))}
         <Avatar
           fallback="+2"
           size="sm"
           tone="neutral"
-          style={{ border: '2px solid var(--bg-canvas)', marginLeft: -10 }}
+          style={{ border: '2px solid var(--color-canvas)', marginLeft: -10 }}
         />
       </div>
     </div>

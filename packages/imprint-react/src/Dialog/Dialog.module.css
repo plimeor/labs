@@ -6,7 +6,7 @@
 .backdrop {
   position: fixed;
   inset: 0;
-  background: var(--scrim);
+  background: var(--color-scrim);
 }
 
 /* Centers the surface over the viewport. */
@@ -24,16 +24,16 @@
   position: relative;
   width: 420px;
   max-width: 100%;
-  background: var(--bg-raised);
-  color: var(--fg-body);
-  border: 1px solid var(--border-subtle);
+  background: var(--color-raised);
+  color: var(--color-body);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
-  box-shadow: var(--elev-4);
+  box-shadow: var(--shadow-4);
   font-family: var(--font-ui);
 }
 
 .content:focus-visible {
-  outline: var(--focus-width) solid var(--focus-ring);
+  outline: var(--focus-width) solid var(--color-focus);
   outline-offset: var(--focus-offset);
 }
 
@@ -47,9 +47,9 @@
   font-family: var(--font-ui);
   font-size: var(--text-lg);
   font-weight: var(--w-semibold);
-  line-height: var(--lh-snug);
-  letter-spacing: var(--track-tight);
-  color: var(--fg-primary);
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-ink);
 }
 
 /* Supporting copy. */
@@ -57,16 +57,16 @@
   margin: 0;
   padding: var(--space-2) var(--space-5) var(--space-4);
   font-size: var(--text-base);
-  line-height: var(--lh-relaxed);
-  color: var(--fg-secondary);
+  line-height: var(--leading-relaxed);
+  color: var(--color-secondary);
 }
 
 /* Optional custom body content. */
 .body {
   padding: 0 var(--space-5) var(--space-4);
   font-size: var(--text-base);
-  line-height: var(--lh-normal);
-  color: var(--fg-body);
+  line-height: var(--leading-normal);
+  color: var(--color-body);
 }
 
 /* Divided, right-aligned action row. */
@@ -75,7 +75,7 @@
   justify-content: flex-end;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-5);
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--color-border-subtle);
 }
 
 /* Top-right close affordance. */
@@ -92,7 +92,7 @@
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--fg-tertiary);
+  color: var(--color-tertiary);
   cursor: pointer;
   transition:
     background var(--dur-fast) var(--ease-standard),
@@ -106,16 +106,16 @@
 }
 
 .closeTrigger:hover {
-  background: var(--bg-hover);
-  color: var(--fg-secondary);
+  background: var(--color-hover);
+  color: var(--color-secondary);
 }
 
 .closeTrigger:active {
-  background: var(--bg-active);
+  background: var(--color-active);
 }
 
 .closeTrigger:focus-visible {
-  outline: var(--focus-width) solid var(--focus-ring);
+  outline: var(--focus-width) solid var(--color-focus);
   outline-offset: var(--focus-offset);
 }
 

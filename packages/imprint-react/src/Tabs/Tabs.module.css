@@ -28,7 +28,7 @@
   font-family: inherit;
   font-size: var(--text-base);
   font-weight: var(--w-medium);
-  color: var(--fg-secondary);
+  color: var(--color-secondary);
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -48,11 +48,11 @@
 }
 
 .trigger:hover {
-  color: var(--fg-primary);
+  color: var(--color-ink);
 }
 
 .trigger[data-selected] {
-  color: var(--accent-fg);
+  color: var(--color-accent-fg);
   font-weight: var(--w-semibold);
 }
 
@@ -62,13 +62,13 @@
 
 .trigger:disabled,
 .trigger[data-disabled] {
-  color: var(--fg-disabled);
+  color: var(--color-disabled);
   cursor: not-allowed;
 }
 
 /* Always-visible 2px focus ring, per tokens. */
 .trigger:focus-visible {
-  outline: var(--focus-width) solid var(--focus-ring);
+  outline: var(--focus-width) solid var(--color-focus);
   outline-offset: var(--focus-offset);
 }
 
@@ -80,16 +80,16 @@
   font-feature-settings: "tnum";
   padding: 2px 6px;
   border-radius: var(--radius-full);
-  background: var(--bg-sunken);
-  color: var(--fg-tertiary);
+  background: var(--color-sunken);
+  color: var(--color-tertiary);
   transition:
     background var(--dur-base) var(--ease-standard),
     color var(--dur-base) var(--ease-standard);
 }
 
 .trigger[data-selected] .count {
-  background: var(--accent-subtle);
-  color: var(--accent-fg);
+  background: var(--color-accent-subtle);
+  color: var(--color-accent-fg);
 }
 
 /* The gliding indicator. Ark tracks the active trigger's rect and exposes it
@@ -100,7 +100,7 @@
 
 /* ── Variant · underline (hairline rail + gliding 2px bar) ─────────────── */
 .root[data-variant="underline"] .list {
-  box-shadow: inset 0 -1px 0 var(--border-subtle);
+  box-shadow: inset 0 -1px 0 var(--color-border-subtle);
 }
 
 .root[data-variant="underline"] .trigger {
@@ -123,7 +123,7 @@
   width: var(--width);
   height: 2px;
   z-index: 2;
-  background: var(--accent);
+  background: var(--color-accent);
   border-radius: 2px;
   transition:
     left var(--dur-base) var(--ease-out),
@@ -133,27 +133,27 @@
 /* ── Variant · pill (contained, soft sliding thumb) ───────────────────── */
 .root[data-variant="pill"] .list {
   padding: 4px;
-  background: var(--bg-sunken);
+  background: var(--color-sunken);
   border-radius: var(--radius-sm);
   gap: 2px;
   width: max-content;
 }
 
 .root[data-variant="pill"] .trigger {
-  color: var(--fg-tertiary);
+  color: var(--color-tertiary);
 }
 
 .root[data-variant="pill"] .trigger:hover {
-  color: var(--fg-secondary);
+  color: var(--color-secondary);
   background: transparent;
 }
 
 .root[data-variant="pill"] .trigger[data-selected] {
-  color: var(--fg-primary);
+  color: var(--color-ink);
 }
 
 .root[data-variant="pill"] .trigger[data-selected] .count {
-  background: var(--bg-sunken);
+  background: var(--color-sunken);
 }
 
 .root[data-variant="pill"] .indicator {
@@ -162,9 +162,9 @@
   width: var(--width);
   height: var(--height);
   z-index: 0;
-  background: var(--bg-raised);
+  background: var(--color-raised);
   border-radius: calc(var(--radius-sm) - 3px);
-  box-shadow: var(--elev-2);
+  box-shadow: var(--shadow-2);
   transition:
     left var(--dur-base) var(--ease-standard),
     top var(--dur-base) var(--ease-standard),
@@ -194,22 +194,22 @@
 .panel {
   margin-top: 18px;
   padding: 18px;
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
-  background: var(--bg-raised);
+  background: var(--color-raised);
   font-size: var(--text-sm);
-  color: var(--fg-secondary);
-  line-height: var(--lh-normal);
+  color: var(--color-secondary);
+  line-height: var(--leading-normal);
   min-height: 38px;
 }
 
 .panel:focus-visible {
-  outline: var(--focus-width) solid var(--focus-ring);
+  outline: var(--focus-width) solid var(--color-focus);
   outline-offset: var(--focus-offset);
 }
 
 .panel b {
-  color: var(--fg-primary);
+  color: var(--color-ink);
   font-weight: var(--w-semibold);
 }
 

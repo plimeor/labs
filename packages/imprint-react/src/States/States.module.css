@@ -1,6 +1,6 @@
 /* Imprint States — static feedback primitives skinned with Imprint tokens.
    Matches preview/cmp-states.html: a dashed empty-state card, shimmer skeleton
-   blocks on --bg-active, and a token-colored spinner. Off-grid specimen px snap
+   blocks on --color-active, and a token-colored spinner. Off-grid specimen px snap
    to the nearest 4px-grid spacing token. */
 
 /* -------------------------------------------------------------- EmptyState */
@@ -13,7 +13,7 @@
   font-family: var(--font-ui);
   /* Specimen 22px/16px → nearest 4px-grid tokens. */
   padding: var(--space-5) var(--space-4);
-  border: 1px dashed var(--border-default);
+  border: 1px dashed var(--color-border);
   border-radius: var(--radius-md);
 }
 
@@ -21,22 +21,22 @@
   width: 24px;
   height: 24px;
   flex-shrink: 0;
-  color: var(--fg-tertiary);
+  color: var(--color-tertiary);
 }
 
 .emptyTitle {
   font-size: var(--text-base);
   font-weight: var(--w-semibold);
-  line-height: var(--lh-snug);
-  color: var(--fg-secondary);
+  line-height: var(--leading-snug);
+  color: var(--color-secondary);
   /* Specimen 9px → nearest 4px-grid token. */
   margin-top: var(--space-2);
 }
 
 .emptyDesc {
   font-size: var(--text-xs);
-  line-height: var(--lh-snug);
-  color: var(--fg-tertiary);
+  line-height: var(--leading-snug);
+  color: var(--color-tertiary);
   /* Specimen 2px micro-gap → nearest 4px-grid token. */
   margin-top: var(--space-1);
 }
@@ -52,7 +52,7 @@
   height: 11px;
   /* Specimen 5px → nearest 4px-grid radius token. */
   border-radius: var(--radius-xs);
-  background: var(--bg-active);
+  background: var(--color-active);
   position: relative;
   overflow: hidden;
 }
@@ -67,7 +67,7 @@
   position: absolute;
   inset: 0;
   transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent, var(--bg-hover), transparent);
+  background: linear-gradient(90deg, transparent, var(--color-hover), transparent);
   animation: imprint-skeleton-shimmer 1.4s var(--ease-standard) infinite;
 }
 
@@ -84,7 +84,7 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  color: var(--accent);
+  color: var(--color-accent);
 }
 
 .spinner[data-size="sm"] {
@@ -108,7 +108,7 @@
   height: var(--imprint-spinner-size);
   border-radius: var(--radius-full);
   /* Muted track + one accent arc, riding the currentColor accent. */
-  border: var(--imprint-spinner-thickness) solid var(--bg-active);
+  border: var(--imprint-spinner-thickness) solid var(--color-active);
   border-top-color: currentColor;
   animation: imprint-spinner-spin 0.7s linear infinite;
 }

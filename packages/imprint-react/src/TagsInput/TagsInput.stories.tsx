@@ -103,7 +103,7 @@ export const Controlled: Story = {
     return (
       <div style={{ maxWidth: 380 }}>
         <TagsInput {...args} value={value} onValueChange={details => setValue(details.value)} />
-        <p style={{ color: 'var(--fg-tertiary)', fontFamily: 'var(--font-mono)', fontSize: 12, marginTop: 12 }}>
+        <p style={{ color: 'var(--color-tertiary)', fontFamily: 'var(--font-mono)', fontSize: 12, marginTop: 12 }}>
           {value.length ? value.join(', ') : 'no tags'}
         </p>
       </div>

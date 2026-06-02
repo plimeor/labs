@@ -9,15 +9,15 @@
   font-family: var(--font-ui);
   width: 100%;
   max-width: 440px;
-  background: var(--bg-content);
-  border: 1px solid var(--border-subtle);
+  background: var(--color-content);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   overflow: hidden;
 }
 
 /* Each disclosure item. A hairline divides items; the last one has none. */
 .item {
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--color-border-subtle);
 }
 
 .item:last-child {
@@ -42,7 +42,7 @@
 }
 
 .trigger:hover {
-  background: var(--bg-hover);
+  background: var(--color-hover);
 }
 
 .trigger[data-disabled] {
@@ -51,7 +51,7 @@
 }
 
 .trigger:focus-visible {
-  outline: var(--focus-width) solid var(--focus-ring);
+  outline: var(--focus-width) solid var(--color-focus);
   outline-offset: calc(-1 * var(--focus-width));
 }
 
@@ -59,7 +59,7 @@
 .title {
   font-size: var(--text-base);
   font-weight: var(--w-medium);
-  color: var(--fg-secondary);
+  color: var(--color-secondary);
   transition:
     color var(--dur-base) var(--ease-standard),
     font-weight var(--dur-base) var(--ease-standard);
@@ -67,7 +67,7 @@
 
 .trigger[data-state="open"] .title {
   font-weight: var(--w-semibold);
-  color: var(--fg-primary);
+  color: var(--color-ink);
 }
 
 /* Chevron — points right when closed, rotates down when open. */
@@ -76,7 +76,7 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  color: var(--fg-tertiary);
+  color: var(--color-tertiary);
   transform: rotate(-90deg);
   transition: transform var(--dur-base) var(--ease-standard);
 }
@@ -96,8 +96,8 @@
   padding: 0 var(--space-4) var(--space-4);
   font-family: var(--font-read);
   font-size: var(--text-base);
-  line-height: var(--lh-relaxed);
-  color: var(--fg-body);
+  line-height: var(--leading-relaxed);
+  color: var(--color-body);
 }
 
 /* Smooth open/close height animation driven by Ark's CSS vars. */

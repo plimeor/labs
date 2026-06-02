@@ -1,7 +1,7 @@
 .root {
   font-family: var(--font-ui);
   font-size: var(--text-base);
-  color: var(--fg-body);
+  color: var(--color-body);
   display: flex;
   flex-direction: column;
   /* Off-grid specimen 11px gap snapped to the 4px grid. */
@@ -18,7 +18,7 @@
 
 .label {
   font-weight: var(--w-medium);
-  color: var(--fg-secondary);
+  color: var(--color-secondary);
 }
 
 /* One radio row: control + text. */
@@ -43,7 +43,7 @@
   height: 18px;
   flex-shrink: 0;
   border-radius: var(--radius-full);
-  border: 1.5px solid var(--border-strong);
+  border: 1.5px solid var(--color-border-strong);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -59,19 +59,19 @@
   width: 9px;
   height: 9px;
   border-radius: var(--radius-full);
-  background: var(--accent);
+  background: var(--color-accent);
   transform: scale(0);
   transition: transform var(--dur-fast) var(--ease-standard);
 }
 
 /* Hover — strengthen the ring on enabled items. */
 .item:not([data-disabled]):hover .itemControl {
-  border-color: var(--accent);
+  border-color: var(--color-accent);
 }
 
 /* Checked — accent ring + filled dot. */
 .itemControl[data-state="checked"] {
-  border-color: var(--accent);
+  border-color: var(--color-accent);
 }
 .itemControl[data-state="checked"]::after {
   transform: scale(1);
@@ -79,19 +79,19 @@
 
 /* Always-visible 2px focus ring, surfaced on the control via the hidden input. */
 .itemControl[data-focus-visible] {
-  outline: var(--focus-width) solid var(--focus-ring);
+  outline: var(--focus-width) solid var(--color-focus);
   outline-offset: var(--focus-offset);
 }
 
 .itemText {
-  line-height: var(--lh-snug);
+  line-height: var(--leading-snug);
 }
 
 /* Disabled — muted, per the system disabled treatment. */
 .item[data-disabled] .itemControl {
-  border-color: var(--border-default);
+  border-color: var(--color-border);
   opacity: 0.45;
 }
 .item[data-disabled] .itemText {
-  color: var(--fg-disabled);
+  color: var(--color-disabled);
 }

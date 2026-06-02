@@ -36,14 +36,14 @@
 
 /* Accent tone — solid blue tile. */
 .root[data-tone="accent"] .fallback {
-  background: var(--accent);
-  color: var(--fg-on-accent);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
 }
 
 /* Neutral tone — muted warm tile. */
 .root[data-tone="neutral"] .fallback {
   background: var(--warm-300);
-  color: var(--fg-primary);
+  color: var(--color-ink);
 }
 
 /* Image — covers the circle once loaded; Ark hides it until then. */
@@ -64,10 +64,10 @@
   width: 11px;
   height: 11px;
   border-radius: var(--radius-full);
-  border: 2px solid var(--bg-canvas);
+  border: 2px solid var(--color-canvas);
 }
 .status[data-status="online"] {
-  background: var(--success-fg);
+  background: var(--color-success);
 }
 .status[data-status="offline"] {
   background: var(--warm-400);

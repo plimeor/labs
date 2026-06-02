@@ -1,10 +1,10 @@
 /* Imprint Progress — Ark UI behavior skinned with Imprint tokens.
    Matches preview/cmp-progress.html: linear track/range bar and circular ring.
-   Track on --bg-active, range/arc on --accent, round caps, mono value text. */
+   Track on --color-active, range/arc on --color-accent, round caps, mono value text. */
 
 .root {
   font-family: var(--font-ui);
-  color: var(--fg-body);
+  color: var(--color-body);
 }
 
 /* ---------------------------------------------------------------- Linear */
@@ -26,15 +26,15 @@
 
 .label {
   font-size: var(--text-xs);
-  line-height: var(--lh-snug);
-  color: var(--fg-secondary);
+  line-height: var(--leading-snug);
+  color: var(--color-secondary);
 }
 
 .valueText {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  line-height: var(--lh-snug);
-  color: var(--fg-tertiary);
+  line-height: var(--leading-snug);
+  color: var(--color-tertiary);
   font-variant-numeric: tabular-nums;
 }
 
@@ -43,7 +43,7 @@
   position: relative;
   height: var(--space-2);
   width: 100%;
-  background: var(--bg-active);
+  background: var(--color-active);
   border-radius: var(--radius-full);
   overflow: hidden;
 }
@@ -51,7 +51,7 @@
 /* Range — accent fill. Ark sets inline width from --percent. */
 .range {
   height: 100%;
-  background: var(--accent);
+  background: var(--color-accent);
   border-radius: var(--radius-full);
   transition: width var(--dur-base) var(--ease-standard);
 }
@@ -89,11 +89,11 @@
 }
 
 .circleTrack {
-  stroke: var(--bg-active);
+  stroke: var(--color-active);
 }
 
 .circleRange {
-  stroke: var(--accent);
+  stroke: var(--color-accent);
   stroke-linecap: round;
   transition: stroke-dashoffset var(--dur-base) var(--ease-standard);
 }
@@ -127,7 +127,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   line-height: 1;
-  color: var(--fg-secondary);
+  color: var(--color-secondary);
   font-variant-numeric: tabular-nums;
 }
 

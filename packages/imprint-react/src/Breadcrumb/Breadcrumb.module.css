@@ -20,27 +20,27 @@
 
 /* Non-current, navigable crumb. */
 .link {
-  color: var(--fg-tertiary);
+  color: var(--color-tertiary);
   text-decoration: none;
   border-radius: var(--radius-xs);
   transition: color var(--dur-fast) var(--ease-standard);
 }
 .link:hover {
-  color: var(--fg-secondary);
+  color: var(--color-secondary);
 }
 
 /* Always-visible 2px focus ring, per tokens. */
 .link:focus-visible {
-  outline: var(--focus-width) solid var(--focus-ring);
+  outline: var(--focus-width) solid var(--color-focus);
   outline-offset: var(--focus-offset);
 }
 
 /* Current page crumb (or any non-linked segment). */
 .current {
-  color: var(--fg-tertiary);
+  color: var(--color-tertiary);
 }
 .current[data-current="true"] {
-  color: var(--fg-primary);
+  color: var(--color-ink);
   font-weight: var(--w-semibold);
 }
 
@@ -48,7 +48,7 @@
 .separator {
   display: inline-flex;
   align-items: center;
-  color: var(--fg-tertiary);
+  color: var(--color-tertiary);
 }
 .separator > svg {
   width: 14px;

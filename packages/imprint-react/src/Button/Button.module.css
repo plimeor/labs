@@ -23,64 +23,64 @@
 
 /* Always-visible 2px focus ring, per tokens. */
 .button:focus-visible {
-  outline: var(--focus-width) solid var(--focus-ring);
+  outline: var(--focus-width) solid var(--color-focus);
   outline-offset: var(--focus-offset);
 }
 
 /* Primary */
 .button[data-variant="primary"] {
-  background: var(--accent);
-  color: var(--fg-on-accent);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
 }
 .button[data-variant="primary"]:hover {
-  background: var(--accent-hover);
+  background: var(--color-accent-hover);
 }
 .button[data-variant="primary"]:active {
-  background: var(--accent-active);
+  background: var(--color-accent-active);
 }
 
 /* Secondary */
 .button[data-variant="secondary"] {
-  background: var(--bg-raised);
-  color: var(--fg-body);
-  border-color: var(--border-default);
+  background: var(--color-raised);
+  color: var(--color-body);
+  border-color: var(--color-border);
 }
 .button[data-variant="secondary"]:hover {
-  background: var(--bg-hover);
+  background: var(--color-hover);
 }
 .button[data-variant="secondary"]:active {
-  background: var(--bg-active);
+  background: var(--color-active);
 }
 
 /* Ghost */
 .button[data-variant="ghost"] {
   background: transparent;
-  color: var(--fg-secondary);
+  color: var(--color-secondary);
 }
 .button[data-variant="ghost"]:hover {
-  background: var(--bg-hover);
+  background: var(--color-hover);
 }
 .button[data-variant="ghost"]:active {
-  background: var(--bg-active);
+  background: var(--color-active);
 }
 
 /* Danger */
 .button[data-variant="danger"] {
-  background: var(--danger);
+  background: var(--color-danger-solid);
   color: var(--warm-0);
 }
 .button[data-variant="danger"]:hover {
-  background: var(--danger-hover);
+  background: var(--color-danger-hover);
 }
 .button[data-variant="danger"]:active {
-  background: var(--danger-hover);
+  background: var(--color-danger-hover);
 }
 
 /* Disabled — matches specimen: muted warm fill, disabled fg, not-allowed. */
 .button:disabled,
 .button[aria-disabled="true"] {
   background: var(--warm-300);
-  color: var(--fg-disabled);
+  color: var(--color-disabled);
   border-color: transparent;
   cursor: not-allowed;
 }
