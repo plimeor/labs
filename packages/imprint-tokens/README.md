@@ -75,3 +75,26 @@ import "@plimeor/imprint-tokens/note-syntax.css";
 ```
 
 Classes are namespaced `ns-*` (e.g. `.ns-callout`, `.ns-codeblock`).
+
+### Tailwind CSS v4
+
+`theme.css` bridges the tokens into Tailwind v4 — import it after Tailwind and
+you get Imprint-scaled utilities (`bg-canvas`, `text-body`, `text-accent`,
+`border-border-strong`, `rounded-md`, `font-ui`, `shadow-2`, …) that flip with
+`data-theme`:
+
+```css
+@import "tailwindcss";
+@import "@plimeor/imprint-tokens/theme.css";   /* includes tokens.css + fonts.css */
+```
+
+No `tailwind.config.js` needed — Tailwind v4 reads the `@theme` directly. Color
+and shadow utilities reference the live CSS variables (so light/dark just
+works); the type/radius/easing scale is set to Imprint's values. The bare
+`border` utility defaults to the Imprint hairline (`border-border-strong` for a
+heavier edge).
+
+> Components in `@plimeor/imprint-react` are pre-styled (CSS Modules + tokens)
+> and need no Tailwind; `theme.css` is for your own application markup. Both
+> read the same variables, so they stay consistent.
+
