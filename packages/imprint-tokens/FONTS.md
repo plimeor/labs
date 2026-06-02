@@ -1,37 +1,39 @@
-# Self-hosted fonts
+# Fonts
 
-Fonts are bundled locally in `src/fonts/` as `.woff2` and wired up via
-`src/fonts.css`. Every `@font-face` `src: url()` points only at a local
-`./fonts/<file>.woff2` — there is no CDN reference and no network dependency at
-runtime. `font-display: swap` is used throughout.
+Fonts are variable faces delivered as [Fontsource][fs] npm packages and declared
+as dependencies of this package. They are bundled by the consumer's tooling
+(Vite, Bun, webpack, …) — local-first, no CDN, no network at runtime. This keeps
+the OFL fonts vendored without committing `.woff2` blobs into the repo.
 
-Sources are [Fontsource](https://fontsource.org/) builds, fetched once from
-jsDelivr:
+`src/theme.css` imports them at the top (CSS requires `@import` to precede other
+rules), and the generated `dist/styles.css` carries the same imports:
 
+```css
+@import "@fontsource-variable/hanken-grotesk";
+@import "@fontsource-variable/hanken-grotesk/wght-italic.css";
+@import "@fontsource-variable/jetbrains-mono";
+@import "@fontsource-variable/literata";
+@import "@fontsource-variable/literata/wght-italic.css";
 ```
-https://cdn.jsdelivr.net/fontsource/fonts/<id>@latest/<file>.woff2
-```
 
-## Bundled files (9 / 9 downloaded)
+## Families
 
-| Family          | id                | Fontsource file     | Local file                          | Status |
-| --------------- | ----------------- | ------------------- | ----------------------------------- | ------ |
-| Hanken Grotesk  | `hanken-grotesk`  | `latin-400-normal`  | `hanken-grotesk-400-normal.woff2`   | ok     |
-| Hanken Grotesk  | `hanken-grotesk`  | `latin-500-normal`  | `hanken-grotesk-500-normal.woff2`   | ok     |
-| Hanken Grotesk  | `hanken-grotesk`  | `latin-600-normal`  | `hanken-grotesk-600-normal.woff2`   | ok     |
-| Hanken Grotesk  | `hanken-grotesk`  | `latin-700-normal`  | `hanken-grotesk-700-normal.woff2`   | ok     |
-| Hanken Grotesk  | `hanken-grotesk`  | `latin-400-italic`  | `hanken-grotesk-400-italic.woff2`   | ok     |
-| JetBrains Mono  | `jetbrains-mono`  | `latin-400-normal`  | `jetbrains-mono-400-normal.woff2`   | ok     |
-| JetBrains Mono  | `jetbrains-mono`  | `latin-500-normal`  | `jetbrains-mono-500-normal.woff2`   | ok     |
-| JetBrains Mono  | `jetbrains-mono`  | `latin-600-normal`  | `jetbrains-mono-600-normal.woff2`   | ok     |
-| Literata (var)  | `literata:vf`     | `latin-wght-normal` | `literata-wght-normal.woff2`        | ok     |
-| Literata (var)  | `literata:vf`     | `latin-wght-italic` | `literata-wght-italic.woff2`        | ok     |
+| Role                  | Token         | Package                                | `font-family`              | Axes / styles            |
+| --------------------- | ------------- | -------------------------------------- | -------------------------- | ------------------------ |
+| UI chrome             | `--font-ui`   | `@fontsource-variable/hanken-grotesk`  | `Hanken Grotesk Variable`  | wght 100–900, + italic   |
+| Reading / prose       | `--font-read` | `@fontsource-variable/literata`        | `Literata Variable`        | wght 200–900, + italic   |
+| Code / metadata       | `--font-mono` | `@fontsource-variable/jetbrains-mono`  | `JetBrains Mono Variable`  | wght 100–800 (no italic) |
 
-All 10 listed `@font-face` sources resolve to the 9 expected weight/style
-variants plus the variable Literata pair, and every saved file is larger than
-1 KB. Nothing is missing.
+The leading family in each `--font-*` token **must** match the `font-family`
+string the Fontsource `@font-face` declares (note the `" Variable"` suffix), or
+the variable face never matches and the stack falls through to the system
+fallbacks. The fallback chains (`ui-sans-serif`, `Georgia`, `ui-monospace`, …)
+are kept as the safety net while the variable woff2 loads and for code points the
+Latin subsets don't cover.
 
-Note: the Literata variable font id contains a colon (`literata:vf`). The
-jsDelivr Fontsource endpoint serves it with the literal colon in the path; the
-two Literata `@font-face` rules declare `font-weight: 400 700` (variable range)
-for normal and italic respectively.
+The root import of each package is the weight-axis (`wght`) build with normal
+faces; the `/wght-italic.css` subpath adds italics (Hanken Grotesk and Literata
+only — JetBrains Mono ships no italic, matching prior usage). The optical-size
+(`opsz`) builds are intentionally not imported.
+
+[fs]: https://fontsource.org/

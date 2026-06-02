@@ -1,143 +1,385 @@
-/*
-  Imprint × Tailwind CSS v4 theme.
+/* ============================================================================
+   IMPRINT DESIGN SYSTEM — Tailwind v4 theme (single source of truth)
 
-  tokens.css already names everything in Tailwind's vocabulary (--color-*,
-  --shadow-*, --leading-*, --tracking-*, --text-*, --radius-*, --font-*,
-  --ease-*). This file just REGISTERS those tokens with Tailwind's @theme so the
-  matching utilities are generated. Every value references tokens.css via var()
-  — nothing is hardcoded (single source of truth); theme.css owns no values.
+   Plimeor's personal design system for independent software projects.
+   Calm, precise, content-first, structurally rigorous. Warm neutrals, one
+   restrained blue accent, robust light + dark.
 
-  Usage (consumer, with @tailwindcss/vite or the PostCSS plugin):
+   This file is authored in Tailwind v4 syntax and is THE source of truth for
+   every design token. Two ways to consume it:
 
-    @import "tailwindcss";
-    @import "@plimeor/imprint-tokens/theme.css";   // pulls tokens.css + fonts.css + this map
-    // then set data-theme="light" | "dark" on <html>
+     • Tailwind v4 projects — import after Tailwind to get Imprint-scaled
+       utilities (bg-canvas, text-body, rounded-md, shadow-2, font-ui, …) that
+       flip with data-theme:
+           @import "tailwindcss";
+           @import "@plimeor/imprint-tokens/theme.css";
 
-  `@theme inline` makes the utilities reference var(--token) at the use-site
-  (e.g. .bg-canvas { background: var(--color-canvas) }) so colors/shadows flip
-  with data-theme. Scale keys (--text-*, --radius-*, --font-mono, --ease-in…)
-  share Tailwind's built-in namespace names; their var() resolves against
-  tokens.css's UNLAYERED :root, which wins over Tailwind's @layer theme.
+     • Everything else (plain CSS, CSS Modules, Storybook, non-Tailwind tools) —
+       import the generated, framework-agnostic stylesheet (build.ts compiles
+       this file into it: @theme → :root, Tailwind-only at-rules stripped):
+           import "@plimeor/imprint-tokens/styles.css";
 
-  No tailwind.config needed. Imprint's 4px spacing grid already matches
-  Tailwind's default spacing, and --w-* match Tailwind's font weights, so
-  spacing and weight utilities are left to Tailwind's defaults.
-*/
-@import "./tokens.css";
-@import "./fonts.css";
+   How theming works: `@theme static` registers each token with Tailwind AND
+   emits it into :root unconditionally (no tree-shaking) — so var() consumers
+   always see it — while utilities reference var(--token). The light/default
+   values live in @theme; the `[data-theme="dark"]` block below overrides the
+   raw vars, so BOTH the tokens and every var()-referencing utility flip. (We
+   deliberately avoid `@theme inline`, which would freeze literal values into
+   utilities and break the swap.)
 
-@theme inline {
-  /* ---- Surfaces — bg-canvas / bg-content / bg-raised … ---- */
-  --color-canvas: var(--color-canvas);
-  --color-sidebar: var(--color-sidebar);
-  --color-content: var(--color-content);
-  --color-raised: var(--color-raised);
-  --color-sunken: var(--color-sunken);
-  --color-hover: var(--color-hover);
-  --color-active: var(--color-active);
-  --color-selection: var(--color-selection);
+   Token layers, cascade in this order:
+     1. PRIMITIVES   — raw ramp, never used directly in components (plain :root,
+                       intentionally NOT registered with Tailwind)
+     2. SEMANTIC     — meaning-driven aliases that flip with theme (@theme)
+     3. SCALES       — type / radius / elevation / motion (@theme + plain :root)
+     4. COMPONENT    — .ds-* typography + .focus-ring helper classes
 
-  /* ---- Foreground — text-ink (headings) / text-body / text-secondary … ---- */
-  --color-ink: var(--color-ink);
-  --color-body: var(--color-body);
-  --color-secondary: var(--color-secondary);
-  --color-tertiary: var(--color-tertiary);
-  --color-disabled: var(--color-disabled);
-  --color-on-accent: var(--color-on-accent);
-  --color-link: var(--color-link);
+   Fonts are variable faces delivered as npm packages (@fontsource-variable/*),
+   bundled by the consumer's tooling — local-first, no CDN. They are imported
+   at the top because CSS requires @import to precede all other rules.
+   ============================================================================ */
 
-  /* ---- Borders — bare `border` is the hairline (below); border-border-strong for emphasis ---- */
-  --color-border-subtle: var(--color-border-subtle);
-  --color-border: var(--color-border);
-  --color-border-strong: var(--color-border-strong);
+/* ----------------------------------------------------------------------------
+   FONTS — variable faces via @fontsource (npm, OFL, no network at runtime).
+   The leading family in each --font-* token below must match these exactly.
+---------------------------------------------------------------------------- */
+@import "@fontsource-variable/hanken-grotesk";
+@import "@fontsource-variable/hanken-grotesk/wght-italic.css";
+@import "@fontsource-variable/jetbrains-mono";
+@import "@fontsource-variable/literata";
+@import "@fontsource-variable/literata/wght-italic.css";
 
-  /* ---- Accent — bg-accent / text-accent / ring-accent … ---- */
-  --color-accent: var(--color-accent);
-  --color-accent-hover: var(--color-accent-hover);
-  --color-accent-active: var(--color-accent-active);
-  --color-accent-subtle: var(--color-accent-subtle);
-  --color-accent-fg: var(--color-accent-fg);
+/* ----------------------------------------------------------------------------
+   VARIANTS — make `dark:` / `light:` utilities key off [data-theme] (so they
+   match value-swap theming and its nested islands). The value swap itself is
+   pure CSS-variable cascade and needs no variant; these are a convenience for
+   consumers who want explicit per-theme utilities.
+---------------------------------------------------------------------------- */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+@custom-variant light (&:where([data-theme="light"], [data-theme="light"] *));
 
-  /* ---- Status — text-success / bg-success-bg / border-success-border … ---- */
-  --color-success: var(--color-success);
-  --color-success-bg: var(--color-success-bg);
-  --color-success-border: var(--color-success-border);
-  --color-warning: var(--color-warning);
-  --color-warning-bg: var(--color-warning-bg);
-  --color-warning-border: var(--color-warning-border);
-  --color-danger: var(--color-danger);
-  --color-danger-bg: var(--color-danger-bg);
-  --color-danger-border: var(--color-danger-border);
-  --color-danger-solid: var(--color-danger-solid);
-  --color-danger-hover: var(--color-danger-hover);
+/* ----------------------------------------------------------------------------
+   1. PRIMITIVES
+   Warm neutral ramp (never cold blue-gray, never pure black/white).
+   Hue ~40–48deg, low chroma. The ramp is the spine of the whole system.
+   Plain :root — primitives are an implementation detail, not design API, so
+   they are NOT registered with Tailwind (no bg-warm-100 utilities).
+---------------------------------------------------------------------------- */
+:root {
+  /* Warm neutrals — modern near-neutral gray with a whisper of warmth (not beige, not cold) */
+  --warm-0: #ffffff;
+  --warm-50: #fdfdfc; /* content surface, highest plane */
+  --warm-100: #f6f5f3; /* app canvas */
+  --warm-150: #f0efec; /* recessed surface (sidebars) */
+  --warm-200: #e7e6e2; /* hairline borders, hover fills */
+  --warm-250: #dddbd6; /* hover fill stronger */
+  --warm-300: #d1cfc9; /* strong borders, dividers */
+  --warm-400: #b3afa8; /* disabled fg, placeholder */
+  --warm-500: #88857d; /* tertiary text */
+  --warm-600: #686560; /* secondary text */
+  --warm-700: #494642; /* strong secondary */
+  --warm-800: #2b2a26; /* body text */
+  --warm-900: #1d1b18; /* headings, ink */
+  --warm-950: #131210; /* deepest ink */
 
-  /* ---- Focus / scrim — ring-focus, bg-scrim ---- */
-  --color-focus: var(--color-focus);
-  --color-focus-offset: var(--color-focus-offset);
-  --color-scrim: var(--color-scrim);
+  /* Blue accent — refined royal-cobalt. Calm and confident, never neon. */
+  --blue-50: #eef3fe;
+  --blue-100: #dce7fd;
+  --blue-200: #bbd0fb;
+  --blue-300: #8db0f6;
+  --blue-400: #5588ef;
+  --blue-500: #2d67e0; /* PRIMARY accent (light mode) */
+  --blue-600: #1f4fbf;
+  --blue-700: #173e96;
+  --blue-800: #122f70;
+  --blue-900: #0c1e47;
 
-  /* ---- AI / diff surfaces ---- */
-  --color-agent: var(--color-agent);
-  --color-agent-border: var(--color-agent-border);
-  --color-diff-add-bg: var(--color-diff-add-bg);
-  --color-diff-add-fg: var(--color-diff-add-fg);
-  --color-diff-add-gutter: var(--color-diff-add-gutter);
-  --color-diff-del-bg: var(--color-diff-del-bg);
-  --color-diff-del-fg: var(--color-diff-del-fg);
-  --color-diff-del-gutter: var(--color-diff-del-gutter);
+  /* Semantic hues — gently muted, calm but instantly legible on warm paper */
+  --green-100: #dbf1e3;
+  --green-300: #74d29c;
+  --green-500: #1fa85b; /* success solid */
+  --green-600: #15863f; /* success text */
+  --green-700: #0f6630;
 
-  /* ---- Elevation — shadow-1 … shadow-4 (flip via --shadow-rgb) ---- */
-  --shadow-1: var(--shadow-1);
-  --shadow-2: var(--shadow-2);
-  --shadow-3: var(--shadow-3);
-  --shadow-4: var(--shadow-4);
-  --shadow-inset: var(--shadow-inset);
+  --amber-100: #f8ebcf;
+  --amber-300: #f2c977;
+  --amber-500: #e0941f; /* warning solid */
+  --amber-600: #9a6610; /* warning text */
 
-  /* ---- Font families — font-ui / font-read / font-mono ---- */
-  --font-ui: var(--font-ui);
-  --font-read: var(--font-read);
-  --font-mono: var(--font-mono);
+  --red-100: #fbe0e2;
+  --red-300: #ee8a92;
+  --red-500: #dc3a4a; /* danger solid */
+  --red-600: #bb2434; /* danger text */
 
-  /* ---- Font sizes — text-xs … text-4xl ---- */
-  --text-xs: var(--text-xs);
-  --text-sm: var(--text-sm);
-  --text-base: var(--text-base);
-  --text-md: var(--text-md);
-  --text-lg: var(--text-lg);
-  --text-xl: var(--text-xl);
-  --text-2xl: var(--text-2xl);
-  --text-3xl: var(--text-3xl);
-  --text-4xl: var(--text-4xl);
-
-  /* ---- Line height — leading-tight … leading-relaxed ---- */
-  --leading-tight: var(--leading-tight);
-  --leading-snug: var(--leading-snug);
-  --leading-normal: var(--leading-normal);
-  --leading-relaxed: var(--leading-relaxed);
-
-  /* ---- Letter spacing — tracking-tight / tracking-wide / tracking-caps ---- */
-  --tracking-tight: var(--tracking-tight);
-  --tracking-normal: var(--tracking-normal);
-  --tracking-wide: var(--tracking-wide);
-  --tracking-caps: var(--tracking-caps);
-
-  /* ---- Radius — rounded-xs … rounded-lg ---- */
-  --radius-xs: var(--radius-xs);
-  --radius-sm: var(--radius-sm);
-  --radius-md: var(--radius-md);
-  --radius-lg: var(--radius-lg);
-
-  /* ---- Easing — ease-standard / ease-out / ease-in ---- */
-  --ease-standard: var(--ease-standard);
-  --ease-out: var(--ease-out);
-  --ease-in: var(--ease-in);
+  /* Pure-ish overlays for scrims/shadows, defined in warm terms */
+  --shadow-rgb: 28 26 22; /* near-neutral warm black for shadows */
+  --scrim-rgb: 18 17 14;
 }
 
-/*
-  Make the bare `border` / `divide` utilities use Imprint's hairline by default
-  (Tailwind v4 defaults to currentColor). Matches Imprint's "borders carry
-  structure, hairline first" rule. Override with border-border-strong etc.
-*/
+/* ----------------------------------------------------------------------------
+   2. SEMANTIC TOKENS + SCALES — registered with Tailwind.
+   `@theme static` => every var below lands in :root (so CSS-Module / plain-CSS
+   consumers can var() them) AND generates utilities that reference var(), so
+   they flip with the [data-theme="dark"] overrides further down.
+   Values here are the LIGHT / default theme; colors reference the primitives
+   above (single source of truth — the literal hexes live in the ramp).
+---------------------------------------------------------------------------- */
+@theme static {
+  /* ---- Surfaces — bg-canvas / bg-content / bg-raised … (content is the brightest plane) ---- */
+  --color-canvas: var(--warm-100); /* app background */
+  --color-sidebar: var(--warm-150); /* recessed chrome */
+  --color-content: var(--warm-50); /* editor / working surface */
+  --color-raised: var(--warm-0); /* menus, dialogs, popovers */
+  --color-sunken: var(--warm-150); /* wells, code blocks, insets */
+  --color-hover: var(--warm-200); /* row / item hover */
+  --color-active: var(--warm-250); /* pressed / selected fill */
+  --color-selection: var(--blue-100); /* text selection, range */
+
+  /* ---- Foreground — text-ink (headings) / text-body / text-secondary … ---- */
+  --color-ink: var(--warm-900); /* headings, primary text */
+  --color-body: var(--warm-800); /* body copy */
+  --color-secondary: var(--warm-600); /* labels, secondary */
+  --color-tertiary: var(--warm-500); /* captions, meta, hints */
+  --color-disabled: var(--warm-400);
+  --color-on-accent: var(--warm-0); /* text on blue fills */
+  --color-link: var(--blue-600);
+
+  /* ---- Borders & dividers — bare `border` is the hairline (see @layer base); border-border-strong for emphasis ---- */
+  --color-border-subtle: var(--warm-200); /* hairlines, card edges */
+  --color-border: var(--warm-300); /* inputs, stronger edges */
+  --color-border-strong: var(--warm-400); /* emphasis */
+
+  /* ---- Accent — bg-accent / text-accent / ring-accent … ---- */
+  --color-accent: var(--blue-500);
+  --color-accent-hover: var(--blue-600);
+  --color-accent-active: var(--blue-700);
+  --color-accent-subtle: var(--blue-100); /* tinted fills (active nav) */
+  --color-accent-fg: var(--blue-700); /* accent-colored text */
+
+  /* ---- Focus ring — ring-focus. Offset references the working surface, so it flips automatically. ---- */
+  --color-focus: var(--blue-400);
+  --color-focus-offset: var(--color-content);
+
+  /* ---- Status — text-success / bg-success-bg / border-success-border … ---- */
+  --color-success: var(--green-600);
+  --color-success-bg: var(--green-100);
+  --color-success-border: var(--green-300);
+  --color-warning: var(--amber-600);
+  --color-warning-bg: var(--amber-100);
+  --color-warning-border: var(--amber-300);
+  --color-danger: var(--red-600);
+  --color-danger-bg: var(--red-100);
+  --color-danger-border: var(--red-300);
+  --color-danger-solid: var(--red-500);
+  --color-danger-hover: var(--red-600);
+
+  /* ---- AI / diff surfaces — quiet, evidence-forward. Gutters stay saturated in both themes. ---- */
+  --color-diff-add-bg: #dbf1e3;
+  --color-diff-add-fg: #15863f;
+  --color-diff-add-gutter: #1fa85b;
+  --color-diff-del-bg: #fbe0e2;
+  --color-diff-del-fg: #bb2434;
+  --color-diff-del-gutter: #dc3a4a;
+  --color-agent: var(--blue-50); /* agent transcript surface */
+  --color-agent-border: var(--blue-200);
+
+  /* ---- Scrim behind dialogs — bg-scrim ---- */
+  --color-scrim: rgba(var(--scrim-rgb) / 0.32);
+
+  /* ---- Elevation — shadow-1 … shadow-4, shadow-inset (light: lean on warm, low-spread shadows) ---- */
+  --shadow-none: none;
+  --shadow-1: 0 1px 2px rgba(var(--shadow-rgb) / 0.05), 0 1px 1px rgba(var(--shadow-rgb) / 0.03);
+  --shadow-2: 0 2px 4px rgba(var(--shadow-rgb) / 0.06), 0 1px 2px rgba(var(--shadow-rgb) / 0.04);
+  --shadow-3: 0 4px 14px rgba(var(--shadow-rgb) / 0.08), 0 2px 5px rgba(var(--shadow-rgb) / 0.05);
+  --shadow-4: 0 10px 34px rgba(var(--shadow-rgb) / 0.13), 0 3px 10px rgba(var(--shadow-rgb) / 0.06);
+  --shadow-inset: inset 0 1px 2px rgba(var(--shadow-rgb) / 0.05);
+
+  /* ---- Font families — font-ui / font-read / font-mono. Leading family MUST match the @fontsource @font-face name. ---- */
+  --font-ui: "Hanken Grotesk Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-read: "Literata Variable", Georgia, "Iowan Old Style", "Times New Roman", serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, "SF Mono", "Menlo", "Consolas", monospace;
+
+  /* ---- Font sizes — text-xs … text-4xl. Modular, tuned for dense-but-readable UI. ---- */
+  --text-xs: 0.75rem; /* 12px — meta, captions */
+  --text-sm: 0.8125rem; /* 13px — secondary UI, code inline */
+  --text-base: 0.875rem; /* 14px — default UI body */
+  --text-md: 0.9375rem; /* 15px — comfortable UI body */
+  --text-lg: 1.0625rem; /* 17px — section leads */
+  --text-xl: 1.25rem; /* 20px — h3 / dialog titles */
+  --text-2xl: 1.5rem; /* 24px — h2 */
+  --text-3xl: 1.9375rem; /* 31px — h1 */
+  --text-4xl: 2.5rem; /* 40px — display */
+
+  /* ---- Line height — leading-tight … leading-relaxed ---- */
+  --leading-tight: 1.2;
+  --leading-snug: 1.35;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
+
+  /* ---- Letter spacing — tracking-tight / tracking-wide / tracking-caps ---- */
+  --tracking-tight: -0.011em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.02em;
+  --tracking-caps: 0.06em; /* eyebrow / all-caps labels */
+
+  /* ---- Radius — rounded-xs … rounded-full. Crisp house style (4–16px). ---- */
+  --radius-xs: 4px; /* inline code, tiny chips */
+  --radius-sm: 8px; /* buttons, inputs, menu items */
+  --radius-md: 11px; /* cards, panels, dialogs */
+  --radius-lg: 16px; /* large containers */
+  --radius-full: 999px; /* pills, avatars */
+
+  /* ---- Easing — ease-standard / ease-out / ease-in. Restrained, never bouncy. ---- */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1); /* default */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); /* enter */
+  --ease-in: cubic-bezier(0.4, 0, 1, 1); /* exit */
+}
+
+/* ----------------------------------------------------------------------------
+   2a. color-scheme — set per theme so native controls/scrollbars match. Light
+   is the default and is re-asserted on [data-theme="light"] so a light island
+   can sit inside a dark subtree.
+---------------------------------------------------------------------------- */
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+}
+
+/* ----------------------------------------------------------------------------
+   2b. SEMANTIC TOKENS — DARK
+   Warm charcoal, never blue-black. Content plane sits slightly raised so prose
+   keeps the highest contrast. Unlayered + after @theme, so these overrides win
+   for both the raw tokens and every var()-referencing utility. Only the tokens
+   that actually differ from light are listed (single source of truth).
+---------------------------------------------------------------------------- */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-canvas: #1a1917;
+  --color-sidebar: #151412;
+  --color-content: #201e1b; /* raised, neutral-warm — the working plane */
+  --color-raised: #262320; /* menus, dialogs */
+  --color-sunken: #151412;
+  --color-hover: #2a2825;
+  --color-active: #322f2b;
+  --color-selection: #1b355e; /* low-chroma blue wash */
+
+  --color-ink: #efede8;
+  --color-body: #dedbd4;
+  --color-secondary: #a8a49c;
+  --color-tertiary: #817d75;
+  --color-disabled: #585551;
+  --color-on-accent: #06121f;
+  --color-link: #8fbeff;
+
+  --color-border-subtle: #2a2825;
+  --color-border: #383531;
+  --color-border-strong: #48443f;
+
+  --color-accent: #5e9bff;
+  --color-accent-hover: #7fb0ff;
+  --color-accent-active: #9dc4ff;
+  --color-accent-subtle: #16335c;
+  --color-accent-fg: #8fb9ff;
+
+  --color-focus: #5e9bff;
+
+  --color-success: #5bd08c;
+  --color-success-bg: #122a1c;
+  --color-success-border: #1f5235;
+  --color-warning: #e6c566;
+  --color-warning-bg: #2e2410;
+  --color-warning-border: #5a4520;
+  --color-danger: #ff7a85;
+  --color-danger-bg: #2e1518;
+  --color-danger-border: #5c2a2e;
+  --color-danger-solid: #f65c68;
+  --color-danger-hover: #ff7a85;
+
+  --color-diff-add-bg: #122a1c;
+  --color-diff-add-fg: #5bd08c;
+  --color-diff-del-bg: #2e1518;
+  --color-diff-del-fg: #ff8a93;
+  --color-agent: #0e2742;
+  --color-agent-border: #15406e;
+
+  --color-scrim: rgba(10 8 5 / 0.55);
+
+  /* Dark elevation: deeper, opaque-black shadows (alphas differ from light). */
+  --shadow-rgb: 0 0 0;
+  --shadow-1: 0 1px 2px rgba(0 0 0 / 0.4);
+  --shadow-2: 0 2px 6px rgba(0 0 0 / 0.45);
+  --shadow-3: 0 8px 22px rgba(0 0 0 / 0.55);
+  --shadow-4: 0 18px 48px rgba(0 0 0 / 0.65);
+  --shadow-inset: inset 0 1px 2px rgba(0 0 0 / 0.3);
+}
+
+/* ----------------------------------------------------------------------------
+   3. PLAIN-VAR SCALES — design tokens with no Tailwind namespace, or ones whose
+   defaults Imprint already matches, so they are NOT registered (no duplicate
+   utilities). Components reference them via var().
+     • spacing  — Imprint's 4px grid matches Tailwind's default --spacing, so the
+                  built-in p-1 / gap-4 / … utilities already apply; these named
+                  steps are for component CSS.
+     • weights  — Tailwind's default font-medium (500) / font-semibold (600) /
+                  font-bold (700) already match; --w-* back component CSS.
+     • durations / layout / focus metrics / reading surface — component-only.
+---------------------------------------------------------------------------- */
+:root {
+  /* Spacing — 4px base grid */
+  --space-0: 0;
+  --space-1: 0.25rem; /* 4  */
+  --space-2: 0.5rem; /* 8  */
+  --space-3: 0.75rem; /* 12 */
+  --space-4: 1rem; /* 16 */
+  --space-5: 1.25rem; /* 20 */
+  --space-6: 1.5rem; /* 24 */
+  --space-8: 2rem; /* 32 */
+  --space-10: 2.5rem; /* 40 */
+  --space-12: 3rem; /* 48 */
+  --space-16: 4rem; /* 64 */
+
+  /* Font weights */
+  --w-regular: 400;
+  --w-medium: 500;
+  --w-semibold: 600;
+  --w-bold: 700;
+
+  /* Motion durations — restrained, short (easings are in @theme as ease-*). */
+  --dur-fast: 120ms; /* hover, press, small state */
+  --dur-base: 180ms; /* most transitions */
+  --dur-slow: 260ms; /* dialog/menu enter */
+
+  /* Layout rhythm */
+  --reading-measure: 68ch; /* max line length for prose */
+  --sidebar-w: 272px;
+  --metadata-w: 300px;
+  --topbar-h: 48px;
+
+  /* Focus ring metrics (color is --color-focus, in @theme) */
+  --focus-width: 2px;
+  --focus-offset: 2px;
+
+  /* Reading surface — a slightly larger, looser scale than UI text */
+  --read-body: 1.125rem; /* 18px prose */
+  --read-lh: 1.7;
+}
+
+/* Respect reduced-motion: collapse durations to zero. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur-base: 0ms;
+    --dur-slow: 0ms;
+  }
+}
+
+/* ----------------------------------------------------------------------------
+   4. BASE RESET
+   Tailwind v4 makes the bare `border` / `divide` utilities default to
+   currentColor; restore Imprint's hairline so "borders carry structure,
+   hairline first" holds by default. Override with border-border-strong etc.
+---------------------------------------------------------------------------- */
 @layer base {
   *,
   ::after,
@@ -145,4 +387,108 @@
   ::backdrop {
     border-color: var(--color-border-subtle);
   }
+}
+
+/* ----------------------------------------------------------------------------
+   5. FOCUS — single, consistent ring. Always visible, never removed.
+---------------------------------------------------------------------------- */
+.focus-ring,
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: var(--focus-width) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+  border-radius: var(--radius-sm);
+}
+
+/* ----------------------------------------------------------------------------
+   6. SEMANTIC TYPOGRAPHY CLASSES
+   Convenience classes that compose the scale above. Components may also map
+   these directly to element selectors in their own scope.
+---------------------------------------------------------------------------- */
+.ds-display {
+  font-family: var(--font-read);
+  font-size: var(--text-4xl);
+  line-height: var(--leading-tight);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-ink);
+}
+.ds-h1 {
+  font-family: var(--font-ui);
+  font-size: var(--text-3xl);
+  line-height: var(--leading-tight);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-ink);
+}
+.ds-h2 {
+  font-family: var(--font-ui);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-snug);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-ink);
+}
+.ds-h3 {
+  font-family: var(--font-ui);
+  font-size: var(--text-xl);
+  line-height: var(--leading-snug);
+  font-weight: var(--w-semibold);
+  color: var(--color-ink);
+}
+.ds-lead {
+  font-family: var(--font-read);
+  font-size: var(--text-lg);
+  line-height: var(--leading-relaxed);
+  font-weight: var(--w-regular);
+  color: var(--color-body);
+}
+.ds-body {
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  font-weight: var(--w-regular);
+  color: var(--color-body);
+}
+.ds-prose {
+  font-family: var(--font-read);
+  font-size: var(--read-body);
+  line-height: var(--read-lh);
+  font-weight: var(--w-regular);
+  color: var(--color-body);
+}
+.ds-label {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+  font-weight: var(--w-medium);
+  color: var(--color-secondary);
+}
+.ds-caption {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+  font-weight: var(--w-regular);
+  color: var(--color-tertiary);
+}
+.ds-eyebrow {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--color-tertiary);
+}
+.ds-code {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  font-weight: var(--w-regular);
+  color: var(--color-body);
+}
+.ds-mono-meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0;
+  color: var(--color-tertiary);
 }

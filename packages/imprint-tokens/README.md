@@ -1,8 +1,13 @@
 # @plimeor/imprint-tokens
 
 Imprint design system foundations: color, type, spacing, radius, elevation and
-motion design tokens as CSS custom properties, plus self-hosted fonts and brand
-marks. Local-first — fonts are bundled as `.woff2`, no CDN required.
+motion design tokens, authored as a **Tailwind v4 theme** and also published as a
+generated **framework-agnostic stylesheet** — plus variable fonts and brand marks.
+
+`src/theme.css` is the single source of truth (Tailwind v4 syntax). A small Bun
+build (`build.ts`) compiles it to `dist/styles.css`, which is plain CSS for
+non-Tailwind consumers: `@theme` becomes `:root`, Tailwind-only at-rules are
+stripped, and the `@fontsource` imports are preserved.
 
 ## Install
 
@@ -10,25 +15,52 @@ marks. Local-first — fonts are bundled as `.woff2`, no CDN required.
 bun add @plimeor/imprint-tokens
 ```
 
+The three variable fonts ([Hanken Grotesk][hg], [Literata][li], [JetBrains
+Mono][jb]) come along as dependencies via [Fontsource][fs] — local-first,
+bundled by your tooling, no CDN.
+
 ## Usage
 
-Import the token stylesheet and the self-hosted fonts once, near your app entry:
+### Tailwind v4 projects
 
-```ts
-import "@plimeor/imprint-tokens/tokens.css";
-import "@plimeor/imprint-tokens/fonts.css";
+Import the theme after Tailwind. You get Imprint-scaled utilities (`bg-canvas`,
+`text-body`, `text-accent`, `border-border-strong`, `rounded-md`, `font-ui`,
+`shadow-2`, …) plus `dark:` / `light:` variants — all keyed to `data-theme`:
+
+```css
+@import "tailwindcss";
+@import "@plimeor/imprint-tokens/theme.css";
 ```
 
-`tokens.css` defaults to the light theme. Switch themes by setting
-`data-theme` on a root element:
+No `tailwind.config.js` needed — Tailwind v4 reads the `@theme` directly. Tokens
+are registered with `@theme static`, so every token is emitted into `:root`
+(available to your own CSS via `var()`) and utilities reference the live
+variable, so light/dark just works.
+
+### Everything else (plain CSS, CSS Modules, Storybook, …)
+
+Import the generated stylesheet. It defines every token as a CSS custom property
+and pulls in the font faces:
+
+```ts
+import "@plimeor/imprint-tokens/styles.css";
+```
+
+### Theme switching
+
+Tokens default to light. Switch by setting `data-theme` on a root element (a
+nested island works too — `data-theme="light"` inside a dark subtree re-asserts
+light):
 
 ```html
 <html data-theme="light"> … </html>
 <html data-theme="dark"> … </html>
 ```
 
-Reference tokens via `var()` in your CSS — never hardcode a hex value, always
-use the semantic tokens so themes flip correctly:
+### Referencing tokens
+
+Reference tokens via `var()` in your CSS — never hardcode a hex value, always use
+the semantic tokens so themes flip correctly:
 
 ```css
 .card {
@@ -40,6 +72,9 @@ use the semantic tokens so themes flip correctly:
   font-family: var(--font-ui);
 }
 ```
+
+> Components in `@plimeor/imprint-react` are pre-styled (CSS Modules + tokens) and
+> need no Tailwind; they read the same variables, so the two stay consistent.
 
 ### Brand marks
 
@@ -54,37 +89,19 @@ Available marks: `imprint-mark.svg`, `imprint-mark-light.svg`,
 
 ### Note / Markdown content styles
 
-For note-taking and Markdown surfaces, `note-syntax.css` styles rendered
-content — links, wikilinks, callouts, code, math, tables, task lists, tags,
-mentions, footnotes, citations, highlights, and frontmatter. It references the
-token variables, so load `tokens.css` first:
+For note-taking and Markdown surfaces, `note-syntax.css` styles rendered content
+— links, wikilinks, callouts, code, math, tables, task lists, tags, mentions,
+footnotes, citations, highlights, and frontmatter. It only references the token
+variables, so load the tokens first:
 
 ```ts
-import "@plimeor/imprint-tokens/tokens.css";
+import "@plimeor/imprint-tokens/styles.css";
 import "@plimeor/imprint-tokens/note-syntax.css";
 ```
 
 Classes are namespaced `ns-*` (e.g. `.ns-callout`, `.ns-codeblock`).
 
-### Tailwind CSS v4
-
-`theme.css` bridges the tokens into Tailwind v4 — import it after Tailwind and
-you get Imprint-scaled utilities (`bg-canvas`, `text-body`, `text-accent`,
-`border-border-strong`, `rounded-md`, `font-ui`, `shadow-2`, …) that flip with
-`data-theme`:
-
-```css
-@import "tailwindcss";
-@import "@plimeor/imprint-tokens/theme.css";   /* includes tokens.css + fonts.css */
-```
-
-No `tailwind.config.js` needed — Tailwind v4 reads the `@theme` directly. Color
-and shadow utilities reference the live CSS variables (so light/dark just
-works); the type/radius/easing scale is set to Imprint's values. The bare
-`border` utility defaults to the Imprint hairline (`border-border-strong` for a
-heavier edge).
-
-> Components in `@plimeor/imprint-react` are pre-styled (CSS Modules + tokens)
-> and need no Tailwind; `theme.css` is for your own application markup. Both
-> read the same variables, so they stay consistent.
-
+[hg]: https://www.npmjs.com/package/@fontsource-variable/hanken-grotesk
+[li]: https://www.npmjs.com/package/@fontsource-variable/literata
+[jb]: https://www.npmjs.com/package/@fontsource-variable/jetbrains-mono
+[fs]: https://fontsource.org/

@@ -5,9 +5,9 @@ import '@plimeor/imprint-tokens/note-syntax.css'
 
 // note-syntax.css ships inside @plimeor/imprint-tokens (pure CSS, no component), so
 // these stories render raw markup that exercises every ns-* class against the
-// imprint-tokens variables (tokens.css + fonts.css are loaded globally in
-// preview.ts). The toolbar Theme global drives data-theme on <html>, so light
-// and dark are both covered by the existing decorator.
+// imprint-tokens variables (styles.css — tokens + @fontsource faces — is loaded
+// globally in preview.ts). The toolbar Theme global drives data-theme on <html>,
+// so light and dark are both covered by the existing decorator.
 
 const prose: CSSProperties = {
   color: 'var(--color-body)',

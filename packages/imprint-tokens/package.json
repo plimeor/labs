@@ -1,5 +1,5 @@
 {
-  "description": "Imprint design system foundations — color/type/spacing/radius/elevation/motion design tokens (CSS variables), self-hosted fonts, brand marks, and note/Markdown content-layer styles",
+  "description": "Imprint design system foundations — color/type/spacing/radius/elevation/motion design tokens authored as a Tailwind v4 theme (plus a generated framework-agnostic styles.css), variable fonts via @fontsource, brand marks, and note/Markdown content-layer styles",
   "homepage": "https://github.com/plimeor/labs/tree/main/packages/imprint-tokens",
   "name": "@plimeor/imprint-tokens",
   "type": "module",
@@ -7,14 +7,22 @@
   "bugs": {
     "url": "https://github.com/plimeor/labs/issues"
   },
+  "dependencies": {
+    "@fontsource-variable/hanken-grotesk": "^5.2.8",
+    "@fontsource-variable/jetbrains-mono": "^5.2.8",
+    "@fontsource-variable/literata": "^5.2.8"
+  },
+  "devDependencies": {
+    "postcss": "^8.5.15"
+  },
   "exports": {
     "./brand/*": "./src/brand/*",
-    "./fonts.css": "./src/fonts.css",
     "./note-syntax.css": "./src/note-syntax.css",
-    "./theme.css": "./src/theme.css",
-    "./tokens.css": "./src/tokens.css"
+    "./styles.css": "./dist/styles.css",
+    "./theme.css": "./src/theme.css"
   },
   "files": [
+    "dist",
     "src"
   ],
   "publishConfig": {
@@ -26,7 +34,8 @@
     "url": "git+https://github.com/plimeor/labs.git"
   },
   "scripts": {
+    "build": "bun run build.ts",
     "lint": "biome check .",
-    "prepack": "test -f src/tokens.css && test -f src/fonts.css && test -d src/fonts"
+    "prepack": "bun run build.ts"
   }
 }

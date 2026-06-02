@@ -7,9 +7,11 @@
    footnotes, citations, comments, frontmatter, highlight, strikethrough,
    underline.
 
-   Depends on colors_and_type.css (tokens + fonts). All classes are namespaced
-   `ns-` and inherit theme via semantic tokens. Drop these on rendered note
-   content; they're written to read well inside Literata prose on --color-content.
+   Depends on the design tokens from theme.css (Tailwind consumers) or the
+   generated styles.css (everyone else) — load one of them first. All classes are
+   namespaced `ns-` and inherit theme via semantic tokens; references only var()s,
+   no @import. Drop these on rendered note content; they're written to read well
+   inside Literata prose on --color-content.
    ============================================================================ */
 
 :root {

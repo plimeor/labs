@@ -53,10 +53,10 @@
   },
   "scripts": {
     "build": "vite build --config vite.lib.config.ts",
-    "build-storybook": "storybook build",
+    "build-storybook": "bun run --filter @plimeor/imprint-tokens build && storybook build",
     "lint": "biome check .",
     "prepack": "vite build --config vite.lib.config.ts",
-    "storybook": "storybook dev -p 6006",
+    "storybook": "bun run --filter @plimeor/imprint-tokens build && storybook dev -p 6006",
     "test": "bun test",
     "test:visual": "playwright test",
     "test:visual:update": "playwright test --update-snapshots"

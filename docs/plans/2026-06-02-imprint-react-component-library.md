@@ -197,3 +197,13 @@
 ## 更新 2026-06-02：note-syntax 并入 tokens
 
 原 `@plimeor/imprint-note-syntax` 已合并进 `@plimeor/imprint-tokens`（新增导出 `./note-syntax.css`）。现为**两个包**：`@plimeor/imprint-tokens`（tokens + 字体 + 品牌 + note-syntax 内容样式）与 `@plimeor/imprint-react`。理由：note-syntax 仅一个依赖 token 的 CSS 文件，单独成包收益不大；在首次发布前合并，无已发布包需废弃。上文中所有"三个包"的描述以此为准更正为两个。
+
+## 更新 2026-06-02：tokens 包改为 Tailwind-native 单一真值源 + 构建产物
+
+把上文「`colors_and_type.css` 直发源码 + 自托管 `fonts/*.woff2` + `font-face.css` + `tokens.ts`」的形态全面重构为下述终态（首次发布前定稿，无已发布包受影响）：
+
+- **单一真值源 = `src/theme.css`（Tailwind v4 语法）**。`tokens.css` 重命名为 `theme.css`，旧的 `@theme inline` 注册层删除；`tokens.ts` 已删（无消费者，YAGNI）。语义 token 用 `@theme static` 注册（保证所有 token 落入 `:root` 供 `var()` 消费，且工具类引用 `var()` 随 `data-theme` 翻转），原始 ramp 留在普通 `:root`，dark 在 `[data-theme="dark"]` 覆盖；另注册 `@custom-variant dark/light`。
+- **新增构建：`build.ts`（Bun + postcss）** 把 `theme.css` 转成 `dist/styles.css`（通用 CSS）：`@theme static`→`:root`、丢弃 `@custom-variant`/`@utility` 等 Tailwind 专有 at-rule、保留 `@fontsource` 的裸 `@import`（消费者 bundler 解析）。供非 Tailwind 工具（CSS Modules、Storybook、纯 CSS）消费。
+- **字体改为 `@fontsource-variable/*` npm 依赖**：删除 `src/fonts/` 与 `src/fonts.css`，改为在 `theme.css` 顶部 `@import` hanken-grotesk / jetbrains-mono / literata（+ hanken/literata 的 `wght-italic.css`）。family 名加 `" Variable"` 后缀以匹配其 `@font-face`。仍 local-first、无 CDN。
+- **exports/files/scripts**：exports 暴露 `./theme.css`(src) + `./styles.css`(dist) + `./note-syntax.css` + `./brand/*`，移除 `./tokens.css`、`./fonts.css`；`files` 加 `dist`（已 gitignore，`prepack`=`bun run build.ts` 发布时重建）；`build`/`prepack` 跑 transformer；新增 deps `@fontsource-variable/*`、devDep `postcss`（均显式版本，未进根 catalog）。
+- **消费者**：`imprint-react/.storybook/preview.ts` 改 `import "@plimeor/imprint-tokens/styles.css"`（单条，含字体）；其 `storybook`/`build-storybook` 脚本前置 `bun run --filter @plimeor/imprint-tokens build`（dist 已 gitignore，需先生成）。
