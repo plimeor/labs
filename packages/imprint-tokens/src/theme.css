@@ -454,11 +454,11 @@
    6. SEMANTIC TYPOGRAPHY PRESETS — @utility
    Named type presets registered as Tailwind utilities: tree-shaken (emitted only
    when used) and variant-ready (md:type-h1, hover:type-lead, …). Apply one per
-   element as its typographic identity (type-body, type-h1). Because they live in
-   @layer utilities alongside the built-ins, a single-purpose utility may or may
-   not win against a preset depending on Tailwind's per-property sort — so prefer
-   one preset per element over stacking conflicting utilities onto it.
-   (Stripped from the generated styles.css, which is for non-Tailwind consumers.)
+   element as its typographic identity (type-body, type-h1). They sort ahead of
+   the built-in text- and font- utilities, so a utility such as text-sm or
+   text-accent applied alongside reliably overrides the preset.
+   The build step (build.ts) expands these to plain .type-* classes in the
+   generated styles.css for non-Tailwind consumers.
 ---------------------------------------------------------------------------- */
 @utility type-display {
   font-family: var(--font-read);
