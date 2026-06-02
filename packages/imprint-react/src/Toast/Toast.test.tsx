@@ -49,7 +49,10 @@ describe('Toast', () => {
 
   test('dismisses via the close button', async () => {
     const user = userEvent.setup()
-    const toaster = createToast({ duration: Number.POSITIVE_INFINITY })
+    // removeDelay: 0 so the toast leaves the DOM immediately on close rather
+    // than lingering for Ark's exit transition — the lingering removal can
+    // outrun waitFor's default timeout on slower CI runners.
+    const toaster = createToast({ duration: Number.POSITIVE_INFINITY, removeDelay: 0 })
     render(<Toaster toaster={toaster} />)
 
     act(() => {
@@ -63,7 +66,7 @@ describe('Toast', () => {
     await waitFor(() => {
       expect(screen.queryByText('Bookmarked')).toBeNull()
     })
-  })
+  }, 15000)
 
   test('renders an action trigger and fires its onClick', async () => {
     const user = userEvent.setup()
