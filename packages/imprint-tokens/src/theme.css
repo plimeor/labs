@@ -403,10 +403,10 @@
    6. SEMANTIC TYPOGRAPHY CLASSES
    Convenience presets that compose the scale above. In @layer components so
    Tailwind utilities reliably override them (utilities sit in the later
-   utilities layer) — e.g. class="ds-h1 text-accent" lets text-accent win.
+   utilities layer) — e.g. class="type-h1 text-accent" lets text-accent win.
 ---------------------------------------------------------------------------- */
 @layer components {
-  .ds-display {
+  .type-display {
     font-family: var(--font-read);
     font-size: var(--text-4xl);
     line-height: var(--leading-tight);
@@ -414,7 +414,7 @@
     letter-spacing: var(--tracking-tight);
     color: var(--color-ink);
   }
-  .ds-h1 {
+  .type-h1 {
     font-family: var(--font-ui);
     font-size: var(--text-3xl);
     line-height: var(--leading-tight);
@@ -422,7 +422,7 @@
     letter-spacing: var(--tracking-tight);
     color: var(--color-ink);
   }
-  .ds-h2 {
+  .type-h2 {
     font-family: var(--font-ui);
     font-size: var(--text-2xl);
     line-height: var(--leading-snug);
@@ -430,49 +430,49 @@
     letter-spacing: var(--tracking-tight);
     color: var(--color-ink);
   }
-  .ds-h3 {
+  .type-h3 {
     font-family: var(--font-ui);
     font-size: var(--text-xl);
     line-height: var(--leading-snug);
     font-weight: var(--w-semibold);
     color: var(--color-ink);
   }
-  .ds-lead {
+  .type-lead {
     font-family: var(--font-read);
     font-size: var(--text-lg);
     line-height: var(--leading-relaxed);
     font-weight: var(--w-regular);
     color: var(--color-body);
   }
-  .ds-body {
+  .type-body {
     font-family: var(--font-ui);
     font-size: var(--text-base);
     line-height: var(--leading-normal);
     font-weight: var(--w-regular);
     color: var(--color-body);
   }
-  .ds-prose {
+  .type-prose {
     font-family: var(--font-read);
     font-size: var(--read-body);
     line-height: var(--read-lh);
     font-weight: var(--w-regular);
     color: var(--color-body);
   }
-  .ds-label {
+  .type-label {
     font-family: var(--font-ui);
     font-size: var(--text-sm);
     line-height: var(--leading-snug);
     font-weight: var(--w-medium);
     color: var(--color-secondary);
   }
-  .ds-caption {
+  .type-caption {
     font-family: var(--font-ui);
     font-size: var(--text-xs);
     line-height: var(--leading-snug);
     font-weight: var(--w-regular);
     color: var(--color-tertiary);
   }
-  .ds-eyebrow {
+  .type-eyebrow {
     font-family: var(--font-ui);
     font-size: var(--text-xs);
     line-height: var(--leading-snug);
@@ -481,14 +481,14 @@
     text-transform: uppercase;
     color: var(--color-tertiary);
   }
-  .ds-code {
+  .type-code {
     font-family: var(--font-mono);
     font-size: var(--text-sm);
     line-height: var(--leading-normal);
     font-weight: var(--w-regular);
     color: var(--color-body);
   }
-  .ds-mono-meta {
+  .type-mono-meta {
     font-family: var(--font-mono);
     font-size: var(--text-xs);
     letter-spacing: 0;

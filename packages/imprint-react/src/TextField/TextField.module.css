@@ -4,7 +4,7 @@
   font-family: var(--font-ui);
 }
 
-/* Label — matches the specimen's .ds-label, with a 4px-grid gap to the field. */
+/* Label — matches the specimen's .type-label, with a 4px-grid gap to the field. */
 .label {
   display: inline-flex;
   align-items: center;
