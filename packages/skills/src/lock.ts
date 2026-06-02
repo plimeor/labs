@@ -118,12 +118,12 @@ export namespace Lock {
 
   export function createEntry(
     skill: Manifest.Skill,
-    checkout: { HEAD: string },
+    checkout: { headSha: string },
     installPath: string,
     installedAt: string
   ): Entry {
     return {
-      commit: checkout.HEAD,
+      commit: checkout.headSha,
       installedAt,
       installPath,
       method: 'copy',

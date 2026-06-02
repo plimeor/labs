@@ -20,7 +20,7 @@ All current packages are TypeScript and Bun-first.
 | Package | Purpose | Stack |
 | ------- | ------- | ----- |
 | [`@plimeor/command-kit`](packages/command-kit) | Bun-first command declaration package for repo-local CLI and agent tools. It handles command groups, positional binding, Standard Schema validation, help metadata, and JSON result envelopes. | TypeScript, Bun |
-| [`@plimeor/git-kit`](packages/git-kit) | Git repository operations for repo-local CLIs. It normalizes repository inputs, clones and switches refs, fetches remote refs, reads repository status, and applies Git ignore rules. | TypeScript, Bun |
+| [`@plimeor/git-kit`](packages/git-kit) | Git source and checkout primitives for repo-local CLIs. It models remote sources, local worktrees, ref resolution, checkout lifecycle, worktree file listing, and Git ignore paths. | TypeScript, Bun |
 | [`@plimeor/skills`](packages/skills) | Manifest-based CLI for installing and syncing agent skills. It keeps `skills.json` as desired state, `skills.lock.json` as resolved state, and installs skills into global or project-local `.agents/skills` directories. | TypeScript, Bun |
 
 ## Package Highlights

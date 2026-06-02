@@ -1,85 +1,95 @@
 import { describe, expect, test } from 'bun:test'
 import { mkdir, mkdtemp, readdir, stat as readStat, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { basename, dirname, join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { $ } from 'bun'
 
 import * as Git from '@plimeor/git-kit'
 
 describe('git-kit', () => {
-  test('creates reusable lowercase identities', () => {
-    expect(Git.identity('Packages/Foo Bar')).toBe('packages-foo-bar')
-    expect(Git.identity('packages/foo_bar')).toBe('packages-foo_bar')
-    expect(Git.identity('packages/foo-bar')).toBe('packages-foo-bar')
+  test('repositories expose reusable lowercase identities', () => {
+    expect(Git.repository('plimeor/agent-skills').identity).toBe('plimeor__agent-skills')
+    expect(Git.repository('https://github.com/plimeor/agent-skills.git').identity).toBe('plimeor__agent-skills')
+    expect(Git.repository('https://github.com/plimeor/agent_skills.git').identity).toBe('plimeor__agent_skills')
   })
 
-  test('stat reports repository identity on branches and detached HEAD', async () => {
+  test('checkout snapshots report repository identity on branches and detached HEAD', async () => {
     const { commit, source } = await createGitSource()
-    const checkout = await Git.clone({ ref: 'main', repo: `file://${source}` })
+    const checkout = await Git.checkout({ ref: 'main', source: `file://${source}` })
     try {
-      expect(await Git.stat(checkout.path)).toMatchObject({
-        HEAD: commit,
-        identity: Git.identity(`${basename(dirname(source))}__${basename(source)}`),
-        path: checkout.path,
-        ref: 'main',
-        repo: `file://${source}`
+      expect(checkout.snapshot()).toMatchObject({
+        currentRef: 'main',
+        directory: checkout.directory,
+        headSha: commit,
+        identity: Git.repository(`file://${source}`).identity,
+        source: `file://${source}`
       })
 
-      await Git.switch({ detach: true, path: checkout.path, ref: commit })
-      expect(await Git.stat(checkout.path)).toMatchObject({
-        HEAD: commit,
-        ref: 'HEAD'
+      await checkout.switch({ detach: true, ref: commit })
+      expect(checkout.snapshot()).toMatchObject({
+        currentRef: 'HEAD',
+        headSha: commit
       })
     } finally {
-      await checkout.dispose?.()
+      await checkout.dispose()
     }
   })
 
-  test('clone supports target paths, temporary paths, refs, and skipExisting', async () => {
+  test('checkout supports target directories, temporary directories, refs, and existing worktrees', async () => {
     const { commit, source } = await createGitSource()
     const target = await tempDir('git-kit-target-')
     const targetRepo = await realpath(join(target, 'repo')).catch(() => join(target, 'repo'))
 
-    const first = await Git.clone({ path: join(target, 'repo'), ref: 'main', repo: `file://${source}` })
-    expect(first).toMatchObject({ HEAD: commit, path: await realpath(targetRepo), ref: 'main' })
-    expect(first.dispose).toBeUndefined()
+    const first = await Git.checkout({ directory: join(target, 'repo'), ref: 'main', source: `file://${source}` })
+    expect(first.snapshot()).toMatchObject({
+      currentRef: 'main',
+      directory: await realpath(targetRepo),
+      headSha: commit
+    })
 
-    const second = await Git.clone({ path: join(target, 'repo'), repo: `file://${source}`, skipExisting: true })
-    expect(second).toMatchObject({ HEAD: commit, path: await realpath(targetRepo), ref: 'main' })
+    const second = await Git.checkout({
+      directory: join(target, 'repo'),
+      reuseExisting: true,
+      source: `file://${source}`
+    })
+    expect(second.snapshot()).toMatchObject({
+      currentRef: 'main',
+      directory: await realpath(targetRepo),
+      headSha: commit
+    })
 
-    const temporary = await Git.clone({ ref: commit, repo: `file://${source}` })
-    const temporaryPath = temporary.path
-    expect(temporary.HEAD).toBe(commit)
-    await temporary.dispose?.()
+    const temporary = await Git.checkout({ ref: commit, source: `file://${source}` })
+    const temporaryPath = temporary.directory
+    expect(temporary.headSha).toBe(commit)
+    await temporary.dispose()
     await expect(readStat(temporaryPath)).rejects.toThrow()
-    await expect(readStat(dirname(temporaryPath))).resolves.toBeDefined()
+    await expect(readStat(dirname(temporaryPath))).rejects.toThrow()
   })
 
-  test('clone rejects skipExisting when origin does not match', async () => {
+  test('checkout rejects existing worktrees when origin does not match', async () => {
     const existing = await createGitSource()
     const requested = await createGitSource()
     const target = await tempDir('git-kit-target-')
 
-    await Git.clone({ path: join(target, 'repo'), repo: `file://${existing.source}` })
+    await Git.checkout({ directory: join(target, 'repo'), source: `file://${existing.source}` })
 
     await expect(
-      Git.clone({ path: join(target, 'repo'), repo: `file://${requested.source}`, skipExisting: true })
-    ).rejects.toThrow('Existing checkout origin does not match requested repo')
+      Git.checkout({ directory: join(target, 'repo'), reuseExisting: true, source: `file://${requested.source}` })
+    ).rejects.toThrow('Existing checkout origin does not match requested source')
   })
 
-  test('clone cleans temporary directories when checkout fails', async () => {
+  test('checkout cleans temporary directories when checkout fails', async () => {
     const { source } = await createGitSource()
-    const before = await cloneTempDirs()
-    const checkout = Git.clone({ ref: 'missing', repo: `file://${source}` })
+    const before = await checkoutTempDirs()
+    const checkout = Git.checkout({ ref: 'missing', source: `file://${source}` })
 
     await expect(checkout).rejects.toThrow()
-    const createdRoots = (await cloneTempDirs()).filter(path => !before.includes(path))
-    expect(createdRoots).toHaveLength(1)
-    await expect(readStat(join(createdRoots[0] as string, 'repo'))).rejects.toThrow()
+    const createdRoots = (await checkoutTempDirs()).filter(path => !before.includes(path))
+    expect(createdRoots).toHaveLength(0)
     await Promise.all(createdRoots.map(path => rm(path, { force: true, recursive: true })))
   })
 
-  test('clone normalizes GitHub shorthand to an origin URL', async () => {
+  test('checkout normalizes GitHub shorthand to an origin URL', async () => {
     const { commit, source } = await createGitSource()
     const config = await tempDir('git-kit-config-')
     const configPath = join(config, 'gitconfig')
@@ -87,11 +97,11 @@ describe('git-kit', () => {
     const previousConfig = process.env.GIT_CONFIG_GLOBAL
     process.env.GIT_CONFIG_GLOBAL = configPath
     try {
-      const checkout = await Git.clone({ repo: 'plimeor/agent-skills' })
+      const checkout = await Git.checkout({ source: 'plimeor/agent-skills' })
       try {
-        expect(checkout.HEAD).toBe(commit)
+        expect(checkout.headSha).toBe(commit)
       } finally {
-        await checkout.dispose?.()
+        await checkout.dispose()
       }
     } finally {
       if (previousConfig === undefined) {
@@ -102,39 +112,39 @@ describe('git-kit', () => {
     }
   })
 
-  test('clone rejects local paths', async () => {
-    await expect(Git.clone({ repo: '../agent-skills' })).rejects.toThrow('Local paths are not supported')
+  test('checkout rejects local paths', async () => {
+    await expect(Git.checkout({ source: '../agent-skills' })).rejects.toThrow('Local paths are not supported')
   })
 
   test('fetch resolves branches tags commits and remote HEAD', async () => {
     const { commit, pullRef, releaseCommit, source, tag } = await createGitSource()
-    const checkout = await Git.clone({ repo: `file://${source}` })
+    const checkout = await Git.checkout({ source: `file://${source}` })
     try {
-      expect(await Git.fetch({ path: checkout.path, ref: 'main' })).toEqual({ HEAD: commit, ref: 'main' })
-      expect(await Git.fetch({ path: checkout.path, ref: 'release' })).toEqual({ HEAD: releaseCommit, ref: 'release' })
-      expect(await Git.fetch({ path: checkout.path, ref: tag })).toEqual({ HEAD: commit, ref: tag })
-      expect(await Git.fetch({ path: checkout.path, ref: commit })).toEqual({ HEAD: commit, ref: commit })
-      expect(await Git.fetch({ path: checkout.path, ref: pullRef })).toEqual({ HEAD: commit, ref: pullRef })
-      expect(await Git.fetch({ path: checkout.path, ref: 'HEAD' })).toEqual({ HEAD: commit, ref: 'main' })
+      expect(await checkout.fetch('main')).toEqual({ headSha: commit, ref: 'main' })
+      expect(await checkout.fetch('release')).toEqual({ headSha: releaseCommit, ref: 'release' })
+      expect(await checkout.fetch(tag)).toEqual({ headSha: commit, ref: tag })
+      expect(await checkout.fetch(commit)).toEqual({ headSha: commit, ref: commit })
+      expect(await checkout.fetch(pullRef)).toEqual({ headSha: commit, ref: pullRef })
+      expect(await checkout.fetch('HEAD')).toEqual({ headSha: commit, ref: 'main' })
     } finally {
-      await checkout.dispose?.()
+      await checkout.dispose()
     }
   })
 
   test('switch supports normal and detached checkout', async () => {
     const { commit, releaseCommit, source } = await createGitSource()
-    const checkout = await Git.clone({ repo: `file://${source}` })
+    const checkout = await Git.checkout({ source: `file://${source}` })
     try {
-      expect(await Git.switch({ path: checkout.path, ref: 'release' })).toEqual({
-        HEAD: releaseCommit,
+      expect(await checkout.switch({ ref: 'release' })).toEqual({
+        headSha: releaseCommit,
         ref: 'release'
       })
-      expect(await Git.switch({ detach: true, path: checkout.path, ref: commit })).toEqual({
-        HEAD: commit,
+      expect(await checkout.switch({ detach: true, ref: commit })).toEqual({
+        headSha: commit,
         ref: 'HEAD'
       })
     } finally {
-      await checkout.dispose?.()
+      await checkout.dispose()
     }
   })
 
@@ -147,12 +157,14 @@ describe('git-kit', () => {
     await writeFile(join(source, 'ignored.txt'), 'ignored\n')
     await writeFile(join(source, 'kept.txt'), 'kept\n')
 
-    expect(await Git.collectIgnorePaths(source)).toEqual(
+    const checkout = await Git.openWorktree(source)
+    const root = checkout.directory
+    expect(await checkout.collectIgnorePaths()).toEqual(
       new Set([
-        join(source, 'docs'),
-        join(source, 'ignored.txt'),
-        join(source, 'missing.txt'),
-        join(source, 'src', 'nested.ts')
+        join(root, 'docs'),
+        join(root, 'ignored.txt'),
+        join(root, 'missing.txt'),
+        join(root, 'src', 'nested.ts')
       ])
     )
   })
@@ -196,10 +208,10 @@ async function tempDir(prefix: string): Promise<string> {
   return mkdtemp(join(tmpdir(), prefix))
 }
 
-async function cloneTempDirs(): Promise<string[]> {
+async function checkoutTempDirs(): Promise<string[]> {
   const entries = await readdir(tmpdir(), { withFileTypes: true })
   return entries
-    .filter(entry => entry.isDirectory() && entry.name.startsWith('git-kit-clone-'))
+    .filter(entry => entry.isDirectory() && entry.name.startsWith('git-kit-checkout-'))
     .map(entry => join(tmpdir(), entry.name))
     .sort()
 }

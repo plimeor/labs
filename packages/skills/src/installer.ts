@@ -11,10 +11,10 @@ export type InstallResult = {
 
 export async function installSkill(
   skill: Manifest.Skill,
-  checkout: { path: string },
+  checkout: { directory: string },
   scope: Scope
 ): Promise<InstallResult> {
-  const sourcePath = resolveSkillSourcePath(checkout.path, skill)
+  const sourcePath = resolveSkillSourcePath(checkout.directory, skill)
   const installPath = join(scope.installDir, safeFileName(skill.name))
 
   await assertSkillDirectory(sourcePath, skill.name)

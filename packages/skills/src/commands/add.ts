@@ -36,10 +36,10 @@ export async function addCommand(context: AddCommandContext) {
 
   const request = checkoutRequest(context)
   log.step(`Resolving ${formatCheckoutTarget(request)}`)
-  const checkout = await Git.clone({ ref: repositoryRequestRef(request), repo: request.source })
+  const checkout = await Git.checkout({ ref: repositoryRequestRef(request), source: request.source })
   try {
     const selectionLock = await readLockOrEmpty(scope)
-    const skills = await resolveSkills(context, checkout.path, selectionLock)
+    const skills = await resolveSkills(context, checkout.directory, selectionLock)
     if (skills.length === 0) {
       log.info('No new skills selected.')
       return
@@ -84,7 +84,7 @@ export async function addCommand(context: AddCommandContext) {
     await Lock.write(scope, lock)
     log.success(`Updated ${formatDisplayPath(scope.manifestPath)} and ${formatDisplayPath(scope.lockPath)}`)
   } finally {
-    await checkout.dispose?.()
+    await checkout.dispose()
   }
 }
 
@@ -299,7 +299,7 @@ function normalizeSkills(values: string[]): string[] {
 
 async function installSkillWithContext(
   skill: Manifest.Skill,
-  checkout: Git.CloneResult,
+  checkout: Git.Checkout,
   scope: ReturnType<typeof resolveScope>
 ) {
   try {

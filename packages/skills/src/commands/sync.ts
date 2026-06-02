@@ -87,7 +87,7 @@ export async function syncCommand(context: SyncCommandContext) {
       const installResults = new Map<
         string,
         {
-          checkout: Git.CloneResult
+          checkout: Git.Checkout
           result: InstallResult
           skill: Manifest.Skill
         }
@@ -148,7 +148,7 @@ async function resolveAllSources(
       for (const source of allSources) {
         const request = { commit: source.commit, ref: source.ref, source: source.source }
         const checkout = requireRepository(checkouts, request, source.source)
-        const skillNames = await discoverSkillNames(checkout.path)
+        const skillNames = await discoverSkillNames(checkout.directory)
         resolvedSkills.push(
           ...skillNames.map(name => ({
             commit: source.commit,
@@ -221,7 +221,7 @@ async function discoverSkillNames(checkoutDir: string): Promise<string[]> {
 
 async function installSkillWithContext(
   skill: Manifest.Skill,
-  checkout: Git.CloneResult,
+  checkout: Git.Checkout,
   scope: ReturnType<typeof resolveScope>
 ) {
   try {
@@ -254,33 +254,33 @@ function uniqueRepositoryRequests(requests: RepositoryRequest[]): RepositoryRequ
 
 async function withRepositories<T>(
   requests: RepositoryRequest[],
-  callback: (checkouts: Map<string, Git.CloneResult>) => Promise<T>
+  callback: (checkouts: Map<string, Git.Checkout>) => Promise<T>
 ): Promise<T> {
-  const checkouts = new Map<string, Git.CloneResult>()
+  const checkouts = new Map<string, Git.Checkout>()
   try {
     for (const request of uniqueRepositoryRequests(requests)) {
       checkouts.set(
         repositoryRequestKey(request),
-        await Git.clone({ ref: repositoryRequestRef(request), repo: request.source })
+        await Git.checkout({ ref: repositoryRequestRef(request), source: request.source })
       )
     }
   } catch (error) {
-    await Promise.all([...checkouts.values()].map(checkout => checkout.dispose?.()))
+    await Promise.all([...checkouts.values()].map(checkout => checkout.dispose()))
     throw error
   }
 
   try {
     return await callback(checkouts)
   } finally {
-    await Promise.all([...checkouts.values()].map(checkout => checkout.dispose?.()))
+    await Promise.all([...checkouts.values()].map(checkout => checkout.dispose()))
   }
 }
 
 function requireRepository(
-  checkouts: Map<string, Git.CloneResult>,
+  checkouts: Map<string, Git.Checkout>,
   request: RepositoryRequest,
   skillName: string
-): Git.CloneResult {
+): Git.Checkout {
   const checkout = checkouts.get(repositoryRequestKey(request))
   if (!checkout) {
     throw new Error(`Missing checkout for ${skillName}`)

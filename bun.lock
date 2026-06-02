@@ -48,11 +48,11 @@
     },
     "packages/git-kit": {
       "name": "@plimeor/git-kit",
-      "version": "0.1.1",
+      "version": "0.1.2",
     },
     "packages/skills": {
       "name": "@plimeor/skills",
-      "version": "0.2.1",
+      "version": "0.2.2",
       "bin": {
         "skills": "./src/cli.ts",
       },
