@@ -6,13 +6,15 @@
  * transform produces a framework-agnostic stylesheet for non-Tailwind consumers
  * (CSS Modules, Storybook, plain projects):
  *
- *   @theme static { --x: … }   →   :root { --x: … }   (tokens become real custom
- *                                   properties; values are real here — Option A,
- *                                   not self-referential — so this is a faithful 1:1)
+ *   @theme static { --x: … }   →   @layer theme { :root { --x: … } }   (tokens
+ *                                   become real custom properties for var()
+ *                                   consumers, in the SAME @layer theme as the
+ *                                   dark [data-theme] block below, so dark — which
+ *                                   comes later in source order — wins the swap)
  *   @custom-variant / @utility / @variant / @apply / @tailwind   →   dropped
  *   @import "@fontsource-variable/*"   →   kept (the consumer's bundler resolves
  *                                          the bare specifier + woff2 urls)
- *   :root / [data-theme] / @media / @layer base / .ds-* / .focus-ring   →   passthrough
+ *   @layer theme { [data-theme="dark"] … } / :root / @media / @layer base / .ds-* → passthrough
  *
  * Faithful by construction: postcss preserves source order, comments, and exact
  * declaration values (nested var(), rgba(var(--x) / a), cubic-bezier, …). No
@@ -32,15 +34,16 @@ const root = postcss.parse(await Bun.file(SRC).text(), { from: SRC })
 
 root.walkAtRules(at => {
   if (at.name === 'theme') {
-    // @theme static { … } → :root { … }: the registered tokens become plain
-    // custom properties for var() consumers, in the same source position.
-    const rule = postcss.rule({ selector: ':root' })
-    rule.raws.before = at.raws.before
-    rule.raws.between = ' '
-    rule.raws.after = at.raws.after ?? '\n'
-    rule.raws.semicolon = true
+    // @theme static { … } → @layer theme { :root { … } }: tokens become plain
+    // custom properties for var() consumers, kept in the theme layer (same as the
+    // dark block) so the cascade order — light here, dark later — still flips.
+    const rule = postcss.rule({ raws: { between: ' ', semicolon: true }, selector: ':root' })
     for (const node of at.nodes ?? []) rule.append(node.clone())
-    at.replaceWith(rule)
+    const layer = postcss.atRule({ name: 'layer', nodes: [rule], params: 'theme' })
+    layer.raws.before = at.raws.before
+    layer.raws.between = ' '
+    layer.raws.after = '\n'
+    at.replaceWith(layer)
   } else if (DROP.has(at.name)) {
     // Drop the at-rule and the section comment that introduces it, so a header
     // like "VARIANTS — …" doesn't survive into the plain CSS without its rules.

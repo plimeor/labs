@@ -16,21 +16,31 @@
 
      • Everything else (plain CSS, CSS Modules, Storybook, non-Tailwind tools) —
        import the generated, framework-agnostic stylesheet (build.ts compiles
-       this file into it: @theme → :root, Tailwind-only at-rules stripped):
+       this file into it: @theme → :root inside @layer theme, Tailwind-only
+       at-rules stripped):
            import "@plimeor/imprint-tokens/styles.css";
 
-   How theming works: `@theme static` registers each token with Tailwind AND
-   emits it into :root unconditionally (no tree-shaking) — so var() consumers
-   always see it — while utilities reference var(--token). The light/default
-   values live in @theme; the `[data-theme="dark"]` block below overrides the
-   raw vars, so BOTH the tokens and every var()-referencing utility flip. (We
-   deliberately avoid `@theme inline`, which would freeze literal values into
-   utilities and break the swap.)
+   How theming works:
+     • Every literal color lives ONCE, in the PRIMITIVE ramps below. Both light
+       and dark semantic tokens are pure var() references into those ramps — the
+       dark theme is just a different set of ramp steps, never a hardcoded hex.
+     • `@theme static` registers the light/default tokens with Tailwind: it emits
+       them into :root unconditionally (no tree-shaking, so var() consumers
+       always see them) inside `@layer theme`, and makes utilities reference
+       var(--token).
+     • The dark overrides live in `@layer theme { [data-theme="dark"] { … } }` —
+       same layer as the registered tokens (so they belong to the theme cascade
+       and a consumer's components/utilities can still override them), and after
+       them in source order (so dark wins). They re-point the raw vars, so BOTH
+       the tokens and every var()-referencing utility flip.
+     • We deliberately avoid `@theme inline`, which would freeze literal values
+       into utilities and break the swap.
 
    Token layers, cascade in this order:
-     1. PRIMITIVES   — raw ramp, never used directly in components (plain :root,
+     1. PRIMITIVES   — raw ramps, the only place literal hexes live (plain :root,
                        intentionally NOT registered with Tailwind)
-     2. SEMANTIC     — meaning-driven aliases that flip with theme (@theme)
+     2. SEMANTIC     — meaning-driven aliases that flip with theme (@theme + the
+                       @layer theme dark block)
      3. SCALES       — type / radius / elevation / motion (@theme + plain :root)
      4. COMPONENT    — .ds-* typography + .focus-ring helper classes
 
@@ -60,58 +70,94 @@
 
 /* ----------------------------------------------------------------------------
    1. PRIMITIVES
-   Warm neutral ramp (never cold blue-gray, never pure black/white).
-   Hue ~40–48deg, low chroma. The ramp is the spine of the whole system.
-   Plain :root — primitives are an implementation detail, not design API, so
-   they are NOT registered with Tailwind (no bg-warm-100 utilities).
+   The complete, systematic ramps — the ONLY place literal hex values live.
+   Both light and dark semantic tokens reference these by step, so the dark
+   theme is expressed entirely through var(). Steps on a 25/50 grid; the finer
+   steps (…-450, -550, -650, -775, -825, …) carry the dark-mode surfaces, text
+   and accents. Plain :root — primitives are implementation detail, not design
+   API (no bg-warm-100 utilities).
 ---------------------------------------------------------------------------- */
 :root {
-  /* Warm neutrals — modern near-neutral gray with a whisper of warmth (not beige, not cold) */
+  /* Warm neutrals — modern near-neutral gray with a whisper of warmth. The
+     spine of the system: light theme reads top-down for surfaces / bottom-up
+     for text; dark theme does the reverse. (not beige, not cold) */
   --warm-0: #ffffff;
-  --warm-50: #fdfdfc; /* content surface, highest plane */
-  --warm-100: #f6f5f3; /* app canvas */
-  --warm-150: #f0efec; /* recessed surface (sidebars) */
-  --warm-200: #e7e6e2; /* hairline borders, hover fills */
-  --warm-250: #dddbd6; /* hover fill stronger */
-  --warm-300: #d1cfc9; /* strong borders, dividers */
-  --warm-400: #b3afa8; /* disabled fg, placeholder */
-  --warm-500: #88857d; /* tertiary text */
-  --warm-600: #686560; /* secondary text */
-  --warm-700: #494642; /* strong secondary */
-  --warm-800: #2b2a26; /* body text */
-  --warm-900: #1d1b18; /* headings, ink */
-  --warm-950: #131210; /* deepest ink */
+  --warm-50: #fdfdfc; /* light: content (highest plane) */
+  --warm-100: #f6f5f3; /* light: canvas */
+  --warm-150: #f0efec; /* light: sidebar / sunken · dark: ink */
+  --warm-200: #e7e6e2; /* light: hover / border-subtle */
+  --warm-250: #dddbd6; /* light: active · dark: body */
+  --warm-300: #d1cfc9; /* light: border */
+  --warm-400: #b3afa8; /* light: disabled / border-strong */
+  --warm-450: #a8a49c; /* dark: secondary text */
+  --warm-500: #88857d; /* light: tertiary text */
+  --warm-550: #817d75; /* dark: tertiary text */
+  --warm-600: #686560; /* light: secondary text */
+  --warm-650: #585551; /* dark: disabled */
+  --warm-700: #494642; /* light: strong secondary · dark: border-strong */
+  --warm-750: #383531; /* dark: border */
+  --warm-775: #322f2b; /* dark: active fill */
+  --warm-800: #2b2a26; /* light: body text */
+  --warm-825: #2a2825; /* dark: hover / border-subtle */
+  --warm-850: #262320; /* dark: raised (menus, dialogs) */
+  --warm-875: #201e1b; /* dark: content (working plane) */
+  --warm-900: #1d1b18; /* light: ink (headings) */
+  --warm-925: #1a1917; /* dark: canvas */
+  --warm-950: #131210; /* light: deepest ink · dark: sidebar / sunken */
 
-  /* Blue accent — refined royal-cobalt. Calm and confident, never neon. */
-  --blue-50: #eef3fe;
-  --blue-100: #dce7fd;
-  --blue-200: #bbd0fb;
+  /* Blue accent — refined royal-cobalt. Calm and confident, never neon. Dark
+     mode leans on the brighter, more saturated steps (…-225 … -375) so accents
+     pop on charcoal; the deep steps (…-750 … -950) carry dark fills/scrims. */
+  --blue-50: #eef3fe; /* light: agent surface */
+  --blue-100: #dce7fd; /* light: selection / accent-subtle */
+  --blue-200: #bbd0fb; /* light: agent-border */
+  --blue-225: #9dc4ff; /* dark: accent-active */
+  --blue-250: #8fbeff; /* dark: link / accent-fg */
   --blue-300: #8db0f6;
-  --blue-400: #5588ef;
-  --blue-500: #2d67e0; /* PRIMARY accent (light mode) */
-  --blue-600: #1f4fbf;
-  --blue-700: #173e96;
+  --blue-325: #7fb0ff; /* dark: accent-hover */
+  --blue-375: #5e9bff; /* dark: accent / focus */
+  --blue-400: #5588ef; /* light: focus */
+  --blue-500: #2d67e0; /* light: accent (PRIMARY) */
+  --blue-600: #1f4fbf; /* light: accent-hover / link */
+  --blue-700: #173e96; /* light: accent-active / accent-fg */
+  --blue-750: #15406e; /* dark: agent-border */
+  --blue-775: #1b355e; /* dark: selection / accent-subtle */
   --blue-800: #122f70;
+  --blue-850: #0e2742; /* dark: agent surface */
   --blue-900: #0c1e47;
+  --blue-950: #06121f; /* dark: on-accent (text on blue fills) */
 
-  /* Semantic hues — gently muted, calm but instantly legible on warm paper */
-  --green-100: #dbf1e3;
-  --green-300: #74d29c;
-  --green-500: #1fa85b; /* success solid */
-  --green-600: #15863f; /* success text */
+  /* Green — success. Gently muted, instantly legible on warm paper or charcoal. */
+  --green-100: #dbf1e3; /* light: success-bg */
+  --green-300: #74d29c; /* light: success-border */
+  --green-400: #5bd08c; /* dark: success / diff-add-fg */
+  --green-500: #1fa85b; /* diff-add-gutter (both themes) */
+  --green-600: #15863f; /* light: success / diff-add-fg */
   --green-700: #0f6630;
+  --green-800: #1f5235; /* dark: success-border */
+  --green-950: #122a1c; /* dark: success-bg / diff-add-bg */
 
-  --amber-100: #f8ebcf;
-  --amber-300: #f2c977;
-  --amber-500: #e0941f; /* warning solid */
-  --amber-600: #9a6610; /* warning text */
+  /* Amber — warning. */
+  --amber-100: #f8ebcf; /* light: warning-bg */
+  --amber-300: #f2c977; /* light: warning-border */
+  --amber-400: #e6c566; /* dark: warning */
+  --amber-500: #e0941f;
+  --amber-600: #9a6610; /* light: warning */
+  --amber-800: #5a4520; /* dark: warning-border */
+  --amber-950: #2e2410; /* dark: warning-bg */
 
-  --red-100: #fbe0e2;
-  --red-300: #ee8a92;
-  --red-500: #dc3a4a; /* danger solid */
-  --red-600: #bb2434; /* danger text */
+  /* Red — danger. */
+  --red-100: #fbe0e2; /* light: danger-bg */
+  --red-300: #ee8a92; /* light: danger-border */
+  --red-350: #ff8a93; /* dark: diff-del-fg */
+  --red-400: #ff7a85; /* dark: danger / danger-hover */
+  --red-450: #f65c68; /* dark: danger-solid */
+  --red-500: #dc3a4a; /* danger-solid (light) / diff-del-gutter (both) */
+  --red-600: #bb2434; /* light: danger / diff-del-fg */
+  --red-800: #5c2a2e; /* dark: danger-border */
+  --red-950: #2e1518; /* dark: danger-bg / diff-del-bg */
 
-  /* Pure-ish overlays for scrims/shadows, defined in warm terms */
+  /* Pure-ish overlays for scrims/shadows, defined in warm terms (flip in dark). */
   --shadow-rgb: 28 26 22; /* near-neutral warm black for shadows */
   --scrim-rgb: 18 17 14;
 }
@@ -120,9 +166,9 @@
    2. SEMANTIC TOKENS + SCALES — registered with Tailwind.
    `@theme static` => every var below lands in :root (so CSS-Module / plain-CSS
    consumers can var() them) AND generates utilities that reference var(), so
-   they flip with the [data-theme="dark"] overrides further down.
-   Values here are the LIGHT / default theme; colors reference the primitives
-   above (single source of truth — the literal hexes live in the ramp).
+   they flip with the [data-theme="dark"] overrides in section 2b.
+   Values here are the LIGHT / default theme; colors reference the primitive
+   ramps above (single source of truth — the literal hexes live only there).
 ---------------------------------------------------------------------------- */
 @theme static {
   /* ---- Surfaces — bg-canvas / bg-content / bg-raised … (content is the brightest plane) ---- */
@@ -174,19 +220,19 @@
   --color-danger-hover: var(--red-600);
 
   /* ---- AI / diff surfaces — quiet, evidence-forward. Gutters stay saturated in both themes. ---- */
-  --color-diff-add-bg: #dbf1e3;
-  --color-diff-add-fg: #15863f;
-  --color-diff-add-gutter: #1fa85b;
-  --color-diff-del-bg: #fbe0e2;
-  --color-diff-del-fg: #bb2434;
-  --color-diff-del-gutter: #dc3a4a;
+  --color-diff-add-bg: var(--green-100);
+  --color-diff-add-fg: var(--green-600);
+  --color-diff-add-gutter: var(--green-500);
+  --color-diff-del-bg: var(--red-100);
+  --color-diff-del-fg: var(--red-600);
+  --color-diff-del-gutter: var(--red-500);
   --color-agent: var(--blue-50); /* agent transcript surface */
   --color-agent-border: var(--blue-200);
 
-  /* ---- Scrim behind dialogs — bg-scrim ---- */
+  /* ---- Scrim behind dialogs — bg-scrim (color from --scrim-rgb, alpha differs per theme) ---- */
   --color-scrim: rgba(var(--scrim-rgb) / 0.32);
 
-  /* ---- Elevation — shadow-1 … shadow-4, shadow-inset (light: lean on warm, low-spread shadows) ---- */
+  /* ---- Elevation — shadow-1 … shadow-4, shadow-inset. Warm, low-spread; color from --shadow-rgb. ---- */
   --shadow-none: none;
   --shadow-1: 0 1px 2px rgba(var(--shadow-rgb) / 0.05), 0 1px 1px rgba(var(--shadow-rgb) / 0.03);
   --shadow-2: 0 2px 4px rgba(var(--shadow-rgb) / 0.06), 0 1px 2px rgba(var(--shadow-rgb) / 0.04);
@@ -247,71 +293,76 @@
 
 /* ----------------------------------------------------------------------------
    2b. SEMANTIC TOKENS — DARK
-   Warm charcoal, never blue-black. Content plane sits slightly raised so prose
-   keeps the highest contrast. Unlayered + after @theme, so these overrides win
-   for both the raw tokens and every var()-referencing utility. Only the tokens
-   that actually differ from light are listed (single source of truth).
+   Warm charcoal, never blue-black; accents step up in saturation. Lives INSIDE
+   @layer theme (same layer as the registered tokens) and after them, so it
+   belongs to the theme cascade — a consumer's @layer components/utilities can
+   still override it — yet wins over the light defaults. Every value is a var()
+   into the primitive ramps; only the tokens that differ from light are listed.
 ---------------------------------------------------------------------------- */
-[data-theme="dark"] {
-  color-scheme: dark;
+@layer theme {
+  [data-theme="dark"] {
+    color-scheme: dark;
 
-  --color-canvas: #1a1917;
-  --color-sidebar: #151412;
-  --color-content: #201e1b; /* raised, neutral-warm — the working plane */
-  --color-raised: #262320; /* menus, dialogs */
-  --color-sunken: #151412;
-  --color-hover: #2a2825;
-  --color-active: #322f2b;
-  --color-selection: #1b355e; /* low-chroma blue wash */
+    --color-canvas: var(--warm-925);
+    --color-sidebar: var(--warm-950);
+    --color-content: var(--warm-875); /* raised, neutral-warm — the working plane */
+    --color-raised: var(--warm-850); /* menus, dialogs */
+    --color-sunken: var(--warm-950);
+    --color-hover: var(--warm-825);
+    --color-active: var(--warm-775);
+    --color-selection: var(--blue-775); /* low-chroma blue wash */
 
-  --color-ink: #efede8;
-  --color-body: #dedbd4;
-  --color-secondary: #a8a49c;
-  --color-tertiary: #817d75;
-  --color-disabled: #585551;
-  --color-on-accent: #06121f;
-  --color-link: #8fbeff;
+    --color-ink: var(--warm-150);
+    --color-body: var(--warm-250);
+    --color-secondary: var(--warm-450);
+    --color-tertiary: var(--warm-550);
+    --color-disabled: var(--warm-650);
+    --color-on-accent: var(--blue-950);
+    --color-link: var(--blue-250);
 
-  --color-border-subtle: #2a2825;
-  --color-border: #383531;
-  --color-border-strong: #48443f;
+    --color-border-subtle: var(--warm-825);
+    --color-border: var(--warm-750);
+    --color-border-strong: var(--warm-700);
 
-  --color-accent: #5e9bff;
-  --color-accent-hover: #7fb0ff;
-  --color-accent-active: #9dc4ff;
-  --color-accent-subtle: #16335c;
-  --color-accent-fg: #8fb9ff;
+    --color-accent: var(--blue-375);
+    --color-accent-hover: var(--blue-325);
+    --color-accent-active: var(--blue-225);
+    --color-accent-subtle: var(--blue-775);
+    --color-accent-fg: var(--blue-250);
 
-  --color-focus: #5e9bff;
+    --color-focus: var(--blue-375);
 
-  --color-success: #5bd08c;
-  --color-success-bg: #122a1c;
-  --color-success-border: #1f5235;
-  --color-warning: #e6c566;
-  --color-warning-bg: #2e2410;
-  --color-warning-border: #5a4520;
-  --color-danger: #ff7a85;
-  --color-danger-bg: #2e1518;
-  --color-danger-border: #5c2a2e;
-  --color-danger-solid: #f65c68;
-  --color-danger-hover: #ff7a85;
+    --color-success: var(--green-400);
+    --color-success-bg: var(--green-950);
+    --color-success-border: var(--green-800);
+    --color-warning: var(--amber-400);
+    --color-warning-bg: var(--amber-950);
+    --color-warning-border: var(--amber-800);
+    --color-danger: var(--red-400);
+    --color-danger-bg: var(--red-950);
+    --color-danger-border: var(--red-800);
+    --color-danger-solid: var(--red-450);
+    --color-danger-hover: var(--red-400);
 
-  --color-diff-add-bg: #122a1c;
-  --color-diff-add-fg: #5bd08c;
-  --color-diff-del-bg: #2e1518;
-  --color-diff-del-fg: #ff8a93;
-  --color-agent: #0e2742;
-  --color-agent-border: #15406e;
+    --color-diff-add-bg: var(--green-950);
+    --color-diff-add-fg: var(--green-400);
+    --color-diff-del-bg: var(--red-950);
+    --color-diff-del-fg: var(--red-350);
+    --color-agent: var(--blue-850);
+    --color-agent-border: var(--blue-750);
 
-  --color-scrim: rgba(10 8 5 / 0.55);
+    /* Scrim + elevation flip via the primitives: a near-black --shadow-rgb and a
+       darker --scrim-rgb, plus deeper shadow alphas/geometry for charcoal. */
+    --scrim-rgb: 10 8 5;
+    --color-scrim: rgba(var(--scrim-rgb) / 0.55);
 
-  /* Dark elevation: deeper, opaque-black shadows (alphas differ from light). */
-  --shadow-rgb: 0 0 0;
-  --shadow-1: 0 1px 2px rgba(0 0 0 / 0.4);
-  --shadow-2: 0 2px 6px rgba(0 0 0 / 0.45);
-  --shadow-3: 0 8px 22px rgba(0 0 0 / 0.55);
-  --shadow-4: 0 18px 48px rgba(0 0 0 / 0.65);
-  --shadow-inset: inset 0 1px 2px rgba(0 0 0 / 0.3);
+    --shadow-rgb: 0 0 0;
+    --shadow-1: 0 1px 2px rgba(var(--shadow-rgb) / 0.4);
+    --shadow-2: 0 2px 6px rgba(var(--shadow-rgb) / 0.45);
+    --shadow-3: 0 8px 22px rgba(var(--shadow-rgb) / 0.55);
+    --shadow-4: 0 18px 48px rgba(var(--shadow-rgb) / 0.65);
+    --shadow-inset: inset 0 1px 2px rgba(var(--shadow-rgb) / 0.3);
+  }
 }
 
 /* ----------------------------------------------------------------------------
@@ -401,97 +452,94 @@
 
 /* ----------------------------------------------------------------------------
    6. SEMANTIC TYPOGRAPHY CLASSES
-   Convenience presets that compose the scale above. In @layer components so
-   Tailwind utilities reliably override them (utilities sit in the later
-   utilities layer) — e.g. class="type-h1 text-accent" lets text-accent win.
+   Convenience classes that compose the scale above. Components may also map
+   these directly to element selectors in their own scope.
 ---------------------------------------------------------------------------- */
-@layer components {
-  .type-display {
-    font-family: var(--font-read);
-    font-size: var(--text-4xl);
-    line-height: var(--leading-tight);
-    font-weight: var(--w-semibold);
-    letter-spacing: var(--tracking-tight);
-    color: var(--color-ink);
-  }
-  .type-h1 {
-    font-family: var(--font-ui);
-    font-size: var(--text-3xl);
-    line-height: var(--leading-tight);
-    font-weight: var(--w-semibold);
-    letter-spacing: var(--tracking-tight);
-    color: var(--color-ink);
-  }
-  .type-h2 {
-    font-family: var(--font-ui);
-    font-size: var(--text-2xl);
-    line-height: var(--leading-snug);
-    font-weight: var(--w-semibold);
-    letter-spacing: var(--tracking-tight);
-    color: var(--color-ink);
-  }
-  .type-h3 {
-    font-family: var(--font-ui);
-    font-size: var(--text-xl);
-    line-height: var(--leading-snug);
-    font-weight: var(--w-semibold);
-    color: var(--color-ink);
-  }
-  .type-lead {
-    font-family: var(--font-read);
-    font-size: var(--text-lg);
-    line-height: var(--leading-relaxed);
-    font-weight: var(--w-regular);
-    color: var(--color-body);
-  }
-  .type-body {
-    font-family: var(--font-ui);
-    font-size: var(--text-base);
-    line-height: var(--leading-normal);
-    font-weight: var(--w-regular);
-    color: var(--color-body);
-  }
-  .type-prose {
-    font-family: var(--font-read);
-    font-size: var(--read-body);
-    line-height: var(--read-lh);
-    font-weight: var(--w-regular);
-    color: var(--color-body);
-  }
-  .type-label {
-    font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    line-height: var(--leading-snug);
-    font-weight: var(--w-medium);
-    color: var(--color-secondary);
-  }
-  .type-caption {
-    font-family: var(--font-ui);
-    font-size: var(--text-xs);
-    line-height: var(--leading-snug);
-    font-weight: var(--w-regular);
-    color: var(--color-tertiary);
-  }
-  .type-eyebrow {
-    font-family: var(--font-ui);
-    font-size: var(--text-xs);
-    line-height: var(--leading-snug);
-    font-weight: var(--w-semibold);
-    letter-spacing: var(--tracking-caps);
-    text-transform: uppercase;
-    color: var(--color-tertiary);
-  }
-  .type-code {
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    line-height: var(--leading-normal);
-    font-weight: var(--w-regular);
-    color: var(--color-body);
-  }
-  .type-mono-meta {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    letter-spacing: 0;
-    color: var(--color-tertiary);
-  }
+.ds-display {
+  font-family: var(--font-read);
+  font-size: var(--text-4xl);
+  line-height: var(--leading-tight);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-ink);
+}
+.ds-h1 {
+  font-family: var(--font-ui);
+  font-size: var(--text-3xl);
+  line-height: var(--leading-tight);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-ink);
+}
+.ds-h2 {
+  font-family: var(--font-ui);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-snug);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-ink);
+}
+.ds-h3 {
+  font-family: var(--font-ui);
+  font-size: var(--text-xl);
+  line-height: var(--leading-snug);
+  font-weight: var(--w-semibold);
+  color: var(--color-ink);
+}
+.ds-lead {
+  font-family: var(--font-read);
+  font-size: var(--text-lg);
+  line-height: var(--leading-relaxed);
+  font-weight: var(--w-regular);
+  color: var(--color-body);
+}
+.ds-body {
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  font-weight: var(--w-regular);
+  color: var(--color-body);
+}
+.ds-prose {
+  font-family: var(--font-read);
+  font-size: var(--read-body);
+  line-height: var(--read-lh);
+  font-weight: var(--w-regular);
+  color: var(--color-body);
+}
+.ds-label {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+  font-weight: var(--w-medium);
+  color: var(--color-secondary);
+}
+.ds-caption {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+  font-weight: var(--w-regular);
+  color: var(--color-tertiary);
+}
+.ds-eyebrow {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--color-tertiary);
+}
+.ds-code {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  font-weight: var(--w-regular);
+  color: var(--color-body);
+}
+.ds-mono-meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0;
+  color: var(--color-tertiary);
 }
