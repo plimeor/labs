@@ -13,23 +13,6 @@
         "zx": "catalog:",
       },
     },
-    "apps/imprint-docs": {
-      "name": "imprint-docs",
-      "version": "0.0.0",
-      "dependencies": {
-        "@plimeor/imprint-react": "workspace:*",
-        "@plimeor/imprint-tokens": "workspace:*",
-      },
-      "devDependencies": {
-        "@playwright/test": "1.60.0",
-        "@storybook/react-vite": "^10.4.1",
-        "@vitejs/plugin-react": "^6.0.2",
-        "react": "^19.2.7",
-        "react-dom": "^19.2.7",
-        "storybook": "^10.4.1",
-        "vite": "^8.0.16",
-      },
-    },
     "packages/browser-peek": {
       "name": "@plimeor/browser-peek",
       "version": "0.1.0",
@@ -77,6 +60,7 @@
       "devDependencies": {
         "@happy-dom/global-registrator": "^20.9.0",
         "@microsoft/api-extractor": "^7.58.7",
+        "@playwright/test": "1.60.0",
         "@plimeor/imprint-tokens": "workspace:*",
         "@storybook/react-vite": "^10.4.1",
         "@testing-library/react": "^16.3.2",
@@ -809,8 +793,6 @@
     "ieee754": ["ieee754@1.2.1", "", {}, "sha512-dcyqhDvX1C46lXZcVqCpK+FtMRQVdIMN6/Df5js2zouUsqG7I6sFxitIC+7KYK29KdXOLHdu9zL4sFnoVQnqaA=="],
 
     "import-lazy": ["import-lazy@4.0.0", "", {}, "sha512-rKtvo6a868b5Hu3heneU+L4yEQ4jYKLtjpnPeUdK7h0yzXGmyBTypknlkCvHFBqfX9YlorEiMM6Dnq/5atfHkw=="],
-
-    "imprint-docs": ["imprint-docs@workspace:apps/imprint-docs"],
 
     "indent-string": ["indent-string@4.0.0", "", {}, "sha512-EdDDZu4A2OyIK7Lr/2zG+w5jmbuk1DVBnEwREQvBzspBJkCEbRa8GxU1lghYcaGJCnRWibjDXlq779X1/y5xwg=="],
 

@@ -25,19 +25,19 @@ jobs:
         run: bun install
 
       - name: Build Storybook
-        run: bun run --filter imprint-docs build-storybook
+        run: bun run --filter @plimeor/imprint-react build-storybook
 
       - name: Update visual baselines
-        run: bun run --filter imprint-docs test:visual:update
+        run: bun run --filter @plimeor/imprint-react test:visual:update
 
       - name: Commit baselines
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add apps/imprint-docs/visual/__screenshots__
+          git add packages/imprint-react/visual/__screenshots__
           if git diff --cached --quiet; then
             echo "No baseline changes to commit."
           else
-            git commit -m "chore(imprint-docs): update visual baselines"
+            git commit -m "chore(imprint-react): update visual baselines"
             git push origin HEAD:${{ github.ref_name }}
           fi
