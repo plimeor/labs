@@ -401,94 +401,97 @@
 
 /* ----------------------------------------------------------------------------
    6. SEMANTIC TYPOGRAPHY CLASSES
-   Convenience classes that compose the scale above. Components may also map
-   these directly to element selectors in their own scope.
+   Convenience presets that compose the scale above. In @layer components so
+   Tailwind utilities reliably override them (utilities sit in the later
+   utilities layer) — e.g. class="ds-h1 text-accent" lets text-accent win.
 ---------------------------------------------------------------------------- */
-.ds-display {
-  font-family: var(--font-read);
-  font-size: var(--text-4xl);
-  line-height: var(--leading-tight);
-  font-weight: var(--w-semibold);
-  letter-spacing: var(--tracking-tight);
-  color: var(--color-ink);
-}
-.ds-h1 {
-  font-family: var(--font-ui);
-  font-size: var(--text-3xl);
-  line-height: var(--leading-tight);
-  font-weight: var(--w-semibold);
-  letter-spacing: var(--tracking-tight);
-  color: var(--color-ink);
-}
-.ds-h2 {
-  font-family: var(--font-ui);
-  font-size: var(--text-2xl);
-  line-height: var(--leading-snug);
-  font-weight: var(--w-semibold);
-  letter-spacing: var(--tracking-tight);
-  color: var(--color-ink);
-}
-.ds-h3 {
-  font-family: var(--font-ui);
-  font-size: var(--text-xl);
-  line-height: var(--leading-snug);
-  font-weight: var(--w-semibold);
-  color: var(--color-ink);
-}
-.ds-lead {
-  font-family: var(--font-read);
-  font-size: var(--text-lg);
-  line-height: var(--leading-relaxed);
-  font-weight: var(--w-regular);
-  color: var(--color-body);
-}
-.ds-body {
-  font-family: var(--font-ui);
-  font-size: var(--text-base);
-  line-height: var(--leading-normal);
-  font-weight: var(--w-regular);
-  color: var(--color-body);
-}
-.ds-prose {
-  font-family: var(--font-read);
-  font-size: var(--read-body);
-  line-height: var(--read-lh);
-  font-weight: var(--w-regular);
-  color: var(--color-body);
-}
-.ds-label {
-  font-family: var(--font-ui);
-  font-size: var(--text-sm);
-  line-height: var(--leading-snug);
-  font-weight: var(--w-medium);
-  color: var(--color-secondary);
-}
-.ds-caption {
-  font-family: var(--font-ui);
-  font-size: var(--text-xs);
-  line-height: var(--leading-snug);
-  font-weight: var(--w-regular);
-  color: var(--color-tertiary);
-}
-.ds-eyebrow {
-  font-family: var(--font-ui);
-  font-size: var(--text-xs);
-  line-height: var(--leading-snug);
-  font-weight: var(--w-semibold);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
-  color: var(--color-tertiary);
-}
-.ds-code {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  line-height: var(--leading-normal);
-  font-weight: var(--w-regular);
-  color: var(--color-body);
-}
-.ds-mono-meta {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0;
-  color: var(--color-tertiary);
+@layer components {
+  .ds-display {
+    font-family: var(--font-read);
+    font-size: var(--text-4xl);
+    line-height: var(--leading-tight);
+    font-weight: var(--w-semibold);
+    letter-spacing: var(--tracking-tight);
+    color: var(--color-ink);
+  }
+  .ds-h1 {
+    font-family: var(--font-ui);
+    font-size: var(--text-3xl);
+    line-height: var(--leading-tight);
+    font-weight: var(--w-semibold);
+    letter-spacing: var(--tracking-tight);
+    color: var(--color-ink);
+  }
+  .ds-h2 {
+    font-family: var(--font-ui);
+    font-size: var(--text-2xl);
+    line-height: var(--leading-snug);
+    font-weight: var(--w-semibold);
+    letter-spacing: var(--tracking-tight);
+    color: var(--color-ink);
+  }
+  .ds-h3 {
+    font-family: var(--font-ui);
+    font-size: var(--text-xl);
+    line-height: var(--leading-snug);
+    font-weight: var(--w-semibold);
+    color: var(--color-ink);
+  }
+  .ds-lead {
+    font-family: var(--font-read);
+    font-size: var(--text-lg);
+    line-height: var(--leading-relaxed);
+    font-weight: var(--w-regular);
+    color: var(--color-body);
+  }
+  .ds-body {
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
+    line-height: var(--leading-normal);
+    font-weight: var(--w-regular);
+    color: var(--color-body);
+  }
+  .ds-prose {
+    font-family: var(--font-read);
+    font-size: var(--read-body);
+    line-height: var(--read-lh);
+    font-weight: var(--w-regular);
+    color: var(--color-body);
+  }
+  .ds-label {
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    line-height: var(--leading-snug);
+    font-weight: var(--w-medium);
+    color: var(--color-secondary);
+  }
+  .ds-caption {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    line-height: var(--leading-snug);
+    font-weight: var(--w-regular);
+    color: var(--color-tertiary);
+  }
+  .ds-eyebrow {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    line-height: var(--leading-snug);
+    font-weight: var(--w-semibold);
+    letter-spacing: var(--tracking-caps);
+    text-transform: uppercase;
+    color: var(--color-tertiary);
+  }
+  .ds-code {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    line-height: var(--leading-normal);
+    font-weight: var(--w-regular);
+    color: var(--color-body);
+  }
+  .ds-mono-meta {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    letter-spacing: 0;
+    color: var(--color-tertiary);
+  }
 }
