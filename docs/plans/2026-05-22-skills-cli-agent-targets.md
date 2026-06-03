@@ -104,7 +104,7 @@ Canonical skill store 仍由现有 manifest/lock 工作流拥有；agent-specifi
 - `packages/skills/src/commands/migrate.ts`
 - `packages/skills/src/sync-plan.ts`
 - `packages/command-kit/src/define.ts`
-- `docs/decisions/2026-04-25-native-skills-manifest-installer.md`
+- `docs/ideas/2026-04-25-native-skills-manifest-installer.md`
 - `packages/skills/README.md`
 
 ## 规划迭代

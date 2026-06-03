@@ -50,7 +50,21 @@
       "name": "@plimeor/git-kit",
       "version": "0.1.2",
     },
-    "packages/imprint-react": {
+    "packages/skills": {
+      "name": "@plimeor/skills",
+      "version": "0.2.2",
+      "bin": {
+        "skills": "./src/cli.ts",
+      },
+      "dependencies": {
+        "@clack/prompts": "catalog:",
+        "@plimeor/command-kit": "workspace:*",
+        "@plimeor/git-kit": "workspace:*",
+        "@valibot/to-json-schema": "catalog:",
+        "valibot": "catalog:",
+      },
+    },
+    "suites/imprint/react": {
       "name": "@plimeor/imprint-react",
       "version": "0.1.0",
       "dependencies": {
@@ -83,7 +97,7 @@
         "react-dom": ">=18",
       },
     },
-    "packages/imprint-tokens": {
+    "suites/imprint/tokens": {
       "name": "@plimeor/imprint-tokens",
       "version": "0.1.0",
       "dependencies": {
@@ -93,20 +107,6 @@
       },
       "devDependencies": {
         "postcss": "^8.5.15",
-      },
-    },
-    "packages/skills": {
-      "name": "@plimeor/skills",
-      "version": "0.2.2",
-      "bin": {
-        "skills": "./src/cli.ts",
-      },
-      "dependencies": {
-        "@clack/prompts": "catalog:",
-        "@plimeor/command-kit": "workspace:*",
-        "@plimeor/git-kit": "workspace:*",
-        "@valibot/to-json-schema": "catalog:",
-        "valibot": "catalog:",
       },
     },
   },
@@ -371,9 +371,9 @@
 
     "@plimeor/git-kit": ["@plimeor/git-kit@workspace:packages/git-kit"],
 
-    "@plimeor/imprint-react": ["@plimeor/imprint-react@workspace:packages/imprint-react"],
+    "@plimeor/imprint-react": ["@plimeor/imprint-react@workspace:suites/imprint/react"],
 
-    "@plimeor/imprint-tokens": ["@plimeor/imprint-tokens@workspace:packages/imprint-tokens"],
+    "@plimeor/imprint-tokens": ["@plimeor/imprint-tokens@workspace:suites/imprint/tokens"],
 
     "@plimeor/skills": ["@plimeor/skills@workspace:packages/skills"],
 

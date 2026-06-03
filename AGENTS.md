@@ -14,13 +14,18 @@
 - Concrete file paths keep real suffixes, including docs, package metadata, and
   scripts such as `src/cli.ts` or `scripts/link-package.ts`.
 - Package READMEs own public CLI, API, schema, file format, and stable behavior
-  docs. `docs/ideas/`, `docs/plans/`, and `docs/decisions/` are historical
-  records, not current interface contracts.
+  docs. `docs/ideas/` and `docs/plans/` are historical records, not current
+  interface contracts.
 
 ## Packages
 
-- Packages under `packages/` extend the root `tsconfig.json`, define
-  `prepack`, and keep package-local `tsconfig` overrides narrow.
+- Workspaces live in three tiers: `packages/*` (cross-suite generic packages),
+  `suites/<suite>/*` (theme-scoped groups of related packages), and `apps/*`
+  (standalone apps with no suite affiliation).
+- Every workspace package extends the root `tsconfig.json`, defines `prepack`,
+  and keeps package-local `tsconfig` overrides narrow. Note the relative depth:
+  `packages/*` and `apps/*` extend `../../tsconfig.json`, while `suites/<suite>/*`
+  extend `../../../tsconfig.json`.
 - If a package publishes generated artifacts, `prepack` builds them; if it
   publishes source directly, `prepack` runs a package-level entrypoint smoke
   check.

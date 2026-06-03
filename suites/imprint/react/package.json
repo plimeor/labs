@@ -1,6 +1,6 @@
 {
   "description": "Imprint design system React components — Ark UI behavior skinned with Imprint tokens",
-  "homepage": "https://github.com/plimeor/labs/tree/main/packages/imprint-react",
+  "homepage": "https://github.com/plimeor/labs/tree/main/suites/imprint/react",
   "name": "@plimeor/imprint-react",
   "type": "module",
   "version": "0.1.0",
@@ -50,7 +50,7 @@
     "access": "public"
   },
   "repository": {
-    "directory": "packages/imprint-react",
+    "directory": "suites/imprint/react",
     "type": "git",
     "url": "git+https://github.com/plimeor/labs.git"
   },

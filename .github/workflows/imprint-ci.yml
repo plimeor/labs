@@ -3,15 +3,15 @@ name: Imprint CI
 on:
   pull_request:
     paths:
-      - 'packages/imprint-tokens/**'
-      - 'packages/imprint-react/**'
+      - 'suites/imprint/tokens/**'
+      - 'suites/imprint/react/**'
       - '.github/workflows/imprint-ci.yml'
   push:
     branches:
       - main
     paths:
-      - 'packages/imprint-tokens/**'
-      - 'packages/imprint-react/**'
+      - 'suites/imprint/tokens/**'
+      - 'suites/imprint/react/**'
       - '.github/workflows/imprint-ci.yml'
 
 permissions:
@@ -36,7 +36,7 @@ jobs:
         run: bun run check
 
       - name: Biome
-        run: bunx biome check packages/imprint-tokens packages/imprint-react
+        run: bunx biome check suites/imprint/tokens suites/imprint/react
 
       - name: Test imprint-react
         run: bun run --filter @plimeor/imprint-react test
