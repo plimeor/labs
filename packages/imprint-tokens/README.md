@@ -6,7 +6,8 @@ generated **framework-agnostic stylesheet** — plus variable fonts and brand ma
 
 `src/theme.css` is the single source of truth (Tailwind v4 syntax). A small Bun
 build (`build.ts`) compiles it to `dist/styles.css`, which is plain CSS for
-non-Tailwind consumers: `@theme` becomes `:root`, Tailwind-only at-rules are
+non-Tailwind consumers: `@theme` becomes `:root` (inside `@layer theme`), the
+`type-*` presets become plain `.type-*` classes, other Tailwind-only at-rules are
 stripped, and the `@fontsource` imports are preserved.
 
 ## Install
@@ -75,6 +76,29 @@ the semantic tokens so themes flip correctly:
 
 > Components in `@plimeor/imprint-react` are pre-styled (CSS Modules + tokens) and
 > need no Tailwind; they read the same variables, so the two stay consistent.
+
+### Typography presets
+
+Twelve named presets compose the type scale into ready-to-use roles, so you set
+type with one class instead of juggling size / leading / weight / family:
+
+`type-display`, `type-h1`, `type-h2`, `type-h3`, `type-lead`, `type-body`,
+`type-prose`, `type-label`, `type-caption`, `type-eyebrow`, `type-code`,
+`type-mono-meta`.
+
+In Tailwind they are first-class utilities (`@utility`), so they compose with
+variants, and any `text-*` / `font-*` utility overrides the preset (the presets
+sort before the built-in utilities). Apply one preset per element as its identity:
+
+```html
+<h1 class="type-h1">Imprint</h1>
+<p class="type-body md:type-lead">Larger from the md breakpoint up.</p>
+<span class="type-caption text-accent">caption preset, accent color</span>
+```
+
+In the generated `styles.css` they ship as plain `.type-*` classes, so
+non-Tailwind consumers get them too. (`type-*` is not a Tailwind namespace, so the
+names never collide with built-in utilities.)
 
 ### Brand marks
 
