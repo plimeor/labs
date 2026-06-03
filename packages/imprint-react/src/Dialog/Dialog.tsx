@@ -1,8 +1,9 @@
 import { Dialog as ArkDialog, Portal } from '@ark-ui/react'
 import { X } from 'lucide-react'
 import { forwardRef, type ReactNode } from 'react'
+import { tv } from 'tailwind-variants'
 
-import styles from './Dialog.module.css'
+import './Dialog.css'
 
 export interface DialogProps {
   /** Dialog heading. Rendered as the accessible title. */
@@ -42,6 +43,41 @@ export interface DialogProps {
   className?: string
 }
 
+// One tv() with a slot per Ark part. Enter/exit motion is bound to the
+// co-located keyframes via Ark's data-state.
+const dialog = tv({
+  slots: {
+    body: 'pt-0 px-5 pb-4 text-[length:var(--text-base)] leading-normal text-body',
+    description: 'm-0 pt-2 px-5 pb-4 text-[length:var(--text-base)] leading-relaxed text-secondary',
+    footer: 'flex justify-end gap-2 py-3 px-5 border-t border-border-subtle',
+    header: 'pt-5 px-5 pb-1',
+    positioner: 'fixed inset-0 flex items-center justify-center p-4',
+    title: 'm-0 font-ui text-[length:var(--text-lg)] font-semibold leading-snug tracking-tight text-ink',
+    backdrop: [
+      'fixed inset-0 bg-scrim',
+      'data-[state=open]:animate-[imprint-dialog-fade-in_var(--dur-base)_var(--ease-out)]',
+      'data-[state=closed]:animate-[imprint-dialog-fade-out_var(--dur-fast)_var(--ease-in)]'
+    ],
+    closeTrigger: [
+      'absolute top-3 right-3 inline-flex items-center justify-center w-[28px] h-[28px] p-0',
+      'border border-transparent rounded-sm bg-transparent text-tertiary cursor-pointer',
+      'transition-colors duration-[var(--dur-fast)] ease-standard',
+      '[&>svg]:size-[16px] [&>svg]:shrink-0',
+      'hover:bg-hover hover:text-secondary active:bg-active',
+      'focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2'
+    ],
+    content: [
+      'relative w-[420px] max-w-full bg-raised text-body',
+      'border border-border-subtle rounded-md shadow-4 font-ui',
+      'focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2',
+      'data-[state=open]:animate-[imprint-dialog-scale-in_var(--dur-slow)_var(--ease-out)]',
+      'data-[state=closed]:animate-[imprint-dialog-scale-out_var(--dur-fast)_var(--ease-in)]'
+    ]
+  }
+})
+
+const styles = dialog()
+
 /**
  * Imprint Dialog. A modal surface built on Ark UI's headless dialog
  * (focus trap, scroll lock, Esc-to-close, ARIA wiring) skinned entirely with
@@ -80,19 +116,19 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(function Dialog(
     >
       {trigger ? <ArkDialog.Trigger asChild>{trigger}</ArkDialog.Trigger> : null}
       <Portal>
-        <ArkDialog.Backdrop className={styles.backdrop} />
-        <ArkDialog.Positioner className={styles.positioner}>
-          <ArkDialog.Content ref={ref} className={className ? `${styles.content} ${className}` : styles.content}>
-            <div className={styles.header}>
-              <ArkDialog.Title className={styles.title}>{title}</ArkDialog.Title>
+        <ArkDialog.Backdrop className={styles.backdrop()} />
+        <ArkDialog.Positioner className={styles.positioner()}>
+          <ArkDialog.Content ref={ref} className={styles.content({ className })}>
+            <div className={styles.header()}>
+              <ArkDialog.Title className={styles.title()}>{title}</ArkDialog.Title>
             </div>
             {description ? (
-              <ArkDialog.Description className={styles.description}>{description}</ArkDialog.Description>
+              <ArkDialog.Description className={styles.description()}>{description}</ArkDialog.Description>
             ) : null}
-            {children ? <div className={styles.body}>{children}</div> : null}
-            {footer ? <div className={styles.footer}>{footer}</div> : null}
+            {children ? <div className={styles.body()}>{children}</div> : null}
+            {footer ? <div className={styles.footer()}>{footer}</div> : null}
             {hideCloseButton ? null : (
-              <ArkDialog.CloseTrigger className={styles.closeTrigger} aria-label={closeLabel}>
+              <ArkDialog.CloseTrigger className={styles.closeTrigger()} aria-label={closeLabel}>
                 <X aria-hidden="true" />
               </ArkDialog.CloseTrigger>
             )}

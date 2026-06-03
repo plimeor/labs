@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url'
 
+import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import dts from 'vite-plugin-dts'
@@ -15,10 +16,11 @@ export default defineConfig({
       formats: ['es']
     },
     rollupOptions: {
-      external: ['react', 'react-dom', 'react/jsx-runtime', '@ark-ui/react', 'lucide-react']
+      external: ['react', 'react-dom', 'react/jsx-runtime', '@ark-ui/react', 'lucide-react', 'tailwind-variants']
     }
   },
   plugins: [
+    tailwindcss(),
     react(),
     dts({
       // vite-plugin-dts@5 / unplugin-dts@1 renamed `rollupTypes` to `bundleTypes`.

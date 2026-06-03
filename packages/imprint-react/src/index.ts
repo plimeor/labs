@@ -1,4 +1,5 @@
 import './styles/base.css'
+import './styles/tailwind.css'
 
 export type { AccordionItem, AccordionProps, AccordionValueChangeDetails } from './Accordion/Accordion'
 export { Accordion } from './Accordion/Accordion'

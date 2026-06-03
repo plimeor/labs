@@ -1,0 +1,29 @@
+/* ----------------------------------------------------------------------------
+   Imprint React — component utilities (Tailwind v4), compiled to static CSS.
+
+   Components are authored with inline Tailwind utilities in their JSX. This
+   entry emits ONLY the utilities they use — no preflight (so it never resets a
+   consumer's page) and no token :root.
+
+   The imprint-tokens theme is @reference'd, not imported: that registers the
+   tokens so utilities like `bg-accent` resolve to `var(--color-accent)` WITHOUT
+   re-emitting the token definitions. Consumers load
+   `@plimeor/imprint-tokens/styles.css` for the actual values — the same
+   contract as the old CSS Modules, which also only referenced the vars.
+
+   Tailwind's own default theme is imported (tree-shaken): the handful of
+   default vars our utilities lean on (`--spacing`, `--font-weight-*`,
+   `--default-transition-*`) land in :root; none of them collide with an imprint
+   token.
+
+   Component @keyframes that can't be expressed as a utility live in a co-located
+   `*.css` next to the component and are imported by it.
+---------------------------------------------------------------------------- */
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/* Register the Imprint tokens for utility resolution without emitting them. */
+@reference "@plimeor/imprint-tokens/theme.css";
+
+/* Scan component source for the utilities they use. */
+@source "../**/*.tsx";
