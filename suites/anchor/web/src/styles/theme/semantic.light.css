@@ -1,0 +1,73 @@
+/* ============================================================
+   RING 1 — semantic.light.css  (THE SWAP LAYER, light)
+   Role tokens = the theming contract. Light/dark differ ONLY here.
+   Every value points at a Ring 0 primitive; no literal hex except
+   alpha tints derived from the brand hue.
+   Sits side-by-side with semantic.dark.css so the pairing is diff-able.
+   ============================================================ */
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+
+  /* --- Surfaces --- */
+  --surface-app: var(--c-neutral-0);
+  --surface-editor: var(--c-neutral-0);
+  --surface-sidebar: var(--c-neutral-50);
+  --surface-panel: var(--c-neutral-25);
+  --surface-card: var(--c-neutral-0);
+  --surface-popover: var(--c-neutral-0);
+  --surface-input: var(--c-neutral-0);
+  --surface-button: var(--c-neutral-100);
+  --surface-dialog: var(--c-neutral-0);
+  --surface-overlay: rgb(30 30 28 / 0.32);
+
+  /* --- Text --- */
+  --text-primary: var(--c-neutral-900); /* 12.3:1 on white */
+  --text-secondary: var(--c-neutral-700); /* 7.4:1 — darkened for AA */
+  --text-tertiary: var(--c-neutral-600); /* distinct from secondary */
+  --text-muted: var(--c-neutral-500); /* decorative/placeholder, 3.9:1 */
+  --text-faint: var(--c-neutral-450); /* dividers/labels/disabled only */
+  --text-heading: var(--c-neutral-950);
+  --text-inverse: var(--c-neutral-0);
+
+  /* --- Borders --- */
+  --border-default: var(--c-neutral-200); /* decorative-exempt */
+  --border-subtle: var(--c-neutral-150); /* hairline dividers */
+  --border-strong: var(--c-neutral-400); /* emphasis / table outer (decorative) */
+  --border-input: var(--c-neutral-550); /* 3.33:1 on white — control boundary */
+  --border-elevated: var(--c-neutral-200);
+  --border-focus: var(--accent);
+
+  /* --- Interaction states --- */
+  --state-hover: var(--c-neutral-100);
+  --state-hover-subtle: #f5f4f1;
+  --state-selected: var(--accent-tint);
+  --state-selected-strong: var(--accent-tint-strong);
+  --state-active: var(--accent-tint-active);
+  --state-focus-ring: var(--accent);
+  --state-drag-target: var(--accent-tint);
+  --state-disabled: #f5f4f1;
+
+  /* --- Accent (the one brand hue) --- */
+  --accent: var(--c-blue-500); /* 5.2:1 on white */
+  --accent-hover: var(--c-blue-600);
+  --accent-active: var(--c-blue-700);
+  --accent-tint: rgb(21 93 255 / 0.1);
+  --accent-tint-strong: rgb(21 93 255 / 0.16);
+  --accent-tint-active: rgb(21 93 255 / 0.14);
+  --accent-contrast: var(--c-neutral-0); /* text ON accent */
+
+  /* --- Feedback --- */
+  --feedback-success: var(--c-green-l); /* 4.97:1 on sidebar */
+  --feedback-success-bg: rgb(47 158 95 / 0.12);
+  --feedback-warning: var(--c-amber-l);
+  --feedback-warning-bg: var(--c-amber-tint-l);
+  --feedback-warning-border: var(--c-amber-border-l);
+  --feedback-danger: var(--c-red-l);
+  --feedback-danger-bg: rgb(217 58 58 / 0.1);
+  --feedback-danger-border: var(--c-red-l);
+
+  /* --- Elevation (shadow carries depth in light) --- */
+  --elevation-popover: 0 6px 16px rgb(30 30 28 / 0.12);
+  --elevation-dialog: 0 14px 40px rgb(30 30 28 / 0.18);
+}

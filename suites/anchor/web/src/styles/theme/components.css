@@ -1,0 +1,125 @@
+/* ============================================================
+   RING 2 — components.css
+   Element tokens that reference Ring 1. Mode-INVARIANT by default;
+   a dark override block exists ONLY for elements that must diverge
+   per-mode (code block, inline code, highlight, tables, syntax).
+   Radius scale exposed as plain var() here so JS-injected CM6 styles
+   can reach it (the bridge also registers them as Tailwind utilities).
+   --feedback-info lives here (it is always == accent, never mode-swapped).
+   ============================================================ */
+:root {
+  /* Radius scale — reachable by JS-injected styles. */
+  --radius-sm: calc(var(--radius) - 2px); /* 6px */
+  --radius-md: var(--radius); /* 8px */
+  --radius-lg: calc(var(--radius) + 4px); /* 12px */
+  --radius-xl: calc(var(--radius) + 8px); /* 16px */
+  --radius-full: 9999px;
+
+  /* Info feedback == accent, defined once (not mode-dependent). */
+  --feedback-info: var(--accent);
+  --feedback-info-bg: var(--accent-tint);
+
+  /* Dialog/popover drop-shadow color (consumed by hand-written component CSS). */
+  --shadow-dialog: rgb(0 0 0 / 0.15);
+
+  /* Editor / content elements */
+  --heading-color: var(--text-heading);
+  --editor-formatting: var(--text-faint);
+  --code-inline-bg: var(--c-neutral-100);
+  --code-inline-text: #c0392b;
+  --mark-highlight-bg: #fdf3c4;
+  --mark-highlight-text: var(--text-primary);
+  --mark-strike-text: var(--text-tertiary);
+  --link-color: var(--accent);
+  --link-hover: var(--accent-hover);
+  --wikilink-color: var(--accent);
+  --wikilink-tint: var(--accent-tint);
+  --wikilink-unresolved: #a3554f;
+  --tag-bg: var(--c-neutral-100);
+  --tag-text: var(--text-secondary);
+  --blockquote-border: var(--accent);
+  --blockquote-text: var(--text-secondary);
+  --checkbox-accent: var(--accent);
+  --checkbox-done-text: var(--text-tertiary);
+  --list-marker: var(--text-muted);
+  --table-header-bg: var(--c-neutral-50);
+  --table-row-alt-bg: #fbfaf8;
+  --table-border: var(--border-default);
+  --hr-color: var(--border-subtle);
+  --editor-code-block-background: var(--c-neutral-50);
+  --editor-code-block-border: var(--border-strong);
+  --editor-code-block-text: var(--text-primary);
+  --editor-code-block-language: var(--text-tertiary);
+  --editor-code-block-gutter: var(--text-faint);
+
+  /* Syntax — two orthogonal axes: embedded code, and markdown source. */
+  --syntax-code-keyword: #c2410c;
+  --syntax-code-string: #0a5d2a;
+  --syntax-code-comment: #6b6a64;
+  --syntax-code-number: #0550ae;
+  --syntax-code-type: #953800;
+  --syntax-code-function: #6639ba;
+  --syntax-code-variable: var(--editor-code-block-text);
+  --syntax-code-deletion: #b3261e;
+  --syntax-code-deletion-bg: rgb(179 38 30 / 0.12);
+  --syntax-code-addition: #1a7a43;
+  --syntax-code-addition-bg: rgb(47 158 95 / 0.12);
+  --syntax-md-heading: var(--text-heading);
+  --syntax-md-link: var(--accent);
+  --syntax-md-formatting: var(--editor-formatting);
+  --syntax-md-frontmatter-key: #6639ba;
+  --syntax-md-frontmatter-value: #0a5d2a;
+
+  /* Cross-cutting / CM6-internal */
+  --selection-bg: rgb(21 93 255 / 0.18);
+  --selection-blur: rgb(122 121 116 / 0.18);
+  --caret-color: var(--accent);
+  --cm-active-line: rgb(55 53 47 / 0.035);
+  --cm-search-all: rgb(224 164 74 / 0.28);
+  --cm-search-active: rgb(21 93 255 / 0.35);
+  --cm-bracket: rgb(21 93 255 / 0.18);
+  --scrollbar-thumb: rgb(55 53 47 / 0.18);
+  --scrollbar-thumb-hover: rgb(55 53 47 / 0.3);
+}
+
+/* Dark overrides — only elements that genuinely diverge per-mode. */
+[data-theme="dark"] {
+  --shadow-dialog: rgb(0 0 0 / 0.42);
+
+  --editor-formatting: var(--text-muted);
+  --code-inline-bg: #2a2925;
+  --code-inline-text: #ff9b96;
+  --mark-highlight-bg: rgb(224 164 74 / 0.22);
+  --tag-bg: #2a2925;
+  --wikilink-unresolved: #d99a93;
+  --table-header-bg: var(--c-warm-950);
+  --table-row-alt-bg: var(--c-warm-960);
+  --hr-color: var(--border-default);
+  --editor-code-block-background: var(--c-warm-1100);
+  --editor-code-block-border: var(--border-strong);
+  --editor-code-block-text: var(--c-cream-150);
+  --editor-code-block-language: rgb(233 230 223 / 0.55);
+  --editor-code-block-gutter: rgb(233 230 223 / 0.35);
+
+  --syntax-code-keyword: #ff9ba0;
+  --syntax-code-string: #a9d6ff;
+  --syntax-code-comment: #8e877d;
+  --syntax-code-number: #8bb7ff;
+  --syntax-code-type: #f3b175;
+  --syntax-code-function: #c2aaff;
+  --syntax-code-deletion: #ff8f8b;
+  --syntax-code-deletion-bg: rgb(255 143 139 / 0.14);
+  --syntax-code-addition: #46a86f;
+  --syntax-code-addition-bg: rgb(70 168 111 / 0.16);
+  --syntax-md-frontmatter-key: #c2aaff;
+  --syntax-md-frontmatter-value: #a9d6ff;
+
+  --selection-bg: rgb(110 155 255 / 0.3);
+  --selection-blur: rgb(166 160 150 / 0.14);
+  --cm-active-line: rgb(255 255 255 / 0.04);
+  --cm-search-all: rgb(224 164 74 / 0.24);
+  --cm-search-active: rgb(110 155 255 / 0.45);
+  --cm-bracket: rgb(110 155 255 / 0.26);
+  --scrollbar-thumb: rgb(255 255 255 / 0.14);
+  --scrollbar-thumb-hover: rgb(255 255 255 / 0.24);
+}

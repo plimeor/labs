@@ -1,0 +1,32 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "identifier": "dev.plimeor.anchor",
+  "productName": "Anchor",
+  "version": "0.1.0",
+  "app": {
+    "security": {
+      "csp": null
+    },
+    "windows": [
+      {
+        "height": 820,
+        "label": "main",
+        "minHeight": 680,
+        "minWidth": 980,
+        "title": "Anchor",
+        "width": 1280
+      }
+    ]
+  },
+  "build": {
+    "beforeBuildCommand": "bun ../scripts/build-tauri-sidecar.ts && cd ../web && bun run build",
+    "beforeDevCommand": "bun ../scripts/build-tauri-sidecar.ts && cd ../web && bun run dev:web",
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../../web/dist"
+  },
+  "bundle": {
+    "active": true,
+    "externalBin": ["binaries/anchor-cli"],
+    "targets": ["app"]
+  }
+}

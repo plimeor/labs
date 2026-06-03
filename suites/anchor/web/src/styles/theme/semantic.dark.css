@@ -1,0 +1,70 @@
+/* ============================================================
+   RING 1 — semantic.dark.css  (THE SWAP LAYER, dark — hand-tuned)
+   Dark is NOT inverted light; every value is a deliberate choice.
+   Pairs 1:1 with semantic.light.css.
+   ============================================================ */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* --- Surfaces --- */
+  --surface-app: var(--c-warm-1000); /* warm charcoal, never #000 */
+  --surface-editor: var(--c-warm-1000);
+  --surface-sidebar: var(--c-warm-1100); /* sunken chrome */
+  --surface-panel: var(--c-warm-960);
+  --surface-card: var(--c-warm-950);
+  --surface-popover: var(--c-warm-900); /* lifted; needs border-elevated */
+  --surface-input: var(--c-warm-950); /* lightened vs app for affordance */
+  --surface-button: var(--c-warm-800);
+  --surface-dialog: var(--c-warm-850); /* lightest tier */
+  --surface-overlay: rgb(8 8 7 / 0.6);
+
+  /* --- Text --- */
+  --text-primary: var(--c-cream-200); /* off-white cream, never #fff — 12.8:1 */
+  --text-secondary: var(--c-cream-250);
+  --text-tertiary: var(--c-cream-400);
+  --text-muted: var(--c-cream-500);
+  --text-faint: var(--c-cream-600);
+  --text-heading: var(--c-cream-100); /* lighter than body */
+  --text-inverse: var(--c-warm-1050);
+
+  /* --- Borders --- */
+  --border-default: var(--c-warm-800);
+  --border-subtle: #2a2925;
+  --border-strong: var(--c-warm-700);
+  --border-input: var(--c-warm-780); /* 3.25:1 on input surface */
+  --border-elevated: var(--c-warm-700); /* mandatory 1px on floating surfaces */
+  --border-focus: var(--accent);
+
+  /* --- Interaction states --- */
+  --state-hover: #2d2b27;
+  --state-hover-subtle: #262520;
+  --state-selected: var(--accent-tint);
+  --state-selected-strong: var(--accent-tint-strong);
+  --state-active: var(--accent-tint-active);
+  --state-focus-ring: var(--accent);
+  --state-drag-target: var(--accent-tint);
+  --state-disabled: #262520;
+
+  /* --- Accent (lightened + desaturated so it doesn't vibrate) --- */
+  --accent: var(--c-blue-300); /* 6.19:1 on app */
+  --accent-hover: #8db0ff;
+  --accent-active: #a6c1ff;
+  --accent-tint: rgb(110 155 255 / 0.18);
+  --accent-tint-strong: rgb(110 155 255 / 0.26);
+  --accent-tint-active: rgb(110 155 255 / 0.22);
+  --accent-contrast: var(--c-warm-1050); /* 8.9:1 on accent */
+
+  /* --- Feedback (dark green darkened for CVD separation; pair with icons) --- */
+  --feedback-success: var(--c-green-d); /* #46a86f, 5.6:1 */
+  --feedback-success-bg: rgb(70 168 111 / 0.16);
+  --feedback-warning: var(--c-amber-d);
+  --feedback-warning-bg: rgb(224 164 74 / 0.16);
+  --feedback-warning-border: var(--c-amber-border-d);
+  --feedback-danger: var(--c-red-d);
+  --feedback-danger-bg: rgb(255 143 139 / 0.16);
+  --feedback-danger-border: var(--c-red-d);
+
+  /* --- Elevation (border-elevated is the real cue; shadow supplementary) --- */
+  --elevation-popover: 0 8px 24px rgb(0 0 0 / 0.44);
+  --elevation-dialog: 0 16px 48px rgb(0 0 0 / 0.52);
+}

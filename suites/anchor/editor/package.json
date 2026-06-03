@@ -1,0 +1,29 @@
+{
+  "name": "@plimeor/anchor-editor",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@codemirror/commands": "^6.10.3",
+    "@codemirror/lang-markdown": "^6.5.0",
+    "@codemirror/language": "^6.12.3",
+    "@codemirror/language-data": "^6.5.2",
+    "@codemirror/state": "^6.6.0",
+    "@codemirror/view": "^6.43.0",
+    "@lezer/common": "^1.5.2",
+    "@lezer/highlight": "^1.2.3",
+    "@lezer/markdown": "^1.6.4",
+    "solid-js": "^1.9.5",
+    "tailwind-variants": "^3.2.2"
+  },
+  "devDependencies": {
+    "@happy-dom/global-registrator": "^20.9.0"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json",
+    "prepack": "tsc --noEmit -p tsconfig.json",
+    "test": "bun test --conditions browser src"
+  }
+}

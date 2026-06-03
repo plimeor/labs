@@ -1,0 +1,55 @@
+/* ============================================================
+   RING 3 — bridge.css
+   Generated indirection only — every value is var(--ring1/2-token).
+   @theme inline registers a curated, content-forward subset of Ring 1 as
+   Tailwind v4 utilities (bg-*, text-fg-*, border-line-*, rounded-*). `inline`
+   makes each utility reference our Ring-1 token DIRECTLY
+   (.bg-app { background: var(--surface-app) }) instead of minting a parallel
+   Tailwind-owned --color-app token and pointing utilities through it. That keeps
+   the single source of truth in the semantic ring and is the documented pattern
+   for mapping utilities to runtime CSS vars you manage. (It also sidesteps the
+   build-time value capture that only bites when a theme var references another
+   THEME var — our bridge always points at non-theme Ring-1 vars, so plain @theme
+   would track dark mode here too; inline is the cleaner, intention-revealing form.)
+   (Back-compat aliases lived here during migration; all consumers — component
+   CSS and the CM6 editor JS — now reference the Ring 1/2 tokens directly, so the
+   aliases were removed.)
+   ============================================================ */
+
+@theme inline {
+  /* Surfaces → bg-app, bg-sidebar, bg-editor, bg-panel, bg-popover, bg-dialog */
+  --color-app: var(--surface-app);
+  --color-sidebar: var(--surface-sidebar);
+  --color-editor: var(--surface-editor);
+  --color-panel: var(--surface-panel);
+  --color-popover: var(--surface-popover);
+  --color-dialog: var(--surface-dialog);
+
+  /* Foreground (content-forward) → text-fg, text-fg-secondary, text-fg-muted, text-heading */
+  --color-fg: var(--text-primary);
+  --color-fg-secondary: var(--text-secondary);
+  --color-fg-muted: var(--text-muted);
+  --color-fg-faint: var(--text-faint);
+  --color-heading: var(--text-heading);
+
+  /* Lines (borders) → border-line, border-line-subtle, border-line-strong, border-line-input */
+  --color-line: var(--border-default);
+  --color-line-subtle: var(--border-subtle);
+  --color-line-strong: var(--border-strong);
+  --color-line-input: var(--border-input);
+
+  /* State + accent + feedback */
+  --color-hover: var(--state-hover);
+  --color-selected: var(--state-selected);
+  --color-accent: var(--accent);
+  --color-accent-tint: var(--accent-tint);
+  --color-success: var(--feedback-success);
+  --color-warning: var(--feedback-warning);
+  --color-danger: var(--feedback-danger);
+
+  /* Radius scale → rounded-sm/md/lg/xl */
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) + 8px);
+}
