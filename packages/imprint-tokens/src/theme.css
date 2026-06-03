@@ -256,6 +256,21 @@
   --text-3xl: 1.9375rem; /* 31px — h1 */
   --text-4xl: 2.5rem; /* 40px — display */
 
+  /* Imprint keeps size and leading orthogonal (the --leading-* scale below and
+     the type-* presets pair them explicitly), so the text-* utilities must NOT
+     carry a bundled line-height. Unsetting Tailwind's default
+     --text-*--line-height companions makes `text-<size>` set font-size ONLY;
+     pair an explicit leading-* (or a type-* preset) when you need line-height. */
+  --text-xs--line-height: initial;
+  --text-sm--line-height: initial;
+  --text-base--line-height: initial;
+  --text-md--line-height: initial;
+  --text-lg--line-height: initial;
+  --text-xl--line-height: initial;
+  --text-2xl--line-height: initial;
+  --text-3xl--line-height: initial;
+  --text-4xl--line-height: initial;
+
   /* ---- Line height — leading-tight … leading-relaxed ---- */
   --leading-tight: 1.2;
   --leading-snug: 1.35;

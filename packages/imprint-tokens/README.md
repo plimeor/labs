@@ -74,8 +74,10 @@ the semantic tokens so themes flip correctly:
 }
 ```
 
-> Components in `@plimeor/imprint-react` are pre-styled (CSS Modules + tokens) and
-> need no Tailwind; they read the same variables, so the two stay consistent.
+> Components in `@plimeor/imprint-react` are authored as inline Tailwind utilities
+> (composed with tailwind-variants) and ship as a prebuilt stylesheet — consumers
+> need no Tailwind; the utilities reference the same token variables, so the two
+> stay consistent.
 
 ### Typography presets
 
