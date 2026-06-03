@@ -1,0 +1,67 @@
+{
+  "description": "Imprint design system React components — Ark UI behavior skinned with Imprint tokens",
+  "homepage": "https://github.com/plimeor/labs/tree/main/suites/imprint/react",
+  "name": "@plimeor/imprint-react",
+  "type": "module",
+  "version": "0.1.0",
+  "bugs": {
+    "url": "https://github.com/plimeor/labs/issues"
+  },
+  "dependencies": {
+    "@ark-ui/react": "^5.37.0",
+    "lucide-react": "^1.17.0",
+    "tailwind-variants": "^3.2.2"
+  },
+  "devDependencies": {
+    "@happy-dom/global-registrator": "^20.9.0",
+    "@microsoft/api-extractor": "^7.58.7",
+    "@playwright/test": "1.60.0",
+    "@plimeor/imprint-tokens": "workspace:*",
+    "@storybook/react-vite": "^10.4.1",
+    "@tailwindcss/vite": "^4.3.0",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/react": "^19.2.16",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.2",
+    "axe-core": "^4.12.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "storybook": "^10.4.1",
+    "tailwindcss": "^4.3.0",
+    "vite": "^8.0.16",
+    "vite-plugin-dts": "^5.0.2"
+  },
+  "exports": {
+    "./styles.css": "./dist/index.css",
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "directory": "suites/imprint/react",
+    "type": "git",
+    "url": "git+https://github.com/plimeor/labs.git"
+  },
+  "scripts": {
+    "build": "vite build --config vite.lib.config.ts",
+    "build-storybook": "bun run --filter @plimeor/imprint-tokens build && storybook build",
+    "lint": "biome check .",
+    "prepack": "vite build --config vite.lib.config.ts",
+    "storybook": "bun run --filter @plimeor/imprint-tokens build && storybook dev -p 6006",
+    "test": "bun test",
+    "test:visual": "playwright test",
+    "test:visual:update": "playwright test --update-snapshots"
+  }
+}

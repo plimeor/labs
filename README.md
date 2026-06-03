@@ -3,9 +3,10 @@
 Personal AI tooling and infrastructure monorepo.
 
 This repository is a workspace for reusable tools that start as local
-experiments and harden into publishable packages. Current work is package-first:
-shared tools live under `packages/`, while future standalone demos can live
-under `apps/`.
+experiments and harden into publishable packages. Workspaces are organized in
+three tiers: cross-suite shared tools live under `packages/`, theme-scoped
+groups of related packages live under `suites/<suite>/`, and standalone apps
+with no suite affiliation live under `apps/`.
 
 Several packages are already more than prototypes. `@plimeor/skills` is the
 clearest example: it owns a manifest and lock workflow for agent skills, supports
@@ -76,19 +77,19 @@ package directory.
 ## Repository Layout
 
 ```text
-apps/            Standalone demos and experiments
-packages/        Reusable local tools and libraries
-docs/ideas/      Date-prefixed idea snapshots
+apps/            Standalone apps with no suite affiliation
+packages/        Cross-suite reusable local tools and libraries
+suites/<suite>/  Theme-scoped groups of related workspace packages
+docs/ideas/      Date-prefixed idea snapshots and decision records
 docs/plans/      Date-prefixed implementation plans
-docs/decisions/  Date-prefixed historical decision records, created when needed
 ```
 
 ## Conventions
 
 - Package README files own public CLI, API, schema, file format, and stable
   behavior docs.
-- Use `docs/ideas/`, `docs/plans/`, and `docs/decisions/` for date-prefixed
-  historical records, not current interface contracts.
+- Use `docs/ideas/` and `docs/plans/` for date-prefixed historical records,
+  not current interface contracts.
 - Every package under `packages/` extends the root `tsconfig.json`.
 - Keep package boundaries, workspace structure, and generated lockfiles stable
   unless a task explicitly requires changing them.

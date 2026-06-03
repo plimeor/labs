@@ -31,11 +31,12 @@
     "link-package": "bun run scripts/link-package.ts",
     "lint": "biome check --write",
     "prepare": "husky",
-    "test": "bun run --filter './packages/*' test",
+    "test": "bun run --filter './packages/*' --filter './suites/*/*' test",
     "test:changed": "bun test --changed --pass-with-no-tests"
   },
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "suites/*/*"
   ]
 }

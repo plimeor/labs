@@ -1,0 +1,628 @@
+/* ============================================================================
+   IMPRINT — Note Syntax Styles
+   note_syntax.css
+
+   Content-layer styles for a Markdown/rich note editor: links, wikilinks,
+   embeds, images, tables, task lists, callouts, code, math, tags, mentions,
+   footnotes, citations, comments, frontmatter, highlight, strikethrough,
+   underline.
+
+   Depends on the design tokens from theme.css (Tailwind consumers) or the
+   generated styles.css (everyone else) — load one of them first. All classes are
+   namespaced `ns-` and inherit theme via semantic tokens; references only var()s,
+   no @import. Drop these on rendered note content; they're written to read well
+   inside Literata prose on --color-content.
+   ============================================================================ */
+
+:root {
+  /* Note-syntax component tokens (semantic, theme-flipping via primitives) */
+  --ns-link: var(--color-link);
+  --ns-link-underline: var(--blue-300);
+  --ns-wikilink: var(--ns-link); /* same hue as external links */
+  --ns-wikilink-bg: var(--color-accent-subtle);
+  --ns-tag-fg: var(--ns-link);
+  --ns-tag-bg: var(--color-accent-subtle);
+  --ns-mention-fg: var(--ns-link);
+  --ns-mention-bg: var(--color-accent-subtle);
+  --ns-wikilink-icon: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23000'%20stroke-width='2.4'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M8%204H6a2%202%200%200%200-2%202v12a2%202%200%200%200%202%202h2'/%3E%3Cpath%20d='M16%204h2a2%202%200%200%201%202%202v12a2%202%200%200%201-2%202h-2'/%3E%3C/svg%3E");
+  --ns-link-icon: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23000'%20stroke-width='2.1'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Ccircle%20cx='12'%20cy='12'%20r='9'/%3E%3Cpath%20d='M3%2012h18'/%3E%3Cpath%20d='M12%203a14%2014%200%200%201%200%2018a14%2014%200%200%201%200-18'/%3E%3C/svg%3E");
+  --ns-agent-icon: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Cpath%20fill='%23000'%20d='M12%201.4L13.75%2010.25L22.6%2012L13.75%2013.75L12%2022.6L10.25%2013.75L1.4%2012L10.25%2010.25Z'/%3E%3C/svg%3E");
+  --ns-highlight-bg: #fce59a; /* default highlighter */
+  --ns-highlight-fg: #4a4220;
+  --ns-comment-fg: var(--color-tertiary);
+  --ns-comment-bg: var(--color-sunken);
+  --ns-ref: var(--color-accent-fg); /* footnote/citation refs */
+  /* code token colors */
+  --ns-code-kw: #2d67e0;
+  --ns-code-str: #15863f;
+  --ns-code-num: #9a6610;
+  --ns-code-fn: #1f4fbf;
+  --ns-code-com: var(--color-tertiary);
+  --ns-code-punc: var(--color-secondary);
+}
+[data-theme="dark"] {
+  --ns-highlight-bg: #6e5a1e;
+  --ns-highlight-fg: #f4e8c4;
+  --ns-code-kw: #8db0f6;
+  --ns-code-str: #5bd08c;
+  --ns-code-num: #e6c566;
+  --ns-code-fn: #bbd0fb;
+}
+
+/* ---- 1. link (external) -------------------------------------------------
+   Accent text + a quiet underline, led by a small globe glyph (themed via
+   mask + currentColor). The underline is what separates it from a wikilink. */
+.ns-link {
+  color: var(--ns-link);
+  text-decoration: none;
+  border-bottom: 1px solid var(--ns-link-underline);
+  transition:
+    border-color var(--dur-fast),
+    color var(--dur-fast);
+  cursor: pointer;
+}
+.ns-link:hover {
+  color: var(--color-accent-active);
+  border-bottom-color: var(--color-accent-active);
+}
+.ns-link[data-external]::before {
+  content: "";
+  display: inline-block;
+  width: 0.8em;
+  height: 0.8em;
+  margin-right: 0.16em;
+  vertical-align: -0.06em;
+  background-color: currentColor;
+  -webkit-mask: var(--ns-link-icon) center / contain no-repeat;
+  mask: var(--ns-link-icon) center / contain no-repeat;
+  opacity: 0.62;
+}
+.ns-link[data-external]:hover::before {
+  opacity: 0.85;
+}
+
+/* ---- 2. wikilink (internal note reference) -------------------------------
+   Same color as an external link — the two read as one "link" family. What
+   sets them apart: a leading [ ] bracket glyph (vs the globe) and NO underline
+   at rest, where the external link is always underlined. Hover reveals an
+   underline, never a background — so dense paragraphs stay calm and the link
+   family feels uniform and modern. */
+.ns-wikilink {
+  color: var(--ns-wikilink);
+  background: transparent;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  font-weight: inherit;
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast),
+    color var(--dur-fast);
+}
+.ns-wikilink::before {
+  content: "";
+  display: inline-block;
+  width: 0.82em;
+  height: 0.82em;
+  margin-right: 0.18em;
+  vertical-align: -0.08em;
+  background-color: currentColor;
+  -webkit-mask: var(--ns-wikilink-icon) center / contain no-repeat;
+  mask: var(--ns-wikilink-icon) center / contain no-repeat;
+  opacity: 0.68;
+}
+.ns-wikilink:hover {
+  color: var(--color-accent-active);
+  border-bottom-color: var(--color-accent-active);
+}
+.ns-wikilink:hover::before {
+  opacity: 0.9;
+}
+.ns-wikilink[data-unresolved] {
+  color: var(--color-tertiary);
+  border-bottom: 1px dashed var(--color-border-strong);
+}
+.ns-wikilink[data-unresolved]:hover {
+  color: var(--color-secondary);
+  border-bottom-color: var(--color-border-strong);
+}
+.ns-wikilink[data-unresolved]::before {
+  opacity: 0.4;
+}
+
+/* ---- 3. embed (file / pdf / media block) -------------------------------- */
+.ns-embed {
+  display: block;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-canvas);
+  overflow: hidden;
+  margin: var(--space-4) 0;
+}
+.ns-embed-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 13px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  color: var(--color-secondary);
+}
+.ns-embed-head .ns-embed-title {
+  font-weight: var(--w-medium);
+  color: var(--color-ink);
+}
+.ns-embed-head .ns-embed-meta {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-tertiary);
+}
+.ns-embed-body {
+  padding: 14px;
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-tertiary);
+  background: var(--color-sunken);
+}
+
+/* ---- 4. image ------------------------------------------------------------ */
+.ns-figure {
+  margin: var(--space-5) 0;
+}
+.ns-image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-subtle);
+}
+.ns-figcaption {
+  margin-top: 7px;
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  color: var(--color-tertiary);
+  text-align: center;
+  line-height: var(--leading-snug);
+}
+.ns-image-loading {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-subtle);
+  background: linear-gradient(100deg, var(--color-sunken) 30%, var(--color-hover) 50%, var(--color-sunken) 70%);
+  background-size: 200% 100%;
+  animation: ns-shimmer 1.4s var(--ease-standard) infinite;
+}
+@keyframes ns-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ns-image-loading {
+    animation: none;
+  }
+}
+
+/* ---- 5. table ------------------------------------------------------------ */
+.ns-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  margin: var(--space-4) 0;
+}
+.ns-table th,
+.ns-table td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.ns-table thead th {
+  background: var(--color-sunken);
+  color: var(--color-secondary);
+  font-weight: var(--w-semibold);
+  font-size: var(--text-sm);
+  border-bottom: 1px solid var(--color-border);
+}
+.ns-table thead th:first-child {
+  border-top-left-radius: var(--radius-sm);
+}
+.ns-table thead th:last-child {
+  border-top-right-radius: var(--radius-sm);
+}
+.ns-table tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--color-sunken) 55%, transparent);
+}
+.ns-table tbody tr:hover {
+  background: var(--color-hover);
+}
+.ns-table [data-align="right"] {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.ns-table [data-align="center"] {
+  text-align: center;
+}
+
+/* ---- 6. task_list -------------------------------------------------------- */
+.ns-tasklist {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-3) 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.ns-task {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+  color: var(--color-body);
+  line-height: var(--leading-normal);
+}
+.ns-task-box {
+  flex: none;
+  width: 17px;
+  height: 17px;
+  margin-top: 2px;
+  border-radius: 5px;
+  border: 1.5px solid var(--color-border-strong);
+  background: var(--color-content);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: transparent;
+  font-size: 11px;
+  transition:
+    background var(--dur-fast),
+    border-color var(--dur-fast);
+}
+.ns-task[data-checked] .ns-task-box {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-on-accent);
+}
+.ns-task[data-checked] .ns-task-label {
+  color: var(--color-tertiary);
+  text-decoration: line-through;
+  text-decoration-color: var(--color-border-strong);
+}
+.ns-task[data-disabled] {
+  opacity: 0.5;
+}
+
+/* ---- 7. callout / admonition -------------------------------------------- */
+.ns-callout {
+  display: flex;
+  gap: 11px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-accent-subtle);
+  background: color-mix(in srgb, var(--color-accent-subtle) 55%, var(--color-content));
+  margin: var(--space-4) 0;
+}
+.ns-callout-icon {
+  flex: none;
+  margin-top: 1px;
+  color: var(--color-accent);
+}
+.ns-callout-title {
+  font-family: var(--font-ui);
+  font-weight: var(--w-semibold);
+  font-size: var(--text-base);
+  color: var(--color-ink);
+  margin-bottom: 3px;
+}
+.ns-callout-body {
+  font-family: var(--font-read);
+  font-size: var(--text-md);
+  color: var(--color-body);
+  line-height: var(--leading-normal);
+}
+.ns-callout[data-kind="tip"] {
+  border-color: var(--color-success-border);
+  background: var(--color-success-bg);
+}
+.ns-callout[data-kind="tip"] .ns-callout-icon {
+  color: var(--color-success);
+}
+.ns-callout[data-kind="warning"] {
+  border-color: var(--color-warning-border);
+  background: var(--color-warning-bg);
+}
+.ns-callout[data-kind="warning"] .ns-callout-icon {
+  color: var(--color-warning);
+}
+.ns-callout[data-kind="danger"] {
+  border-color: var(--color-danger-border);
+  background: var(--color-danger-bg);
+}
+.ns-callout[data-kind="danger"] .ns-callout-icon {
+  color: var(--color-danger);
+}
+
+/* ---- 8. code ------------------------------------------------------------- */
+.ns-code-inline {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  background: var(--color-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-xs);
+  padding: 0.5px 5px;
+  color: var(--color-body);
+}
+.ns-codeblock {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.7;
+  background: var(--color-sunken);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  overflow-x: auto;
+  margin: var(--space-4) 0;
+  box-shadow: inset 0 1px 3px rgba(var(--shadow-rgb) / 0.08);
+}
+.ns-codeblock .tok-kw {
+  color: var(--ns-code-kw);
+}
+.ns-codeblock .tok-str {
+  color: var(--ns-code-str);
+}
+.ns-codeblock .tok-num {
+  color: var(--ns-code-num);
+}
+.ns-codeblock .tok-fn {
+  color: var(--ns-code-fn);
+}
+.ns-codeblock .tok-com {
+  color: var(--ns-code-com);
+  font-style: italic;
+}
+.ns-codeblock .tok-punc {
+  color: var(--ns-code-punc);
+}
+
+/* ---- 9. math ------------------------------------------------------------- */
+.ns-math-inline {
+  font-family: var(--font-read);
+  font-style: italic;
+  font-size: 1.02em;
+}
+.ns-math-block {
+  font-family: var(--font-read);
+  font-style: italic;
+  font-size: 1.3rem;
+  text-align: center;
+  color: var(--color-ink);
+  margin: var(--space-5) 0;
+  line-height: 1.5;
+}
+.ns-math-block .ns-math-num {
+  font-style: normal;
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  color: var(--color-tertiary);
+  float: right;
+}
+
+/* ---- 10. tag -------------------------------------------------------------
+   A note-native weak link: no chip at rest — just a `#` glyph + label in the
+   shared link color, sized and fonted by the surrounding text. A faint pill
+   appears on hover for affordance. Reads inline without interrupting prose. */
+.ns-tag {
+  font-family: inherit;
+  font-size: 0.92em;
+  font-weight: var(--w-medium);
+  color: var(--ns-tag-fg);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  border-radius: var(--radius-xs);
+  padding: 0.05em 0.16em;
+  margin: 0 -0.02em;
+  vertical-align: baseline;
+  transition:
+    background var(--dur-fast),
+    color var(--dur-fast);
+}
+.ns-tag::before {
+  content: "#";
+  opacity: 0.68;
+  font-weight: var(--w-semibold);
+  margin-right: 0.06em;
+}
+.ns-tag:hover {
+  color: var(--color-accent-active);
+  background: color-mix(in srgb, var(--color-accent-subtle) 60%, transparent);
+}
+.ns-tag:hover::before {
+  opacity: 0.9;
+}
+
+/* ---- 11. mention ---------------------------------------------------------
+   Inline person / agent reference — a minimal sibling to the `#` tag, not a
+   boxed chip. An `@` glyph + name in the shared link color, inheriting the
+   surrounding font, size, and weight (not forced bold). The `@` is nudged up
+   slightly so it doesn't hang below the baseline. No fill at rest, a faint
+   pill on hover. Agent/AI mentions swap the `@` for a small spark glyph. */
+.ns-mention {
+  font-family: inherit;
+  font-weight: inherit;
+  color: var(--ns-mention-fg);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  border-radius: var(--radius-xs);
+  padding: 0.05em 0.18em;
+  margin: 0 -0.04em;
+  vertical-align: baseline;
+  transition:
+    background var(--dur-fast),
+    color var(--dur-fast);
+}
+.ns-mention::before {
+  content: "@";
+  font-weight: inherit;
+  opacity: 0.6;
+  margin-right: 0.02em;
+  vertical-align: 0.11em;
+}
+.ns-mention:hover {
+  color: var(--color-accent-active);
+  background: color-mix(in srgb, var(--color-accent-subtle) 60%, transparent);
+}
+.ns-mention:hover::before {
+  opacity: 0.85;
+}
+/* agent / AI mention — spark glyph instead of @ */
+.ns-mention[data-agent]::before {
+  content: "";
+  display: inline-block;
+  width: 0.8em;
+  height: 0.8em;
+  margin-right: 0.1em;
+  vertical-align: -0.04em;
+  opacity: 0.92;
+  background-color: currentColor;
+  -webkit-mask: var(--ns-agent-icon) center / contain no-repeat;
+  mask: var(--ns-agent-icon) center / contain no-repeat;
+}
+/* unresolved / suggested mention — quiet */
+.ns-mention[data-unresolved] {
+  color: var(--color-tertiary);
+}
+.ns-mention[data-unresolved]:hover {
+  color: var(--color-secondary);
+  background: transparent;
+}
+
+/* ---- 12. footnote -------------------------------------------------------- */
+.ns-footnote-ref {
+  font-size: 0.72em;
+  vertical-align: super;
+  line-height: 0;
+  color: var(--ns-ref);
+  text-decoration: none;
+  font-family: var(--font-ui);
+  font-weight: var(--w-semibold);
+  padding: 0 1px;
+  cursor: pointer;
+}
+.ns-footnotes {
+  margin-top: var(--space-8);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border-subtle);
+}
+.ns-footnote-item {
+  display: flex;
+  gap: 8px;
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  color: var(--color-secondary);
+  line-height: var(--leading-normal);
+  margin-bottom: 6px;
+}
+.ns-footnote-item .ns-footnote-no {
+  color: var(--ns-ref);
+  font-weight: var(--w-semibold);
+  flex: none;
+}
+
+/* ---- 13. citation -------------------------------------------------------- */
+.ns-citation {
+  font-family: var(--font-ui);
+  color: var(--ns-ref);
+  text-decoration: none;
+  cursor: pointer;
+  border-bottom: 1px dotted var(--blue-300);
+}
+.ns-citation[data-style="numeric"] {
+  font-size: 0.85em;
+}
+
+/* ---- 14. comment (editorial / hidden) ----------------------------------- */
+.ns-comment {
+  font-family: var(--font-ui);
+  font-style: italic;
+  color: var(--ns-comment-fg);
+  background: var(--ns-comment-bg);
+  border-radius: var(--radius-xs);
+  padding: 0.5px 6px;
+  opacity: 0.85;
+}
+.ns-comment[data-hidden] {
+  display: none;
+}
+
+/* ---- 15. frontmatter (document metadata) -------------------------------- */
+.ns-frontmatter {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-sunken);
+  padding: 12px 14px;
+  margin: 0 0 var(--space-5);
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 7px 18px;
+}
+.ns-fm-key {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-tertiary);
+}
+.ns-fm-val {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  color: var(--color-body);
+}
+
+/* ---- 16. highlight -------------------------------------------------------
+   Marker band (color under the lower portion only, like a real highlighter)
+   rather than a full box — keeps text in body color and stays light when
+   several appear in one paragraph. */
+.ns-highlight {
+  background: linear-gradient(to top, var(--ns-highlight-bg) 0.62em, transparent 0.62em);
+  color: inherit;
+  border-radius: 0;
+  padding: 0 1px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.ns-highlight[data-color="blue"] {
+  background: linear-gradient(to top, var(--color-accent-subtle) 0.62em, transparent 0.62em);
+  color: inherit;
+}
+.ns-highlight[data-color="green"] {
+  background: linear-gradient(to top, var(--color-success-bg) 0.62em, transparent 0.62em);
+  color: inherit;
+}
+.ns-highlight[data-color="red"] {
+  background: linear-gradient(to top, var(--color-danger-bg) 0.62em, transparent 0.62em);
+  color: inherit;
+}
+
+/* ---- 17. strikethrough --------------------------------------------------- */
+.ns-strike {
+  text-decoration: line-through;
+  text-decoration-color: var(--color-tertiary);
+  text-decoration-thickness: 1.5px;
+  color: var(--color-tertiary);
+}
+
+/* ---- 18. underline (NOT a link) ------------------------------------------ */
+.ns-underline {
+  text-decoration: underline;
+  text-decoration-color: var(--color-border-strong);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1.5px;
+  color: inherit;
+}

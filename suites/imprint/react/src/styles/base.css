@@ -1,0 +1,7 @@
+/* Shared primitives for Imprint React components.
+   Per-component styling lives in each component's own .module.css.
+   Keep this minimal — only cross-component resets belong here. */
+
+.imprint-reset {
+  box-sizing: border-box;
+}

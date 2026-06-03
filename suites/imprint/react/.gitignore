@@ -1,0 +1,11 @@
+# Storybook build output
+storybook-static/
+
+# Playwright visual regression
+test-results/
+playwright-report/
+
+# Only commit linux baselines (CI runs in the Playwright container);
+# darwin/win32 snapshots are local-only sanity artifacts.
+**/*-darwin.png
+**/*-win32.png
