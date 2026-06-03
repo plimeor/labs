@@ -1,11 +1,11 @@
 /**
  * Anchor UI — the app's own component layer.
  *
- * Anchor ships a single robust built-in theme (no user customization), so the UI
- * kit is owned in-repo rather than pulled from a styled component library.
- * Primitives are styled native elements driven by the theme tokens in
- * src/styles/theme/*; complex interactive components wrap @ark-ui/react
- * (https://ark-ui.com) headless behavior. See ./README.md.
+ * Thin wrappers over HeroUI (https://heroui.com) that pin a small, stable prop
+ * API for the app while delegating behavior and look to HeroUI's default
+ * components. The wrappers keep Anchor's vocabulary (e.g. Button variants,
+ * Dialog open/onOpenChange) so callers stay decoupled from HeroUI. See
+ * ./README.md.
  */
 
 export { Button, type ButtonProps, type ButtonVariant } from './button'

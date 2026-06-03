@@ -1,17 +1,25 @@
 /**
  * Dialog — Anchor's modal dialog shell.
  *
- * Part of src/components/ui (see ./README.md). Wraps @ark-ui/react's headless
- * Dialog (focus trap, scroll lock, Escape, ARIA) and provides the styled
- * backdrop + floating surface via Tailwind utilities. Children render inside
- * the content surface, so callers own the inner layout (e.g. the Settings
- * dialog's own sidebar).
+ * Part of src/components/ui (see ./README.md). Renders HeroUI's Modal (built on
+ * react-aria: focus trap, scroll lock, Escape, ARIA) with its default styling.
+ * `open`/`onOpenChange` map to the Modal root's `isOpen`/`onOpenChange`; children
+ * render directly inside the dialog surface, so callers own the inner layout
+ * (e.g. the Settings dialog's own sidebar). `title` names the dialog (a visible
+ * header bar with a close button when `showHeader`, otherwise a visually hidden
+ * heading).
+ *
+ * The wrapper releases HeroUI's default size cap and surface padding so the
+ * caller's `className` fully governs the surface size and layout — matching the
+ * "className controls size/layout" contract callers rely on.
  */
 
-import { Portal } from '@ark-ui/react'
-import { Dialog as ArkDialog, type DialogOpenChangeDetails } from '@ark-ui/react/dialog'
-import { X } from 'lucide-react'
+import { Modal } from '@heroui/react'
 import type { ReactNode } from 'react'
+
+// Neutralizes HeroUI's default dialog max-width (`size`) and padding so the
+// caller-supplied className is the single source of truth for the surface box.
+const SURFACE_RESET = 'max-w-none p-0'
 
 export interface DialogProps {
   open: boolean
@@ -26,36 +34,25 @@ export interface DialogProps {
 }
 
 export function Dialog({ open, onOpenChange, title, showHeader, className, children }: DialogProps) {
-  const contentClass = [
-    'surface-floating flex max-h-full max-w-full flex-col overflow-hidden rounded-xl bg-popover text-fg',
-    className
-  ]
-    .filter(Boolean)
-    .join(' ')
+  const surfaceClass = className ? `${SURFACE_RESET} ${className}` : SURFACE_RESET
 
   return (
-    <ArkDialog.Root open={open} onOpenChange={(details: DialogOpenChangeDetails) => onOpenChange(details.open)}>
-      <Portal>
-        <ArkDialog.Backdrop className="fixed inset-0 z-40 bg-black/45 backdrop-blur-[2px]" />
-        <ArkDialog.Positioner className="fixed inset-0 z-[41] grid place-items-center p-6">
-          <ArkDialog.Content className={contentClass}>
+    <Modal isOpen={open} onOpenChange={onOpenChange}>
+      <Modal.Backdrop>
+        <Modal.Container>
+          <Modal.Dialog className={surfaceClass}>
             {showHeader ? (
-              <header className="flex items-center justify-between gap-3 border-line border-b px-4 py-3.5">
-                <ArkDialog.Title className="m-0 font-medium text-[15px]">{title}</ArkDialog.Title>
-                <ArkDialog.CloseTrigger
-                  aria-label="Close"
-                  className="grid size-7 place-items-center rounded-md bg-transparent text-fg-secondary hover:bg-hover hover:text-fg"
-                >
-                  <X size={16} />
-                </ArkDialog.CloseTrigger>
-              </header>
+              <Modal.Header>
+                <Modal.Heading>{title}</Modal.Heading>
+                <Modal.CloseTrigger aria-label="Close" />
+              </Modal.Header>
             ) : (
-              <ArkDialog.Title className="sr-only">{title}</ArkDialog.Title>
+              <Modal.Heading className="sr-only">{title}</Modal.Heading>
             )}
             {children}
-          </ArkDialog.Content>
-        </ArkDialog.Positioner>
-      </Portal>
-    </ArkDialog.Root>
+          </Modal.Dialog>
+        </Modal.Container>
+      </Modal.Backdrop>
+    </Modal>
   )
 }

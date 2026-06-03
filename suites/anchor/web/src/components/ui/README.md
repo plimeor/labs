@@ -1,25 +1,28 @@
 # Anchor UI
 
-Anchor's own component layer. Anchor ships **one** robust built-in theme (light +
-dark, no end-user customization), so the UI kit is owned in-repo rather than
-adopted from an opinionated styled library (HeroUI was removed in favor of this).
+Anchor's own component layer: thin wrappers over [HeroUI](https://heroui.com)
+that pin a small, stable prop API for the app while delegating behavior and
+styling to HeroUI's default components.
 
 ## Principles
 
-- **Theme tokens are the contract.** Components consume the CSS variables defined
-  in `src/styles/theme/*` (surfaces, text, borders, state, accent, feedback) and
-  the Tailwind utilities the bridge generates. No hard-coded colors.
-- **Simple controls are styled native elements.** A button is a `<button>`, an
-  input is an `<input>` — typed, token-styled, accessible by default.
-- **Complex behavior wraps [Ark UI](https://ark-ui.com).** Anything with managed
-  state, focus, or ARIA wiring (dialog, menu, popover, combobox, tooltip, tabs,
-  select) is built on `@ark-ui/react`'s headless primitives and styled here with
-  our tokens — we own the look, Ark owns the behavior.
+- **Wrappers own the app-facing API.** Each file exports a narrow prop shape in
+  Anchor's vocabulary (e.g. `Button` variants `primary`/`secondary`, `Dialog`
+  `open`/`onOpenChange`). Callers import from `../components/ui` and never touch
+  HeroUI directly, so the underlying library can change without churn.
+- **HeroUI owns behavior and look.** Managed state, focus, scroll lock, and ARIA
+  wiring come from HeroUI (built on react-aria). The wrappers use HeroUI's
+  **default** styling — variant/size props — rather than hand-written Tailwind.
+- **Theme follows the app toggle.** HeroUI v3 keys its dark theme off
+  `[data-theme="dark"]` on `<html>`, which is exactly what `src/lib/theme.tsx`
+  already sets, so light/dark tracks Anchor's theme switch with no extra wiring.
 
 ## Layout
 
 - `button.tsx` — `Button` (variants: `primary`, `secondary`).
+- `dialog.tsx` — `Dialog` (HeroUI `Modal`).
+- `select.tsx` — `Select` (single value, HeroUI `Select` + `ListBox`).
+- `slider.tsx` — `Slider` (single thumb, HeroUI `Slider`).
 - `index.ts` — public barrel; import from `../components/ui`.
 
-Add Ark-based components as siblings (e.g. `dialog.tsx`, `menu.tsx`) and re-export
-them from `index.ts`.
+Add new wrappers as siblings and re-export them from `index.ts`.

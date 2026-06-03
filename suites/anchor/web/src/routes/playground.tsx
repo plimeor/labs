@@ -1,6 +1,6 @@
 import { complexMarkdownStressNote, Editor } from '@plimeor/anchor-editor'
 import { createFileRoute } from '@tanstack/react-router'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 
 export const Route = createFileRoute('/playground')({
   component: PlaygroundRoute
@@ -27,6 +27,9 @@ function PlaygroundRoute() {
   const [events, setEvents] = useState<PlaygroundEvent[]>([
     { detail: 'Loaded combined Markdown sample', id: 1, tone: 'info' }
   ])
+  // Monotonic id for React keys: several events can be appended within the same
+  // millisecond (e.g. autosave request + result), so Date.now() is not unique.
+  const nextEventId = useRef(1)
   const [noteSession, setNoteSession] = useState(1)
   const [revision, setRevision] = useState('playground-1')
   const [saveMode, setSaveMode] = useState<PlaygroundSaveMode>('normal')
@@ -36,7 +39,9 @@ function PlaygroundRoute() {
   )
 
   const appendEvent = (detail: string, tone: PlaygroundEvent['tone'], nextBody?: string) => {
-    setEvents(items => [{ body: nextBody, detail, id: Date.now(), tone }, ...items].slice(0, 8))
+    nextEventId.current += 1
+    const id = nextEventId.current
+    setEvents(items => [{ body: nextBody, detail, id, tone }, ...items].slice(0, 8))
   }
 
   const loadSample = () => {

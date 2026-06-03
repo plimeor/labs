@@ -1,16 +1,13 @@
 /**
  * Select — Anchor's single-value dropdown select.
  *
- * Part of src/components/ui (see ./README.md). Wraps @ark-ui/react's headless
- * Select primitive (listbox behavior, keyboard nav, focus, ARIA) and styles it
- * with Tailwind utilities bound to the theme tokens. Used for the font picker
- * in Settings → Appearance.
+ * Part of src/components/ui (see ./README.md). Renders HeroUI's Select (built on
+ * react-aria: listbox behavior, keyboard nav, focus, ARIA) with its default
+ * styling. Used for the font picker in Settings → Appearance, so the selected
+ * value and each option can preview their own font via `previewFont`.
  */
 
-import { Portal } from '@ark-ui/react'
-import { Select as ArkSelect, createListCollection, type SelectValueChangeDetails } from '@ark-ui/react/select'
-import { Check, ChevronDown } from 'lucide-react'
-import { useMemo } from 'react'
+import { Select as HeroSelect, ListBox } from '@heroui/react'
 
 export interface SelectOption {
   label: string
@@ -29,44 +26,33 @@ export interface SelectProps {
 
 export function Select({ value, onValueChange, options, placeholder, previewFont, ...rest }: SelectProps) {
   const ariaLabel = rest['aria-label']
-  const collection = useMemo(() => createListCollection({ items: options as SelectOption[] }), [options])
 
   return (
-    <ArkSelect.Root
+    <HeroSelect
       aria-label={ariaLabel}
-      collection={collection}
-      positioning={{ sameWidth: true }}
-      value={[value]}
-      onValueChange={(details: SelectValueChangeDetails<SelectOption>) => onValueChange(details.value[0] ?? '')}
+      placeholder={placeholder ?? 'Select…'}
+      selectedKey={value}
+      onSelectionChange={key => onValueChange(key === null ? '' : String(key))}
     >
-      <ArkSelect.Control>
-        <ArkSelect.Trigger className="flex min-h-8 w-full items-center justify-between gap-2 rounded-[7px] border border-line-input bg-[var(--surface-button)] px-2.5 text-[13px] text-fg hover:border-line-strong">
-          <ArkSelect.ValueText placeholder={placeholder ?? 'Select…'} style={{ fontFamily: previewFont?.(value) }} />
-          <ArkSelect.Indicator className="grid place-items-center text-fg-secondary">
-            <ChevronDown size={15} />
-          </ArkSelect.Indicator>
-        </ArkSelect.Trigger>
-      </ArkSelect.Control>
-      <Portal>
-        <ArkSelect.Positioner>
-          <ArkSelect.Content className="surface-floating z-50 grid max-h-[280px] gap-0.5 overflow-auto rounded-lg bg-popover p-1">
-            {options.map(option => (
-              <ArkSelect.Item
-                key={option.value}
-                className="flex min-h-[30px] cursor-pointer items-center justify-between gap-2 rounded-md px-2 py-1 text-[13px] text-fg data-[highlighted]:bg-hover data-[state=checked]:bg-selected"
-                item={option}
-              >
-                <ArkSelect.ItemText style={{ fontFamily: previewFont?.(option.value) }}>
-                  {option.label}
-                </ArkSelect.ItemText>
-                <ArkSelect.ItemIndicator className="grid place-items-center text-accent">
-                  <Check size={14} />
-                </ArkSelect.ItemIndicator>
-              </ArkSelect.Item>
-            ))}
-          </ArkSelect.Content>
-        </ArkSelect.Positioner>
-      </Portal>
-    </ArkSelect.Root>
+      <HeroSelect.Trigger>
+        <HeroSelect.Value style={{ fontFamily: previewFont?.(value) }} />
+        <HeroSelect.Indicator />
+      </HeroSelect.Trigger>
+      <HeroSelect.Popover>
+        <ListBox>
+          {options.map(option => (
+            <ListBox.Item
+              key={option.value}
+              id={option.value}
+              style={{ fontFamily: previewFont?.(option.value) }}
+              textValue={option.label}
+            >
+              {option.label}
+              <ListBox.ItemIndicator />
+            </ListBox.Item>
+          ))}
+        </ListBox>
+      </HeroSelect.Popover>
+    </HeroSelect>
   )
 }

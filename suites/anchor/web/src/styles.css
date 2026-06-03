@@ -5,6 +5,7 @@
    lives in ./styles/theme/* — see docs/design-system-principles.md
    ============================================================ */
 @import "tailwindcss";
+@import "@heroui/styles"; /* HeroUI v3 default theme (keys dark off [data-theme="dark"]) */
 @import "./styles/theme/primitives.css"; /* Ring 0 */
 @import "./styles/theme/semantic.light.css"; /* Ring 1 light */
 @import "./styles/theme/semantic.dark.css"; /* Ring 1 dark */
