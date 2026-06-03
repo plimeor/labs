@@ -1,6 +1,6 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/solid-query'
-import { ErrorBoundary } from 'solid-js'
-import { render } from 'solid-js/web'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { createRoot } from 'react-dom/client'
 
 // Bundle the prose fonts locally (variable) — Anchor is offline-first, so the
 // fonts offered in Settings → Appearance must not depend on a runtime CDN.
@@ -11,6 +11,39 @@ import '@fontsource-variable/literata/index.css'
 import '@fontsource-variable/lora/index.css'
 import { App } from './App'
 import './styles.css'
+
+interface ErrorBoundaryProps {
+  children: ReactNode
+}
+
+interface ErrorBoundaryState {
+  error: Error | undefined
+}
+
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  state: ErrorBoundaryState = { error: undefined }
+
+  static getDerivedStateFromError(error: unknown): ErrorBoundaryState {
+    return { error: error instanceof Error ? error : new Error(String(error)) }
+  }
+
+  componentDidCatch(_error: Error, _info: ErrorInfo): void {}
+
+  render(): ReactNode {
+    const { error } = this.state
+
+    if (error) {
+      return (
+        <div className="app-fatal-error" data-testid="app-fatal-error">
+          <strong>Anchor could not render this view.</strong>
+          <pre>{error.message}</pre>
+        </div>
+      )
+    }
+
+    return this.props.children
+  }
+}
 
 const root = document.getElementById('root')
 
@@ -33,20 +66,10 @@ const queryClient = new QueryClient({
   }
 })
 
-render(
-  () => (
-    <QueryClientProvider client={queryClient}>
-      <ErrorBoundary
-        fallback={err => (
-          <div class="app-fatal-error" data-testid="app-fatal-error">
-            <strong>Anchor could not render this view.</strong>
-            <pre>{err instanceof Error ? err.message : String(err)}</pre>
-          </div>
-        )}
-      >
-        <App />
-      </ErrorBoundary>
-    </QueryClientProvider>
-  ),
-  root
+createRoot(root).render(
+  <QueryClientProvider client={queryClient}>
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
+  </QueryClientProvider>
 )

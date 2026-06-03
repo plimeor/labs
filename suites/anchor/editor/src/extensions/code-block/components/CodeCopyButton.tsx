@@ -1,19 +1,18 @@
-import { createSignal, onCleanup } from 'solid-js'
-import h from 'solid-js/h'
-
 import { codeCopyButton } from './styles'
 
 interface CodeCopyButtonProps {
   codeText: string
 }
 
-export function CodeCopyButton(props: CodeCopyButtonProps) {
-  const [copied, setCopied] = createSignal(false)
+export function CodeCopyButton(props: CodeCopyButtonProps): HTMLButtonElement {
+  const button = document.createElement('button')
+  let copied = false
   let timeout: ReturnType<typeof setTimeout> | undefined
 
-  onCleanup(() => {
-    if (timeout) clearTimeout(timeout)
-  })
+  const render = () => {
+    button.className = codeCopyButton({ copied })
+    button.textContent = copied ? 'Copied!' : 'Copy'
+  }
 
   const handleMouseDown = (event: MouseEvent) => {
     event.preventDefault()
@@ -27,23 +26,23 @@ export function CodeCopyButton(props: CodeCopyButtonProps) {
     if (typeof navigator === 'undefined' || !navigator.clipboard) return
 
     void navigator.clipboard.writeText(props.codeText).then(() => {
-      setCopied(true)
+      copied = true
+      render()
       if (timeout) clearTimeout(timeout)
-      timeout = setTimeout(() => setCopied(false), 1500)
+      timeout = setTimeout(() => {
+        copied = false
+        render()
+      }, 1500)
     })
   }
 
-  return h(
-    'button',
-    {
-      'aria-label': 'Copy code',
-      class: () => codeCopyButton({ copied: copied() }),
-      'data-editor-role': 'code-copy',
-      'on:click': handleClick,
-      'on:mousedown': handleMouseDown,
-      title: 'Copy code',
-      type: 'button'
-    },
-    () => (copied() ? 'Copied!' : 'Copy')
-  )
+  button.setAttribute('aria-label', 'Copy code')
+  button.dataset.editorRole = 'code-copy'
+  button.title = 'Copy code'
+  button.type = 'button'
+  button.addEventListener('click', handleClick)
+  button.addEventListener('mousedown', handleMouseDown)
+  render()
+
+  return button
 }

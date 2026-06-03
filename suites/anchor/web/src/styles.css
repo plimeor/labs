@@ -1,17 +1,18 @@
-@import "tailwindcss";
-@source "../../../packages/anchor-editor/src";
-
 /* ============================================================
    Theme token rings, imported in cascade order (0 -> 3), then
-   consumers. Tailwind import MUST be first. Token contract lives
-   in ./styles/theme/* — see docs/design-system-principles.md
+   consumers. The Tailwind import MUST be first, and all @import
+   rules must precede other at-rules (e.g. @source). Token contract
+   lives in ./styles/theme/* — see docs/design-system-principles.md
    ============================================================ */
+@import "tailwindcss";
 @import "./styles/theme/primitives.css"; /* Ring 0 */
 @import "./styles/theme/semantic.light.css"; /* Ring 1 light */
 @import "./styles/theme/semantic.dark.css"; /* Ring 1 dark */
 @import "./styles/theme/components.css"; /* Ring 2 */
 @import "./styles/theme/bridge.css"; /* Ring 3 @theme inline utilities */
 @import "./styles/theme/base.css"; /* resets, selection, scrollbars */
+
+@source "../../editor/src";
 
 /* ============================================================
    Hand-written component CSS (migrating to Tailwind utilities via

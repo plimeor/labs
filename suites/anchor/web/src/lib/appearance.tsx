@@ -12,7 +12,7 @@
  * so the picker offers the exact same set on every platform, fully offline.
  */
 
-import { createSignal } from 'solid-js'
+import { useSyncExternalStore } from 'react'
 
 export interface TypographySettings {
   /** Body/prose font. A CSS font-family value, or '' for the app default. */
@@ -150,12 +150,27 @@ function applyTypography(s: TypographySettings): void {
   root.setProperty('--editor-paragraph-indent', `${s.paragraphIndent}em`)
 }
 
-const [typography, setTypographySignal] = createSignal<TypographySettings>(load())
+// The snapshot reference is stable between commits so useSyncExternalStore does
+// not loop: it only changes inside commit().
+let snapshot: TypographySettings = load()
 
-export { typography }
+const listeners = new Set<() => void>()
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener)
+  return () => {
+    listeners.delete(listener)
+  }
+}
+
+/** Non-reactive read of the live typography settings (module code + tests). */
+export function typography(): TypographySettings {
+  return snapshot
+}
 
 function commit(next: TypographySettings, persist: boolean): void {
-  setTypographySignal(next)
+  snapshot = next
+  for (const listener of listeners) listener()
   if (persist && typeof localStorage !== 'undefined') {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
   }
@@ -170,6 +185,11 @@ export function setTypography(patch: Partial<TypographySettings>): void {
 /** Restore every typography setting to its default. */
 export function resetTypography(): void {
   commit({ ...DEFAULT_TYPOGRAPHY }, true)
+}
+
+/** Reactive read of the live typography settings for components. */
+export function useTypography(): TypographySettings {
+  return useSyncExternalStore(subscribe, typography, typography)
 }
 
 // Apply synchronously at module load, before the first render, so the editor's

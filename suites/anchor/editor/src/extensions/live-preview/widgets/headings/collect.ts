@@ -1,7 +1,7 @@
 import { Decoration } from '@codemirror/view'
 
 import { caretOnLine } from '../../../../rendering/selection'
-import type { CollectorContext, TreeEnterHandler } from '../../types'
+import type { TreeEnterHandler } from '../../types'
 
 const headingClasses: Record<string, string> = {
   ATXHeading1: 'text-[32px] font-bold leading-[1.2] text-[var(--text-heading)]',

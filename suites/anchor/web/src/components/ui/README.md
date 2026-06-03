@@ -13,7 +13,7 @@ adopted from an opinionated styled library (HeroUI was removed in favor of this)
   input is an `<input>` — typed, token-styled, accessible by default.
 - **Complex behavior wraps [Ark UI](https://ark-ui.com).** Anything with managed
   state, focus, or ARIA wiring (dialog, menu, popover, combobox, tooltip, tabs,
-  select) is built on `@ark-ui/solid`'s headless primitives and styled here with
+  select) is built on `@ark-ui/react`'s headless primitives and styled here with
   our tokens — we own the look, Ark owns the behavior.
 
 ## Layout

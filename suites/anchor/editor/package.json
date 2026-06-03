@@ -12,11 +12,14 @@
     "@lezer/common": "^1.5.2",
     "@lezer/highlight": "^1.2.3",
     "@lezer/markdown": "^1.6.4",
-    "solid-js": "^1.9.5",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
     "tailwind-variants": "^3.2.2"
   },
   "devDependencies": {
-    "@happy-dom/global-registrator": "^20.9.0"
+    "@happy-dom/global-registrator": "^20.9.0",
+    "@types/react": "^19.2.16",
+    "@types/react-dom": "^19.2.3"
   },
   "exports": {
     ".": "./src/index.ts"

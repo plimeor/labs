@@ -1,7 +1,7 @@
 import type { NoteRecord } from '../domain/types'
 
 export function RouteLoading(props: { label: string }) {
-  return <div class="route-loading">{props.label}</div>
+  return <div className="route-loading">{props.label}</div>
 }
 
 export function requireNoteId(note: NoteRecord | undefined): string {

@@ -9,8 +9,8 @@
  * Styled with Tailwind utilities bound to the theme tokens (no hand-written CSS).
  */
 
-import { Monitor, Moon, Palette, RotateCcw, Sun, Terminal } from 'lucide-solid'
-import { createSignal, For, type JSX, Show } from 'solid-js'
+import { Monitor, Moon, Palette, RotateCcw, Sun, Terminal } from 'lucide-react'
+import { type ReactNode, useState } from 'react'
 
 import { type CliInstallResult, installAnchorCli } from '../backend/cli-install'
 import {
@@ -21,12 +21,12 @@ import {
   resetTypography,
   setTypography,
   TYPOGRAPHY_FIELDS,
-  typography
+  useTypography
 } from '../lib/appearance'
-import { setThemeMode, type ThemeMode, themeMode } from '../lib/theme'
+import { setThemeMode, type ThemeMode, useTheme } from '../lib/theme'
 import { Dialog, Select, Slider } from './ui'
 
-const THEME_MODES: { value: ThemeMode; label: string; icon: JSX.Element }[] = [
+const THEME_MODES: { value: ThemeMode; label: string; icon: ReactNode }[] = [
   { icon: <Monitor size={15} />, label: 'System', value: 'system' },
   { icon: <Sun size={15} />, label: 'Light', value: 'light' },
   { icon: <Moon size={15} />, label: 'Dark', value: 'dark' }
@@ -58,40 +58,35 @@ export interface SettingsDialogProps {
 }
 
 export function SettingsDialog(props: SettingsDialogProps) {
-  const [section, setSection] = createSignal<SectionId>('appearance')
+  const [section, setSection] = useState<SectionId>('appearance')
 
   return (
     <Dialog
-      class="grid h-[min(560px,100%)] w-[min(720px,100%)] grid-cols-[180px_minmax(0,1fr)]"
+      className="grid h-[min(560px,100%)] w-[min(720px,100%)] grid-cols-[180px_minmax(0,1fr)]"
       open={props.open}
       title="Settings"
       onOpenChange={props.onOpenChange}
     >
       <nav
-        class="grid content-start gap-0.5 border-line border-r bg-sidebar px-2.5 py-4"
+        className="grid content-start gap-0.5 border-line border-r bg-sidebar px-2.5 py-4"
         aria-label="Settings sections"
       >
-        <For each={SETTINGS_SECTIONS}>
-          {item => (
-            <button
-              class="flex min-h-8 items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-left text-[13px] text-fg hover:bg-hover aria-[current=page]:bg-selected"
-              aria-current={section() === item.id ? 'page' : undefined}
-              type="button"
-              onClick={() => setSection(item.id)}
-            >
-              {item.icon}
-              <span>{item.label}</span>
-            </button>
-          )}
-        </For>
+        {SETTINGS_SECTIONS.map(item => (
+          <button
+            key={item.id}
+            className="flex min-h-8 items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-left text-[13px] text-fg hover:bg-hover aria-[current=page]:bg-selected"
+            aria-current={section === item.id ? 'page' : undefined}
+            type="button"
+            onClick={() => setSection(item.id)}
+          >
+            {item.icon}
+            <span>{item.label}</span>
+          </button>
+        ))}
       </nav>
-      <div class="overflow-auto px-7 py-6" data-testid="settings-panel">
-        <Show when={section() === 'appearance'}>
-          <AppearancePanel />
-        </Show>
-        <Show when={section() === 'cli'}>
-          <CliPanel />
-        </Show>
+      <div className="overflow-auto px-7 py-6" data-testid="settings-panel">
+        {section === 'appearance' ? <AppearancePanel /> : null}
+        {section === 'cli' ? <CliPanel /> : null}
       </div>
     </Dialog>
   )
@@ -102,10 +97,10 @@ function AppearancePanel() {
     <div data-testid="appearance-panel">
       <ThemeModeField />
       <section>
-        <div class="mb-3 flex items-center justify-between">
-          <h3 class="m-0 font-medium text-[11px] text-fg-secondary uppercase tracking-[0.04em]">Typography</h3>
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="m-0 font-medium text-[11px] text-fg-secondary uppercase tracking-[0.04em]">Typography</h3>
           <button
-            class="flex items-center gap-1 rounded-md px-2 py-1 text-[12px] text-fg-secondary hover:bg-hover hover:text-fg"
+            className="flex items-center gap-1 rounded-md px-2 py-1 text-[12px] text-fg-secondary hover:bg-hover hover:text-fg"
             data-testid="reset-typography"
             type="button"
             onClick={() => resetTypography()}
@@ -114,9 +109,13 @@ function AppearancePanel() {
             <span>Reset</span>
           </button>
         </div>
-        <div class="grid gap-3.5">
-          <For each={FONT_FIELDS}>{field => <FontSelectRow fieldKey={field.key} />}</For>
-          <For each={TYPOGRAPHY_FIELDS}>{field => <TypographySliderRow fieldKey={field.key} />}</For>
+        <div className="grid gap-3.5">
+          {FONT_FIELDS.map(field => (
+            <FontSelectRow key={field.key} fieldKey={field.key} />
+          ))}
+          {TYPOGRAPHY_FIELDS.map(field => (
+            <TypographySliderRow key={field.key} fieldKey={field.key} />
+          ))}
         </div>
       </section>
     </div>
@@ -124,36 +123,37 @@ function AppearancePanel() {
 }
 
 function ThemeModeField() {
+  const { themeMode } = useTheme()
+
   return (
-    <section class="mb-7">
-      <h3 class="m-0 mb-3 font-medium text-[11px] text-fg-secondary uppercase tracking-[0.04em]">Theme</h3>
+    <section className="mb-7">
+      <h3 className="m-0 mb-3 font-medium text-[11px] text-fg-secondary uppercase tracking-[0.04em]">Theme</h3>
       <div
-        class="inline-grid grid-flow-col gap-1 rounded-[9px] bg-[var(--surface-button)] p-[3px]"
+        className="inline-grid grid-flow-col gap-1 rounded-[9px] bg-[var(--surface-button)] p-[3px]"
         role="group"
         aria-label="Theme mode"
       >
-        <For each={THEME_MODES}>
-          {mode => (
-            <button
-              class="flex min-h-[30px] items-center gap-1.5 rounded-[7px] px-3.5 text-[13px] text-fg-secondary hover:text-fg aria-pressed:bg-popover aria-pressed:text-fg aria-pressed:shadow-[0_1px_2px_rgb(0_0_0/0.2)]"
-              type="button"
-              aria-pressed={themeMode() === mode.value}
-              onClick={() => setThemeMode(mode.value)}
-            >
-              {mode.icon}
-              <span>{mode.label}</span>
-            </button>
-          )}
-        </For>
+        {THEME_MODES.map(mode => (
+          <button
+            key={mode.value}
+            className="flex min-h-[30px] items-center gap-1.5 rounded-[7px] px-3.5 text-[13px] text-fg-secondary hover:text-fg aria-pressed:bg-popover aria-pressed:text-fg aria-pressed:shadow-[0_1px_2px_rgb(0_0_0/0.2)]"
+            type="button"
+            aria-pressed={themeMode === mode.value}
+            onClick={() => setThemeMode(mode.value)}
+          >
+            {mode.icon}
+            <span>{mode.label}</span>
+          </button>
+        ))}
       </div>
     </section>
   )
 }
 
 function CliPanel() {
-  const [installing, setInstalling] = createSignal(false)
-  const [result, setResult] = createSignal<CliInstallResult>()
-  const [error, setError] = createSignal<string>()
+  const [installing, setInstalling] = useState(false)
+  const [result, setResult] = useState<CliInstallResult>()
+  const [error, setError] = useState<string>()
 
   const handleInstall = async () => {
     setInstalling(true)
@@ -170,50 +170,46 @@ function CliPanel() {
 
   return (
     <section>
-      <h3 class="m-0 mb-3 font-medium text-[11px] text-fg-secondary uppercase tracking-[0.04em]">Command Line</h3>
-      <div class="grid gap-3">
+      <h3 className="m-0 mb-3 font-medium text-[11px] text-fg-secondary uppercase tracking-[0.04em]">Command Line</h3>
+      <div className="grid gap-3">
         <button
-          class="inline-flex min-h-8 w-fit items-center gap-2 rounded-[7px] bg-[var(--surface-button)] px-3 text-[13px] text-fg hover:bg-hover disabled:opacity-60"
-          disabled={installing()}
+          className="inline-flex min-h-8 w-fit items-center gap-2 rounded-[7px] bg-[var(--surface-button)] px-3 text-[13px] text-fg hover:bg-hover disabled:opacity-60"
+          disabled={installing}
           type="button"
           onClick={handleInstall}
         >
           <Terminal size={15} />
-          <span>{installing() ? 'Installing' : 'Install CLI'}</span>
+          <span>{installing ? 'Installing' : 'Install CLI'}</span>
         </button>
-        <Show when={result()}>
-          {value => (
-            <div class="grid gap-1 text-[13px] text-fg-secondary">
-              <span>Installed: {value().installedPath}</span>
-              <span>Target: {value().targetPath}</span>
-              <Show when={value().pathHint}>
-                {hint => <code class="w-fit rounded bg-[var(--surface-button)] px-2 py-1 text-fg">{hint()}</code>}
-              </Show>
-            </div>
-          )}
-        </Show>
-        <Show when={error()}>{message => <p class="m-0 text-[13px] text-danger">{message()}</p>}</Show>
+        {result ? (
+          <div className="grid gap-1 text-[13px] text-fg-secondary">
+            <span>Installed: {result.installedPath}</span>
+            <span>Target: {result.targetPath}</span>
+            {result.pathHint ? (
+              <code className="w-fit rounded bg-[var(--surface-button)] px-2 py-1 text-fg">{result.pathHint}</code>
+            ) : null}
+          </div>
+        ) : null}
+        {error ? <p className="m-0 text-[13px] text-danger">{error}</p> : null}
       </div>
     </section>
   )
 }
 
 function FontSelectRow(props: { fieldKey: FontKey }) {
-  const field = () => {
-    const found = FONT_FIELDS.find(f => f.key === props.fieldKey)
-    if (!found) throw new Error(`unknown font field: ${props.fieldKey}`)
-    return found
-  }
-  const value = () => typography()[props.fieldKey]
+  const settings = useTypography()
+  const field = FONT_FIELDS.find(f => f.key === props.fieldKey)
+  if (!field) throw new Error(`unknown font field: ${props.fieldKey}`)
+  const value = settings[props.fieldKey]
 
   return (
-    <div class="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-3.5">
-      <span class="text-[13px] text-fg">{field().label}</span>
+    <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-3.5">
+      <span className="text-[13px] text-fg">{field.label}</span>
       <Select
-        aria-label={field().label}
+        aria-label={field.label}
         options={FONT_OPTIONS}
         previewFont={fontPreview}
-        value={value()}
+        value={value}
         onValueChange={next => setTypography({ [props.fieldKey]: next })}
       />
     </div>
@@ -221,31 +217,26 @@ function FontSelectRow(props: { fieldKey: FontKey }) {
 }
 
 function TypographySliderRow(props: { fieldKey: NumericTypographyKey }) {
-  const field = () => {
-    const found = TYPOGRAPHY_FIELDS.find(f => f.key === props.fieldKey)
-    if (!found) throw new Error(`unknown typography field: ${props.fieldKey}`)
-    return found
-  }
-  const value = () => typography()[props.fieldKey]
-  const markerCount = () => {
-    const f = field()
-    return Math.min(21, Math.round((f.max - f.min) / f.step) + 1)
-  }
+  const settings = useTypography()
+  const field = TYPOGRAPHY_FIELDS.find(f => f.key === props.fieldKey)
+  if (!field) throw new Error(`unknown typography field: ${props.fieldKey}`)
+  const value = settings[props.fieldKey]
+  const markerCount = Math.min(21, Math.round((field.max - field.min) / field.step) + 1)
 
   return (
-    <div class="grid grid-cols-[140px_minmax(0,1fr)_64px] items-center gap-3.5">
-      <span class="text-[13px] text-fg">{field().label}</span>
+    <div className="grid grid-cols-[140px_minmax(0,1fr)_64px] items-center gap-3.5">
+      <span className="text-[13px] text-fg">{field.label}</span>
       <Slider
-        aria-label={field().label}
-        markers={markerCount()}
-        max={field().max}
-        min={field().min}
-        step={field().step}
-        value={value()}
-        onValueChange={next => setTypography({ [props.fieldKey]: roundToStep(next, field().step) })}
+        aria-label={field.label}
+        markers={markerCount}
+        max={field.max}
+        min={field.min}
+        step={field.step}
+        value={value}
+        onValueChange={next => setTypography({ [props.fieldKey]: roundToStep(next, field.step) })}
       />
-      <span class="text-right text-[13px] text-fg-secondary tabular-nums">
-        {formatValue(value())} {field().unit}
+      <span className="text-right text-[13px] text-fg-secondary tabular-nums">
+        {formatValue(value)} {field.unit}
       </span>
     </div>
   )

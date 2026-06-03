@@ -1,8 +1,8 @@
 import { Editor } from '@plimeor/anchor-editor'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
-import { createFileRoute, useNavigate, useParams } from '@tanstack/solid-router'
-import { CircleAlert, FilePlus } from 'lucide-solid'
-import { createEffect, createSignal, Show } from 'solid-js'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { createFileRoute, useNavigate, useParams } from '@tanstack/react-router'
+import { CircleAlert, FilePlus } from 'lucide-react'
+import { useEffect, useState } from 'react'
 
 import type { NoteRecord } from '../domain/types'
 import { useAnchor } from '../lib/anchor-context'
@@ -15,41 +15,51 @@ export const Route = createFileRoute('/notes/$noteId')({
 function NoteRoute() {
   const params = useParams({ strict: false })
   const anchor = useAnchor()
-  const note = useQuery(() => ({
-    queryKey: ['note', anchor.vaultRevision(), params().noteId],
-    queryFn: () => anchor.backend.readNote(params().noteId!)
-  }))
+  const noteId = params.noteId
+  const note = useQuery({
+    queryKey: ['note', anchor.vaultRevision, noteId],
+    queryFn: () => {
+      if (!noteId) {
+        throw new Error('note_not_selected')
+      }
 
-  createEffect(() => {
-    if (note.data) {
-      anchor.selectNote(note.data)
+      return anchor.backend.readNote(noteId)
     }
   })
 
-  return (
-    <Show when={note.data} fallback={<RouteLoading label="Opening note" />}>
-      {data => <NoteEditor note={data()} />}
-    </Show>
-  )
+  const data = note.data
+  const { selectNote } = anchor
+
+  useEffect(() => {
+    if (data) {
+      selectNote(data)
+    }
+  }, [data, selectNote])
+
+  if (!data) {
+    return <RouteLoading label="Opening note" />
+  }
+
+  return <NoteEditor note={data} />
 }
 
 export function NoteEditor(props: { note: NoteRecord }) {
   const anchor = useAnchor()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [conflict, setConflict] = createSignal<string>()
-  const createNote = useMutation(() => ({
+  const [conflict, setConflict] = useState<string>()
+  const createNote = useMutation({
     mutationFn: () => anchor.backend.createNote({ body: '', title: 'Untitled' }),
     onSuccess: note => {
       anchor.selectNote(note)
-      queryClient.setQueryData(['note', anchor.vaultRevision(), note.metadata.id], note)
+      queryClient.setQueryData(['note', anchor.vaultRevision, note.metadata.id], note)
       void queryClient.invalidateQueries()
       void navigate({ params: { noteId: note.metadata.id }, to: '/notes/$noteId' })
     }
-  }))
+  })
 
   const syncCurrentNoteQueries = (updated: NoteRecord) => {
-    const revision = anchor.vaultRevision()
+    const revision = anchor.vaultRevision
     queryClient.setQueryData(['note', revision, updated.metadata.id], updated)
 
     if (updated.metadata.kind === 'journal') {
@@ -58,7 +68,7 @@ export function NoteEditor(props: { note: NoteRecord }) {
   }
 
   const refreshRelationQueries = (noteId: string) => {
-    const revision = anchor.vaultRevision()
+    const revision = anchor.vaultRevision
     const queryKeys = [
       ['graph', revision, noteId, 2],
       ['graph-inspector', revision, noteId],
@@ -73,7 +83,7 @@ export function NoteEditor(props: { note: NoteRecord }) {
 
   const refreshMetadataQueries = (noteId: string) => {
     refreshRelationQueries(noteId)
-    void queryClient.invalidateQueries({ exact: true, queryKey: ['notes', anchor.vaultRevision()] })
+    void queryClient.invalidateQueries({ exact: true, queryKey: ['notes', anchor.vaultRevision] })
     void queryClient.invalidateQueries({ queryKey: ['search'] })
   }
 
@@ -105,24 +115,24 @@ export function NoteEditor(props: { note: NoteRecord }) {
   }
 
   return (
-    <div class="note-route" data-testid="note-route">
-      <header class="route-header">
+    <div className="note-route" data-testid="note-route">
+      <header className="route-header">
         <div>
           <p>{props.note.metadata.kind}</p>
           <h1>{props.note.metadata.title}</h1>
         </div>
-        <button class="icon-action" data-testid="create-note" type="button" onClick={() => createNote.mutate()}>
+        <button className="icon-action" data-testid="create-note" type="button" onClick={() => createNote.mutate()}>
           <FilePlus size={16} />
           <span>New Note</span>
         </button>
       </header>
-      <Show when={conflict()}>
-        <div class="inline-error note-conflict-banner">
+      {conflict ? (
+        <div className="inline-error note-conflict-banner">
           <CircleAlert size={14} />
-          <span>{conflict()}</span>
+          <span>{conflict}</span>
         </div>
-      </Show>
-      <div class="note-workspace">
+      ) : null}
+      <div className="note-workspace">
         <Editor
           baseRevision={props.note.revision}
           body={props.note.body}

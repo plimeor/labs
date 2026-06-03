@@ -80,6 +80,7 @@ export function createEditorHarness(options: CreateEditorHarnessOptions): Editor
     parent,
     state: EditorState.create({
       doc: options.doc,
+      selection: { anchor: options.cursorPos ?? 0 },
       extensions: [
         markdown({ base: markdownLanguage }),
         anchorKeymap,
@@ -88,8 +89,7 @@ export function createEditorHarness(options: CreateEditorHarnessOptions): Editor
         codeBlockPlugin,
         codeBlockTheme,
         ...(options.extensions ?? [])
-      ],
-      selection: { anchor: options.cursorPos ?? 0 }
+      ]
     })
   })
 
@@ -112,11 +112,11 @@ export function createEditorHarness(options: CreateEditorHarnessOptions): Editor
   view.destroy = cleanup
 
   function roleSelector(role: string, attrs?: Record<string, string>): string {
-    const escape = (value: string) => (typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(value) : value)
+    const cssEscape = (value: string) => (typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(value) : value)
     const attrSelector = Object.entries(attrs ?? {})
-      .map(([key, value]) => `[${escape(key)}="${escape(value)}"]`)
+      .map(([key, value]) => `[${cssEscape(key)}="${cssEscape(value)}"]`)
       .join('')
-    return `[data-editor-role="${escape(role)}"]${attrSelector}`
+    return `[data-editor-role="${cssEscape(role)}"]${attrSelector}`
   }
 
   function position(pos: number | { line: number; column: number }): number {
@@ -130,66 +130,22 @@ export function createEditorHarness(options: CreateEditorHarnessOptions): Editor
     view,
     cleanup,
     destroy: cleanup,
-    doc: () => view.state.doc.toString(),
-    contentText: () => view.dom.querySelector('.cm-content')?.textContent ?? '',
-    lineText: lineNumber => view.state.doc.line(lineNumber).text,
-    selection: () => {
-      const { from, to } = view.state.selection.main
-      return { from, to }
-    },
-    moveCaret: pos => {
-      view.dispatch({ selection: { anchor: position(pos) } })
-    },
-    selectRange: (from, to) => {
-      view.dispatch({ selection: EditorSelection.create([EditorSelection.range(from, to)]) })
-    },
-    dispatchText: (from, to, insert) => {
-      view.dispatch({ changes: { from, to, insert } })
-    },
-    typeText: async text => {
-      view.dispatch(view.state.replaceSelection(text))
-    },
-    pressKey: async key => {
-      const event = new KeyboardEvent('keydown', { bubbles: true, key })
-      view.contentDOM.dispatchEvent(event)
-    },
+    allByEditorRole: role => Array.from(view.dom.querySelectorAll(roleSelector(role))) as HTMLElement[],
     click: async target => {
       target.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     },
-    mouseDown: async target => {
-      target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
-    },
-    getByEditorRole: (role, attrs) => {
-      const element = harness.queryByEditorRole(role, attrs)
-      if (!element) throw new Error(`Missing editor role: ${role}`)
-      return element
-    },
-    queryByEditorRole: (role, attrs) => view.dom.querySelector(roleSelector(role, attrs)),
-    allByEditorRole: role => Array.from(view.dom.querySelectorAll(roleSelector(role))) as HTMLElement[],
     clipboard: {
       writes: clipboardWrites,
       reset: () => {
         clipboardWrites.length = 0
       }
     },
-    windowOpen: {
-      calls: windowOpenCalls,
-      reset: () => {
-        windowOpenCalls.length = 0
-      }
+    contentText: () => view.dom.querySelector('.cm-content')?.textContent ?? '',
+    dispatchText: (from, to, insert) => {
+      view.dispatch({ changes: { from, to, insert } })
     },
+    doc: () => view.state.doc.toString(),
     events: type => events.get(type) ?? [],
-    loadFixture: async name => {
-      const text = await Bun.file(new URL(`../../__fixtures__/markdown/${name}.md`, import.meta.url)).text()
-      view.dispatch({
-        changes: { from: 0, to: view.state.doc.length, insert: text },
-        selection: { anchor: text.length }
-      })
-      return text
-    },
-    flush: async () => {
-      await Promise.resolve()
-    },
     expectDocUnchanged: async action => {
       const before = harness.doc()
       await action()
@@ -197,7 +153,51 @@ export function createEditorHarness(options: CreateEditorHarnessOptions): Editor
         throw new Error('Expected editor document to remain unchanged')
       }
     },
-    expectEditorRole: (role, attrs) => harness.getByEditorRole(role, attrs)
+    expectEditorRole: (role, attrs) => harness.getByEditorRole(role, attrs),
+    flush: async () => {
+      await Promise.resolve()
+    },
+    getByEditorRole: (role, attrs) => {
+      const element = harness.queryByEditorRole(role, attrs)
+      if (!element) throw new Error(`Missing editor role: ${role}`)
+      return element
+    },
+    lineText: lineNumber => view.state.doc.line(lineNumber).text,
+    loadFixture: async name => {
+      const text = await Bun.file(new URL(`../../__fixtures__/markdown/${name}.md`, import.meta.url)).text()
+      view.dispatch({
+        changes: { from: 0, insert: text, to: view.state.doc.length },
+        selection: { anchor: text.length }
+      })
+      return text
+    },
+    mouseDown: async target => {
+      target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+    },
+    moveCaret: pos => {
+      view.dispatch({ selection: { anchor: position(pos) } })
+    },
+    pressKey: async key => {
+      const event = new KeyboardEvent('keydown', { bubbles: true, key })
+      view.contentDOM.dispatchEvent(event)
+    },
+    queryByEditorRole: (role, attrs) => view.dom.querySelector(roleSelector(role, attrs)),
+    selection: () => {
+      const { from, to } = view.state.selection.main
+      return { from, to }
+    },
+    selectRange: (from, to) => {
+      view.dispatch({ selection: EditorSelection.create([EditorSelection.range(from, to)]) })
+    },
+    typeText: async text => {
+      view.dispatch(view.state.replaceSelection(text))
+    },
+    windowOpen: {
+      calls: windowOpenCalls,
+      reset: () => {
+        windowOpenCalls.length = 0
+      }
+    }
   }
 
   void eventLog

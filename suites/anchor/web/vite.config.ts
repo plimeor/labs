@@ -1,7 +1,7 @@
 import tailwindcss from '@tailwindcss/vite'
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
+import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
-import solid from 'vite-plugin-solid'
 
 export default defineConfig({
   base: './',
@@ -11,7 +11,7 @@ export default defineConfig({
   },
   plugins: [
     tanstackRouter({
-      target: 'solid',
+      target: 'react',
       routeTreeFileHeader: [
         '/* eslint-disable */',
         '// @ts-nocheck',
@@ -19,7 +19,7 @@ export default defineConfig({
         '// biome-ignore-all format: generated route tree'
       ]
     }),
-    solid(),
+    react(),
     tailwindcss()
   ],
   server: {
@@ -44,7 +44,7 @@ export default defineConfig({
     // keeps autosave silent. (The Rust core reads/writes the vault on its own
     // path — the dev server never needs to watch it.)
     watch: {
-      ignored: ['**/demo/vault/**', '../anchor/demo/vault/**']
+      ignored: ['**/demo/vault/**', '../desktop/demo/vault/**']
     }
   }
 })

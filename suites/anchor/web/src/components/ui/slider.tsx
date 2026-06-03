@@ -1,15 +1,15 @@
 /**
  * Slider — Anchor's single-value numeric slider.
  *
- * Part of src/components/ui (see ./README.md). Wraps @ark-ui/solid's headless
+ * Part of src/components/ui (see ./README.md). Wraps @ark-ui/react's headless
  * Slider primitive and styles it with Tailwind utilities bound to the theme
  * tokens — Ark owns the drag / keyboard / ARIA behavior, we own the look. This
  * is the canonical control for adjusting a numeric setting (Settings →
  * Appearance → Typography).
  */
 
-import { Slider as ArkSlider, type SliderValueChangeDetails } from '@ark-ui/solid/slider'
-import { createMemo, For, Show, splitProps } from 'solid-js'
+import { Slider as ArkSlider, type SliderValueChangeDetails } from '@ark-ui/react/slider'
+import { useMemo } from 'react'
 
 export interface SliderProps {
   value: number
@@ -22,43 +22,47 @@ export interface SliderProps {
   'aria-label'?: string
 }
 
-export function Slider(props: SliderProps) {
-  const [local] = splitProps(props, ['value', 'onValueChange', 'min', 'max', 'step', 'markers', 'aria-label'])
+export function Slider({ value, onValueChange, min, max, step, markers, ...rest }: SliderProps) {
+  const ariaLabel = rest['aria-label']
 
-  const markerValues = createMemo(() => {
-    const count = local.markers ?? 0
+  const markerValues = useMemo(() => {
+    const count = markers ?? 0
     if (count < 2) return []
-    const span = local.max - local.min
-    return Array.from({ length: count }, (_, i) => local.min + (span * i) / (count - 1))
-  })
+    const span = max - min
+    return Array.from({ length: count }, (_, i) => min + (span * i) / (count - 1))
+  }, [markers, min, max])
 
   return (
     <ArkSlider.Root
-      class="flex min-h-6 w-full touch-none items-center"
-      max={local.max}
-      min={local.min}
-      step={local.step ?? 1}
-      value={[local.value]}
-      onValueChange={(details: SliderValueChangeDetails) => local.onValueChange(details.value[0])}
+      className="flex min-h-6 w-full touch-none items-center"
+      max={max}
+      min={min}
+      step={step ?? 1}
+      value={[value]}
+      onValueChange={(details: SliderValueChangeDetails) => onValueChange(details.value[0])}
     >
-      <ArkSlider.Control class="relative flex w-full items-center py-2">
-        <ArkSlider.Track class="relative h-1 flex-1 rounded-full bg-[var(--surface-button)]">
-          <ArkSlider.Range class="h-full rounded-full bg-accent" />
+      <ArkSlider.Control className="relative flex w-full items-center py-2">
+        <ArkSlider.Track className="relative h-1 flex-1 rounded-full bg-[var(--surface-button)]">
+          <ArkSlider.Range className="h-full rounded-full bg-accent" />
         </ArkSlider.Track>
         <ArkSlider.Thumb
-          aria-label={local['aria-label']}
-          class="size-4 cursor-grab rounded-full border border-line-input bg-popover shadow-[0_1px_3px_rgb(0_0_0/0.25)] outline-none focus-visible:outline-2 focus-visible:outline-[var(--state-focus-ring)] focus-visible:outline-offset-2 data-[dragging]:cursor-grabbing"
+          aria-label={ariaLabel}
+          className="size-4 cursor-grab rounded-full border border-line-input bg-popover shadow-[0_1px_3px_rgb(0_0_0/0.25)] outline-none focus-visible:outline-2 focus-visible:outline-[var(--state-focus-ring)] focus-visible:outline-offset-2 data-[dragging]:cursor-grabbing"
           index={0}
         >
           <ArkSlider.HiddenInput />
         </ArkSlider.Thumb>
-        <Show when={markerValues().length > 0}>
-          <ArkSlider.MarkerGroup class="pointer-events-none absolute inset-0">
-            <For each={markerValues()}>
-              {value => <ArkSlider.Marker class="size-0.5 -translate-x-px rounded-full bg-fg-faint" value={value} />}
-            </For>
+        {markerValues.length > 0 ? (
+          <ArkSlider.MarkerGroup className="pointer-events-none absolute inset-0">
+            {markerValues.map(markerValue => (
+              <ArkSlider.Marker
+                key={markerValue}
+                className="size-0.5 -translate-x-px rounded-full bg-fg-faint"
+                value={markerValue}
+              />
+            ))}
           </ArkSlider.MarkerGroup>
-        </Show>
+        ) : null}
       </ArkSlider.Control>
     </ArkSlider.Root>
   )

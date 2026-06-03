@@ -1,9 +1,9 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from 'bun:test'
 
 import { GlobalRegistrator } from '@happy-dom/global-registrator'
-import { createSignal, type JSX } from 'solid-js'
-import h from 'solid-js/h'
-import { render } from 'solid-js/web'
+import type { ReactElement } from 'react'
+import { flushSync } from 'react-dom'
+import { createRoot } from 'react-dom/client'
 
 import { Editor } from '../editor/Editor'
 import { EditorStatus } from '../editor/EditorStatus'
@@ -12,27 +12,28 @@ let cleanup: (() => void) | undefined
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: 'http://localhost/' })
-  ;(globalThis as typeof globalThis & { React: unknown }).React = {
-    Fragment: h.Fragment,
-    createElement: h
-  }
 })
 
-afterEach(() => {
+afterEach(async () => {
   cleanup?.()
   cleanup = undefined
   document.body.replaceChildren()
+  // Drain any React scheduler macrotasks queued by state updates so they run
+  // while window still exists, before the global DOM is torn down in afterAll.
+  await new Promise(resolve => setTimeout(resolve, 0))
 })
 
 afterAll(() => {
   GlobalRegistrator.unregister()
 })
 
-function mount(create: () => unknown) {
-  const root = document.createElement('main')
-  document.body.append(root)
-  cleanup = render(create as () => JSX.Element, root)
-  return root
+function mount(create: () => ReactElement) {
+  const container = document.createElement('main')
+  document.body.append(container)
+  const root = createRoot(container)
+  flushSync(() => root.render(create()))
+  cleanup = () => root.unmount()
+  return container
 }
 
 async function waitFor(assertion: () => boolean, timeoutMs = 1500): Promise<void> {
@@ -48,14 +49,14 @@ async function waitFor(assertion: () => boolean, timeoutMs = 1500): Promise<void
 
 describe('Editor component shell', () => {
   test('mounts the production editor surface and renders live-preview widgets', async () => {
-    mount(() =>
-      h(Editor, {
-        baseRevision: 'r1',
-        body: 'Intro [[Target]] #tag\n\n```ts\nconst value = 1\n```',
-        noteId: 'note-1',
-        onAutosave: async (body: string) => ({ body, revision: 'r2' })
-      })
-    )
+    mount(() => (
+      <Editor
+        baseRevision="r1"
+        body={'Intro [[Target]] #tag\n\n```ts\nconst value = 1\n```'}
+        noteId="note-1"
+        onAutosave={async (body: string) => ({ body, revision: 'r2' })}
+      />
+    ))
 
     await waitFor(() => document.querySelector('[data-testid="live-preview-surface"]') !== null)
 
@@ -66,20 +67,34 @@ describe('Editor component shell', () => {
   })
 
   test('replaces the document when note identity changes', async () => {
-    const [note, setNote] = createSignal({ body: 'First [[One]]', id: 'one', revision: 'r1' })
+    const container = document.createElement('main')
+    document.body.append(container)
+    const root = createRoot(container)
+    cleanup = () => root.unmount()
 
-    mount(() =>
-      h(Editor, {
-        baseRevision: () => note().revision,
-        body: () => note().body,
-        noteId: () => note().id,
-        onAutosave: async (body: string) => ({ body, revision: 'saved' })
-      })
+    flushSync(() =>
+      root.render(
+        <Editor
+          baseRevision="r1"
+          body="First [[One]]"
+          noteId="one"
+          onAutosave={async (body: string) => ({ body, revision: 'saved' })}
+        />
+      )
     )
 
     await waitFor(() => document.querySelector('[data-editor-role="wikilink"]')?.textContent === 'One')
 
-    setNote({ body: 'Second [[Two]]', id: 'two', revision: 'r2' })
+    flushSync(() =>
+      root.render(
+        <Editor
+          baseRevision="r2"
+          body="Second [[Two]]"
+          noteId="two"
+          onAutosave={async (body: string) => ({ body, revision: 'saved' })}
+        />
+      )
+    )
 
     await waitFor(() => document.querySelector('[data-editor-role="wikilink"]')?.textContent === 'Two')
     expect(document.querySelector('.cm-content')?.textContent).toContain('Second')
@@ -88,17 +103,17 @@ describe('Editor component shell', () => {
   test('routes widget document changes through autosave and shows conflict status', async () => {
     const savedBodies: string[] = []
 
-    mount(() =>
-      h(Editor, {
-        baseRevision: 'r1',
-        body: '- [ ] task',
-        noteId: 'task-note',
-        onAutosave: async (body: string) => {
+    mount(() => (
+      <Editor
+        baseRevision="r1"
+        body="- [ ] task"
+        noteId="task-note"
+        onAutosave={async (body: string) => {
           savedBodies.push(body)
           throw new Error('conflict: stale test revision')
-        }
-      })
-    )
+        }}
+      />
+    ))
 
     await waitFor(() => document.querySelector('[data-editor-role="task-checkbox"]') !== null)
     document
@@ -112,15 +127,17 @@ describe('Editor component shell', () => {
   test('routes wikilink open events through the component callback', async () => {
     const openedTargets: string[] = []
 
-    mount(() =>
-      h(Editor, {
-        baseRevision: 'r1',
-        body: 'Open [[Target]]',
-        noteId: 'wiki-note',
-        onAutosave: async (body: string) => ({ body, revision: 'r2' }),
-        onOpenWikilink: (target: string) => openedTargets.push(target)
-      })
-    )
+    mount(() => (
+      <Editor
+        baseRevision="r1"
+        body="Open [[Target]]"
+        noteId="wiki-note"
+        onAutosave={async (body: string) => ({ body, revision: 'r2' })}
+        onOpenWikilink={(target: string) => {
+          openedTargets.push(target)
+        }}
+      />
+    ))
 
     await waitFor(() => document.querySelector('[data-editor-role="wikilink"]') !== null)
     document
@@ -131,14 +148,14 @@ describe('Editor component shell', () => {
   })
 
   test('EditorStatus renders only problem states', () => {
-    const cleanRoot = mount(() => h(EditorStatus, { status: 'clean' }))
+    const cleanRoot = mount(() => <EditorStatus status="clean" />)
     expect(cleanRoot.querySelector('[data-testid="round-trip-status"]')).toBeNull()
 
     cleanup?.()
     cleanup = undefined
     document.body.replaceChildren()
 
-    const conflictRoot = mount(() => h(EditorStatus, { status: 'conflict' }))
+    const conflictRoot = mount(() => <EditorStatus status="conflict" />)
     expect(conflictRoot.querySelector('[data-testid="round-trip-status"]')?.textContent).toBe('Conflict')
   })
 })

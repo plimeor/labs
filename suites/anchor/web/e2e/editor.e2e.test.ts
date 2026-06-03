@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 
+import { withEditorWebView } from './harness/editor-webview-harness'
 import {
   assertPinnedBunWebViewVersion,
   editorWebViewBackends,
   isEditorWebViewE2EEnabled
 } from './harness/editor-webview-matrix'
-import { withEditorWebView } from './harness/editor-webview-harness'
 
 const TEST_TIMEOUT_MS = 60_000
 const enabled = isEditorWebViewE2EEnabled()
@@ -34,7 +34,9 @@ for (const backend of editorWebViewBackends()) {
           expect(await page.allText('[data-editor-role="markdown-link"]')).toEqual(
             expect.arrayContaining(['Anchor', 'docs'])
           )
-          expect(await page.allText('[data-editor-role="tag"]')).toEqual(expect.arrayContaining(['#markdown', '#editor']))
+          expect(await page.allText('[data-editor-role="tag"]')).toEqual(
+            expect.arrayContaining(['#markdown', '#editor'])
+          )
           expect(await page.count('[data-editor-role="task-checkbox"]')).toBeGreaterThanOrEqual(2)
           expect(await page.count('[data-editor-role="list-marker"]')).toBeGreaterThanOrEqual(0)
           expect(await page.count('[data-editor-role="blockquote-line"]')).toBeGreaterThan(0)

@@ -1,6 +1,5 @@
-import { useQuery } from '@tanstack/solid-query'
-import { createFileRoute } from '@tanstack/solid-router'
-import { For } from 'solid-js'
+import { useQuery } from '@tanstack/react-query'
+import { createFileRoute } from '@tanstack/react-router'
 
 import type { OperationRecord } from '../domain/types'
 import { useAnchor } from '../lib/anchor-context'
@@ -12,28 +11,30 @@ export const Route = createFileRoute('/settings')({
 
 function SettingsRoute() {
   const anchor = useAnchor()
-  const diagnostics = useQuery(() => ({
-    queryKey: ['diagnostics', anchor.vaultRevision()],
+  const diagnostics = useQuery({
+    queryKey: ['diagnostics', anchor.vaultRevision],
     queryFn: () => anchor.backend.diagnostics()
-  }))
-  const operations = useQuery(() => ({
-    queryKey: ['operations', anchor.vaultRevision()],
+  })
+  const operations = useQuery({
+    queryKey: ['operations', anchor.vaultRevision],
     queryFn: () => anchor.backend.listOperationRecords()
-  }))
+  })
 
   return (
-    <div class="route-stack" data-testid="settings-route">
-      <header class="route-header">
+    <div className="route-stack" data-testid="settings-route">
+      <header className="route-header">
         <div>
           <p>Settings</p>
           <h1>Diagnostics and operation records</h1>
         </div>
       </header>
-      <section class="diagnostics-card">
+      <section className="diagnostics-card">
         <pre>{JSON.stringify(diagnostics.data, null, 2)}</pre>
       </section>
-      <section class="operation-list">
-        <For each={operations.data ?? []}>{operation => <OperationRecordRow operation={operation} />}</For>
+      <section className="operation-list">
+        {(operations.data ?? []).map(operation => (
+          <OperationRecordRow key={operation.id} operation={operation} />
+        ))}
       </section>
     </div>
   )
@@ -41,7 +42,7 @@ function SettingsRoute() {
 
 function OperationRecordRow(props: { operation: OperationRecord }) {
   return (
-    <article class="operation-row">
+    <article className="operation-row">
       <div>
         <strong>{props.operation.operationType}</strong>
         <small>{props.operation.id}</small>
@@ -50,7 +51,7 @@ function OperationRecordRow(props: { operation: OperationRecord }) {
         {props.operation.actorType} / {props.operation.mode}
       </span>
       <span>{props.operation.approvalState}</span>
-      <div class="operation-details">
+      <div className="operation-details">
         <span>Targets: {props.operation.targetNoteIds.join(', ') || 'none'}</span>
         <span>Base: {formatRecordMap(props.operation.baseRevisions)}</span>
         <span>Result: {formatRecordMap(props.operation.resultingRevisions)}</span>

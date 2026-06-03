@@ -2,8 +2,6 @@
   "extends": "../../../tsconfig.json",
   "include": ["scripts/**/*.ts", "src/**/*.ts", "src/**/*.tsx", "vite.config.ts"],
   "compilerOptions": {
-    "jsx": "preserve",
-    "jsxImportSource": "solid-js",
     "types": ["vite/client", "bun"]
   }
 }

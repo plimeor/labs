@@ -5,6 +5,5 @@ export const taskCheckbox = tv({
 })
 
 export const listMarker = tv({
-  base:
-    'mx-1 inline-block h-1.5 w-1.5 rounded-full bg-[var(--text-muted)] align-middle'
+  base: 'mx-1 inline-block h-1.5 w-1.5 rounded-full bg-[var(--text-muted)] align-middle'
 })

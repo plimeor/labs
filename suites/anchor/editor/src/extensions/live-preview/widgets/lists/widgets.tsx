@@ -1,6 +1,5 @@
 import { Decoration, type EditorView, WidgetType } from '@codemirror/view'
 
-import { disposeSolidWidget, renderSolidWidget } from '../../../../rendering/solid-widget'
 import { ListMarker } from './components/ListMarker'
 import { TaskCheckbox } from './components/TaskCheckbox'
 
@@ -17,26 +16,20 @@ export class TaskCheckboxWidget extends WidgetType {
   }
 
   toDOM(view: EditorView): HTMLElement {
-    return renderSolidWidget(() =>
-      TaskCheckbox({
-        checked: this.checked,
-        onToggle: event => {
-          event.preventDefault()
-          const marker = this.checked ? '[x]' : '[ ]'
-          const replacement = this.checked ? '[ ]' : '[x]'
-          const slice = view.state.doc.sliceString(this.from, this.from + 3)
-          if (slice === marker) {
-            view.dispatch({
-              changes: { from: this.from, insert: replacement, to: this.from + 3 }
-            })
-          }
+    return TaskCheckbox({
+      checked: this.checked,
+      onToggle: event => {
+        event.preventDefault()
+        const marker = this.checked ? '[x]' : '[ ]'
+        const replacement = this.checked ? '[ ]' : '[x]'
+        const slice = view.state.doc.sliceString(this.from, this.from + 3)
+        if (slice === marker) {
+          view.dispatch({
+            changes: { from: this.from, insert: replacement, to: this.from + 3 }
+          })
         }
-      })
-    )
-  }
-
-  override destroy(dom: HTMLElement): void {
-    disposeSolidWidget(dom)
+      }
+    })
   }
 
   override ignoreEvent(): boolean {
@@ -50,11 +43,7 @@ export class ListMarkerWidget extends WidgetType {
   }
 
   toDOM(): HTMLElement {
-    return renderSolidWidget(() => ListMarker())
-  }
-
-  override destroy(dom: HTMLElement): void {
-    disposeSolidWidget(dom)
+    return ListMarker()
   }
 }
 

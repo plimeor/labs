@@ -1,6 +1,6 @@
 import { complexMarkdownStressNote, Editor } from '@plimeor/anchor-editor'
-import { createFileRoute } from '@tanstack/solid-router'
-import { createMemo, createSignal, For, Show } from 'solid-js'
+import { createFileRoute } from '@tanstack/react-router'
+import { useMemo, useState } from 'react'
 
 export const Route = createFileRoute('/playground')({
   component: PlaygroundRoute
@@ -22,16 +22,17 @@ interface PlaygroundEvent {
 }
 
 function PlaygroundRoute() {
-  const [activeSampleId, setActiveSampleId] = createSignal(editorPlaygroundSamples[0].id)
-  const [body, setBody] = createSignal(editorPlaygroundSamples[0].body)
-  const [events, setEvents] = createSignal<PlaygroundEvent[]>([
+  const [activeSampleId, setActiveSampleId] = useState(editorPlaygroundSamples[0].id)
+  const [body, setBody] = useState(editorPlaygroundSamples[0].body)
+  const [events, setEvents] = useState<PlaygroundEvent[]>([
     { detail: 'Loaded combined Markdown sample', id: 1, tone: 'info' }
   ])
-  const [noteSession, setNoteSession] = createSignal(1)
-  const [revision, setRevision] = createSignal('playground-1')
-  const [saveMode, setSaveMode] = createSignal<PlaygroundSaveMode>('normal')
-  const selectedSample = createMemo(
-    () => editorPlaygroundSamples.find(sample => sample.id === activeSampleId()) ?? editorPlaygroundSamples[0]
+  const [noteSession, setNoteSession] = useState(1)
+  const [revision, setRevision] = useState('playground-1')
+  const [saveMode, setSaveMode] = useState<PlaygroundSaveMode>('normal')
+  const selectedSample = useMemo(
+    () => editorPlaygroundSamples.find(sample => sample.id === activeSampleId) ?? editorPlaygroundSamples[0],
+    [activeSampleId]
   )
 
   const appendEvent = (detail: string, tone: PlaygroundEvent['tone'], nextBody?: string) => {
@@ -39,8 +40,8 @@ function PlaygroundRoute() {
   }
 
   const loadSample = () => {
-    const sample = selectedSample()
-    const nextSession = noteSession() + 1
+    const sample = selectedSample
+    const nextSession = noteSession + 1
     setBody(sample.body)
     setNoteSession(nextSession)
     setRevision(`playground-${nextSession}`)
@@ -54,22 +55,22 @@ function PlaygroundRoute() {
   ): Promise<{ body: string; revision: string }> => {
     appendEvent(`Autosave requested from ${baseRevision}`, 'info', nextBody)
 
-    if (saveMode() === 'slow') {
+    if (saveMode === 'slow') {
       await delay(900)
     }
 
-    if (saveMode() === 'conflict') {
+    if (saveMode === 'conflict') {
       appendEvent('Rejected as conflict', 'error')
       throw new Error('conflict: playground forced stale base revision')
     }
 
-    if (saveMode() === 'fail-once') {
+    if (saveMode === 'fail-once') {
       setSaveMode('normal')
       appendEvent('Rejected once', 'error')
       throw new Error('playground forced save failure')
     }
 
-    const nextRevision = `playground-${noteSession()}-${Date.now()}`
+    const nextRevision = `playground-${noteSession}-${Date.now()}`
     setBody(nextBody)
     setRevision(nextRevision)
     appendEvent(`Saved ${nextRevision}`, 'success', nextBody)
@@ -81,46 +82,47 @@ function PlaygroundRoute() {
   }
 
   return (
-    <div class="playground-route" data-testid="playground-route">
-      <header class="route-header">
+    <div className="playground-route" data-testid="playground-route">
+      <header className="route-header">
         <div>
           <p>Playground</p>
           <h1>Editor manual verification</h1>
         </div>
-        <div class="playground-header-actions">
-          <button class="secondary-action" data-testid="load-sample" type="button" onClick={loadSample}>
+        <div className="playground-header-actions">
+          <button className="secondary-action" data-testid="load-sample" type="button" onClick={loadSample}>
             Load sample
           </button>
         </div>
       </header>
 
-      <div class="playground-grid">
-        <section class="playground-editor">
-          <Show keyed when={noteSession()}>
-            {session => (
-              <Editor
-                baseRevision={revision()}
-                body={body()}
-                noteId={`playground-${session}`}
-                onAutosave={handleAutosave}
-                onDirtyChange={() => {}}
-                onOpenWikilink={handleOpenWikilink}
-              />
-            )}
-          </Show>
+      <div className="playground-grid">
+        <section className="playground-editor">
+          <Editor
+            key={noteSession}
+            baseRevision={revision}
+            body={body}
+            noteId={`playground-${noteSession}`}
+            onAutosave={handleAutosave}
+            onDirtyChange={() => {}}
+            onOpenWikilink={handleOpenWikilink}
+          />
         </section>
 
-        <aside class="playground-panel">
+        <aside className="playground-panel">
           <label>
             <span>Sample</span>
-            <select value={activeSampleId()} onChange={event => setActiveSampleId(event.currentTarget.value)}>
-              <For each={editorPlaygroundSamples}>{sample => <option value={sample.id}>{sample.label}</option>}</For>
+            <select value={activeSampleId} onChange={event => setActiveSampleId(event.currentTarget.value)}>
+              {editorPlaygroundSamples.map(sample => (
+                <option key={sample.id} value={sample.id}>
+                  {sample.label}
+                </option>
+              ))}
             </select>
           </label>
 
           <label>
             <span>Save mode</span>
-            <select value={saveMode()} onChange={event => setSaveMode(event.currentTarget.value as PlaygroundSaveMode)}>
+            <select value={saveMode} onChange={event => setSaveMode(event.currentTarget.value as PlaygroundSaveMode)}>
               <option value="normal">Normal</option>
               <option value="slow">Slow</option>
               <option value="fail-once">Fail once</option>
@@ -128,23 +130,19 @@ function PlaygroundRoute() {
             </select>
           </label>
 
-          <section class="playground-saved">
+          <section className="playground-saved">
             <h2>Saved Markdown</h2>
-            <pre>{body()}</pre>
+            <pre>{body}</pre>
           </section>
 
-          <section class="playground-events">
+          <section className="playground-events">
             <h2>Events</h2>
-            <For each={events()}>
-              {event => (
-                <article class={eventToneClassName(event.tone)}>
-                  <strong>{event.detail}</strong>
-                  <Show when={event.body}>
-                    <pre>{event.body}</pre>
-                  </Show>
-                </article>
-              )}
-            </For>
+            {events.map(event => (
+              <article key={event.id} className={eventToneClassName(event.tone)}>
+                <strong>{event.detail}</strong>
+                {event.body ? <pre>{event.body}</pre> : null}
+              </article>
+            ))}
           </section>
         </aside>
       </div>

@@ -5,7 +5,7 @@ import { languages } from '@codemirror/language-data'
 import { Compartment, EditorState } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
 import { tags } from '@lezer/highlight'
-import { createEffect, createSignal, onCleanup, onMount } from 'solid-js'
+import { useEffect, useRef, useState } from 'react'
 
 import type { AutosaveResult, SaveStatus } from '../autosave-controller'
 import { AutosaveController } from '../autosave-controller'
@@ -64,34 +64,48 @@ const baseEditorTheme = EditorView.theme({
 })
 
 export function Editor(props: EditorProps) {
-  const [status, setStatus] = createSignal<SaveStatus>('starting')
+  const [status, setStatus] = useState<SaveStatus>('starting')
 
-  let container!: HTMLDivElement
-  let activeNoteId = props.noteId
-  let controller: AutosaveController | null = null
-  let themeCompartment: Compartment | null = null
-  let themeObserver: MutationObserver | null = null
-  let view: EditorView | null = null
+  const containerRef = useRef<HTMLDivElement>(null)
+  const activeNoteIdRef = useRef(props.noteId)
+  const controllerRef = useRef<AutosaveController | null>(null)
+  const themeCompartmentRef = useRef<Compartment | null>(null)
+  const themeObserverRef = useRef<MutationObserver | null>(null)
+  const viewRef = useRef<EditorView | null>(null)
 
-  onMount(() => {
+  const propsRef = useRef(props)
+  propsRef.current = props
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const reconfigureCodeHighlight = () => {
+      const view = viewRef.current
+      const themeCompartment = themeCompartmentRef.current
+      if (!view || !themeCompartment) return
+      view.dispatch({ effects: themeCompartment.reconfigure(codeHighlightExtension()) })
+    }
+
     const syntaxThemeCompartment = new Compartment()
-    themeCompartment = syntaxThemeCompartment
-    const initialText = normalizeCrlf(props.body)
+    themeCompartmentRef.current = syntaxThemeCompartment
+    const initialText = normalizeCrlf(propsRef.current.body)
     const handleOpenWikilink = (event: Event) => {
       const target = (event as CustomEvent<{ target: string }>).detail?.target
       if (!target) return
 
-      const result = props.onOpenWikilink?.(target)
+      const result = propsRef.current.onOpenWikilink?.(target)
       if (result instanceof Promise) {
         result.catch(() => {})
       }
     }
 
-    controller = new AutosaveController(initialText, props.baseRevision, {
+    const controller = new AutosaveController(initialText, propsRef.current.baseRevision, {
       onStatusChange: setStatus,
-      getCurrentText: () => view?.state.doc.toString() ?? '',
-      onDirtyChange: dirty => props.onDirtyChange?.(dirty),
+      getCurrentText: () => viewRef.current?.state.doc.toString() ?? '',
+      onDirtyChange: dirty => propsRef.current.onDirtyChange?.(dirty),
       onDocReplace: newBody => {
+        const view = viewRef.current
         if (!view) return
         const current = view.state.doc.toString()
         if (current !== newBody) {
@@ -100,10 +114,11 @@ export function Editor(props: EditorProps) {
           })
         }
       },
-      onSave: (body, rev) => props.onAutosave(body, rev)
+      onSave: (body, rev) => propsRef.current.onAutosave(body, rev)
     })
+    controllerRef.current = controller
 
-    view = new EditorView({
+    const view = new EditorView({
       parent: container,
       state: EditorState.create({
         doc: initialText,
@@ -113,7 +128,7 @@ export function Editor(props: EditorProps) {
             {
               key: 'Mod-s',
               run() {
-                void controller?.flush()
+                void controllerRef.current?.flush()
                 return true
               }
             },
@@ -131,52 +146,51 @@ export function Editor(props: EditorProps) {
           codeBlockTheme,
           EditorView.updateListener.of(update => {
             if (update.docChanged) {
-              controller?.onChange(update.state.doc.toString())
+              controllerRef.current?.onChange(update.state.doc.toString())
             }
           })
         ]
       })
     })
+    viewRef.current = view
     container.addEventListener('anchor:open-wikilink', handleOpenWikilink)
-    activeNoteId = props.noteId
-    controller.load(initialText, props.baseRevision)
+    activeNoteIdRef.current = propsRef.current.noteId
+    controller.load(initialText, propsRef.current.baseRevision)
 
     if (typeof MutationObserver !== 'undefined' && typeof document !== 'undefined') {
-      themeObserver = new MutationObserver(reconfigureCodeHighlight)
+      const themeObserver = new MutationObserver(reconfigureCodeHighlight)
+      themeObserverRef.current = themeObserver
       themeObserver.observe(document.documentElement, {
         attributeFilter: ['data-theme', 'style'],
         attributes: true
       })
     }
 
-    onCleanup(() => {
+    return () => {
       container.removeEventListener('anchor:open-wikilink', handleOpenWikilink)
-      controller?.destroy()
-      themeObserver?.disconnect()
-      view?.destroy()
-      controller = null
-      themeCompartment = null
-      themeObserver = null
-      view = null
-    })
-  })
+      controllerRef.current?.destroy()
+      themeObserverRef.current?.disconnect()
+      viewRef.current?.destroy()
+      controllerRef.current = null
+      themeCompartmentRef.current = null
+      themeObserverRef.current = null
+      viewRef.current = null
+    }
+  }, [])
 
-  function reconfigureCodeHighlight() {
-    if (!view || !themeCompartment) return
-    view.dispatch({ effects: themeCompartment.reconfigure(codeHighlightExtension()) })
-  }
-
-  createEffect(() => {
+  useEffect(() => {
     const noteId = props.noteId
     const body = props.body
     const baseRevision = props.baseRevision
 
+    const view = viewRef.current
+    const controller = controllerRef.current
     if (!view || !controller) return
 
-    const noteChanged = noteId !== activeNoteId
+    const noteChanged = noteId !== activeNoteIdRef.current
 
     if (noteChanged) {
-      activeNoteId = noteId
+      activeNoteIdRef.current = noteId
       const nextText = normalizeCrlf(body)
       resetViewDocument(view, nextText)
       controller.load(nextText, baseRevision)
@@ -191,19 +205,17 @@ export function Editor(props: EditorProps) {
         controller.load(incomingText, baseRevision)
       }
     }
-  })
+  }, [props.noteId, props.body, props.baseRevision])
 
   return (
-    <section class="flex min-h-0 flex-1 flex-col overflow-hidden" data-testid="markdown-editor">
-      <EditorStatus status={status()} />
-      <div class="relative min-h-0 min-w-0 flex-1 overflow-hidden">
+    <section className="flex min-h-0 flex-1 flex-col overflow-hidden" data-testid="markdown-editor">
+      <EditorStatus status={status} />
+      <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
         <div
-          ref={element => {
-            container = element
-          }}
+          ref={containerRef}
           aria-label="Note editor"
           aria-multiline="true"
-          class="editor-surface cm-editor-mount"
+          className="editor-surface cm-editor-mount"
           data-testid="live-preview-surface"
           role="textbox"
         />

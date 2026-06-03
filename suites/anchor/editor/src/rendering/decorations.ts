@@ -1,5 +1,5 @@
 import { type Extension, RangeSetBuilder } from '@codemirror/state'
-import { Decoration, type DecorationSet } from '@codemirror/view'
+import type { Decoration, DecorationSet } from '@codemirror/view'
 
 export interface PendingDeco {
   from: number

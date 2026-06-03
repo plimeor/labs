@@ -1,20 +1,15 @@
 import { syntaxTree } from '@codemirror/language'
-import { type Extension } from '@codemirror/state'
-import {
-  type DecorationSet,
-  type PluginValue,
-  ViewPlugin,
-  type ViewUpdate
-} from '@codemirror/view'
+import type { Extension } from '@codemirror/state'
+import { type DecorationSet, type PluginValue, ViewPlugin, type ViewUpdate } from '@codemirror/view'
 
 import { DecorationCollector, decorationSetFrom } from '../../rendering/decorations'
+import type { CollectorContext } from './types'
 import { collectBlockquote } from './widgets/blockquote/collect'
 import { collectHeading } from './widgets/headings/collect'
 import { collectInlineFormat } from './widgets/inline-format/collect'
+import { collectWikilinks, createMarkdownLinkCollector } from './widgets/links/collect'
 import { collectListMarkers, collectTaskCheckbox } from './widgets/lists/collect'
-import { createMarkdownLinkCollector, collectWikilinks } from './widgets/links/collect'
 import { collectTags } from './widgets/tags/collect'
-import type { CollectorContext } from './types'
 
 class LivePreviewPlugin implements PluginValue {
   decorations: DecorationSet

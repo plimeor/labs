@@ -1,6 +1,5 @@
-import { useQuery } from '@tanstack/solid-query'
-import { createFileRoute, Link } from '@tanstack/solid-router'
-import { For } from 'solid-js'
+import { useQuery } from '@tanstack/react-query'
+import { createFileRoute, Link } from '@tanstack/react-router'
 
 import { useAnchor } from '../lib/anchor-context'
 
@@ -10,35 +9,31 @@ export const Route = createFileRoute('/objects')({
 
 function ObjectsRoute() {
   const anchor = useAnchor()
-  const objects = useQuery(() => ({
-    queryKey: ['objects', anchor.vaultRevision()],
+  const objects = useQuery({
+    queryKey: ['objects', anchor.vaultRevision],
     queryFn: () => anchor.backend.getObjectTypes()
-  }))
+  })
 
   return (
-    <div class="route-stack" data-testid="objects-route">
-      <header class="route-header">
+    <div className="route-stack" data-testid="objects-route">
+      <header className="route-header">
         <div>
           <p>Objects</p>
           <h1>Types and properties as enhancements</h1>
         </div>
       </header>
-      <div class="object-grid">
-        <For each={objects.data ?? []}>
-          {object => (
-            <section class="object-card">
-              <h2>{object.type}</h2>
-              <p>{object.recommendedProperties.join(', ')}</p>
-              <For each={object.notes}>
-                {note => (
-                  <Link class="object-note" to="/notes/$noteId" params={{ noteId: note.id }}>
-                    {note.title}
-                  </Link>
-                )}
-              </For>
-            </section>
-          )}
-        </For>
+      <div className="object-grid">
+        {(objects.data ?? []).map(object => (
+          <section className="object-card" key={object.type}>
+            <h2>{object.type}</h2>
+            <p>{object.recommendedProperties.join(', ')}</p>
+            {object.notes.map(note => (
+              <Link className="object-note" to="/notes/$noteId" params={{ noteId: note.id }} key={note.id}>
+                {note.title}
+              </Link>
+            ))}
+          </section>
+        ))}
       </div>
     </div>
   )

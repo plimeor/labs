@@ -1,5 +1,5 @@
-import { ScriptOnce } from '@tanstack/solid-router'
-import { createSignal, type JSX, onCleanup, onMount } from 'solid-js'
+import { ScriptOnce } from '@tanstack/react-router'
+import { type ReactNode, useEffect, useSyncExternalStore } from 'react'
 
 export type Theme = 'light' | 'dark'
 export type ThemeMode = Theme | 'system'
@@ -10,7 +10,7 @@ const SYSTEM_DARK_QUERY = '(prefers-color-scheme: dark)'
 
 // Pre-paint stamp injected before the app renders, so the first frame already
 // has the right theme. Mirrors storedMode()/resolveMode() below — keep in sync.
-const THEME_INIT_SCRIPT = `
+export const THEME_INIT_SCRIPT = `
 (() => {
   const stored = localStorage.getItem('${STORAGE_KEY}')
   const mode = stored === 'dark' || stored === 'light' || stored === 'system' ? stored : 'system'
@@ -66,19 +66,43 @@ function syncTauriWindowTheme(theme: Theme): void {
     })
 }
 
+interface ThemeSnapshot {
+  theme: Theme
+  themeMode: ThemeMode
+}
+
 // themeMode is the user preference (light/dark/system); theme is the applied
 // value (light/dark). Both are only ever written together by commit(), so they
-// cannot drift apart.
+// cannot drift apart. The snapshot reference is stable between commits so
+// useSyncExternalStore does not loop.
 const initialMode = storedMode()
-const [themeMode, setThemeModeSignal] = createSignal<ThemeMode>(initialMode)
-const [theme, setThemeSignal] = createSignal<Theme>(resolveMode(initialMode))
+let snapshot: ThemeSnapshot = { theme: resolveMode(initialMode), themeMode: initialMode }
 
-export { theme, themeMode }
+const listeners = new Set<() => void>()
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener)
+  return () => {
+    listeners.delete(listener)
+  }
+}
+
+function getSnapshot(): ThemeSnapshot {
+  return snapshot
+}
+
+export function theme(): Theme {
+  return snapshot.theme
+}
+
+export function themeMode(): ThemeMode {
+  return snapshot.themeMode
+}
 
 function commit(next: ThemeMode, persist: boolean): void {
   const resolved = resolveMode(next)
-  setThemeModeSignal(next)
-  setThemeSignal(resolved)
+  snapshot = { theme: resolved, themeMode: next }
+  for (const listener of listeners) listener()
   if (persist) localStorage.setItem(STORAGE_KEY, next)
   stampRoot(resolved)
   syncThemeColorMeta()
@@ -89,13 +113,18 @@ export function setThemeMode(next: ThemeMode): void {
   commit(next, true)
 }
 
-export function ThemeProvider(props: { children: JSX.Element }) {
-  onMount(() => {
+/** Reactive read of the live theme state for components. */
+export function useTheme(): ThemeSnapshot {
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+}
+
+export function ThemeProvider(props: { children: ReactNode }) {
+  useEffect(() => {
     commit(storedMode(), false)
 
     const systemQuery = window.matchMedia(SYSTEM_DARK_QUERY)
     const onSystemChange = () => {
-      if (themeMode() === 'system') commit('system', false)
+      if (snapshot.themeMode === 'system') commit('system', false)
     }
     systemQuery.addEventListener('change', onSystemChange)
 
@@ -104,15 +133,15 @@ export function ThemeProvider(props: { children: JSX.Element }) {
     }
     window.addEventListener('storage', onStorage)
 
-    onCleanup(() => {
+    return () => {
       systemQuery.removeEventListener('change', onSystemChange)
       window.removeEventListener('storage', onStorage)
-    })
-  })
+    }
+  }, [])
 
   return (
     <>
-      <ScriptOnce children={THEME_INIT_SCRIPT} />
+      <ScriptOnce>{THEME_INIT_SCRIPT}</ScriptOnce>
       {props.children}
     </>
   )
@@ -120,4 +149,4 @@ export function ThemeProvider(props: { children: JSX.Element }) {
 
 // Stamp synchronously at module load, before the first render, so there is no
 // flash of the wrong theme.
-stampRoot(theme())
+stampRoot(snapshot.theme)

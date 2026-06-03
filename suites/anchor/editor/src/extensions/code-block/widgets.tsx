@@ -1,6 +1,5 @@
 import { type EditorView, WidgetType } from '@codemirror/view'
 
-import { disposeSolidWidget, renderSolidWidget } from '../../rendering/solid-widget'
 import { CodeCopyButton } from './components/CodeCopyButton'
 import { CodeLanguageLabel, type CodeLanguageLabelElement } from './components/CodeLanguageLabel'
 
@@ -65,11 +64,7 @@ export class CopyButtonWidget extends WidgetType {
   }
 
   toDOM(): HTMLElement {
-    return renderSolidWidget(() => CodeCopyButton({ codeText: this.codeText }))
-  }
-
-  override destroy(dom: HTMLElement): void {
-    disposeSolidWidget(dom)
+    return CodeCopyButton({ codeText: this.codeText })
   }
 
   override ignoreEvent(): boolean {

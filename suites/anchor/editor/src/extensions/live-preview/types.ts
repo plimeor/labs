@@ -1,6 +1,6 @@
-import type { SyntaxNodeRef, Tree } from '@lezer/common'
 import type { Text } from '@codemirror/state'
 import type { EditorView } from '@codemirror/view'
+import type { SyntaxNodeRef, Tree } from '@lezer/common'
 
 import type { DecorationCollector } from '../../rendering/decorations'
 
@@ -11,7 +11,7 @@ export interface CollectorContext {
   view: EditorView
 }
 
-export type TreeEnterHandler = (context: CollectorContext, node: SyntaxNodeRef) => false | void
+export type TreeEnterHandler = (context: CollectorContext, node: SyntaxNodeRef) => false | undefined
 export type TreeLeaveHandler = (context: CollectorContext, node: SyntaxNodeRef) => void
 
 export type SemanticToken =

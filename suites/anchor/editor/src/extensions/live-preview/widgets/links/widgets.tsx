@@ -1,7 +1,5 @@
-import { Decoration } from '@codemirror/view'
-import { WidgetType } from '@codemirror/view'
+import { Decoration, WidgetType } from '@codemirror/view'
 
-import { disposeSolidWidget, renderSolidWidget } from '../../../../rendering/solid-widget'
 import { MarkdownLinkChip } from './components/MarkdownLinkChip'
 import { WikilinkChip } from './components/WikilinkChip'
 
@@ -20,26 +18,20 @@ export class WikilinkWidget extends WidgetType {
   }
 
   toDOM(): HTMLElement {
-    return renderSolidWidget(() =>
-      WikilinkChip({
-        target: this.target,
-        onOpen: event => {
-          if (event.metaKey || event.ctrlKey) {
-            event.preventDefault()
-            ;(event.currentTarget as HTMLElement).dispatchEvent(
-              new CustomEvent('anchor:open-wikilink', {
-                bubbles: true,
-                detail: { target: this.target }
-              })
-            )
-          }
+    return WikilinkChip({
+      target: this.target,
+      onOpen: event => {
+        if (event.metaKey || event.ctrlKey) {
+          event.preventDefault()
+          ;(event.currentTarget as HTMLElement).dispatchEvent(
+            new CustomEvent('anchor:open-wikilink', {
+              bubbles: true,
+              detail: { target: this.target }
+            })
+          )
         }
-      })
-    )
-  }
-
-  override destroy(dom: HTMLElement): void {
-    disposeSolidWidget(dom)
+      }
+    })
   }
 }
 
@@ -56,24 +48,18 @@ export class MarkdownLinkWidget extends WidgetType {
   }
 
   toDOM(): HTMLElement {
-    return renderSolidWidget(() =>
-      MarkdownLinkChip({
-        label: this.label,
-        url: this.url,
-        onOpen: event => {
-          if (event.metaKey || event.ctrlKey) {
-            event.preventDefault()
-            if (isSafeUrl(this.url)) {
-              window.open(this.url, '_blank', 'noopener,noreferrer')
-            }
+    return MarkdownLinkChip({
+      label: this.label,
+      url: this.url,
+      onOpen: event => {
+        if (event.metaKey || event.ctrlKey) {
+          event.preventDefault()
+          if (isSafeUrl(this.url)) {
+            window.open(this.url, '_blank', 'noopener,noreferrer')
           }
         }
-      })
-    )
-  }
-
-  override destroy(dom: HTMLElement): void {
-    disposeSolidWidget(dom)
+      }
+    })
   }
 }
 

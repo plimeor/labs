@@ -1,6 +1,5 @@
 import { Decoration, WidgetType } from '@codemirror/view'
 
-import { disposeSolidWidget, renderSolidWidget } from '../../../../rendering/solid-widget'
 import { TagChip } from './components/TagChip'
 
 export class TagWidget extends WidgetType {
@@ -16,11 +15,7 @@ export class TagWidget extends WidgetType {
   }
 
   toDOM(): HTMLElement {
-    return renderSolidWidget(() => TagChip({ raw: this.raw, value: this.value }))
-  }
-
-  override destroy(dom: HTMLElement): void {
-    disposeSolidWidget(dom)
+    return TagChip({ raw: this.raw, value: this.value })
   }
 }
 

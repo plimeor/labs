@@ -1,4 +1,4 @@
-import { createHashHistory, createRouter, RouterProvider } from '@tanstack/solid-router'
+import { createHashHistory, createRouter, RouterProvider } from '@tanstack/react-router'
 
 import { AnchorProvider } from './lib/anchor-context'
 import { routeTree } from './routeTree.gen'
@@ -8,7 +8,7 @@ const router = createRouter({
   routeTree
 })
 
-declare module '@tanstack/solid-router' {
+declare module '@tanstack/react-router' {
   interface Register {
     router: typeof router
   }

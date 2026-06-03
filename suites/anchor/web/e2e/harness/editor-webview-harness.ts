@@ -62,16 +62,16 @@ export class EditorWebViewHarness {
 
     this.view = new WebView({
       backend: this.backend,
-      console: (level, ...args) => {
-        if (level === 'error') {
-          this.consoleMessages.push(`${level}: ${args.map(String).join(' ')}`)
-        }
-      },
       headless: true,
       height: this.height,
       title: `Anchor editor e2e ${this.backend}`,
       url: `${this.baseUrl}/#/playground`,
-      width: this.width
+      width: this.width,
+      console: (level, ...args) => {
+        if (level === 'error') {
+          this.consoleMessages.push(`${level}: ${args.map(String).join(' ')}`)
+        }
+      }
     })
 
     await this.waitUntilLoaded()

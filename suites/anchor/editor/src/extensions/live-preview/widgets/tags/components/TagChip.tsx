@@ -1,5 +1,3 @@
-import h from 'solid-js/h'
-
 import { tagChip } from './styles'
 
 interface TagChipProps {
@@ -7,15 +5,12 @@ interface TagChipProps {
   value: string
 }
 
-export function TagChip(props: TagChipProps) {
-  return h(
-    'span',
-    {
-      class: tagChip(),
-      'data-editor-role': 'tag',
-      'data-editor-tag': props.value,
-      'data-editor-tag-raw': props.raw
-    },
-    props.raw
-  )
+export function TagChip(props: TagChipProps): HTMLSpanElement {
+  const span = document.createElement('span')
+  span.className = tagChip()
+  span.dataset.editorRole = 'tag'
+  span.dataset.editorTag = props.value
+  span.dataset.editorTagRaw = props.raw
+  span.textContent = props.raw
+  return span
 }
