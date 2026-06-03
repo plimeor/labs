@@ -1,8 +1,7 @@
 import { Pagination as ArkPagination, type PaginationPageChangeDetails } from '@ark-ui/react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { forwardRef } from 'react'
-
-import styles from './Pagination.module.css'
+import { tv } from 'tailwind-variants'
 
 export type { PaginationPageChangeDetails }
 
@@ -35,6 +34,41 @@ export interface PaginationProps {
   className?: string
 }
 
+// One tv() with a slot per Ark part. `cell` is the shared base for every page
+// number, the ellipsis, and the prev/next triggers; `nav`, `edge`, and `dots`
+// are mixed onto the relevant elements. Named utilities (bg-hover, rounded-sm,
+// …) emit the same var(--token) the old CSS Module used; primitives/motion
+// tokens use the arbitrary [var(--token)] form. The active page lifts via
+// Ark's data-selected; edge triggers quiet on data-disabled / :disabled — the
+// later mixin classes win by source order, matching the module's selectors.
+const pagination = tv({
+  slots: {
+    dots: ['cursor-default text-tertiary', 'hover:bg-transparent hover:text-tertiary'],
+    edge: 'mx-1',
+    root: 'font-ui inline-flex items-center gap-1',
+    cell: [
+      'box-border min-w-[32px] h-[32px] inline-flex items-center justify-center p-0 border-0 bg-transparent',
+      'rounded-sm font-[inherit] text-sm font-medium leading-none text-secondary cursor-pointer',
+      'transition-colors duration-[var(--dur-fast)] ease-standard',
+      'hover:bg-hover hover:text-ink',
+      'data-[selected]:bg-accent-subtle data-[selected]:text-accent-fg data-[selected]:font-semibold',
+      'data-[selected]:hover:bg-accent-subtle data-[selected]:hover:text-accent-fg',
+      'focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2',
+      '[&>svg]:w-[15px] [&>svg]:h-[15px] [&>svg]:shrink-0'
+    ],
+    nav: [
+      'text-tertiary',
+      'hover:text-ink',
+      'data-disabled:text-disabled data-disabled:pointer-events-none data-disabled:cursor-default',
+      'disabled:text-disabled disabled:pointer-events-none disabled:cursor-default',
+      'data-disabled:hover:bg-transparent data-disabled:hover:text-disabled',
+      'disabled:hover:bg-transparent disabled:hover:text-disabled'
+    ]
+  }
+})
+
+const styles = pagination()
+
 /**
  * Imprint Pagination. Ark UI Pagination behavior (page math, prev/next edges,
  * ellipsis truncation, full ARIA wiring) skinned with Imprint tokens. Renders
@@ -52,25 +86,25 @@ export const Pagination = forwardRef<HTMLElement, PaginationProps>(function Pagi
   return (
     <ArkPagination.Root
       ref={ref}
-      className={className ? `${styles.root} ${className}` : styles.root}
+      className={styles.root({ className })}
       translations={{ nextTriggerLabel: nextLabel, prevTriggerLabel: prevLabel, rootLabel: ariaLabel }}
       {...rest}
     >
-      <ArkPagination.PrevTrigger className={`${styles.cell} ${styles.nav} ${styles.edge}`}>
+      <ArkPagination.PrevTrigger className={`${styles.cell()} ${styles.nav()} ${styles.edge()}`}>
         <ChevronLeft aria-hidden="true" />
       </ArkPagination.PrevTrigger>
       <ArkPagination.Context>
         {pagination =>
           pagination.pages.map((page, index) =>
             page.type === 'page' ? (
-              <ArkPagination.Item key={page.value} {...page} className={styles.cell}>
+              <ArkPagination.Item key={page.value} {...page} className={styles.cell()}>
                 {page.value}
               </ArkPagination.Item>
             ) : (
               <ArkPagination.Ellipsis
                 key={`ellipsis-${index}`}
                 index={index}
-                className={`${styles.cell} ${styles.dots}`}
+                className={`${styles.cell()} ${styles.dots()}`}
               >
                 &#8230;
               </ArkPagination.Ellipsis>
@@ -78,7 +112,7 @@ export const Pagination = forwardRef<HTMLElement, PaginationProps>(function Pagi
           )
         }
       </ArkPagination.Context>
-      <ArkPagination.NextTrigger className={`${styles.cell} ${styles.nav} ${styles.edge}`}>
+      <ArkPagination.NextTrigger className={`${styles.cell()} ${styles.nav()} ${styles.edge()}`}>
         <ChevronRight aria-hidden="true" />
       </ArkPagination.NextTrigger>
     </ArkPagination.Root>

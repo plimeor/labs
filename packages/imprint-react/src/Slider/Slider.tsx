@@ -1,9 +1,35 @@
 import { Slider as ArkSlider, type SliderValueChangeDetails } from '@ark-ui/react'
 import { forwardRef, type ReactNode } from 'react'
-
-import styles from './Slider.module.css'
+import { tv } from 'tailwind-variants'
 
 export type { SliderValueChangeDetails }
+
+// One tv() with a slot per Ark part. Named utilities (bg-active, text-secondary,
+// rounded-full, …) emit the same var(--token) the old CSS Module used; fixed px
+// (6px track/range height, 18px thumb, 1.5px ring) and display:contents use the
+// arbitrary form. The thumb's always-visible focus ring is keyed to Ark's
+// data-focus; cursor-not-allowed lifts from the root's data-disabled.
+const slider = tv({
+  slots: {
+    control: 'relative flex items-center w-full',
+    header: 'flex items-center justify-between mb-3',
+    headerHidden: '[display:contents]',
+    label: 'text-sm font-normal leading-snug text-secondary',
+    range: 'h-[6px] bg-accent rounded-full',
+    root: 'font-ui flex flex-col w-full data-disabled:cursor-not-allowed data-disabled:opacity-45',
+    srOnly: 'absolute w-px h-px -m-px p-0 overflow-hidden [clip:rect(0,0,0,0)] whitespace-nowrap border-0',
+    track: 'relative flex-1 h-[6px] bg-active rounded-full',
+    valueText: 'font-mono text-sm text-tertiary',
+    thumb: [
+      'w-[18px] h-[18px] rounded-full bg-content border-[1.5px] border-accent shadow-2 cursor-grab outline-none',
+      'data-[dragging]:cursor-grabbing',
+      'data-[focus]:outline-2 data-[focus]:outline-focus data-[focus]:outline-offset-2',
+      '[[data-disabled]_&]:cursor-not-allowed'
+    ]
+  }
+})
+
+const styles = slider()
 
 export interface SliderProps {
   /** Controlled value. */
@@ -81,7 +107,7 @@ export const Slider = forwardRef<HTMLDivElement, SliderProps>(function Slider(
   return (
     <ArkSlider.Root
       ref={ref}
-      className={className ? `${styles.root} ${className}` : styles.root}
+      className={styles.root({ className })}
       value={value != null ? [value] : undefined}
       defaultValue={value == null ? [defaultValue] : undefined}
       onValueChange={onValueChange ? details => onValueChange(details.value[0]) : undefined}
@@ -89,25 +115,25 @@ export const Slider = forwardRef<HTMLDivElement, SliderProps>(function Slider(
       aria-label={accessibleLabel != null ? [accessibleLabel] : undefined}
       {...rest}
     >
-      <div className={hasVisibleLabel || hasReadout ? styles.header : styles.headerHidden}>
-        <ArkSlider.Label className={hasVisibleLabel ? styles.label : styles.srOnly}>
+      <div className={hasVisibleLabel || hasReadout ? styles.header() : styles.headerHidden()}>
+        <ArkSlider.Label className={hasVisibleLabel ? styles.label() : styles.srOnly()}>
           {label ?? accessibleLabel ?? ''}
         </ArkSlider.Label>
         {hasReadout ? (
           <ArkSlider.Context>
             {api => (
-              <ArkSlider.ValueText className={styles.valueText}>
+              <ArkSlider.ValueText className={styles.valueText()}>
                 {format(api.value[0], formatValue)}
               </ArkSlider.ValueText>
             )}
           </ArkSlider.Context>
         ) : null}
       </div>
-      <ArkSlider.Control className={styles.control}>
-        <ArkSlider.Track className={styles.track}>
-          <ArkSlider.Range className={styles.range} />
+      <ArkSlider.Control className={styles.control()}>
+        <ArkSlider.Track className={styles.track()}>
+          <ArkSlider.Range className={styles.range()} />
         </ArkSlider.Track>
-        <ArkSlider.Thumb index={0} className={styles.thumb}>
+        <ArkSlider.Thumb index={0} className={styles.thumb()}>
           <ArkSlider.HiddenInput />
         </ArkSlider.Thumb>
       </ArkSlider.Control>

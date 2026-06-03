@@ -1,0 +1,17 @@
+/* Imprint Progress — indeterminate motion driven by Ark's data-state. These
+   keyframes can't be expressed as utilities, so they live here and are bound
+   inline via animate-[…] on the Range (linear) and Circle (circular). */
+@keyframes imprint-progress-linear-indeterminate {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(310%);
+  }
+}
+
+@keyframes imprint-progress-circular-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

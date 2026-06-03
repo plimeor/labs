@@ -1,0 +1,23 @@
+/* Imprint Tooltip — enter/exit motion driven by Ark's data-state. These
+   keyframes can't be expressed as utilities, so they live here and are bound
+   inline via animate-[…] on the Content. */
+@keyframes imprint-tooltip-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes imprint-tooltip-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}

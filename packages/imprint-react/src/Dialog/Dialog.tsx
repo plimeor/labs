@@ -47,12 +47,12 @@ export interface DialogProps {
 // co-located keyframes via Ark's data-state.
 const dialog = tv({
   slots: {
-    body: 'pt-0 px-5 pb-4 text-[length:var(--text-base)] leading-normal text-body',
-    description: 'm-0 pt-2 px-5 pb-4 text-[length:var(--text-base)] leading-relaxed text-secondary',
+    body: 'pt-0 px-5 pb-4 text-base leading-normal text-body',
+    description: 'm-0 pt-2 px-5 pb-4 text-base leading-relaxed text-secondary',
     footer: 'flex justify-end gap-2 py-3 px-5 border-t border-border-subtle',
     header: 'pt-5 px-5 pb-1',
     positioner: 'fixed inset-0 flex items-center justify-center p-4',
-    title: 'm-0 font-ui text-[length:var(--text-lg)] font-semibold leading-snug tracking-tight text-ink',
+    title: 'm-0 font-ui text-lg font-semibold leading-snug tracking-tight text-ink',
     backdrop: [
       'fixed inset-0 bg-scrim',
       'data-[state=open]:animate-[imprint-dialog-fade-in_var(--dur-base)_var(--ease-out)]',

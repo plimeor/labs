@@ -1,7 +1,6 @@
 import { Avatar as ArkAvatar, type AvatarStatusChangeDetails } from '@ark-ui/react'
 import { type CSSProperties, forwardRef, type ReactNode } from 'react'
-
-import styles from './Avatar.module.css'
+import { tv } from 'tailwind-variants'
 
 export type { AvatarStatusChangeDetails }
 
@@ -46,6 +45,38 @@ export interface AvatarProps {
   style?: CSSProperties
 }
 
+// One tv() with a slot per Ark part. The `size` variant drives the root's box
+// dimensions and font-size; the `tone` variant fills the fallback surface; the
+// status dot's color switches on its own data-status attribute. Named utilities
+// (rounded-full, bg-accent, …) emit the same var(--token) the old CSS Module
+// used; primitives use the arbitrary [var(--token)] form.
+const avatar = tv({
+  defaultVariants: { size: 'md', tone: 'accent' },
+  slots: {
+    fallback: 'inline-flex w-full h-full items-center justify-center rounded-[inherit]',
+    image: 'absolute inset-0 w-full h-full rounded-[inherit] object-cover',
+    root: [
+      'relative box-border inline-flex shrink-0 items-center justify-center',
+      'rounded-full font-ui font-semibold leading-none select-none'
+    ],
+    status: [
+      'absolute right-[-1px] bottom-[-1px] size-[11px] rounded-full border-2 border-canvas',
+      'data-[status=online]:bg-success',
+      'data-[status=offline]:bg-[var(--warm-400)]'
+    ]
+  },
+  variants: {
+    size: {
+      md: { root: 'size-[38px] text-md' },
+      sm: { root: 'size-[34px] text-sm' }
+    },
+    tone: {
+      accent: { fallback: 'bg-accent text-on-accent' },
+      neutral: { fallback: 'bg-[var(--warm-300)] text-ink' }
+    }
+  }
+})
+
 /**
  * Imprint Avatar. Ark UI Avatar behavior (image load tracking with graceful
  * fallback) skinned with Imprint tokens. Renders a circular surface with an
@@ -56,6 +87,8 @@ export const Avatar = forwardRef<HTMLDivElement, AvatarProps>(function Avatar(
   { src, alt, fallback, size = 'md', tone = 'accent', status, onStatusChange, id, className, style },
   ref
 ) {
+  const styles = avatar({ size, tone })
+
   return (
     <ArkAvatar.Root
       ref={ref}
@@ -64,11 +97,11 @@ export const Avatar = forwardRef<HTMLDivElement, AvatarProps>(function Avatar(
       data-tone={tone}
       style={style}
       onStatusChange={onStatusChange}
-      className={className ? `${styles.root} ${className}` : styles.root}
+      className={styles.root({ className })}
     >
-      <ArkAvatar.Fallback className={styles.fallback}>{fallback}</ArkAvatar.Fallback>
-      {src != null ? <ArkAvatar.Image className={styles.image} src={src} alt={alt} /> : null}
-      {status != null ? <span className={styles.status} data-status={status} aria-hidden="true" /> : null}
+      <ArkAvatar.Fallback className={styles.fallback()}>{fallback}</ArkAvatar.Fallback>
+      {src != null ? <ArkAvatar.Image className={styles.image()} src={src} alt={alt} /> : null}
+      {status != null ? <span className={styles.status()} data-status={status} aria-hidden="true" /> : null}
     </ArkAvatar.Root>
   )
 })

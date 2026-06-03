@@ -1,9 +1,32 @@
 import { Tooltip as ArkTooltip, Portal, type TooltipOpenChangeDetails } from '@ark-ui/react'
 import { forwardRef, type ReactNode } from 'react'
+import { tv } from 'tailwind-variants'
 
-import styles from './Tooltip.module.css'
+import './Tooltip.css'
 
 export type { TooltipOpenChangeDetails }
+
+// One tv() with a slot per Ark part. Ark sizes the arrow from the --arrow-size /
+// --arrow-background custom props on the positioner and arrow. Named utilities
+// (rounded-sm, shadow-3, font-ui, …) emit the same var(--token) the old CSS
+// Module used; primitives/motion tokens use the arbitrary [var(--token)] form.
+// Enter/exit motion is bound to the co-located keyframes via Ark's data-state.
+const tooltip = tv({
+  slots: {
+    arrow: '[--arrow-size:8px] [--arrow-background:var(--warm-900)]',
+    arrowTip: 'border-0',
+    positioner: 'z-50 [--arrow-size:8px] [--arrow-background:var(--warm-900)]',
+    content: [
+      'font-ui text-xs font-medium leading-snug',
+      'text-[var(--warm-50)] bg-[var(--warm-900)]',
+      'py-2 px-3 rounded-sm shadow-3 max-w-[240px]',
+      'data-[state=open]:animate-[imprint-tooltip-in_var(--dur-fast)_var(--ease-out)]',
+      'data-[state=closed]:animate-[imprint-tooltip-out_var(--dur-fast)_var(--ease-in)]'
+    ]
+  }
+})
+
+const styles = tooltip()
 
 export interface TooltipProps {
   /** The element that triggers the tooltip. Rendered via Ark's trigger (asChild). */
@@ -73,10 +96,10 @@ export const Tooltip = forwardRef<HTMLDivElement, TooltipProps>(function Tooltip
     >
       <ArkTooltip.Trigger asChild>{children}</ArkTooltip.Trigger>
       <Portal>
-        <ArkTooltip.Positioner className={styles.positioner}>
-          <ArkTooltip.Content ref={ref} className={className ? `${styles.content} ${className}` : styles.content}>
-            <ArkTooltip.Arrow className={styles.arrow}>
-              <ArkTooltip.ArrowTip className={styles.arrowTip} />
+        <ArkTooltip.Positioner className={styles.positioner()}>
+          <ArkTooltip.Content ref={ref} className={styles.content({ className })}>
+            <ArkTooltip.Arrow className={styles.arrow()}>
+              <ArkTooltip.ArrowTip className={styles.arrowTip()} />
             </ArkTooltip.Arrow>
             {content}
           </ArkTooltip.Content>

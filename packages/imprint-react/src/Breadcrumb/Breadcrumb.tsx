@@ -1,7 +1,6 @@
 import { ChevronRight } from 'lucide-react'
 import { type AnchorHTMLAttributes, Fragment, forwardRef, type ReactNode } from 'react'
-
-import styles from './Breadcrumb.module.css'
+import { tv } from 'tailwind-variants'
 
 export interface BreadcrumbItem {
   /** Visible label for the crumb. */
@@ -30,6 +29,29 @@ export interface BreadcrumbProps {
   className?: string
 }
 
+// One tv() with a slot per structural part. Imprint tokens applied as inline
+// Tailwind utilities — named utilities (text-tertiary, rounded-xs, …) emit the
+// same var(--token) the old CSS Module used; the small text size uses the
+// arbitrary length: form, motion/duration tokens the [var(--token)] form. The
+// current crumb's emphasis lifts on its own data-current attribute.
+const breadcrumb = tv({
+  slots: {
+    current: 'text-tertiary data-[current=true]:text-ink data-[current=true]:font-semibold',
+    item: 'inline-flex items-center min-w-0',
+    list: 'flex items-center gap-2 m-0 p-0 list-none',
+    nav: 'font-ui text-sm',
+    separator: 'inline-flex items-center text-tertiary [&>svg]:w-[14px] [&>svg]:h-[14px] [&>svg]:shrink-0',
+    link: [
+      'text-tertiary no-underline rounded-xs',
+      'transition-colors duration-[var(--dur-fast)] ease-standard',
+      'hover:text-secondary',
+      'focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2'
+    ]
+  }
+})
+
+const styles = breadcrumb()
+
 /**
  * Imprint Breadcrumb. A static navigation landmark rendering an ordered list of
  * crumbs joined by chevron separators — 1:1 with the Imprint specimen.
@@ -50,31 +72,31 @@ export const Breadcrumb = forwardRef<HTMLElement, BreadcrumbProps>(function Brea
   const hasExplicitCurrent = items.some(item => item.current)
 
   return (
-    <nav ref={ref} aria-label={label} className={className ? `${styles.nav} ${className}` : styles.nav}>
-      <ol className={styles.list}>
+    <nav ref={ref} aria-label={label} className={styles.nav({ className })}>
+      <ol className={styles.list()}>
         {items.map((item, index) => {
           const isCurrent = hasExplicitCurrent ? Boolean(item.current) : index === lastIndex
           const showSeparator = index < lastIndex
 
           return (
             <Fragment key={index}>
-              <li className={styles.item}>
+              <li className={styles.item()}>
                 {isCurrent || !item.href ? (
                   <span
-                    className={styles.current}
+                    className={styles.current()}
                     data-current={isCurrent ? 'true' : undefined}
                     aria-current={isCurrent ? 'page' : undefined}
                   >
                     {item.label}
                   </span>
                 ) : (
-                  <a {...item.linkProps} href={item.href} className={styles.link}>
+                  <a {...item.linkProps} href={item.href} className={styles.link()}>
                     {item.label}
                   </a>
                 )}
               </li>
               {showSeparator ? (
-                <li className={styles.separator} aria-hidden="true">
+                <li className={styles.separator()} aria-hidden="true">
                   <ChevronRight />
                 </li>
               ) : null}

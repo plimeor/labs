@@ -1,10 +1,50 @@
 import { Menu as ArkMenu, type MenuSelectionDetails, Portal } from '@ark-ui/react'
 import type { LucideIcon } from 'lucide-react'
 import { Fragment, forwardRef, type ReactNode } from 'react'
+import { tv } from 'tailwind-variants'
 
-import styles from './Menu.module.css'
+import './Menu.css'
 
 export type { MenuSelectionDetails }
+
+// One tv() with a slot per Ark part. Item state (highlighted/disabled/danger)
+// is driven by Ark's data-* attributes; the icon lifts the disabled/danger
+// foreground from its ancestor item via descendant selectors. Enter/exit motion
+// is bound to the co-located keyframes via Ark's data-state on the Content.
+const menu = tv({
+  slots: {
+    group: 'flex flex-col',
+    groupLabel: ['pt-2 px-2 pb-1 text-xs font-semibold', 'tracking-caps uppercase text-tertiary'],
+    icon: ['size-[15px] shrink-0 text-secondary', '[[data-disabled]_&]:text-disabled', '[[data-danger]_&]:text-danger'],
+    label: 'flex-1 min-w-0',
+    positioner: 'z-50',
+    separator: 'h-px m-1 border-0 bg-border-subtle',
+    shortcut: 'shrink-0 font-mono text-xs text-tertiary',
+    content: [
+      'w-[240px] max-w-[100vw] p-1 bg-raised text-body',
+      'border border-border-subtle rounded-md shadow-2 font-ui',
+      // The theme's unlayered `:where([tabindex]):focus-visible` focus-ring rule forces
+      // border-radius:var(--radius-sm) on the focused Content, beating the layered
+      // `rounded-md` utility (unlayered > @layer utilities). Re-assert radius-md as an
+      // important focus-visible utility so the surface keeps its 11px corners while open —
+      // matching the original CSS-Modules `.content` which won by being unlayered too.
+      'focus-visible:rounded-md!',
+      'focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2',
+      'data-[state=open]:animate-[imprint-menu-scale-in_var(--dur-slow)_var(--ease-out)]',
+      'data-[state=closed]:animate-[imprint-menu-scale-out_var(--dur-fast)_var(--ease-in)]'
+    ],
+    item: [
+      'flex items-center gap-2 p-2 rounded-sm',
+      'text-base leading-none text-body cursor-pointer select-none',
+      'transition-colors duration-[var(--dur-fast)] ease-standard',
+      'data-highlighted:bg-hover',
+      'data-disabled:text-disabled data-disabled:cursor-not-allowed',
+      'data-[danger]:text-danger'
+    ]
+  }
+})
+
+const styles = menu()
 
 /** A single actionable menu entry. */
 export interface MenuItemDef {
@@ -74,12 +114,12 @@ function renderItem(item: MenuItemDef): ReactNode {
       disabled={disabled}
       closeOnSelect={closeOnSelect}
       onSelect={onSelect}
-      className={styles.item}
+      className={styles.item()}
       data-danger={danger ? '' : undefined}
     >
-      {Icon ? <Icon className={styles.icon} aria-hidden="true" /> : null}
-      <span className={styles.label}>{label}</span>
-      {shortcut != null ? <span className={styles.shortcut}>{shortcut}</span> : null}
+      {Icon ? <Icon className={styles.icon()} aria-hidden="true" /> : null}
+      <span className={styles.label()}>{label}</span>
+      {shortcut != null ? <span className={styles.shortcut()}>{shortcut}</span> : null}
     </ArkMenu.Item>
   )
 }
@@ -107,17 +147,17 @@ export const Menu = forwardRef<HTMLDivElement, MenuProps>(function Menu(
     >
       <ArkMenu.Trigger asChild>{trigger}</ArkMenu.Trigger>
       <Portal>
-        <ArkMenu.Positioner className={styles.positioner}>
-          <ArkMenu.Content ref={ref} className={className ? `${styles.content} ${className}` : styles.content}>
+        <ArkMenu.Positioner className={styles.positioner()}>
+          <ArkMenu.Content ref={ref} className={styles.content({ className })}>
             {items.map((entry, index) => {
               if (entry.type === 'separator') {
                 // Separators carry no value; index keying is stable for a static list.
-                return <ArkMenu.Separator key={`sep-${index}`} className={styles.separator} />
+                return <ArkMenu.Separator key={`sep-${index}`} className={styles.separator()} />
               }
               if (entry.type === 'group') {
                 return (
-                  <ArkMenu.ItemGroup key={entry.id} id={entry.id} className={styles.group}>
-                    <ArkMenu.ItemGroupLabel className={styles.groupLabel}>{entry.label}</ArkMenu.ItemGroupLabel>
+                  <ArkMenu.ItemGroup key={entry.id} id={entry.id} className={styles.group()}>
+                    <ArkMenu.ItemGroupLabel className={styles.groupLabel()}>{entry.label}</ArkMenu.ItemGroupLabel>
                     {entry.items.map(item => (
                       <Fragment key={item.value}>{renderItem(item)}</Fragment>
                     ))}

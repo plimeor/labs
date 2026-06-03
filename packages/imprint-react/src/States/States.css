@@ -1,0 +1,22 @@
+/* Imprint States — shimmer + spin motion. These keyframes can't be expressed as
+   utilities, so they live here and are bound inline via animate-[…] on the
+   Skeleton shimmer pseudo-element and the Spinner ring. The reduced-motion
+   media query likewise can't be a utility, so it stays here verbatim. */
+@keyframes imprint-skeleton-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes imprint-spinner-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .imprint-skeleton::after,
+  .imprint-spinner-ring {
+    animation: none;
+  }
+}

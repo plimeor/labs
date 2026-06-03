@@ -47,7 +47,7 @@ const accordion = tv({
     item: 'border-b border-border-subtle last:border-b-0',
     root: 'font-ui w-full max-w-[440px] bg-content border border-border-subtle rounded-md overflow-hidden',
     content: [
-      'pt-0 px-4 pb-4 font-read text-[length:var(--text-base)] leading-relaxed text-body',
+      'pt-0 px-4 pb-4 font-read text-base leading-relaxed text-body',
       'data-[state=open]:animate-[imprint-accordion-down_var(--dur-base)_var(--ease-standard)]',
       'data-[state=closed]:animate-[imprint-accordion-up_var(--dur-fast)_var(--ease-standard)]'
     ],
@@ -58,7 +58,7 @@ const accordion = tv({
       '[&>svg]:size-[16px]'
     ],
     title: [
-      'text-[length:var(--text-base)] font-medium text-secondary',
+      'text-base font-medium text-secondary',
       'transition-[color,font-weight] duration-[var(--dur-base)] ease-standard',
       '[[data-state=open]_&]:font-semibold [[data-state=open]_&]:text-ink'
     ],

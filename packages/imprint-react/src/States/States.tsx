@@ -1,7 +1,8 @@
 import type { LucideIcon } from 'lucide-react'
 import { forwardRef, type HTMLAttributes, type ReactNode } from 'react'
+import { tv } from 'tailwind-variants'
 
-import styles from './States.module.css'
+import './States.css'
 
 /* ============================================================================
    Imprint States — static feedback primitives, 1:1 with preview/cmp-states.html
@@ -9,6 +10,25 @@ import styles from './States.module.css'
    Spinner (token-colored). All token-driven, no hardcoded colors. Static markup
    + CSS; no Ark behavior needed.
    ========================================================================== */
+
+// Imprint tokens applied as inline Tailwind utilities, composed with
+// tailwind-variants. Named utilities (bg-active, rounded-md, …) emit the same
+// var(--token) the old CSS Module used; primitives/motion tokens use the
+// arbitrary [var(--token)] form. The shimmer/spin keyframes and the
+// prefers-reduced-motion override live in the co-located States.css; the stable
+// `imprint-skeleton` / `imprint-spinner-ring` marker classes let that media
+// query keep targeting the shimmer pseudo-element and the ring.
+const empty = tv({
+  slots: {
+    action: 'mt-4',
+    desc: 'text-xs leading-snug text-tertiary mt-1',
+    icon: 'size-[24px] shrink-0 text-tertiary',
+    root: ['flex flex-col items-center text-center font-ui', 'py-5 px-4 border border-dashed border-border rounded-md'],
+    title: 'text-base font-semibold leading-snug text-secondary mt-2'
+  }
+})
+
+const emptyStyles = empty()
 
 export interface EmptyStateProps extends Omit<HTMLAttributes<HTMLDivElement>, 'title'> {
   /** Leading glyph, passed as a lucide-react icon component. */
@@ -32,14 +52,27 @@ export const EmptyState = forwardRef<HTMLDivElement, EmptyStateProps>(function E
   ref
 ) {
   return (
-    <div ref={ref} className={className ? `${styles.empty} ${className}` : styles.empty} {...rest}>
-      {Icon ? <Icon className={styles.emptyIcon} aria-hidden="true" /> : null}
-      <div className={styles.emptyTitle}>{title}</div>
-      {description != null ? <div className={styles.emptyDesc}>{description}</div> : null}
+    <div ref={ref} className={emptyStyles.root({ className })} {...rest}>
+      {Icon ? <Icon className={emptyStyles.icon()} aria-hidden="true" /> : null}
+      <div className={emptyStyles.title()}>{title}</div>
+      {description != null ? <div className={emptyStyles.desc()}>{description}</div> : null}
       {children}
-      {action != null ? <div className={styles.emptyAction}>{action}</div> : null}
+      {action != null ? <div className={emptyStyles.action()}>{action}</div> : null}
     </div>
   )
+})
+
+// Default to a single text line; consumers override via width/height. The quiet
+// shimmer sweep rides the warm hover tint and is bound to the co-located
+// keyframes. The marker class keeps the reduced-motion media query targeting it.
+const skeleton = tv({
+  base: [
+    'imprint-skeleton relative overflow-hidden h-[11px] rounded-xs bg-active',
+    "after:content-[''] after:absolute after:inset-0 after:-translate-x-full",
+    'after:bg-[linear-gradient(90deg,transparent,var(--color-hover),transparent)]',
+    'after:animate-[imprint-skeleton-shimmer_1.4s_var(--ease-standard)_infinite]',
+    'data-[circle]:rounded-full'
+  ]
 })
 
 export interface SkeletonProps extends HTMLAttributes<HTMLDivElement> {
@@ -66,7 +99,7 @@ export const Skeleton = forwardRef<HTMLDivElement, SkeletonProps>(function Skele
       ref={ref}
       data-circle={circle ? '' : undefined}
       aria-hidden={ariaHidden ?? true}
-      className={className ? `${styles.skeleton} ${className}` : styles.skeleton}
+      className={skeleton({ className })}
       style={{ width, ...(height != null ? { height } : null), ...style }}
       {...rest}
     />
@@ -74,6 +107,28 @@ export const Skeleton = forwardRef<HTMLDivElement, SkeletonProps>(function Skele
 })
 
 export type SpinnerSize = 'sm' | 'md' | 'lg'
+
+// The size token sets the ring diameter + stroke via CSS vars the ring reads.
+// Muted track + one accent arc, riding the currentColor accent. The marker class
+// keeps the reduced-motion media query targeting the ring.
+const spinner = tv({
+  defaultVariants: { size: 'md' },
+  slots: {
+    root: 'inline-flex items-center justify-center shrink-0 text-accent',
+    ring: [
+      'imprint-spinner-ring block size-[var(--imprint-spinner-size)] rounded-full',
+      'border-[length:var(--imprint-spinner-thickness)] border-solid border-active border-t-current',
+      'animate-[imprint-spinner-spin_0.7s_linear_infinite]'
+    ]
+  },
+  variants: {
+    size: {
+      lg: { root: '[--imprint-spinner-size:40px] [--imprint-spinner-thickness:4px]' },
+      md: { root: '[--imprint-spinner-size:24px] [--imprint-spinner-thickness:3px]' },
+      sm: { root: '[--imprint-spinner-size:16px] [--imprint-spinner-thickness:2px]' }
+    }
+  }
+})
 
 export interface SpinnerProps extends HTMLAttributes<HTMLSpanElement> {
   /** Diameter token. @default 'md' */
@@ -92,6 +147,7 @@ export const Spinner = forwardRef<HTMLSpanElement, SpinnerProps>(function Spinne
   { size = 'md', label = 'Loading', className, ...rest },
   ref
 ) {
+  const styles = spinner({ size })
   return (
     <span
       ref={ref}
@@ -99,10 +155,10 @@ export const Spinner = forwardRef<HTMLSpanElement, SpinnerProps>(function Spinne
       aria-live="polite"
       aria-label={label}
       data-size={size}
-      className={className ? `${styles.spinner} ${className}` : styles.spinner}
+      className={styles.root({ className })}
       {...rest}
     >
-      <span className={styles.spinnerRing} aria-hidden="true" />
+      <span className={styles.ring()} aria-hidden="true" />
     </span>
   )
 })

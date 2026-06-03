@@ -7,8 +7,7 @@ import {
 } from '@ark-ui/react'
 import { ChevronRight, FileText, Folder, FolderOpen, type LucideIcon } from 'lucide-react'
 import { forwardRef, type ReactNode } from 'react'
-
-import styles from './TreeView.module.css'
+import { tv } from 'tailwind-variants'
 
 export type { TreeViewExpandedChangeDetails, TreeViewSelectionChangeDetails }
 
@@ -56,6 +55,48 @@ export interface TreeViewProps extends RootForwardedProps {
 
 const ROOT_VALUE = 'ROOT'
 
+// One tv() with a slot per Ark part. The control/item row shares one slot. The
+// selected-state icon tint, the chevron rotation, and the folder open/closed
+// glyph swap all lift via the row's data-selected / data-state ancestor state
+// ([data-selected]_& / [data-state=open]_&). Indentation is driven by Ark's
+// --depth via the inline calc, snapped to the 4px grid.
+const treeview = tv({
+  slots: {
+    branch: 'contents',
+    content: 'flex flex-col gap-px relative',
+    folderClosed: '[[data-part=branch-control][data-state=open]_&]:hidden',
+    folderOpen: 'hidden [[data-part=branch-control][data-state=open]_&]:inline-flex',
+    indentGuide: 'hidden',
+    indicator: 'inline-flex items-center justify-center shrink-0 text-tertiary',
+    label: 'absolute w-px h-px p-0 -m-px overflow-hidden [clip:rect(0,0,0,0)] whitespace-nowrap border-0',
+    root: 'font-ui text-body w-full',
+    text: 'flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap',
+    tree: 'flex flex-col gap-px',
+    chevron: [
+      'size-[15px] transition-transform duration-[var(--dur-base)] ease-standard',
+      '[[data-part=branch-indicator][data-state=open]_&]:rotate-90'
+    ],
+    icon: [
+      'inline-flex items-center justify-center shrink-0 text-tertiary',
+      '[&_svg]:size-[15px]',
+      '[[data-selected]_&]:text-accent'
+    ],
+    row: [
+      'flex items-center gap-2 py-1 px-2',
+      'ps-[calc(var(--space-2)+(var(--depth,1)-1)*var(--space-4))]',
+      'rounded-sm text-sm leading-snug text-body cursor-pointer select-none',
+      'transition-[background,color] duration-[var(--dur-fast)] ease-standard',
+      'hover:bg-hover',
+      'data-[selected]:bg-accent-subtle data-[selected]:text-accent-fg',
+      'data-disabled:text-disabled data-disabled:cursor-not-allowed data-disabled:hover:bg-transparent',
+      'focus-visible:outline-2 focus-visible:outline-focus focus-visible:-outline-offset-2',
+      'data-[focus]:outline-2 data-[focus]:outline-focus data-[focus]:-outline-offset-2'
+    ]
+  }
+})
+
+const styles = treeview()
+
 /** Recursively renders a node — a branch (with children) or a leaf item. */
 function TreeNodeView({ node, indexPath }: { node: TreeNode; indexPath: number[] }): ReactNode {
   const isBranch = node.children != null && node.children.length > 0
@@ -64,16 +105,18 @@ function TreeNodeView({ node, indexPath }: { node: TreeNode; indexPath: number[]
     const BranchIcon = node.icon
     return (
       <ArkTreeView.NodeProvider key={node.value} node={node} indexPath={indexPath}>
-        <ArkTreeView.Branch className={styles.branch}>
-          <ArkTreeView.BranchControl className={styles.control}>
-            <ArkTreeView.BranchIndicator className={styles.indicator}>
-              <ChevronRight aria-hidden="true" className={styles.chevron} />
+        <ArkTreeView.Branch className={styles.branch()}>
+          <ArkTreeView.BranchControl className={styles.row()}>
+            <ArkTreeView.BranchIndicator className={styles.indicator()}>
+              <ChevronRight aria-hidden="true" className={styles.chevron()} />
             </ArkTreeView.BranchIndicator>
-            <span className={styles.icon}>{BranchIcon ? <BranchIcon aria-hidden="true" /> : <BranchFolderIcon />}</span>
-            <ArkTreeView.BranchText className={styles.text}>{node.label}</ArkTreeView.BranchText>
+            <span className={styles.icon()}>
+              {BranchIcon ? <BranchIcon aria-hidden="true" /> : <BranchFolderIcon />}
+            </span>
+            <ArkTreeView.BranchText className={styles.text()}>{node.label}</ArkTreeView.BranchText>
           </ArkTreeView.BranchControl>
-          <ArkTreeView.BranchContent className={styles.content}>
-            <ArkTreeView.BranchIndentGuide className={styles.indentGuide} />
+          <ArkTreeView.BranchContent className={styles.content()}>
+            <ArkTreeView.BranchIndentGuide className={styles.indentGuide()} />
             {node.children?.map((child, index) => (
               <TreeNodeView key={child.value} node={child} indexPath={[...indexPath, index]} />
             ))}
@@ -86,11 +129,11 @@ function TreeNodeView({ node, indexPath }: { node: TreeNode; indexPath: number[]
   const LeafIcon = node.icon ?? FileText
   return (
     <ArkTreeView.NodeProvider key={node.value} node={node} indexPath={indexPath}>
-      <ArkTreeView.Item className={styles.item}>
-        <span className={styles.icon}>
+      <ArkTreeView.Item className={styles.row()}>
+        <span className={styles.icon()}>
           <LeafIcon aria-hidden="true" />
         </span>
-        <ArkTreeView.ItemText className={styles.text}>{node.label}</ArkTreeView.ItemText>
+        <ArkTreeView.ItemText className={styles.text()}>{node.label}</ArkTreeView.ItemText>
       </ArkTreeView.Item>
     </ArkTreeView.NodeProvider>
   )
@@ -104,8 +147,8 @@ function TreeNodeView({ node, indexPath }: { node: TreeNode; indexPath: number[]
 function BranchFolderIcon() {
   return (
     <>
-      <FolderOpen aria-hidden="true" className={styles.folderOpen} />
-      <Folder aria-hidden="true" className={styles.folderClosed} />
+      <FolderOpen aria-hidden="true" className={styles.folderOpen()} />
+      <Folder aria-hidden="true" className={styles.folderClosed()} />
     </>
   )
 }
@@ -137,11 +180,11 @@ export const TreeView = forwardRef<HTMLDivElement, TreeViewProps>(function TreeV
       collection={collection}
       onExpandedChange={onExpandedChange}
       onSelectionChange={onSelectionChange}
-      className={className ? `${styles.root} ${className}` : styles.root}
+      className={styles.root({ className })}
       {...rest}
     >
-      <ArkTreeView.Label className={styles.label}>{label}</ArkTreeView.Label>
-      <ArkTreeView.Tree className={styles.tree}>
+      <ArkTreeView.Label className={styles.label()}>{label}</ArkTreeView.Label>
+      <ArkTreeView.Tree className={styles.tree()}>
         {collection.rootNode.children?.map((node, index) => (
           <TreeNodeView key={node.value} node={node} indexPath={[index]} />
         ))}

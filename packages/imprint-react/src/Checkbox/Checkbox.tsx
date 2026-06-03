@@ -1,8 +1,7 @@
 import { Checkbox as ArkCheckbox, type CheckboxCheckedChangeDetails, type CheckboxCheckedState } from '@ark-ui/react'
 import { Check } from 'lucide-react'
 import { forwardRef, type ReactNode } from 'react'
-
-import styles from './Checkbox.module.css'
+import { tv } from 'tailwind-variants'
 
 export type { CheckboxCheckedChangeDetails, CheckboxCheckedState }
 
@@ -33,6 +32,35 @@ export interface CheckboxProps {
   className?: string
 }
 
+// One tv() with a slot per Ark part. The control's accent fill is bound to
+// Ark's data-state (checked + indeterminate); the always-visible focus ring
+// uses Ark's data-focus-visible. transition-colors covers both background and
+// border-color, matching the source's two-property transition.
+const checkbox = tv({
+  slots: {
+    bar: 'w-[8px] h-[2px] rounded-[1px] bg-on-accent',
+    check: 'w-[12px] h-[12px] [stroke-width:2.4]',
+    indeterminate: 'inline-flex items-center justify-center',
+    indicator: 'inline-flex items-center justify-center',
+    label: 'select-none',
+    control: [
+      'box-border w-[18px] h-[18px] shrink-0 inline-flex items-center justify-center',
+      'rounded-[6px] border-[1.5px] border-border-strong bg-content text-on-accent',
+      'transition-colors duration-[var(--dur-fast)] ease-standard',
+      'data-[state=checked]:border-accent data-[state=checked]:bg-accent',
+      'data-[state=indeterminate]:border-accent data-[state=indeterminate]:bg-accent',
+      'data-[focus-visible]:outline-2 data-[focus-visible]:outline-focus data-[focus-visible]:outline-offset-2'
+    ],
+    root: [
+      'font-ui text-base text-body',
+      'inline-flex items-center gap-[9px] cursor-pointer',
+      'data-disabled:cursor-not-allowed data-disabled:opacity-45'
+    ]
+  }
+})
+
+const styles = checkbox()
+
 /**
  * Imprint Checkbox. Ark UI Checkbox behavior skinned with Imprint tokens.
  * Accent fill with a lucide check when checked, an accent bar when
@@ -47,16 +75,16 @@ export const Checkbox = forwardRef<HTMLLabelElement, CheckboxProps>(function Che
   ref
 ) {
   return (
-    <ArkCheckbox.Root ref={ref} className={className ? `${styles.root} ${className}` : styles.root} {...rest}>
-      <ArkCheckbox.Control className={styles.control}>
-        <ArkCheckbox.Indicator className={styles.indicator}>
-          <Check className={styles.check} aria-hidden="true" />
+    <ArkCheckbox.Root ref={ref} className={styles.root({ className })} {...rest}>
+      <ArkCheckbox.Control className={styles.control()}>
+        <ArkCheckbox.Indicator className={styles.indicator()}>
+          <Check className={styles.check()} aria-hidden="true" />
         </ArkCheckbox.Indicator>
-        <ArkCheckbox.Indicator className={styles.indeterminate} indeterminate>
-          <span className={styles.bar} />
+        <ArkCheckbox.Indicator className={styles.indeterminate()} indeterminate>
+          <span className={styles.bar()} />
         </ArkCheckbox.Indicator>
       </ArkCheckbox.Control>
-      {children != null ? <ArkCheckbox.Label className={styles.label}>{children}</ArkCheckbox.Label> : null}
+      {children != null ? <ArkCheckbox.Label className={styles.label()}>{children}</ArkCheckbox.Label> : null}
       <ArkCheckbox.HiddenInput />
     </ArkCheckbox.Root>
   )
