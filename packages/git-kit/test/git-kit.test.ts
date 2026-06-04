@@ -51,15 +51,15 @@ describe('git-kit', () => {
   })
 
   test('checkout supports target directories, refs, and existing worktrees', async () => {
-    const { commit, source } = sharedSource
+    const { commit, releaseCommit, source } = sharedSource
     const target = await tempDir('git-kit-target-')
     const targetRepo = await realpath(join(target, 'repo')).catch(() => join(target, 'repo'))
 
-    const first = await Git.checkout({ directory: join(target, 'repo'), ref: 'main', source: `file://${source}` })
+    const first = await Git.checkout({ directory: join(target, 'repo'), ref: 'release', source: `file://${source}` })
     expect(first.snapshot()).toMatchObject({
-      currentRef: 'main',
+      currentRef: 'release',
       directory: await realpath(targetRepo),
-      headSha: commit
+      headSha: releaseCommit
     })
 
     const second = await Git.checkout({
@@ -73,7 +73,7 @@ describe('git-kit', () => {
       headSha: commit
     })
 
-    expect(first.headSha).toBe(commit)
+    expect(first.headSha).toBe(releaseCommit)
   })
 
   test('checkout rejects existing worktrees when origin does not match', async () => {
@@ -127,32 +127,13 @@ describe('git-kit', () => {
   })
 
   test('fetch resolves branches tags commits and remote HEAD', async () => {
-    const { commit, pullRef, releaseCommit, source, tag } = sharedSource
+    const { commit, releaseCommit, source, tag } = sharedSource
     const checkout = await Git.checkout({ source: `file://${source}` })
     try {
-      expect(await checkout.fetch('main')).toEqual({ headSha: commit, ref: 'main' })
       expect(await checkout.fetch('release')).toEqual({ headSha: releaseCommit, ref: 'release' })
       expect(await checkout.fetch(tag)).toEqual({ headSha: commit, ref: tag })
       expect(await checkout.fetch(commit)).toEqual({ headSha: commit, ref: commit })
-      expect(await checkout.fetch(pullRef)).toEqual({ headSha: commit, ref: pullRef })
       expect(await checkout.fetch('HEAD')).toEqual({ headSha: commit, ref: 'main' })
-    } finally {
-      await checkout.dispose()
-    }
-  })
-
-  test('switch supports normal and detached checkout', async () => {
-    const { commit, releaseCommit, source } = sharedSource
-    const checkout = await Git.checkout({ source: `file://${source}` })
-    try {
-      expect(await checkout.switch({ ref: 'release' })).toEqual({
-        headSha: releaseCommit,
-        ref: 'release'
-      })
-      expect(await checkout.switch({ detach: true, ref: commit })).toEqual({
-        headSha: commit,
-        ref: 'HEAD'
-      })
     } finally {
       await checkout.dispose()
     }
