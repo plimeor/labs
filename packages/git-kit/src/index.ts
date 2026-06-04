@@ -109,24 +109,23 @@ export class Checkout {
   }
 
   async fetch(ref = 'HEAD'): Promise<ResolvedRef> {
-    await $`git fetch origin`.cwd(this.directory).quiet()
-
     if (ref === 'HEAD') {
       const resolvedRef = await remoteDefaultRef(this.directory)
-      const headSha = await resolveCommit(this.directory, `refs/remotes/origin/${resolvedRef}^{commit}`)
+      const headSha = await fetchRemoteBranch(this.directory, resolvedRef)
+      if (!headSha) {
+        throw new Error(`Unable to fetch remote branch: ${resolvedRef}`)
+      }
       return { headSha, ref: resolvedRef }
     }
 
-    if (await remoteBranchExists(this.directory, ref)) {
-      await $`git fetch origin ${`+refs/heads/${ref}:refs/remotes/origin/${ref}`}`.cwd(this.directory).quiet()
-      const headSha = await resolveCommit(this.directory, `refs/remotes/origin/${ref}^{commit}`)
-      return { headSha, ref }
+    const branchSha = await fetchRemoteBranch(this.directory, ref)
+    if (branchSha) {
+      return { headSha: branchSha, ref }
     }
 
-    if (await remoteTagExists(this.directory, ref)) {
-      await $`git fetch origin tag ${ref}`.cwd(this.directory).quiet()
-      const headSha = await resolveCommit(this.directory, `refs/tags/${ref}^{commit}`)
-      return { headSha, ref }
+    const tagSha = await fetchRemoteTag(this.directory, ref)
+    if (tagSha) {
+      return { headSha: tagSha, ref }
     }
 
     try {
@@ -309,14 +308,24 @@ async function remoteDefaultRef(directory: string): Promise<string> {
   return match[1]
 }
 
-async function remoteBranchExists(directory: string, ref: string): Promise<boolean> {
-  const output = await $`git ls-remote --heads origin ${ref}`.cwd(directory).quiet().text().then(trimText)
-  return Boolean(output)
+async function fetchRemoteBranch(directory: string, ref: string): Promise<string | undefined> {
+  try {
+    await $`git fetch origin ${`+refs/heads/${ref}:refs/remotes/origin/${ref}`}`.cwd(directory).quiet()
+  } catch {
+    return undefined
+  }
+
+  return resolveCommit(directory, `refs/remotes/origin/${ref}^{commit}`)
 }
 
-async function remoteTagExists(directory: string, ref: string): Promise<boolean> {
-  const output = await $`git ls-remote --tags origin ${ref}`.cwd(directory).quiet().text().then(trimText)
-  return Boolean(output)
+async function fetchRemoteTag(directory: string, ref: string): Promise<string | undefined> {
+  try {
+    await $`git fetch origin tag ${ref}`.cwd(directory).quiet()
+  } catch {
+    return undefined
+  }
+
+  return resolveCommit(directory, `refs/tags/${ref}^{commit}`)
 }
 
 async function resolveCommit(directory: string, ref: string): Promise<string> {

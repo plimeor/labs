@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { mkdir, mkdtemp, readdir, stat as readStat, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -6,7 +6,18 @@ import { $ } from 'bun'
 
 import * as Git from '@plimeor/git-kit'
 
+let sharedSource: GitSource
+const temporaryDirs = new Set<string>()
+
 describe('git-kit', () => {
+  beforeAll(async () => {
+    sharedSource = await createGitSource()
+  })
+
+  afterAll(async () => {
+    await Promise.all([...temporaryDirs].map(path => rm(path, { force: true, recursive: true })))
+  })
+
   test('repositories expose reusable lowercase identities', () => {
     expect(Git.repository('plimeor/agent-skills').identity).toBe('plimeor__agent-skills')
     expect(Git.repository('https://github.com/plimeor/agent-skills.git').identity).toBe('plimeor__agent-skills')
@@ -14,8 +25,9 @@ describe('git-kit', () => {
   })
 
   test('checkout snapshots report repository identity on branches and detached HEAD', async () => {
-    const { commit, source } = await createGitSource()
+    const { commit, source } = sharedSource
     const checkout = await Git.checkout({ ref: 'main', source: `file://${source}` })
+    const temporaryPath = checkout.directory
     try {
       expect(checkout.snapshot()).toMatchObject({
         currentRef: 'main',
@@ -33,10 +45,13 @@ describe('git-kit', () => {
     } finally {
       await checkout.dispose()
     }
+
+    await expect(readStat(temporaryPath)).rejects.toThrow()
+    await expect(readStat(dirname(temporaryPath))).rejects.toThrow()
   })
 
-  test('checkout supports target directories, temporary directories, refs, and existing worktrees', async () => {
-    const { commit, source } = await createGitSource()
+  test('checkout supports target directories, refs, and existing worktrees', async () => {
+    const { commit, source } = sharedSource
     const target = await tempDir('git-kit-target-')
     const targetRepo = await realpath(join(target, 'repo')).catch(() => join(target, 'repo'))
 
@@ -58,28 +73,23 @@ describe('git-kit', () => {
       headSha: commit
     })
 
-    const temporary = await Git.checkout({ ref: commit, source: `file://${source}` })
-    const temporaryPath = temporary.directory
-    expect(temporary.headSha).toBe(commit)
-    await temporary.dispose()
-    await expect(readStat(temporaryPath)).rejects.toThrow()
-    await expect(readStat(dirname(temporaryPath))).rejects.toThrow()
+    expect(first.headSha).toBe(commit)
   })
 
   test('checkout rejects existing worktrees when origin does not match', async () => {
-    const existing = await createGitSource()
-    const requested = await createGitSource()
+    const existing = sharedSource
+    const requestedSource = join(await tempDir('git-kit-source-'), 'repo')
     const target = await tempDir('git-kit-target-')
 
     await Git.checkout({ directory: join(target, 'repo'), source: `file://${existing.source}` })
 
     await expect(
-      Git.checkout({ directory: join(target, 'repo'), reuseExisting: true, source: `file://${requested.source}` })
+      Git.checkout({ directory: join(target, 'repo'), reuseExisting: true, source: `file://${requestedSource}` })
     ).rejects.toThrow('Existing checkout origin does not match requested source')
   })
 
   test('checkout cleans temporary directories when checkout fails', async () => {
-    const { source } = await createGitSource()
+    const { source } = sharedSource
     const before = await checkoutTempDirs()
     const checkout = Git.checkout({ ref: 'missing', source: `file://${source}` })
 
@@ -90,7 +100,7 @@ describe('git-kit', () => {
   })
 
   test('checkout normalizes GitHub shorthand to an origin URL', async () => {
-    const { commit, source } = await createGitSource()
+    const { commit, source } = sharedSource
     const config = await tempDir('git-kit-config-')
     const configPath = join(config, 'gitconfig')
     await writeFile(configPath, `[url "file://${source}"]\n\tinsteadOf = https://github.com/plimeor/agent-skills.git\n`)
@@ -117,7 +127,7 @@ describe('git-kit', () => {
   })
 
   test('fetch resolves branches tags commits and remote HEAD', async () => {
-    const { commit, pullRef, releaseCommit, source, tag } = await createGitSource()
+    const { commit, pullRef, releaseCommit, source, tag } = sharedSource
     const checkout = await Git.checkout({ source: `file://${source}` })
     try {
       expect(await checkout.fetch('main')).toEqual({ headSha: commit, ref: 'main' })
@@ -132,7 +142,7 @@ describe('git-kit', () => {
   })
 
   test('switch supports normal and detached checkout', async () => {
-    const { commit, releaseCommit, source } = await createGitSource()
+    const { commit, releaseCommit, source } = sharedSource
     const checkout = await Git.checkout({ source: `file://${source}` })
     try {
       expect(await checkout.switch({ ref: 'release' })).toEqual({
@@ -149,7 +159,7 @@ describe('git-kit', () => {
   })
 
   test('collectIgnorePaths returns collected ignore paths', async () => {
-    const { source } = await createGitSource()
+    const source = await createEmptyGitWorktree()
     await mkdir(join(source, 'docs'), { recursive: true })
     await mkdir(join(source, 'src'), { recursive: true })
     await writeFile(join(source, '.gitignore'), 'ignored.txt\ndocs/\nmissing.txt\n# comment\n!kept.txt\n')
@@ -170,13 +180,15 @@ describe('git-kit', () => {
   })
 })
 
-async function createGitSource(): Promise<{
+type GitSource = {
   commit: string
   pullRef: string
   releaseCommit: string
   source: string
   tag: string
-}> {
+}
+
+async function createGitSource(): Promise<GitSource> {
   const source = await tempDir('git-kit-source-')
   await $`git init -b main`.cwd(source).quiet()
   await writeFile(join(source, 'README.md'), 'main\n')
@@ -204,8 +216,16 @@ async function createGitSource(): Promise<{
   return { commit, pullRef, releaseCommit, source, tag }
 }
 
+async function createEmptyGitWorktree(): Promise<string> {
+  const source = await tempDir('git-kit-source-')
+  await $`git init -b main`.cwd(source).quiet()
+  return source
+}
+
 async function tempDir(prefix: string): Promise<string> {
-  return mkdtemp(join(tmpdir(), prefix))
+  const directory = await mkdtemp(join(tmpdir(), prefix))
+  temporaryDirs.add(directory)
+  return directory
 }
 
 async function checkoutTempDirs(): Promise<string[]> {
