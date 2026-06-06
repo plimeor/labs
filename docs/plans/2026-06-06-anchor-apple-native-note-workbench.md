@@ -90,7 +90,7 @@ iPadOS：在 iOS 基础上适配多栏、键盘、拖拽、外接显示和 Penci
 - Note 可以有 `parent_note_id`；有父 Note 的 Note 表现为 subpage，交互和普通 Note 一致。
 - 领域模型、持久 schema、op target、DTO 和 CLI 契约的结构类型集合固定为 Note / Block。
 - `Notes` 是所有顶层 Note 的导航投影，不是一个系统容器。
-- `Calendar` 是 journal 的系统管理层级，不作为普通导航入口。
+- `Calendar` 是 journal 的日期聚合投影；journal 是带 `calendar_date` 的普通 Note，年 / 月 / 周只作为 UI 分组，不进入 `parent_note_id`。
 - Note / block 的位置、内容和生命周期是不同寄存器。
 - backlinks、搜索、最近活动和 mirror 都是派生视图。
 - 所有写入通过 core `dispatch` 形成结构化 op；UI 层只表达意图，不直接修补持久化状态。
@@ -134,7 +134,7 @@ Trash
 顶部固定入口：
 
 - **搜索**：全局搜索入口，面向 Note、block、引用、props、tags 和正文内容。
-- **今日**：每日工作视图，打开或创建当天 journal Note；journal 归属在系统管理的 `Calendar -> year -> month -> week -> date` 层级中。
+- **今日**：每日工作视图，打开或创建当天 journal Note；Calendar 视图按 `calendar_date` 派生年 / 月 / 周 / 日期分组。
 - **Notes**：所有顶层 Note 的入口，即 `parent_note_id = null` 的普通 Note；支持按最近、名称、type、tag 或 relation 筛选。
 
 中间目录区：
@@ -220,7 +220,7 @@ Table / Row / Cell 是一阶可合并 block。表格操作包括插入 / 删除 
 
 - `parent_note_id = null` 的 Note 进入侧边栏 `Notes`。
 - `parent_note_id = another NoteId` 的 Note 表现为父 Note 内的 subpage，也可被直接打开为工作区 root。
-- journal Note 由 `Calendar` 系统层级管理，通过 `今日` 入口进入。
+- journal Note 是带 `calendar_date` 的普通 Note，通过 `今日` 入口和 Calendar 日期聚合进入。
 
 从父 Note 中打开子 Note 时，UI 显示来源上下文和 breadcrumb；用户可以回到原父 Note，也可以以该子 Note 为工作根继续编辑。
 
@@ -328,8 +328,8 @@ UI 必须一等呈现以下状态：
 - 规范序列化与 hash、校验与规范化。
 - Append-only op-log、HLC / LWW merge、replay 与物化 Note / block tree。
 - SQLite projections 或等价本地 projection（派生、可重建，不是真理归属方）。
-- 导入 / 导出 / mirror 生成。
-- Dispatch 与结构化 op 创建、同步合并逻辑。
+- 导入 / 导出、mirror 生成队列与 mirror freshness。
+- Dispatch、结构化 op 创建、本地 stale guard、同步 op ingestion 与合并逻辑。
 - CLI DTO、Apple binding DTO、后续客户端 DTO 与 schema version envelope。
 
 首选继续把 Rust core 作为平台无关核心；Apple binding 机制（C ABI、UniFFI、Swift Package、XCFramework 或其他）在阶段0决定。
@@ -345,19 +345,19 @@ UI 必须一等呈现以下状态：
 
 Apple 客户端不复制 core 领域规则。它可以预检明显 UI 约束，但 core 校验始终是权威关卡。
 
-**`anchor-editor-core` 负责无 UI 的编辑语义层。** Swift 生态没有可直接承担 Anchor 结构化语义的编辑 runtime；方案不寻找完整替代品，也不自研通用编辑框架，而是要一个专用、无 UI、平台无关的编辑器核心，把用户编辑意图收敛成 core 可验证的结构化 op。它可以是 `anchor-core` 内部模块或紧邻 core 的独立 crate（阶段0决定），不拥有持久化真理层：
+**`anchor-editor-core` 是 `anchor-core` 内部的无 UI 编辑语义模块。** Swift 生态没有可直接承担 Anchor 结构化语义的编辑 runtime；方案不寻找完整替代品，也不自研通用编辑框架，而是要一个专用、无 UI、平台无关的编辑器模块，把用户编辑意图收敛到 `dispatch` 可验证的事务输入。持久化、schema 校验和 op 创建的唯一边界是 `anchor-core::dispatch`：
 
 - `EditorSnapshot`：面向编辑器的 Note / block tree 投影。
 - `BlockProjection`：block 到可编辑块 / 嵌入块 / 装饰块的投影。
 - `InlineRun`：文本和 typed range marks 的显示与命中测试片段。
 - `EditorSelection`：文本选择、block 选择、嵌入编辑器选择的可移植表示。
 - `EditorIntent`：insert text、replace range、split block、merge backward、exit-container-on-empty、indent / outdent（reparent）、move block、transform block、apply mark、insert code block、paste fragment。
-- `EditorPatch`：core 接受事务后返回给平台 adapter 的最小视图更新。
-- `TransactionResult`：changed ids、selection hint、validation error、new revisions、projection freshness，以及 base-revision 冲突和 server-canonicalized body 替换两种结果。
+- `EditorPatch`：`dispatch` 接受事务后返回给平台 adapter 的最小视图更新。
+- `TransactionResult`：changed ids、selection hint、validation error、new target/register revisions、projection freshness、mirror freshness，以及 stale snapshot conflict。
 
-`anchor-editor-core` 拥有结构 transform、选择提升 / 降级规则、paste fragment normalizer、跨 block 文本编辑拆分、非法结构拒绝和 undo 语义映射。
+`anchor-editor-core` 拥有 portable selection、intent shaping、选择提升 / 降级规则、paste fragment shaping、跨 block 文本编辑拆分建议、platform patch 生成和 undo intent 映射。Tree invariant、schema-aware normalization、op creation、merge 和最终非法结构拒绝归 `anchor-core::dispatch`。
 
-**Apple 编辑器 adapter 负责原生输入视图机制。** 把 NSTextView / UITextView / TextKit / 原生键盘事件转换为 `EditorIntent`，把 `EditorPatch` 转换为原生 view model 更新；负责 Note / block tree 渲染、文本 / block 选择、transform 意图提取、代码 block 局部编辑器、表格交互和编辑器专项测试。
+**Apple 编辑器 adapter 负责原生输入视图机制。** 把 NSTextView / UITextView / TextKit / 原生键盘事件转换为 `EditorIntent`，把 `EditorPatch` 转换为原生 view model 更新；负责 Note / block tree 渲染、文本 / block 选择、intent 提取、代码 block 局部编辑器、表格交互和编辑器专项测试。
 
 TextKit、`NSTextView` / `UITextView`、`NSAttributedString` / `AttributedString`、`NSTextRange` / `NSRange`、平台 selection、view identity、滚动 / 焦点 / IME state 只作为输入、排版、显示和命中测试机制，不作为存储格式或文档模型；`anchor-editor-core` 同样不拥有它们。
 
@@ -399,10 +399,10 @@ Block 字段：
 系统管理对象：
 
 - `Notes`：顶层 Note 的导航投影，不是系统对象，也不拥有 parent 语义。
-- `Calendar`：journal 的默认系统层级。创建 journal 时，系统保证 `Calendar -> year -> month -> week -> date` 层级存在；这些层级用于归属和日期跳转，但不作为侧边栏主导航入口。
-- `calendar_date`：journal date Note 的隐藏属性，用于日期查询、跳转、去重和 today projection。它不拥有归属语义，归属仍来自 `Calendar` 层级。
+- `Calendar`：journal 的日期聚合 projection。创建 journal 时，系统创建或复用带 `calendar_date` 的普通 Note；年 / 月 / 周 / 日期分组由 projection 计算，用于日期跳转和列表展示。
+- `calendar_date`：journal Note 的隐藏属性，用于日期查询、跳转、去重、today projection 和 Calendar 聚合。它不拥有归属语义，journal 的 `parent_note_id` 仍按普通 Note 规则处理。
 
-阶段0必须冻结顶层 Note 的内部表示（`parent_note_id = null` 还是隐藏 root sentinel）、`Calendar` 的稳定 id / slug、创建顺序、保护规则、是否允许用户重命名、是否允许移动，以及 restore / trash 对 Calendar 子树的边界。
+阶段0必须冻结顶层 Note 的内部表示（`parent_note_id = null` 还是隐藏 root sentinel）、journal 创建规则、`calendar_date` 唯一性、Calendar projection 排序、journal 默认 parent、journal rename / move 规则，以及 trash / restore 对 journal Note 的边界。
 
 行内内容是纯文本加排序、合并后的 typed range marks。行内 offset 对外以 UTF-16 code unit 表达（对齐 Apple TextKit / Swift String bridging 与后续客户端编辑器边界）；core 内部存储单位与换算边界在阶段0定下，导入既有 byte-offset span 时一并转换。硬 block 边界创建新 block；`\n` 是行内文本中的软换行。
 
@@ -420,7 +420,7 @@ Block 内容类型：
 
 `canonical_serialize` 是显式确定性编码器，遵循 JCS 风格规则：递归排序 key、固定字符串转义、无无意义空白。Hash 输入禁止 `f64`；数字值使用规范十进制字符串。
 
-`rev` 覆盖自身规范字段，排除 `lww`，不是 Merkle hash。`Note.revision` 是派生的 Note + block 子树 hash，用作乐观并发 token。
+`rev` 覆盖自身规范字段，排除 `lww`，不是 Merkle hash。`Note.snapshot_revision` 是派生的 Note + block 子树 hash，用于读模型缓存、UI stale detection 和导出快照标识；本地写入的冲突保护以 touched target/register 的 base rev 为唯一 stale token，独立 target/register 的可合并写入保持可合并。
 
 ### 8.4 合并、同步与 op-log
 
@@ -432,11 +432,11 @@ Block 内容类型：
 - `content`：content + props + tags。
 - `life`：生命周期枚举 `active / archived / trashed / deleted`，保留 archive 与 trash 的区分以及可逆 restore；`deleted` 是终态 tombstone。
 
-每条 op 记录 `{target_id, target_kind, register, base_rev, new_rev, hlc, actor}`，并预留 `provenance` 与 `approvalState` 字段以承载导入来源和日后 agent 审批语义（见 §9 排除）。合并按 target id 进行，用 HLC `(wall, logical, device)` 做字段级 LWW。Move-vs-edit 同时保留两边更改；删除会级联 tombstone 整个子树；edit-vs-delete 采用 delete-wins。
+每条 op 记录 `{target_id, target_kind, register, base_register_rev, new_register_rev, hlc, actor}`，并预留 `provenance` 与 `approvalState` 字段以承载导入来源和日后 agent 审批语义（见 §9 排除）。本地 UI / CLI 写入携带 touched target/register 的 base rev 作为 stale guard；同步 ingestion 接受远端 op 进入 merge pipeline，并以 op id / HLC / actor 做幂等与排序。合并按 target id + register 进行，用 HLC `(wall, logical, device)` 做字段级 LWW。Move-vs-edit 同时保留两边更改；删除会级联 tombstone 整个子树；edit-vs-delete 采用 delete-wins。
 
 **Compaction：** op-log 纯追加会无界增长，冷启动会从创世 replay。阶段0定下定期物化快照 + 截断 / 分段策略，使 replay 从最近快照起算，并明确它与 HLC / merge 的交互。
 
-**Vault 落盘布局：** 真理层 op-log 是被同步 / 版本化的核心产物（位置如 `.anchor/operations/`）；projection（SQLite，如 `.anchor/cache/index.sqlite`）是可从 op-log 重建的本地缓存，不进入同步；配置 `.anchor/config/vault.toml` 声明 `source_of_truth = "op-log"` 与 projection 路径。`.md` / `.json` 镜像是导出产物。阶段0确定：镜像的目录组织（Note id 寻址 vs 人类可读路径）、镜像是否纳入版本库，以及被同步 / 提交的单元到底是 op-log 还是镜像。
+**Vault 落盘布局：** 真理层 op-log 是被同步 / 版本化的核心产物（位置如 `.anchor/operations/`）；projection（SQLite，如 `.anchor/cache/index.sqlite`）是可从 op-log 重建的本地缓存，不进入同步；配置 `.anchor/config/vault.toml` 声明 `source_of_truth = "op-log"` 与 projection 路径。`.md` / `.json` 镜像是导出产物，由 post-commit mirror job 写入并记录 freshness。阶段0确定：镜像的目录组织（Note id 寻址 vs 人类可读路径）、镜像是否纳入版本库，以及被同步 / 提交的单元到底是 op-log 还是镜像。
 
 Apple 首期同步路线：不建设自有服务器；优先验证 iCloud / CloudKit 作为用户自有同步传输层；CloudKit adapter 只负责传输 / 持久化，不拥有 merge 语义。
 
@@ -448,11 +448,12 @@ Apple 首期同步路线：不建设自有服务器；优先验证 iCloud / Clou
 2. 解析 ids 和 schema。
 3. 规范化为 Note / block ops。
 4. 校验 tree invariants。
-5. 比对 if-match：调用方传 `Note.revision`（子树 hash）作为 token，不匹配返回 `Conflict`（退出码 3）。
-6. 追加 op-log。
-7. Replay / update materialized DB。
-8. 原子写入派生 `.json` 和 `.md` mirror。
-9. 返回包含 changed ids、new revisions 和 projection freshness 的 DTO。
+5. 对本地 UI / CLI 写入比对 touched target/register 的 base rev，不匹配返回 `Conflict`（退出码 3）。
+6. 对同步 ingestion 执行 schema envelope 校验、actor / HLC 校验和幂等去重，进入 merge pipeline。
+7. 追加 op-log。
+8. Replay / update materialized DB。
+9. 安排 post-commit mirror job，并更新 mirror freshness。
+10. 返回包含 changed ids、new target/register revisions、snapshot revisions、projection freshness 和 mirror freshness 的 DTO。
 
 单一已校验 dispatch 是首期要建立并守住的不变量：每条持久写入路径都调用执行 append 前校验的 core 私有 helper，对 core 写入点 grep 必须能证明这一点。
 
@@ -462,7 +463,7 @@ Apple 首期同步路线：不建设自有服务器；优先验证 iCloud / Clou
 
 Markdown 是导入 / 导出格式。Frontmatter `id` 在导入时定义 Note 身份；缺失时创建新 Note。规范 `.json` 导出携带 Note / block ids，支持幂等重导入；`.md` 导出是有损且 grep 友好的导出。
 
-Mirror 生成发生在与 projection updates 相同的 post-dispatch 点。搜索和 backlinks 使用结构化 projection（SQLite FTS 或 replay 后内存索引，阶段0定）；对 mirror 跑 ripgrep 是本地检查便利，不是真理归属方。
+Mirror 生成发生在 dispatch append 和 materialization 成功之后的 post-commit job。Mirror 写入失败记录 freshness / diagnostics；op-log 保持已提交状态，后续真理层编辑继续使用当前 materialized state。搜索和 backlinks 使用结构化 projection（SQLite FTS 或 replay 后内存索引，阶段0定）；对 mirror 跑 ripgrep 是本地检查便利，不是真理归属方。
 
 ---
 
@@ -516,13 +517,13 @@ CLI 公开词汇使用 Note / block op。其中 show / search / tag / prop / dia
 - Apple 工程边界建议：工程位置、target、bundle、共享代码方式、验证命令。
 - Rust core 到 Apple 的 binding 方案比较与推荐。
 - iCloud / CloudKit 作为传输适配器的可行性 spike 计划；明确 core 不依赖 CloudKit API。
-- `anchor-editor-core` 边界建议（内部模块或独立 crate），明确它不拥有持久化真理层。
+- `anchor-editor-core` 内部模块合约，明确它只拥有 selection / intent / patch 映射，tree invariant、schema-aware normalization 和 op creation 归 `anchor-core::dispatch`。
 - `EditorSnapshot`、`BlockProjection`、`InlineRun`、`EditorSelection`、`EditorIntent`、`EditorPatch`、`TransactionResult` 草图。
 - 覆盖选择、结构编辑、Note 行为、引用、props / type、命令、Settings 和失败状态的交互契约。
 - macOS / iOS 信息架构草图。
 - Note、block、op、projection、search result、validation error、mirror status、settings 和 sync status 的 core DTO 草图。
-- **关键技术决策确认**：客户端 ↔ core 传输边界、vault 落盘布局与同步单元、顶层 Note 内部表示、Calendar 保护规则、journal Calendar 层级、`calendar_date` 隐藏属性、`life` 枚举 vs 单 tombstone、提交节奏与 op-log 粒度、op-log compaction、搜索 / backlinks 后端、blob 落盘与 cap 校验、UTF-16 / UTF-8 offset 换算边界、字体来源（内置 vs 原生枚举）。
-- Fixture set 至少覆盖：顶层 Note、子 Note / subpage、系统 `Calendar` 层级、journal 自动创建 `year / month / week / date` 层级、journal date Note 的 `calendar_date` 隐藏属性、title `$type`、title `#tag`、body block `#tag`、嵌套 tag tree、嵌套 list item 内含代码、带行内引用的表格、unsupported block、relation prop、embed、conflict case、mirror stale case、settings case、sync case、单块文本选择、block 选择、嵌入编辑器选择和跨 block 编辑拒绝 / 拆分 case。
+- **关键技术决策确认**：客户端 ↔ core 传输边界、vault 落盘布局与同步单元、顶层 Note 内部表示、journal 创建规则、`calendar_date` 唯一性、Calendar projection 排序、journal 默认 parent、`life` 枚举 vs 单 tombstone、target/register stale guard、同步 ingestion、提交节奏与 op-log 粒度、op-log compaction、mirror post-commit job、搜索 / backlinks 后端、blob 落盘与 cap 校验、UTF-16 / UTF-8 offset 换算边界、字体来源（内置 vs 原生枚举）。
+- Fixture set 至少覆盖：顶层 Note、子 Note / subpage、journal Note、Calendar 年 / 月 / 周 / 日期 projection、同日 journal 去重、journal Note 的 `calendar_date` 隐藏属性、title `$type`、title `#tag`、body block `#tag`、嵌套 tag tree、嵌套 list item 内含代码、带行内引用的表格、unsupported block、relation prop、embed、target/register conflict case、sync merge case、mirror stale case、settings case、单块文本选择、block 选择、嵌入编辑器选择和跨 block 编辑拒绝 / 拆分 case。
 
 证明：
 
@@ -540,8 +541,8 @@ CLI 公开词汇使用 Note / block op。其中 show / search / tag / prop / dia
 - `canonical_serialize` spike，证明跨运行 bytes 和 hash 稳定。
 - Note / block id 与 fractional order spike。
 - Op-log replay spike。
-- HLC LWW merge spike，覆盖 move-vs-edit 和 edit-vs-delete。
-- Export mirror vs structured projection parity spike，使用真实查询样例。
+- HLC LWW merge spike，覆盖 move-vs-edit、edit-vs-delete、本地 target/register stale guard 和同步 ingestion。
+- Export mirror vs structured projection parity spike，使用真实查询样例，并证明 mirror 写入失败只影响 freshness / diagnostics。
 - Apple binding 最小调用 spike：Apple 侧能调用 core 读取 fixture Note。
 - `anchor-editor-core` 选择 / 编辑事务 spike，覆盖 insert text、split block、merge backward、indent / outdent、transform block、apply mark、paste fragment、undo inverse intent 和 validation error。
 - Apple text surface spike：证明 NSTextView / UITextView / TextKit 事件可转换为 `EditorIntent`，`EditorPatch` 可回放到原生 view model。
@@ -562,11 +563,11 @@ CLI 公开词汇使用 Note / block op。其中 show / search / tag / prop / dia
 - Core Note / block model、validation 与 normalization。
 - Append-only op-log、replay materialization。
 - SQLite projection 或等价本地 projection。
-- 单一 `dispatch` 写入路径与 if-match 校验。
-- 原子 `.json` / `.md` mirror writer。
+- 单一 `dispatch` 写入路径、本地 target/register stale guard 和同步 ingestion。
+- Post-commit `.json` / `.md` mirror job 与 freshness 记录。
 - Importer 与 exporter。
 - Apple binding DTO、CLI DTO。
-- `anchor-editor-core` 的 snapshot / selection / intent / patch / transaction result 类型、编辑事务 normalizer 和 transform reducer。
+- `anchor-editor-core` 的 snapshot / selection / intent / patch / transaction result 类型、intent shaping 和 patch reducer。
 - 同步传输适配器接口。
 
 证明：
@@ -574,7 +575,7 @@ CLI 公开词汇使用 Note / block op。其中 show / search / tag / prop / dia
 - 每条持久写入路径都经过 validated dispatch。
 - 从空状态 replay op-log 可重建同一棵 materialized tree。
 - Import → export → import 保留 canonical JSON ids 和 hashes。
-- 编辑器事务通过 core 校验生成 op；平台 selection、TextKit range 和 view identity 不进入持久化。
+- 编辑器事务通过 `anchor-core::dispatch` 校验并创建 op；平台 selection、TextKit range 和 view identity 不进入持久化。
 - Apple binding 可以读取、写入、replay fixture vault。
 
 检查点 CP-2：core dispatch、op-log replay、projection、`anchor-editor-core`、同步适配器接口和 CLI DTO 契约稳定到足以支撑 macOS / iOS 集成。
@@ -672,13 +673,13 @@ CLI 公开词汇使用 Note / block op。其中 show / search / tag / prop / dia
 
 - `anchor-core` 可确定性地 create、replay、validate、merge、import 和 export Note / block trees。
 - 每条持久写入路径都经过 validated dispatch，并在 materialization 前 append op-log。
-- `anchor-editor-core` 可把首期编辑行为表示为 `EditorIntent`，通过 core 校验生成 op，并返回可回放的 `EditorPatch`。
+- `anchor-editor-core` 可把首期编辑行为表示为 `EditorIntent`；`anchor-core::dispatch` 负责校验、创建 op，并返回可回放的 `EditorPatch`。
 - macOS UI 和 iOS UI 暴露 Note / block 导航、编辑、检查器、设置和状态表面。
 - macOS / iOS text surface 只保存 transient selection、focus、composition 和 view state（见 §4.2）。
 - Settings UI 暴露主题切换、字体选择、排版调整和重置入口；平台实现不同，设置语义一致。
 - Apple 客户端通过 shared core binding 读写 fixture vault。
 - CLI 可通过文档化结构契约 read / search / update / move Note / block。
-- Markdown / JSON mirror files 从真理层生成，并可重建。
+- Markdown / JSON mirror files 由 post-commit job 从真理层生成，并可重建；mirror 失败可见但不回滚 op-log。
 
 验证命令：
 
@@ -700,6 +701,7 @@ CLI 公开词汇使用 Note / block op。其中 show / search / tag / prop / dia
 
 - Core 写入路径是单一 dispatch 入口（首期建立并守住）。
 - 编辑器写入路径从 `EditorIntent` 进入 core dispatch。
+- 本地 UI / CLI stale guard 使用 touched target/register base rev；同步 ingestion 进入 merge pipeline。
 - 被触碰 workspace / target 的本地检查通过。
 - Exported mirror 支持 CLI read / search workflows。
 - 已有 Markdown vault 内容在 frontmatter id 存在或缺失时都可作为来源材料导入（缺失时创建新 Note）。
@@ -722,7 +724,7 @@ CLI 公开词汇使用 Note / block op。其中 show / search / tag / prop / dia
 - **文本壳架构漂移**：围绕“打开一篇 Markdown 文本”组织的交互惯性会把产品表面拉向 note-centric 形态。约束方式是首期产品表面以结构化 Note / block 为单位设计，非法树状态由 core 校验拒绝。
 - **Binding 成本低估**：Rust core 到 Apple 的 ABI、错误类型、异步、内存和二进制分发是真实成本。约束方式是阶段1先做 binding spike，再进入客户端实现。
 - **同步传输污染 core**：CloudKit 容易把 record shape、zone、account state 泄漏进领域模型。约束方式是 CloudKit 只做 adapter，op-log 和 merge 语义不依赖它。
-- **平台编辑器分叉语义**：macOS / iOS / 后续客户端编辑器可能各自解释结构编辑。约束方式是结构编辑意图和 normalizer 在 `anchor-editor-core` 边界收敛。
+- **平台编辑器分叉语义**：macOS / iOS / 后续客户端编辑器可能各自解释结构编辑。约束方式是平台 adapter 只产出 `EditorIntent`，结构合法化和 op creation 在 `anchor-core::dispatch` 收敛。
 - **跨 block 选择低估**：跨 text surface 的连续选择、IME、undo 和 accessibility 可能远比单块编辑复杂。约束方式是首期先支持单块文本选择、block 选择和嵌入编辑器选择，跨 block 文本选择必须通过 spike 后再进入能力范围。
 - **Mirror 可信度缺口**：grep-friendly export 可能落后真理层。约束方式是让 mirror freshness 可见且可测试。
 - **DTO 抖动**：Apple 客户端可能跑在 core shape 前面。约束方式是在广泛 UI 工作前冻结阶段0 DTO 草图。
