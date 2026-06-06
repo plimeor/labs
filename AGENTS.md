@@ -16,6 +16,14 @@
 - Package READMEs own public CLI, API, schema, file format, and stable behavior
   docs. `docs/ideas/` and `docs/plans/` are historical records, not current
   interface contracts.
+- `docs/workbench/<project>/<YYYY-MM-DD>-<task>/` holds current project workbench
+  artifacts such as agent collaboration baselines, verification reports,
+  approval drafts, and decision packets. Use the dated task directory for the
+  one-off work item; keep files inside semantically named, such as
+  `contract-baseline.md`, `apple-verification.md`, or `cp-0-approval.md`.
+  Workbench artifacts are not public interface contracts, and creating a
+  workbench directory does not authorize package, workspace, app, or generated
+  lockfile changes.
 
 ## Packages
 
