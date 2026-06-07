@@ -1,27 +1,27 @@
-# Anchor Stage 1 — Integration / CP-1 Readiness Report（Claude / core owner 整合）
+# Anchor Stage 1 — Integration / CP-1 Readiness Report
 
 日期：2026-06-07
 状态：**workbench artifact** —— 非公开接口契约。本文件把 Codex / Apple verifier 的 Stage 1 实测报告（binding / TextKit / iCloud Drive）与 Claude / core owner 的 core spike 证据（`core-spike-report.md` / `core-evidence.md`）整合为**当前决策状态**与 **CP-1 下一步 gate** 的收口结论。
 
 > **边界声明（AGENTS 工作台规则，强制）：** 创建本文件**不授权**任何 package / workspace / app / 生成 lockfile 改动；**不**改 root `package.json` / `bun.lock` / `tsconfig` / workspace 配置，**不**创建产品 app shell / entitlement / bundle id / iCloud container，**不**把 Apple probe 升级为产品工程。权威接口契约在实现后归 `anchor-core` 包 README。
 >
-> 引用：core 报告 = `core-spike-report.md` / `core-evidence.md`；Apple 报告 = `apple-binding-report.md` / `textkit-adapter-report.md` / `icloud-drive-report.md`；交接 = `codex-apple-input.md`（core→Codex 被调 surface）/ `apple-patch-list-for-claude.md`（Codex→Claude 整合状态）；决策 = `../2026-06-06-phase-0/`（`cp-0-final.md` / `cp-0-approval.md` / `key-decisions.md` D01–D38 / `contract-baseline.md` / `fixture-set.md` F01–F43 / `stage-1-spike-plan.md` / `stage-1-entry-brief.md`）。
+> 引用：core 报告 = `core-spike-report.md` / `core-evidence.md`；Apple 报告 = `apple-binding-report.md` / `textkit-adapter-report.md` / `icloud-drive-report.md`；交接 = `codex-apple-input.md`（core→Codex 被调 surface）/ `apple-patch-list-for-claude.md`（Codex→integration evidence）；决策 = `../2026-06-06-phase-0/`（`cp-0-final.md` / `cp-0-approval.md` / `key-decisions.md` D01–D38 / `contract-baseline.md` / `fixture-set.md` F01–F43 / `stage-1-spike-plan.md` / `stage-1-entry-brief.md`）。
 
 ---
 
 ## 1. 结论（CP-1 readiness）
 
-**Core side = complete；CP-1 整体 = 未退出（compromise，按 axis 分）。** Claude / core owner 的确定性 core（spike 组 1、5）已落成正式测试并 live 复跑通过；World A 多目标编译 gate、client 零真理逻辑红线、core 零云符号边界 live 复跑通过。Codex / Apple verifier 的 binding（组 2）与 TextKit（组 3）机制面通过、可作 Stage 1 recommendation；iCloud Drive（组 4）为 **compromise**，**未**升级为已批准首期默认 transport。CP-1 整体退出与 B14 默认 transport 批准仍 gated on 一组 Codex/Apple + 用户签署项（见 §6、§9）。本轮无任何 stop condition 触发（§10）。
+**Core side = complete；CP-1 整体 = 未退出（compromise，按 axis 分）。** Core owner 的确定性 core（spike 组 1、5）已落成正式测试并通过；World A 多目标编译 gate、client 零真理逻辑红线、core 零云符号边界通过。Codex / Apple verifier 的 binding（组 2）与 TextKit（组 3）机制面通过、可作 Stage 1 recommendation；iCloud Drive（组 4）为 **compromise**，**未**升级为已批准首期默认 transport。CP-1 整体退出与 B14 默认 transport 批准仍 gated on 一组 Codex/Apple + 用户签署项（见 §6、§9）。Stop condition check 见 §11。
 
 ---
 
-## 2. Live-verified ground truth（本轮复跑，Observed）
+## 2. Verified ground truth（Stage 1 Observed）
 
-本轮以 `f292042 Add Anchor stage 1 verification spikes` 的 Stage 1 证据为基线复跑；当前 HEAD `1fd3f03` 仅多一条与 Anchor 无关的 `.claude/scheduled_tasks.lock` 删除提交。整合报告与 4 份决策文档是本轮待提交改动，工作区不含代码、root workspace、lockfile、Apple product app、entitlement 或 bundle id 改动。
+Stage 1 evidence is committed and synchronized into the current decision files. Integration scope contains no code, root workspace, lockfile, Apple product app, entitlement, or bundle id changes.
 
 | 命令 | 观察 |
 |---|---|
-| `git status --short` | 仅显示本整合报告 + 4 份决策文档待提交；无代码 / root workspace / lockfile / Apple product app 改动 |
+| `git status --short` | clean |
 | `git diff --check` | clean |
 | `cargo test --manifest-path suites/anchor/Cargo.toml` | **74 passed; 0 failed**；1 ignored（`scale_bench::replay_cost_curve`，默认门控） |
 | `cargo build … --target wasm32-unknown-unknown` | `Finished` — OK |
@@ -29,7 +29,7 @@
 | `rg "CloudKit\|CKRecord\|CKAsset\|CKContainer\|CKSyncEngine\|NSFileCoordinator\|NSMetadataQuery\|ubiquit\|iCloud\|NSURLIsExcludedFromBackupKey" suites/anchor/core` | **0 matches, exit 1**（含注释；边界文案不含被审 token）→ 可直接作 CI 红线 |
 | `rg "OpSyncPort\|push_segment\|pull_segment\|SegmentId\|BlobId" suites/anchor/core` | 仅命中 core sync boundary：`src/sync_port.rs` / `src/dto.rs` / `src/lib.rs` 边界注释 |
 
-这些数字与 Apple/core 报告中引用值逐项一致（C ABI 64MB ≈38.22ms / 96MB RSS、UniFFI 64MB ≈145.22ms / 267MB RSS、million-op replay ≈2.1µs/op；report-Observed，本轮未重跑 `--release --ignored` 基准）。
+这些数字与 Apple/core 报告中引用值逐项一致（C ABI 64MB ≈38.22ms / 96MB RSS、UniFFI 64MB ≈145.22ms / 267MB RSS、million-op replay ≈2.1µs/op；report-Observed）。
 
 ---
 
@@ -135,24 +135,24 @@
 
 | 文件 | 角色 | 状态 | 本轮动作 |
 |---|---|---|---|
-| `cp-0-final.md` | decision-contract（CP-0 索引） | synced | §4 Stage 1 Status 与报告一致，无改 |
-| `cp-0-approval.md` | approval-surface | **已同步** | 中和 §4 #3（iCloud container 批准状态叙述）、§4 #8（CloudKit 50MB cap 叙述）、§6（free/paid team 时序对比）3 处编辑痕迹 → 目标态；批准语义 100% 保留 |
-| `key-decisions.md` | decision-contract | **已同步** | D06 Status 升为 `Needs Stage 1 policy / delivery gate`（对齐 D14/D35）+ 吸收 1024-file iOS/macOS 与 macOS 10K/50K/100K signed-app direct enumeration evidence；保留 placeholder/account/conflict/steady-state budget gates |
-| `contract-baseline.md` | decision-contract | **已同步** | Sync baseline 中「watermark…**不再**是…充分条件」→「**不是**」、「retention **扩为**四 horizon」→「**含**」；约束语义不变 |
-| `stage-1-spike-plan.md` | brief/plan | **已同步** | §1 Evidence 把「三目标**执行**逐字节相同」软化为「darwin 实跑捕获 + 多目标编译 gate 通过 + 执行接线为强制 CI gate（未实跑）」，`wasm32` 仍显式保留为强制 gate |
-| `stage-1-entry-brief.md` | brief | synced | 已反映 Stage 1 结果，无改 |
+| `cp-0-final.md` | decision-contract（CP-0 索引） | **已同步** | §4 / §6 作为 Stage 1 后当前入口：binding recommendation、TextKit mechanism、iCloud compromise、core gate 与剩余 open gates 对齐 |
+| `cp-0-approval.md` | approval-surface | **已同步** | 保留 CP-0 批准事实；A2/B4 更新为 Stage 1 evidence-backed recommendation + user signoff pending；B14 更新为 iCloud compromise + default transport not approved |
+| `key-decisions.md` | decision-contract | **已同步** | D01 typed `ValidationError` + release-surface evidence；D06/D35 macOS 10K/50K/100K direct enumeration evidence；保留 placeholder/account/conflict/steady-state budget gates |
+| `contract-baseline.md` | decision-contract | **已同步** | Binding / sync baseline 吸收 typed error、C ABI bytes fast path、iCloud direct-enumeration compromise |
+| `stage-1-spike-plan.md` | brief/plan | **已同步** | Stage 1 observed items 与 remaining product gates 分离；不把 product runtime / CI / default transport 当已批准 |
+| `stage-1-entry-brief.md` | brief | **已同步** | 已反映 Stage 1 binding/iCloud/TextKit 当前状态 |
 | `fixture-set.md` | decision-contract | synced | F23/F26/F42/F43 Stage 1 回填一致，无改 |
-| `apple-verification.md` | **evidence-record**（cp-0-final 索引：现实核验证据） | leave-as-is | 其 clause-correction 发现叙述是验证内容，非决策契约编辑痕迹 → 不改 |
+| `apple-verification.md` | **evidence-record**（cp-0-final 索引：现实核验证据） | leave-as-is | clause-correction 发现叙述属于验证内容，不作为当前决策契约改写 |
 | `research-notes.md` | **evidence-record**（早期调研原始记录，非批准面） | leave-as-is | 其 gate-resolution / 时序推理叙述是研究记录 → 不改 |
 | `codex-verification-packet.md` | **evidence-record**（Codex 验证原始记录，非批准面） | leave-as-is | 其 clause-correction 指令叙述是原始记录 → 不改 |
 
-> **分类规则（决定性）：** 长期决策文档 / 批准面只写当前目标态与责任边界（中和编辑痕迹）；evidence-record / 原始记录 / research-notes 合法地记录跨时间的发现与推理，其过程叙述是**内容**、不得抹除。`cp-0-final.md` 索引对「证据 vs 决策」的归类为权威。故 patch-style 扫描在三份 evidence-record 上的命中是**设计内保留**，不是污染。
+> **分类规则（决定性）：** 长期决策文档 / 批准面只写当前目标态与责任边界；evidence-record / 原始记录 / research-notes 合法地记录跨时间的发现与推理，其过程叙述是**内容**、不得抹除。`cp-0-final.md` 索引对「证据 vs 决策」的归类为权威。
 
 ---
 
-## 9. 是否需要 Codex 回来补跑 Apple verifier
+## 9. Remaining work
 
-**需要。** Core side complete（74 测试、多目标 gate、边界干净，全部 live 复跑）。但 CP-1 整体退出与 B14 默认 transport 批准依赖的 open gate **全部是 Codex/Apple + 用户签署工作，非 core 工作**。本轮**不**需要重跑 core / 边界检查（本会话已绿）。
+**当前整合不需要补跑 Apple verifier。** Core side complete（74 测试、多目标 gate、边界干净）；binding / TextKit / iCloud mechanism evidence 已进入当前基线。CP-1 整体退出与 B14 默认 transport 批准仍依赖后续 Codex/Apple + 用户签署工作，非 core 工作。
 
 **精确命令 / 环境 / stop condition：**
 
@@ -169,9 +169,9 @@
 
 ---
 
-## 10. Commit 决定
+## 10. Commit status
 
-**建议提交（严格 scope）。** 本轮 deliverable = 本整合报告 + 对 4 份决策文档的最小目标态编辑（cp-0-approval ×2、key-decisions ×2、contract-baseline ×1、stage-1-spike-plan ×1）。**无**代码 / lockfile / workspace / `Cargo.toml` member / app target / entitlement / bundle id 改动；三份 evidence-record 不动。`.claude/scheduled_tasks.lock` 删除已是独立提交（`1fd3f03`），不并入本 docs 提交。提交信息须 scope 为「docs(anchor): Stage 1 integration report + target-state decision-doc sync」，**不得**暗示 CP-1 整体退出或 iCloud 默认 transport 已批准。已在 `anchor-v1`（非 main），可直接提交。
+Stage 1 integration is committed through `71611aa Document Anchor binding release surface`; this report now reflects the current integrated state. Any new edits must keep the same scope: docs/workbench only, no code / lockfile / workspace / `Cargo.toml` member / app target / entitlement / bundle id changes, and no wording that implies CP-1 overall exit or iCloud default transport approval.
 
 ---
 
