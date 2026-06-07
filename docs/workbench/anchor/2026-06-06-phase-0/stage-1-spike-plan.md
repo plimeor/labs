@@ -179,7 +179,7 @@ xcodebuild -scheme AnchorCoreBindings -destination 'generic/platform=iOS Simulat
 
 ## 4. iCloud Drive adapter spike
 
-**Owner：Codex / Apple。** **前置：付费 Apple Developer Program team + signed app + iCloud container +真实 account。** Stage 1 结论为 **compromise**：iCloud Drive 可作为 adapter runtime 候选继续验证，但 default transport 批准仍受 scale、placeholder、account-state 与 conflict-resolution policy gate 约束；core 永不出现云类型。覆盖 fixture-set.md F34（iCloud Drive re-delivery / duplicate segment 面）。
+**Owner：Codex / Apple。** **前置：付费 Apple Developer Program team + signed app + iCloud container +真实 account。** Stage 1 结论为 **approved default transport with compromise constraints**：iCloud Drive 已获用户批准作为首期 default transport（2026-06-07），但交付仍受 scale、placeholder、account-state 与 conflict-resolution policy gate 约束；core 永不出现云类型。覆盖 fixture-set.md F34（iCloud Drive re-delivery / duplicate segment 面）。
 
 **Codex status（apple-verification.md §2.6、§7；Stage 1 icloud-drive-report.md）：**
 
@@ -230,7 +230,7 @@ rg -n "OpSyncPort|push_segment|pull_segment|SegmentId|BlobId" suites/anchor/core
 
 **Evidence：** 付费 team 下生成含 iCloud entitlement 的 profiles；真实账户返回 container；vault package type id 可读；package-level metadata discovery works；package-internal direct enumeration works through 100K files on signed macOS app；package-internal metadata query does not discover `.seg` files; coordinated read/write succeeds；current local download call succeeds on iOS；online concurrent writes converge；offline fork exposes unresolved `NSFileVersion` conflict；core 审计第一条命令零命中（无云符号），第二条命中 `OpSyncPort` / `SegmentId` / `BlobId`。
 
-**Failure conditions（apple-verification.md §7.4）：** core 需要 cloud/account/file-coordination types 才能 merge 或 read bytes（`OpSyncPort` boundary 失效）；package-internal segment discovery depends on `NSMetadataQuery`; unresolved file versions are silently ignored; default transport reaches scale no-go; vault package lacks `com.apple.package` declaration.
+**Failure conditions（apple-verification.md §7.4）：** core 需要 cloud/account/file-coordination types 才能 merge 或 read bytes（`OpSyncPort` boundary 失效）；package-internal segment discovery depends on `NSMetadataQuery`; unresolved file versions are silently ignored; transport delivery produces roughly one synced segment per logical op; vault package lacks `com.apple.package` declaration.
 
 **二期前瞻（不进首期；路线已获用户批准 B8，2026-06-07）：** 单附件 cap = **50MB**（D17，对齐 archived CloudKit `CKAsset` 50MB 上限）。CloudKit 始终作为同一 `OpSyncPort` 后的 Swift adapter，record schema 永不进 core；op 形状须在任何 CloudKit 记录落地前冻结。
 
@@ -261,6 +261,6 @@ rg -n "OpSyncPort|push_segment|pull_segment|SegmentId|BlobId" suites/anchor/core
 - **World A 受保护不变量：** core 多目标编译 gate 通过（`anchor-core` 编到 `wasm32-unknown-unknown` + `aarch64-linux-android`，D36）；client 零真理逻辑 grep 红线通过（D37）。
 - spike 组 2、3（Codex/Apple + editor 合约）有可重复命令或 Xcode scheme + spike 报告；Stage 1 reports 已覆盖 binding round-trip、bytes benchmark、synchronous Swift 6 strict-concurrency release smoke、TextKit macOS smoke 和 iOS compile。剩余签署面是 final DTO/error vocabulary、UniFFI async `Sendable` surface、product wrapper/CI 复现、real app responder-chain undo/IME/accessibility proof。
 - spike 组 4（iCloud）保留 runtime evidence matrix；Stage 1 report 已覆盖 signed container、package UTType、file coordination、package metadata, package-internal direct enumeration, online convergence, offline conflict materialization, and core cloud-symbol audit。未跑项必须标明，不当已验证事实。
-- **iCloud Drive 作首期默认 transport 的批准 gated on Stage 1 scale/policy gate（cp-0-approval.md B14）：** 50K ops 仅 smoke、不足进 CP-1；CP-1 需 (a) million-scale operation history 的 replay / merge / compaction / snapshot-fallback / time-travel 证据，(b) batching + compaction 后明确的 steady-state segment-file budget（N 个 op 不产约 N 个 segment），(c) 该 budget 下 iCloud Drive 真机 go/compromise（非 no-go）实测，(d) product conflict-resolution policy，(e) remote placeholder / account-state behavior，(f) 四-horizon retention 正确性测试通过；**no-go 则转 CloudKit / object-store**。
+- **iCloud Drive 作首期默认 transport 已批准（cp-0-approval.md B14，2026-06-07）：** 批准形状为 compromise constraints；CP-1 仍需 (a) million-scale operation history 的 replay / merge / compaction / snapshot-fallback / time-travel 证据，(b) batching + compaction 后明确的 steady-state segment-file budget（N 个 op 不产约 N 个 segment），(c) remote placeholder / account-state behavior，(d) product conflict-resolution policy，(e) 四-horizon retention 正确性测试通过；delivery no-go-like result triggers batching/transport design reset and user review.
 - 任何「必须调整的模型点」回填 contract-baseline.md / key-decisions.md / fixture-set.md，决策编号沿用 D01–D38（含 D18a、D21a、D38 time travel）、fixture 编号沿用 F01–F43（含 F42 segment budget、F43 retention）。
 - **通过前不实现持久应用写入**（plan §11 CP-1）。

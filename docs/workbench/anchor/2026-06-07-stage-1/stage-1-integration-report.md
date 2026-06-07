@@ -11,7 +11,7 @@
 
 ## 1. 结论（CP-1 readiness）
 
-**Core side = complete；CP-1 整体 = 未退出（compromise，按 axis 分）。** Core owner 的确定性 core（spike 组 1、5）已落成正式测试并通过；World A 多目标编译 gate、client 零真理逻辑红线、core 零云符号边界通过。Codex / Apple verifier 的 binding（组 2）与 TextKit（组 3）机制面通过、可作 Stage 1 recommendation；iCloud Drive（组 4）为 **compromise**，**未**升级为已批准首期默认 transport。CP-1 整体退出与 B14 默认 transport 批准仍 gated on 一组 Codex/Apple + 用户签署项（见 §6、§9）。Stop condition check 见 §11。
+**Core side = complete；CP-1 整体 = 未退出（compromise，按 axis 分）。** Core owner 的确定性 core（spike 组 1、5）已落成正式测试并通过；World A 多目标编译 gate、client 零真理逻辑红线、core 零云符号边界通过。Codex / Apple verifier 的 binding（组 2）与 TextKit（组 3）机制面通过、可作 Stage 1 recommendation；iCloud Drive（组 4）已由用户批准为首期 default transport，批准形状为 **default transport with compromise constraints**。CP-1 整体退出仍 gated on 一组 Codex/Apple implementation gates + binding 用户签署项（见 §6、§9）。Stop condition check 见 §11。
 
 ---
 
@@ -42,7 +42,7 @@ Stage 1 evidence is committed and synchronized into the current decision files. 
 | **mirror / search parity（组 5）** | **go** | `mirror_parity` 测试通过：structured search == ripgrep(md)、mirror 写失败隔离（op-log 不回滚）、body 冲突 git fence。 |
 | **Apple binding（组 2，A2/B4）** | **compromise** | 机制 frozen-ready 作 **Stage 1 recommendation**：`UniFFI DTO / ordinary dispatch + C ABI bytes fast path`。typed `ValidationError` enum 已落到 core DTO + C ABI Swift wrapper + UniFFI generated enum；synchronous release-surface smoke 已过 Swift 6 strict concurrency + warnings-as-errors。产品分发**冻结**仍 gated on async `Sendable` surface、最终 DTO/error vocabulary、CI/fresh-machine 复现与用户签署（§5）。 |
 | **TextKit adapter（组 3，D18）** | **compromise（mechanism-go）** | 机制面可行且边界干净（Swift 零确定性语义、buffer 非真理）；real-app responder-chain undo 抑制、IME marked-text commit、accessibility、hit-testing、patch replay over moving views、UTF-16 内部单位换算稳定性仍是**产品级 runtime gate**（Not run）。 |
-| **iCloud Drive（组 4，B14）** | **compromise** | signed iPhone + signed macOS app 通过 ubiquity/package/coordinator/direct-enumeration/online-converge/offline-conflict；package-internal `.seg` 发现**不依赖** `NSMetadataQuery`。默认 transport 仍 gated（§6）。 |
+| **iCloud Drive（组 4，B14）** | **approved default transport / compromise constraints** | 用户已批准 iCloud Drive 作首期 default transport（2026-06-07）。signed iPhone + signed macOS app 通过 ubiquity/package/coordinator/direct-enumeration/online-converge/offline-conflict；package-internal `.seg` 发现**不依赖** `NSMetadataQuery`。remote placeholder / account states / iOS large-scale / steady-state budget / conflict policy 仍是 delivery gates（§6）。 |
 | **layout / Bun（D02）** | **compromise** | Option A 纪律 live 守住（`members=["core"]`、`suites/anchor/**` 无 `package.json`、root 配置未动）；`bun install` / `bun run check` 对该 glob 的行为本轮未跑 = Unknown（实现期收口，非确定性 gate）。 |
 | **retention（D14/D38）** | **compromise** | 四-horizon 模型内部一致、core `retention`(7) + `segment_budget`(3) 测试通过；steady-state segment budget、million-op compaction、stale-peer watermark advance、product conflict-resolution policy 是 scale-gate / Codex-Apple 工作（未测）。 |
 
@@ -67,7 +67,7 @@ Stage 1 evidence is committed and synchronized into the current decision files. 
 
 ### 4.3 Compromise（机制通过但未达批准）
 
-- **iCloud Drive 作首期默认 transport（B14）= compromise**，**不是**已批准。runtime/file-transport 机制已证，macOS direct enumeration scale gate 通过到 100K；remote placeholder、account-state、iOS large-scale delivery、steady-state segment budget 与 conflict-policy gate 未满足。
+- **iCloud Drive 作首期默认 transport（B14）= approved default transport with compromise constraints**。runtime/file-transport 机制已证，macOS direct enumeration scale gate 通过到 100K；remote placeholder、account-state、iOS large-scale delivery、steady-state segment budget 与 conflict-policy 是交付 gate，不再阻塞 transport 路线选择。
 - **TextKit = mechanism-go**，产品 editor runtime 未完成。
 - **layout/Bun = compromise**：Option A 纪律守住，Bun glob 行为 Unknown。
 
@@ -80,7 +80,7 @@ Stage 1 evidence is committed and synchronized into the current decision files. 
 
 ### 4.5 Stop condition（本轮无触发，作为前置守卫）
 
-改 root workspace/package/lockfile；在 Swift/TextKit 复制 core 确定性语义；在 gate 未满足下升级 iCloud 为默认 transport；CloudKit schema / CKSyncEngine；公开 CLI schema 变更；把 Apple probe 变产品 app shell；`anchor-core` 泄漏 Apple 云/文件协调类型。**本轮一项未触。**
+改 root workspace/package/lockfile；在 Swift/TextKit 复制 core 确定性语义；绕过 B14 compromise constraints 发布 iCloud transport；CloudKit schema / CKSyncEngine；公开 CLI schema 变更；把 Apple probe 变产品 app shell；`anchor-core` 泄漏 Apple 云/文件协调类型。**本轮一项未触。**
 
 ---
 
@@ -100,7 +100,7 @@ Stage 1 evidence is committed and synchronized into the current decision files. 
 
 ## 6. iCloud Drive — 状态与最小下一轮验证矩阵
 
-**状态 = `compromise`（不是 viable / 已批准）。** 可批准的 adapter 形状已锁定（metadata 发现 vault/package + file-coordinated direct package-internal enumeration + `NSFileVersion` 暴露冲突面 + per-device immutable cursor）。作首期默认 transport 的批准（B14）gated on：
+**状态 = approved default transport with compromise constraints。** 可批准的 adapter 形状已锁定（metadata 发现 vault/package + file-coordinated direct package-internal enumeration + `NSFileVersion` 暴露冲突面 + per-device immutable cursor）。B14 已由用户于 2026-06-07 批准；剩余项作为交付 gate：
 
 | # | 最小验证项 | 当前态 |
 |---|---|---|
@@ -112,7 +112,7 @@ Stage 1 evidence is committed and synchronized into the current decision files. 
 | 6 | **local-only path-in-ubiquity 边界（D21/D21a）**：symlink / 外部卷 / security-scoped bookmark / signed-out | Blocked / not run |
 | 7 | **iOS package-level metadata gather**（仅 macOS 证 `package_metadata_gathered=true`；iOS probe 窗口内 `metadata_seg_count=0`） | Not demonstrated on iOS |
 | 8 | **repo-local signed Anchor app target + 全 Anchor-target iCloud runtime**（今天只有 repo-external signed probe） | Not run |
-| 9 | **用户确认 B14**（sync 路线作首期产品选择，plan §13 stop condition）后方可任何默认 transport 升级 | 待签署 |
+| 9 | **用户确认 B14**（sync 路线作首期产品选择，plan §13 stop condition） | approved 2026-06-07 |
 
 **no-go 转 CloudKit / 中立 object-store**（B14）。若实测 N 个 logical op → ~N 个 synced segment，则 batching/compaction 设计失效（不是 transport 选择失效），须重设 batching。
 
@@ -135,8 +135,8 @@ Stage 1 evidence is committed and synchronized into the current decision files. 
 
 | 文件 | 角色 | 状态 | 本轮动作 |
 |---|---|---|---|
-| `cp-0-final.md` | decision-contract（CP-0 索引） | **已同步** | §4 / §6 作为 Stage 1 后当前入口：binding recommendation、TextKit mechanism、iCloud compromise、core gate 与剩余 open gates 对齐 |
-| `cp-0-approval.md` | approval-surface | **已同步** | 保留 CP-0 批准事实；A2/B4 更新为 Stage 1 evidence-backed recommendation + user signoff pending；B14 更新为 iCloud compromise + default transport not approved |
+| `cp-0-final.md` | decision-contract（CP-0 索引） | **已同步** | §4 / §6 作为 Stage 1 后当前入口：binding recommendation、TextKit mechanism、B14 default transport approval、core gate 与剩余 open gates 对齐 |
+| `cp-0-approval.md` | approval-surface | **已同步** | 保留 CP-0 批准事实；A2/B4 更新为 Stage 1 evidence-backed recommendation + user signoff pending；B14 更新为 approved default transport with compromise constraints |
 | `key-decisions.md` | decision-contract | **已同步** | D01 typed `ValidationError` + release-surface evidence；D06/D35 macOS 10K/50K/100K direct enumeration evidence；保留 placeholder/account/conflict/steady-state budget gates |
 | `contract-baseline.md` | decision-contract | **已同步** | Binding / sync baseline 吸收 typed error、C ABI bytes fast path、iCloud direct-enumeration compromise |
 | `stage-1-spike-plan.md` | brief/plan | **已同步** | Stage 1 observed items 与 remaining product gates 分离；不把 product runtime / CI / default transport 当已批准 |
@@ -152,7 +152,7 @@ Stage 1 evidence is committed and synchronized into the current decision files. 
 
 ## 9. Remaining work
 
-**当前整合不需要补跑 Apple verifier。** Core side complete（74 测试、多目标 gate、边界干净）；binding / TextKit / iCloud mechanism evidence 已进入当前基线。CP-1 整体退出与 B14 默认 transport 批准仍依赖后续 Codex/Apple + 用户签署工作，非 core 工作。
+**当前整合不需要补跑 Apple verifier。** Core side complete（74 测试、多目标 gate、边界干净）；binding / TextKit / iCloud mechanism evidence 已进入当前基线，B14 默认 transport 已获用户批准。CP-1 整体退出仍依赖后续 Codex/Apple implementation gates + binding 用户签署工作，非 core 工作。
 
 **精确命令 / 环境 / stop condition：**
 
@@ -165,13 +165,13 @@ Stage 1 evidence is committed and synchronized into the current decision files. 
   - `cargo test --release --manifest-path suites/anchor/Cargo.toml -- --ignored scale_bench::replay_cost_curve`（million-op replay 线性，确认 1.25M+ ≈2.1µs/op + compaction 后稳态 segment budget）。
   - TextKit 产品 runtime：IME marked-text commit / accessibility range / hit-testing on rendered geometry / direct-buffer undo 抑制 / keyboard→`EditorIntent` / `EditorPatch` replay over splitting/moving views；UTF-16 内部单位换算稳定性（emoji/ZWJ/combining/CRLF/IME fixture，D18）。
   - Binding freeze 输入：typed `ValidationError` enum 已落地；generated UniFFI Swift 的 synchronous strict-concurrency release smoke 与三 slice XCFramework packaging 已观察；剩余 gate 是 async-`Sendable` surface、final DTO/error vocabulary、product wrapper import surface、release/CI 复现（fresh CI/dev 机器）与用户签署。
-- **Stop condition：** 出现以下任一即暂停重评——(a) 须改 root workspace/`package.json`/`bun.lock`/lockfile 或加 placeholder `package.json`；(b) 在 Swift/TextKit 复制 core 确定性语义；(c) gate 未满足下升 iCloud 为默认 transport；(d) iCloud-Drive 路径引入 CloudKit schema / CKSyncEngine；(e) 公开 CLI schema 变更；(f) 把 Apple probe 变产品 app shell；(g) `anchor-core` 获任何 Apple 云/文件协调/account/ubiquity 类型（重跑 0-match 云符号 + Apple 类型审计，要求 exit 1）。另：scale 出现 N op→~N segment 的 no-go，使 batching/compaction 设计失效（非 transport 选择失效），须停。
+- **Stop condition：** 出现以下任一即暂停重评——(a) 须改 root workspace/`package.json`/`bun.lock`/lockfile 或加 placeholder `package.json`；(b) 在 Swift/TextKit 复制 core 确定性语义；(c) iCloud transport 依赖 package-internal `NSMetadataQuery`、静默处理 unresolved `NSFileVersion` conflict，或绕过 placeholder/account-state gates；(d) iCloud-Drive 路径引入 CloudKit schema / CKSyncEngine；(e) 公开 CLI schema 变更；(f) 把 Apple probe 变产品 app shell；(g) `anchor-core` 获任何 Apple 云/文件协调/account/ubiquity 类型（重跑 0-match 云符号 + Apple 类型审计，要求 exit 1）。另：scale 出现 N op→~N segment 的 no-go，使 batching/compaction 设计失效（非 transport 选择失效），须停。
 
 ---
 
 ## 10. Commit status
 
-Stage 1 integration is committed through `71611aa Document Anchor binding release surface`; this report now reflects the current integrated state. Any new edits must keep the same scope: docs/workbench only, no code / lockfile / workspace / `Cargo.toml` member / app target / entitlement / bundle id changes, and no wording that implies CP-1 overall exit or iCloud default transport approval.
+Stage 1 integration is committed through `71611aa Document Anchor binding release surface`; B14 default transport approval is recorded in the current docs update. Any new edits must keep the same scope: docs/workbench only, no code / lockfile / workspace / `Cargo.toml` member / app target / entitlement / bundle id changes, and no wording that implies CP-1 overall exit or iCloud transport delivery gates are complete.
 
 ---
 
@@ -181,7 +181,7 @@ Stage 1 integration is committed through `71611aa Document Anchor binding releas
 |---|---|
 | 改 root workspace / package / lockfile | 否（`members=["core"]`、root 配置未动） |
 | Swift/TextKit 复制 core 确定性语义 | 否（`apple/` 零确定性语义 grep） |
-| gate 未满足下升 iCloud 为默认 transport | 否（保持 compromise） |
+| 绕过 B14 compromise constraints 发布 iCloud transport | 否（transport approved; delivery gates preserved） |
 | CloudKit schema / CKSyncEngine | 否 |
 | 公开 CLI schema 变更 | 否 |
 | Apple probe 变产品 app shell | 否（仅 SwiftPM probe + repo-external 签名 probe） |
