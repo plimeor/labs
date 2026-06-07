@@ -7,7 +7,7 @@
 
 - 本文件只回填会影响 CP-0 contract 的 Apple / Xcode / Swift-Rust / TextKit / iCloud Drive 证据。
 - 本文件没有在 repo 内创建 `suites/anchor`、Xcode project、Swift Package、Rust crate 或 app。
-- Repo 外验证资产包括 `/tmp/anchor-apple-verification-demo-20260607`、`/tmp/anchor-icloud-entitlement-app-probe-20260607`、`/tmp/anchor-icloud-noentitlement-app-probe-20260607`，以及用户授权保留的 `~/Documents/AnchorProvisionProbe` Xcode UI demo。它们只验证本机 Apple toolchain / SwiftPM / Rust staticlib / C ABI / TextKit API / iCloud adapter API 编译面、simulator app signing / entitlement 边界，以及 Xcode UI automatic signing/provisioning 行为，不是 Anchor 项目目录。
+- Repo 外验证资产包括 `/tmp/anchor-apple-verification-demo-20260607`、`/tmp/anchor-icloud-entitlement-app-probe-20260607`、`/tmp/anchor-icloud-noentitlement-app-probe-20260607`，以及用户授权保留的 `~/Documents/AnchorProvisionProbe` Xcode UI demo。它们只验证本机 Apple toolchain / SwiftPM / Rust staticlib / C ABI / TextKit API / iCloud adapter API 编译面、simulator app signing / entitlement 边界、Xcode UI automatic signing/provisioning 行为，以及 paid Apple Developer Program team 下的 iCloud entitlement provisioning，不是 Anchor 项目目录。
 - 本文件没有修改 `package.json`、`bun.lock`、workspace、package boundary 或 Claude draft 文件。
 
 标注：
@@ -22,18 +22,18 @@
 
 ## 1. Executive conclusion
 
-**结论：Claude 草案的 Apple 方向总体可执行，但只能批准到边界和 Stage 1 spike，不应声称 Anchor app 已经可构建或 iCloud entitlement 已经可用。**
+**结论：Claude 草案的 Apple 方向总体可执行；本机已证明 paid Apple Developer Program team 可以为 demo app 生成 iCloud Documents entitlement profile，但 Anchor app 构建和 iCloud Drive runtime 行为仍只能留给 Stage 1。**
 
 - **可进入 CP-0：** Apple-native 首期路线、Rust `anchor-core` 真理层、Apple 客户端进程内 binding、TextKit mechanism-only、iCloud Drive adapter 只给 core 喂 `SegmentId` / `BlobId` + bytes。
-- **已被本机证明：** Xcode 26.5 / SDK / simulator 可用；SwiftPM + Rust staticlib C ABI 可 build/link/run；UniFFI 0.31.1 minimal record/bytes binding 可生成并运行；TextKit adapter compile/runtime 最小面可用；普通 iOS development signing/provisioning 在 Personal Team 下可用。
-- **必须修改：** 把 iCloud entitlement proof 写成 paid Apple Developer Program team gate。当前 Personal Team 的 Xcode capability library 搜索 `iCloud` 返回 `No Matches`，只能证明普通 app development provisioning，不能证明 iCloud Documents / CloudKit capability。
-- **仍是 Unknown / Stage 1：** Anchor macOS/iOS target build、Anchor DTO/error/async binding 成本、TextKit 多 text surface selection、iCloud file package placeholder/conflict/quota/runtime 行为。
+- **已被本机证明：** Xcode 26.5 / SDK / simulator 可用；SwiftPM + Rust staticlib C ABI 可 build/link/run；UniFFI 0.31.1 minimal record/bytes binding 可生成并运行；TextKit adapter compile/runtime 最小面可用；普通 iOS development signing/provisioning 可用；paid ADP Individual team 下 iCloud Documents entitlement profile、device app signature、simulator launch smoke 和 physical iPhone ubiquity container lookup 均可用。
+- **必须修改：** iCloud entitlement 不是 free Personal Team 能力，也不是手写 entitlement blob 能替代的能力；CP-0 应写成 user-approved ADP team + App ID + iCloud container + provisioning profile 约束，而不是普通本地 build fact。
+- **仍是 Unknown / Stage 1：** Anchor macOS/iOS target build、Anchor DTO/error/async binding 成本、TextKit 多 text surface selection、Anchor target iCloud entitlement/container proof、file package placeholder/conflict/quota/runtime 行为。
 
 **Observed：默认开发目录是 Command Line Tools，但 `/Applications/Xcode.app` 可用。** `xcode-select -p` 仍指向 `/Library/Developer/CommandLineTools`；在这个默认状态下 `xcodebuild -version` / `-showsdks` 会失败。但用一次性 `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer` 后，观察到 `Xcode 26.5 (Build 17F42)`、macOS SDK 26.5、iOS SDK 26.5、iOS Simulator SDK 26.5，以及 iOS 26.2 / 26.4 / 26.5 simulator 设备列表。因此 CP-0 可以记录 Xcode/SDK/simulator availability 为 Observed；未来 target build 仍只能写为 **Recommended command skeleton / Not run**，因为 Anchor Xcode project 尚不存在。
 
-**Observed：scratch demo 证明了 Apple build surface 的关键路径。** macOS 上 Rust `staticlib` 可以被 SwiftPM executable 通过 C ABI link 并实际调用；`xcodebuild -create-xcframework` 可以把该 Rust staticlib + headers 打成 macOS slice XCFramework；一个 SwiftPM library 可以在 macOS 编译 `NSTextView` adapter 形态和 `NSMetadataQuery` / `NSFileCoordinator` adapter API；同一个 SwiftPM library 可以用 Xcode 26.5 针对 `generic/platform=iOS Simulator` 编译 `UITextView` / iCloud adapter API。这个 demo 仍没有证明 Anchor DTO、iOS Rust slice 或真实 iCloud entitlement/account 行为。
+**Observed：scratch demo 证明了 Apple build surface 的关键路径。** macOS 上 Rust `staticlib` 可以被 SwiftPM executable 通过 C ABI link 并实际调用；`xcodebuild -create-xcframework` 可以把该 Rust staticlib + headers 打成 macOS slice XCFramework；一个 SwiftPM library 可以在 macOS 编译 `NSTextView` adapter 形态和 `NSMetadataQuery` / `NSFileCoordinator` adapter API；同一个 SwiftPM library 可以用 Xcode 26.5 针对 `generic/platform=iOS Simulator` 编译 `UITextView` / iCloud adapter API。这个 demo 仍没有证明 Anchor DTO、iOS Rust slice 或真实 iCloud Drive account/runtime 行为。
 
-**Observed：targeted probes 覆盖了 binding、TextKit 和 signing 边界。** UniFFI minimal binding 可以生成、编译、链接并传输 `bytes -> Data`；64MB 单次 debug transfer 约 2.35s，max RSS 约 267MB。macOS `NSTextView` runtime probe 可以设置 UTF-16 selection，layout manager / text container 可用，`UndoManager` semantic undo closure 可执行。iCloud scratch CLI 在无 signed app/entitlement 下 `url(forUbiquityContainerIdentifier:nil)` 返回 nil。用户授权的 Xcode UI demo 证明 Personal Team 普通 app signing/provisioning 可用，但同一 target 的 `+ Capability` library 搜索 `iCloud` 返回 `No Matches`。
+**Observed：targeted probes 覆盖了 binding、TextKit 和 signing 边界。** UniFFI minimal binding 可以生成、编译、链接并传输 `bytes -> Data`；64MB 单次 debug transfer 约 2.35s，max RSS 约 267MB。macOS `NSTextView` runtime probe 可以设置 UTF-16 selection，layout manager / text container 可用，`UndoManager` semantic undo closure 可执行。iCloud scratch CLI 在无 signed app/entitlement 下 `url(forUbiquityContainerIdentifier:nil)` 返回 nil。用户授权的 Xcode UI demo 先证明 free Personal Team 只能普通 app signing；用户开通 ADP 后，同一 demo project 已证明 iCloud Documents entitlement profile、signed device artifact 和 physical iPhone ubiquity container lookup。
 
 **CP-0 可保持：**
 
@@ -59,14 +59,14 @@
 - 选择最终 layout（Option A vs fallback Option C）和是否接受 `suites/*/*` 下存在非 Bun package 目录。
 - 绑定机制作为产品分发边界冻结（UniFFI + XCFramework / SwiftPM binary wrapper，或 Stage 1 后改选 C ABI fast path）。
 - iCloud Drive 同步作为首期产品路线以及 local-only 防误放语义；CloudKit / CKSyncEngine 继续留二期。
-- paid Apple Developer Program Team、bundle id、iCloud container id、capability 设置、automatic/manual signing mode；iCloud capability 可能创建或绑定 Apple Developer 侧 App ID/container。
+- Apple Developer Program Team、bundle id、iCloud container id、capability 设置、automatic/manual signing mode；iCloud capability 会创建或绑定 Apple Developer 侧 App ID/container。
 
 **必须留给 Stage 1 spike：**
 
 - Anchor Xcode project 创建后，macOS target / iOS simulator target build。
 - UniFFI 对 Anchor DTO、structured errors、sync/async boundary、1/4/16/64MB bytes transfer 的成本实测。
 - TextKit / `NSTextView` / `UITextView` 事件到 `EditorIntent`、`EditorPatch` 回放到 native view model 的 spike。
-- iCloud Drive adapter：paid team 下由 iCloud-enabled provisioning profile 授权的 ubiquity container、file package、`NSMetadataQuery`、placeholder download、file coordination、conflict version、signed-out / over-quota 状态观测。
+- iCloud Drive adapter：signed-in iCloud 环境下的 ubiquity container、file package、`NSMetadataQuery`、placeholder download、file coordination、conflict version、signed-out / over-quota 状态观测。
 - diff3 和 fractional order-key 的 macOS / iOS byte-reproducible consistency vectors；推荐这些算法只在 Rust core 中执行，不由 Swift/TextKit 各自实现。
 
 ---
@@ -138,8 +138,8 @@
 | `security find-identity -v -p codesigning` | after Xcode account/team setup: `Apple Development: <DEVELOPER_NAME> (<TEAM_ID_ALT>)` and `1 valid identities found` |
 | `security find-certificate -a -c "Apple Development" -p \| openssl x509 -noout -subject -issuer -serial -dates` | observed certificate subject includes `OU=<TEAM_ID>`, issuer `Apple Worldwide Developer Relations Certification Authority`, valid `Jun 6 2026` to `Jun 6 2027` |
 | `find "$HOME/Library/MobileDevice/Provisioning Profiles" -maxdepth 1 -name '*.mobileprovision' -print \| wc -l` | `0`; this legacy/default profile directory did not receive the Xcode managed profile |
-| `find "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles" -maxdepth 1 -name '*.mobileprovision' -print` | after trust repair and `xcodebuild -allowProvisioningUpdates`, observed `91d6e41e-98e6-45f8-a272-4c70d85bb403.mobileprovision` |
-| `defaults read com.apple.dt.Xcode ... \| rg 'teamID\|teamName\|teamType\|isFreeProvisioningTeam'` | observed `teamID = <TEAM_ID>`, `teamName = "<DEVELOPER_NAME> (Personal Team)"`, `teamType = "Personal Team"`, `isFreeProvisioningTeam = 1` |
+| `find "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles" -maxdepth 1 -name '*.mobileprovision' -print` | after ADP iCloud build, observed `3b6e4dcd-0537-4357-8589-662074237ad7.mobileprovision` |
+| `defaults read com.apple.dt.Xcode ... \| rg 'teamID\|teamName\|teamType\|isFreeProvisioningTeam'` | after ADP enrollment, observed `teamID = <TEAM_ID>`, `teamName = "<DEVELOPER_NAME>"`, `teamType = Individual`, `isFreeProvisioningTeam = 0` |
 | `command -v xcodegen` | no output; `xcodegen` not found |
 | `command -v tuist` | no output; `tuist` not found |
 | `ruby -e 'require "xcodeproj"'` | failed: `cannot load such file -- xcodeproj` |
@@ -158,9 +158,9 @@
 - 通过该 `DEVELOPER_DIR` 可以访问 iOS Simulator SDK 26.5 和 simulator 设备列表。
 - Rust 当前只能构建 host Apple target `aarch64-apple-darwin`；Stage 1 Apple binding spike 前必须安装 iOS 和 iOS simulator Rust targets。
 - UniFFI tooling 没有作为全局 binary 安装；未来应通过 `suites/anchor` Cargo workspace vendored / pinned bindgen crate 固定版本。
-- Personal Team 普通 app signing/provisioning 已验证；iCloud capability 在当前 Personal Team target 中不可见。
+- free Personal Team 普通 app signing/provisioning 已验证；ADP Individual team 下 iCloud Documents entitlement provisioning 已验证。
 - 本机没有 `xcodegen` / `tuist` / Ruby `xcodeproj`，因此自动生成 scratch `.xcodeproj` 需要手写 `.pbxproj`、安装额外工具或用 Xcode GUI；这些都不是 CP-0 contract 必需证据。
-- Xcode UI signing/provisioning 证据集中记录在 §2.5。
+- Xcode UI signing/provisioning 证据集中记录在 §2.5；ADP iCloud entitlement 证据集中记录在 §2.6。
 
 ### 2.3 Not run
 
@@ -171,7 +171,7 @@
 - 没有为 Anchor 运行 `swift build`，因为当前没有 Anchor Swift package。
 - 没有为 Anchor 运行 `cargo build`、`cargo test` 或 `cargo clippy`，因为当前没有 Anchor Cargo workspace。
 - 没有为 Anchor 运行 UniFFI generation；scratch 层已经通过 project-local `uniffi 0.31.1` 生成并运行 Swift bindings。
-- 没有运行由 Xcode automatic/manual signing 和 provisioning profile 授权的真实 iCloud app target；scratch 层已验证无 entitlement app 能启动、ad-hoc+iCloud entitlement app 被 simulator 安全策略拒绝。
+- 没有运行 Anchor 真实 iCloud app target；repo 外 demo 已验证 ADP iCloud entitlement provisioning、device artifact signing、simulator launch smoke 和 physical iPhone ubiquity container lookup。
 - 没有运行完整 TextKit editor behavior spike，包括 input event capture、IME、accessibility、hit-testing、跨 view selection；scratch 层只验证 macOS runtime selection/layout/semantic undo。
 - 没有创建 Bun-workspace scratch repo 去模拟 `suites/*/*` 下无 `package.json` 目录；repo 外 scratch demo 只验证 Apple toolchain。
 
@@ -237,7 +237,7 @@ Scratch 内容：
 - scratch demo 只生成并运行了 minimal UniFFI bindings；没有对 Anchor DTO/error/async API 做 UniFFI proof。
 - scratch demo 已 benchmark UniFFI 1MB / 4MB / 16MB / 64MB `bytes -> Data`，但没有 benchmark Anchor segment encoding、BlobId lookup、streaming 或 C ABI bytes fallback。
 - scratch demo 没有安装 Rust iOS targets；这仍是 Stage 1 前置条件。
-- scratch demo 没有证明 provisioning-profile-authorized iCloud entitlement、signed-in account 下的 ubiquity container lookup、placeholder download 或 conflict versions。
+- scratch demo 没有证明 provisioning-profile-authorized iCloud entitlement、signed-in account 下的 ubiquity container lookup、placeholder download 或 conflict versions；后续 §2.6 的 Xcode UI demo 已补上 entitlement provisioning 和 physical iPhone container lookup，仍未覆盖 placeholder download 或 conflict versions。
 - scratch demo 没有证明 TextKit 的 IME、direct buffer undo interception、cross-view selection、accessibility 或 patch replay 行为。
 
 ---
@@ -311,8 +311,48 @@ Creation options observed in Xcode UI：
 
 **Unknown / Not run：**
 
-- paid Apple Developer Program team 能否为该 bundle id 添加 iCloud capability，并生成 iCloud-enabled profile。
-- 切换到显示 iCloud capability 的 team 后，iCloud container 能否创建/绑定并在 runtime 使用。
+- free Personal Team 能否显示 iCloud capability：未观察到；本机 UI 当时返回 `No Matches`。
+
+### 2.6 ADP iCloud entitlement verification
+
+**Observed：** 用户开通 Apple Developer Program 后，Xcode account state 从 free Personal Team 变为 paid Individual team。`defaults read com.apple.dt.Xcode ...` 观察到 `teamID = <TEAM_ID>`、`teamName = "<DEVELOPER_NAME>"`、`teamType = Individual`、`isFreeProvisioningTeam = 0`。
+
+**Observed：** 在用户授权下，repo 外 demo project `~/Documents/AnchorProvisionProbe/AnchorProvisionProbe.xcodeproj` 增加了 iCloud capability 形态的 project 配置：
+
+- `TargetAttributes` 中 `SystemCapabilities.com.apple.iCloud.enabled = 1`。
+- `CODE_SIGN_ENTITLEMENTS = AnchorProvisionProbe/AnchorProvisionProbe.entitlements`。
+- Entitlements file 声明 `com.apple.developer.icloud-services = [CloudDocuments]`、`com.apple.developer.icloud-container-identifiers = [<ICLOUD_CONTAINER>]`、`com.apple.developer.icloud-container-development-container-identifiers = [<ICLOUD_CONTAINER>]`、`com.apple.developer.icloud-container-environment = Development`、`com.apple.developer.ubiquity-container-identifiers = [<ICLOUD_CONTAINER>]`。
+
+**Observed commands：**
+
+| Command | Observed result |
+|---|---|
+| `plutil -lint ~/Documents/AnchorProvisionProbe/AnchorProvisionProbe/AnchorProvisionProbe.entitlements` | exit 0；entitlements plist valid |
+| `xcodebuild -showBuildSettings -project ~/Documents/AnchorProvisionProbe/AnchorProvisionProbe.xcodeproj -scheme AnchorProvisionProbe -configuration Debug -destination 'generic/platform=iOS'` | observed `CODE_SIGN_ENTITLEMENTS = AnchorProvisionProbe/AnchorProvisionProbe.entitlements`、`CODE_SIGN_STYLE = Automatic`、`DEVELOPMENT_TEAM = <TEAM_ID>`、`PRODUCT_BUNDLE_IDENTIFIER = dev.plimeor.AnchorProvisionProbe` |
+| `xcodebuild -project ~/Documents/AnchorProvisionProbe/AnchorProvisionProbe.xcodeproj -scheme AnchorProvisionProbe -configuration Debug -destination 'generic/platform=iOS' -derivedDataPath /tmp/AnchorProvisionProbeICloudDerived -allowProvisioningUpdates build` | exit 0；`** BUILD SUCCEEDED **`；build log used `Provisioning Profile: "iOS Team Provisioning Profile: dev.plimeor.AnchorProvisionProbe" (3b6e4dcd-0537-4357-8589-662074237ad7)` |
+| `security cms -D -i ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/3b6e4dcd-0537-4357-8589-662074237ad7.mobileprovision` | profile exists；name `iOS Team Provisioning Profile: dev.plimeor.AnchorProvisionProbe`；TeamName `<DEVELOPER_NAME>`；profile entitlements include `application-identifier`、`com.apple.developer.team-identifier`、`get-task-allow`、`com.apple.developer.icloud-services`、`com.apple.developer.icloud-container-identifiers`、`com.apple.developer.icloud-container-development-container-identifiers`、`com.apple.developer.icloud-container-environment`、`com.apple.developer.ubiquity-container-identifiers`、`com.apple.developer.ubiquity-kvstore-identifier` |
+| `codesign --verify --deep --strict --verbose=2 /tmp/AnchorProvisionProbeICloudDerived/Build/Products/Debug-iphoneos/AnchorProvisionProbe.app` | exit 0；device app valid on disk and satisfies Designated Requirement |
+| `codesign -d --entitlements :- /tmp/AnchorProvisionProbeICloudDerived/Build/Products/Debug-iphoneos/AnchorProvisionProbe.app` | exit 0；signed app entitlements include `application-identifier=<TEAM_ID>.dev.plimeor.AnchorProvisionProbe`、`com.apple.developer.team-identifier=<TEAM_ID>`、`get-task-allow=true`、`com.apple.developer.icloud-services=[CloudDocuments]`、iCloud container ids and ubiquity container ids |
+| `xcodebuild -project ~/Documents/AnchorProvisionProbe/AnchorProvisionProbe.xcodeproj -scheme AnchorProvisionProbe -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.5' -derivedDataPath /tmp/AnchorProvisionProbeICloudSimDerived build` | exit 0；simulator build succeeded |
+| `simctl install A1D90DAB-1FAC-413A-BCB4-F92B9F798F75 /tmp/AnchorProvisionProbeICloudSimDerived/Build/Products/Debug-iphonesimulator/AnchorProvisionProbe.app` | exit 0；install succeeded |
+| `simctl launch A1D90DAB-1FAC-413A-BCB4-F92B9F798F75 dev.plimeor.AnchorProvisionProbe` | exit 0；process pid `42921` observed |
+| `simctl spawn A1D90DAB-1FAC-413A-BCB4-F92B9F798F75 log show --style compact --last 2m --predicate 'eventMessage CONTAINS "icloud-runtime"'` | observed `icloud-runtime:explicit_nil=true` and `icloud-runtime:implicit_nil=true` |
+| `devicectl list devices` | observed `Plimeor's iPhone` connected；CoreDevice id `C51610FF-15B1-5989-A8A3-DE2EDFACEB5B`；model `iPhone 15 Pro Max` |
+| `devicectl device info details --device C51610FF-15B1-5989-A8A3-DE2EDFACEB5B` | observed physical iPhone, UDID `00008130-0002093A01D3803A`, iOS `26.5`, Developer Mode enabled, paired, wired transport, booted |
+| `xcodebuild -project ~/Documents/AnchorProvisionProbe/AnchorProvisionProbe.xcodeproj -scheme AnchorProvisionProbe -configuration Debug -destination 'platform=iOS,id=00008130-0002093A01D3803A' -derivedDataPath /tmp/AnchorProvisionProbeICloudDeviceDerived -allowProvisioningUpdates build` | exit 0；physical-device build succeeded |
+| `devicectl device install app --device C51610FF-15B1-5989-A8A3-DE2EDFACEB5B /tmp/AnchorProvisionProbeICloudDeviceDerived/Build/Products/Debug-iphoneos/AnchorProvisionProbe.app` | exit 0；installed app with bundle id `dev.plimeor.AnchorProvisionProbe` |
+| `devicectl device process launch --device C51610FF-15B1-5989-A8A3-DE2EDFACEB5B --terminate-existing --console --timeout 20 dev.plimeor.AnchorProvisionProbe --icloud-runtime-probe` | exit 0；app printed `icloud-runtime:explicit_nil=false` and `icloud-runtime:implicit_nil=false`; both paths were `/private/var/mobile/Library/Mobile Documents/iCloud~dev~plimeor~AnchorProvisionProbe`; app terminated with exit code 0 |
+
+**Inferred：**
+
+- ADP Individual team 与 automatic signing 可以为该 demo bundle id 生成授权 iCloud Documents entitlements 的 development provisioning profile。
+- 手写 entitlements file 仍不足以单独证明权限；关键证据是 provisioning profile 和最终 app signature 都包含匹配的 iCloud entitlements。
+- Simulator 启动不再出现 `/tmp/anchor-icloud-entitlement-app-probe-20260607` 的 ad-hoc entitlement `Security policy issue`；但 simulator runtime 对 explicit/implicit ubiquity container lookup 仍返回 nil，推测是 simulator 环境没有登录 iCloud 或没有真实 iCloud Drive data context。
+- paired、Developer Mode enabled、signed-in iCloud 的 physical iPhone 可以为这个 provisioned iCloud Documents demo app 返回 non-nil ubiquity container URL。
+
+**Unknown / Not run：**
+
+- 没有创建 Anchor file package、package UTType、placeholder download、`NSMetadataQuery` live update、file coordination blocking、conflict versions、signed-out / over-quota behavior。
 
 ---
 
@@ -420,7 +460,7 @@ Creation options observed in Xcode UI：
 - Scratch demo observed：project-local `uniffi 0.31.1` bindgen 可以生成 Swift/header/modulemap，generated Swift 可以 compile/link/run。
 - Scratch demo observed：iOS simulator `iPhone 17` 可以 bootstatus 到 Finished 并 shutdown。
 - Observed：初始 Xcode GUI 为 Welcome window，没有打开 project；XcodeBuildMCP defaults 中没有 project/workspace/scheme。
-- Observed：§2.5 记录了 Personal Team 普通 app signing/provisioning proof；同一 target 不显示 iCloud capability。
+- Observed：§2.5 记录 free Personal Team 普通 app signing/provisioning proof；§2.6 记录 ADP Individual team 的 iCloud entitlement provisioning 和 physical iPhone runtime proof。
 - Observed：本机没有 `xcodegen` / `tuist` / Ruby `xcodeproj`；`xcodebuild` 没有 create project 子命令。
 - Observed：`xcodebuild -help` 明确 `-allowProvisioningUpdates` 会让 `xcodebuild` 与 Apple Developer website 通信；automatic signing target 会 create/update profiles、app IDs、certificates，manual signing target 会 download missing/updated provisioning profiles。
 - Scratch signed-app observed：无 entitlement 对照 app 可以 ad-hoc sign、install、launch；ad-hoc+iCloud entitlement app 可以 sign/verify/install，但 launch 被 SpringBoard 拒绝，direct spawn 报 `Security policy issue`。
@@ -483,7 +523,7 @@ env DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
 **Signing boundary：**
 
 - `CODE_SIGNING_ALLOWED=NO` 适合 CI build verification 中的 simulator / unsigned debug artifacts。
-- iCloud Drive entitlement、ubiquity container、actual app launch 和 device tests 需要真实 Xcode project、approved team、bundle identifier、entitlements 和 provisioning profile；§2.5 证明当前 Personal Team 只能覆盖普通 app development provisioning。
+- iCloud Drive entitlement、ubiquity container、actual app launch 和 device tests 需要真实 Xcode project、approved team、bundle identifier、entitlements 和 provisioning profile；§2.6 证明 repo 外 demo 可通过 ADP Individual team 覆盖这条 signing/runtime path。
 - ad-hoc signing 只能证明 entitlement blob 可嵌入，不能证明 app 获得 iCloud Documents 权限；`xcodebuild -allowProvisioningUpdates` 会和 Apple Developer website 通信，并可能创建/更新 profiles、app IDs 和 certificates，因此属于 user-approved action。
 
 **Swift package build command, skeleton：**
@@ -699,7 +739,7 @@ Apple iCloud file-management 文档支持把 documents/files 存入 ubiquity con
 
 **Observed scratch runtime：** `icloud-runtime/Probe.swift` 在无 signed app / entitlement 的 CLI context 下运行。输出为 `icloud:container_nil=true`、`icloud:metadata_query=NSMetadataQuery scopes=1`、`icloud:coordinated_bytes=7 coordinator_error=none`、`icloud:is_ubiquitous=false`、`icloud:start_download_error=NSCocoaErrorDomain:512`。
 
-**Observed signing state：** §2.5 记录完整本机 signing 证据。Personal Team 可创建普通 app development provisioning profile，但同一 target 在 Xcode 中不显示 iCloud capability。
+**Observed signing state：** §2.5 记录 free Personal Team 普通 app signing/provisioning；§2.6 记录 ADP Individual team 下 iCloud Documents entitlement provisioning、signed device artifact，以及 physical iPhone 上 non-nil ubiquity container lookup。
 
 **Observed signed-app control：** `/tmp/anchor-icloud-noentitlement-app-probe-20260607` 的无 entitlement UIKit simulator app 可以 build、ad-hoc sign、install、launch；app 内 `FileManager.url(forUbiquityContainerIdentifier:nil)` 和 explicit container lookup 均返回 nil。
 
@@ -707,9 +747,9 @@ Apple iCloud file-management 文档支持把 documents/files 存入 ubiquity con
 
 **Inferred：** iCloud Drive adapter 的 Foundation API compile surface 对 macOS/iOS 同源 Swift adapter 可行；core-only boundary 仍能保持为 `SegmentId` / bytes 协议形态。
 
-**Inferred：** signed app / entitlement 不能从普通 CLI 或 ad-hoc entitlement blob 获得。iCloud Documents / ubiquity proof 必须运行在 provisioning-profile-authorized app context 下，并且 signing team 必须显示 iCloud capability。当前 Personal Team 足够证明普通 app signing，不足以证明 iCloud。
+**Inferred：** signed app / entitlement 不能从普通 CLI 或 ad-hoc entitlement blob 获得。iCloud Documents / ubiquity proof 必须运行在 provisioning-profile-authorized app context 下，并且 signing team 必须显示 iCloud capability。当前 ADP Individual team 已足够证明 iCloud Documents entitlement 和 physical-device ubiquity container lookup。
 
-**Unknown / Not run：** 没有观察到 paid-team iCloud entitlement profile、registered iCloud container、file package UTType、placeholder download、`NSMetadataQuery` live updates、file coordination blocking、quota、signed-out 或 conflict-version behavior。
+**Unknown / Not run：** 没有观察到 Anchor file package UTType、placeholder download、`NSMetadataQuery` live updates、file coordination blocking、quota、signed-out 或 conflict-version behavior。
 
 **Contract correction：**
 
@@ -758,8 +798,8 @@ Apple iCloud file-management 文档支持把 documents/files 存入 ubiquity con
 
 **Recommended Stage 1 spike should prove：**
 
-- 完整 Xcode project 配置 iCloud entitlements 和 ubiquity container identifier。
-- `FileManager.url(forUbiquityContainerIdentifier:)` 在真实 signed-in iCloud account 下返回 container URL。
+- Anchor Xcode project 配置 iCloud entitlements 和 ubiquity container identifier；demo project 已证明同类配置可由 ADP team provisioning。
+- Anchor app 的 `FileManager.url(forUbiquityContainerIdentifier:)` 在真实 signed-in iCloud account 下返回 container URL；demo project 已在 physical iPhone 上证明同类 lookup 返回 non-nil URL。
 - `Documents/` 下的 vault file package 被当作 package，而不是 loose files。
 - coordinated write 写入新的 immutable segment 后，另一个 query/device 能看到它。
 - `NSMetadataQuery` 可以通过 live notifications 发现 segment files 或 package-level updates。
@@ -869,12 +909,12 @@ rg -n "OpSyncPort|push_segment|pull_segment|SegmentId|BlobId" suites/anchor/core
 ### 8.6 New Stage 1 spikes to add
 
 - project creation 后的 Xcode target proof：`xcodebuild -list`、macOS build、iOS simulator build，以及使用 `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer` 的 scheme/destination validation。Xcode UI demo 已创建独立 iOS project，但不是 Anchor target proof。
-- iCloud capability signing proof：切换到具备 iCloud capability 的 paid Apple Developer Program team 后，添加 iCloud capability，观察 automatic signing 是否生成包含 iCloud entitlement 的 profile。
+- Anchor iCloud capability proof：在 Anchor target 创建后复用 ADP signing path，确认 target profile/app signature 包含 iCloud entitlement；demo project 已证明 ADP automatic signing 可生成 iCloud Documents profile。
 - Rust target setup：`aarch64-apple-darwin`、`aarch64-apple-ios`、`aarch64-apple-ios-sim`；scratch demo observed `aarch64-apple-ios-sim` build 在 target installed 前失败。
 - UniFFI DTO/error/async/bytes benchmark spike；scratch minimal bytes benchmark 显示 64MB `bytes -> Data` debug transfer 可完成但成本约 2.35s / 267MB max RSS。
 - XCFramework + SwiftPM wrapper import spike；scratch demo observed one-slice macOS XCFramework creation，但不是 multi-slice import。
 - TextKit native adapter spike：single-block text、block selection、embedded editor selection、undo、IME、accessibility basics。
-- iCloud Drive file package spike：provisioning-profile-authorized signed app entitlement、package UTI、`NSMetadataQuery`、placeholder download、file coordination、conflict version、signed-out / over-quota observation；scratch demo 只证明 API compile surface、无 entitlement boundary、以及 ad-hoc+iCloud entitlement 会被 simulator 安全策略拒绝。
+- iCloud Drive file package spike：Anchor package UTI、`NSMetadataQuery`、placeholder download、file coordination、conflict version、signed-out / over-quota observation；demo project 已证明 ADP iCloud Documents entitlement、signed device artifact 和 physical iPhone ubiquity container lookup。
 
 ### 8.7 Move out of first-release scope
 
@@ -909,6 +949,11 @@ rg -n "OpSyncPort|push_segment|pull_segment|SegmentId|BlobId" suites/anchor/core
 - Apple Adding capabilities to your app: https://developer.apple.com/documentation/xcode/adding-capabilities-to-your-app
 - Apple Configuring iCloud services: https://developer.apple.com/documentation/xcode/configuring-icloud-services
 - Apple Signing & Capabilities workflow: https://help.apple.com/xcode/mac/current/en.lproj/dev60b6fbbc7.html
+- Apple Capabilities overview: https://developer.apple.com/help/account/capabilities/capabilities-overview
+- Apple Enable app capabilities: https://developer.apple.com/help/account/identifiers/enable-app-capabilities/
+- Apple Entitlements: https://developer.apple.com/documentation/bundleresources/entitlements
+- Apple iCloud Container Identifiers Entitlement: https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.developer.icloud-container-identifiers
+- Apple iCloud Services Entitlement: https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.developer.icloud-services
 - Apple Choosing a Membership: https://developer.apple.com/support/compare-memberships/
 - Apple Supported capabilities (iOS): https://developer.apple.com/help/account/reference/supported-capabilities-ios/
 - Apple iCloud File Management archive: https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/FileSystemProgrammingGuide/iCloud/iCloud.html
