@@ -89,6 +89,17 @@ private func coordinatedRead(from url: URL) throws -> Data {
     return try readResult.get()
 }
 
+private func countFiles(at url: URL, suffix: String) -> Int {
+    guard let enumerator = FileManager.default.enumerator(at: url, includingPropertiesForKeys: nil) else {
+        return 0
+    }
+    var count = 0
+    for case let fileURL as URL in enumerator where fileURL.lastPathComponent.hasSuffix(suffix) {
+        count += 1
+    }
+    return count
+}
+
 private func resourceStatus(_ url: URL) -> (isUbiquitous: Bool, downloadStatus: String, typeIdentifier: String) {
     do {
         let values = try url.resourceValues(forKeys: [
@@ -103,6 +114,101 @@ private func resourceStatus(_ url: URL) -> (isUbiquitous: Bool, downloadStatus: 
         )
     } catch {
         return (false, "error:\((error as NSError).code)", "error:\((error as NSError).code)")
+    }
+}
+
+private struct ScaleProbeConfig {
+    let runID: String
+    let count: Int
+    let metadataSeconds: TimeInterval
+    let cleanup: Bool
+
+    static func parse(arguments: [String]) -> ScaleProbeConfig? {
+        guard let flagIndex = arguments.firstIndex(of: "--icloud-scale-probe") else {
+            return nil
+        }
+        let first = flagIndex + 1
+        guard arguments.count > first + 1 else {
+            emit("macos-icloud-scale:blocked=missing_arguments")
+            return nil
+        }
+        guard let count = Int(arguments[first + 1]), count > 0 else {
+            emit("macos-icloud-scale:blocked=bad_count")
+            return nil
+        }
+        let metadataSeconds = arguments.count > first + 2
+            ? (TimeInterval(arguments[first + 2]) ?? 20)
+            : 20
+        let cleanup = arguments.count > first + 3
+            ? (arguments[first + 3] != "keep")
+            : true
+        return ScaleProbeConfig(
+            runID: arguments[first],
+            count: count,
+            metadataSeconds: metadataSeconds,
+            cleanup: cleanup
+        )
+    }
+}
+
+private func runScaleProbe(_ config: ScaleProbeConfig) throws {
+    let fileManager = FileManager.default
+    let explicit = fileManager.url(forUbiquityContainerIdentifier: containerIdentifier)
+    emit("macos-icloud-scale:run_id=\(config.runID)")
+    emit("macos-icloud-scale:count=\(config.count)")
+    emit("macos-icloud-scale:explicit_nil=\(explicit == nil)")
+    guard let containerURL = explicit else {
+        emit("macos-icloud-scale:blocked=no_ubiquity_container")
+        return
+    }
+
+    let documentsURL = containerURL.appendingPathComponent("Documents", isDirectory: true)
+    try fileManager.createDirectory(at: documentsURL, withIntermediateDirectories: true)
+
+    let vaultURL = documentsURL.appendingPathComponent("AnchorScaleProbe-\(config.runID).anchorvault", isDirectory: true)
+    if fileManager.fileExists(atPath: vaultURL.path) {
+        try fileManager.removeItem(at: vaultURL)
+    }
+    try fileManager.createDirectory(at: vaultURL, withIntermediateDirectories: true)
+    let values = try vaultURL.resourceValues(forKeys: [.typeIdentifierKey, .isUbiquitousItemKey])
+    emit("macos-icloud-scale:vault_package=\(vaultURL.lastPathComponent)")
+    emit("macos-icloud-scale:vault_type_identifier=\(values.typeIdentifier ?? "nil")")
+    emit("macos-icloud-scale:vault_is_ubiquitous=\(values.isUbiquitousItem == true)")
+
+    let operationsURL = vaultURL
+        .appendingPathComponent(".anchor", isDirectory: true)
+        .appendingPathComponent("operations", isDirectory: true)
+        .appendingPathComponent("device_mac", isDirectory: true)
+        .appendingPathComponent("scale", isDirectory: true)
+    try fileManager.createDirectory(at: operationsURL, withIntermediateDirectories: true)
+
+    let writeStart = Date()
+    let progressEvery = max(1, config.count / 10)
+    for index in 0..<config.count {
+        let name = String(format: "%05d.seg", index)
+        let url = operationsURL.appendingPathComponent(name)
+        try coordinatedWrite(Data("segment-\(index)".utf8), to: url)
+        if (index + 1) % progressEvery == 0 || index + 1 == config.count {
+            emit("macos-icloud-scale:write_progress=\(index + 1)")
+        }
+    }
+    emit("macos-icloud-scale:write_ms=\(String(format: "%.2f", Date().timeIntervalSince(writeStart) * 1000))")
+
+    let directStart = Date()
+    let directCount = countFiles(at: operationsURL, suffix: ".seg")
+    emit("macos-icloud-scale:direct_seg_count=\(directCount)")
+    emit("macos-icloud-scale:direct_enumeration_ms=\(String(format: "%.2f", Date().timeIntervalSince(directStart) * 1000))")
+
+    let metadataQuery = MetadataQueryRunner().run(scope: containerURL, seconds: config.metadataSeconds)
+    emit("macos-icloud-scale:metadata_gathered=\(metadataQuery.gathered)")
+    emit("macos-icloud-scale:metadata_seg_count=\(metadataQuery.count)")
+    emit("macos-icloud-scale:metadata_seg_names=\(metadataQuery.names.joined(separator: ","))")
+
+    if config.cleanup {
+        let cleanupStart = Date()
+        try fileManager.removeItem(at: vaultURL)
+        emit("macos-icloud-scale:cleanup_removed=true")
+        emit("macos-icloud-scale:cleanup_ms=\(String(format: "%.2f", Date().timeIntervalSince(cleanupStart) * 1000))")
     }
 }
 
@@ -192,7 +298,11 @@ private func runProbe() throws {
 }
 
 do {
-    try runProbe()
+    if let scaleConfig = ScaleProbeConfig.parse(arguments: CommandLine.arguments) {
+        try runScaleProbe(scaleConfig)
+    } else {
+        try runProbe()
+    }
 } catch {
     emit("macos-icloud:error=\(String(describing: error))")
     exit(1)

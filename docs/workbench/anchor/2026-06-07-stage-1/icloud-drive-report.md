@@ -21,8 +21,9 @@ The connected iPhone removed the earlier hard runtime blocker. This run now prov
 - a shared-container macOS + iOS timed conflict harness ran on two physical devices
 - online coordinated and raw concurrent writes converged cross-device but produced 0 `NSFileVersion` conflicts
 - a true offline iOS / online macOS manifest fork produced 1 unresolved `NSFileVersion` conflict after iOS reconnected
+- signed macOS scale probe wrote 10K / 50K / 100K package-internal segment files and direct-enumerated the same counts
 
-But it is **not viable for CP-1 default transport approval as originally phrased** because package-internal segment discovery cannot rely on `NSMetadataQuery`. A real signed macOS app proves `NSMetadataQuery` can discover the `.anchorvault` package itself and can discover files outside the package, but it still returns 0 for `.seg` files inside the `.anchorvault` package, including a visible non-dot subdirectory. This keeps iCloud Drive in compromise state: use metadata query for vault/package discovery, use file coordination plus direct package-internal enumeration for segment files, and keep placeholder, conflict-resolution, account-state, and scale gates open.
+But it is **not viable for CP-1 default transport approval as originally phrased** because package-internal segment discovery cannot rely on `NSMetadataQuery`. A real signed macOS app proves `NSMetadataQuery` can discover the `.anchorvault` package itself and can discover files outside the package, but it still returns 0 for `.seg` files inside the `.anchorvault` package, including a visible non-dot subdirectory and the 10K / 50K / 100K scale runs. This keeps iCloud Drive in compromise state: use metadata query for vault/package discovery, use file coordination plus direct package-internal enumeration for segment files, and keep remote placeholder, conflict-resolution, account-state, iOS scale/delivery, and steady-state segment-budget gates open.
 
 The manifest conflict gate is no longer blocked at the runtime-detection layer: same-account online concurrent writes converge without unresolved versions, while an offline iOS fork followed by reconnect produced a real unresolved conflict version. This does not approve product conflict resolution. It only proves the adapter can observe the file-version conflict surface.
 
@@ -122,6 +123,10 @@ For the multi-device conflict harness, the iOS and macOS repo-external probes we
 | after user put iPhone offline, `xcrun devicectl device process launch ... --icloud-conflict-probe offline-conflict-20260607T113449Z 1780832258000 ios-offline coordinated 1 10` and macOS app launched with writer `mac-online` | passed; offline fork created divergent local states: iOS saw `writer=ios-offline`, macOS saw `writer=mac-online`, conflict versions `0` before reconnect |
 | after user restored iPhone network, `xcrun devicectl device process launch ... --icloud-conflict-probe offline-conflict-20260607T113449Z 0 ios-after-restore coordinated 0 60` and macOS app launched with writer `mac-after-restore` | passed; no manifest rewrite, both devices saw current `writer=ios-offline` and `conflict_versions=1` |
 | `swift -` read of macOS `NSFileVersion.unresolvedConflictVersionsOfItem(at:)` for the same manifest | passed; current file was `writer=ios-offline`, conflict version content was `writer=mac-online` |
+| `xcodebuild -project /Users/plimeor/Documents/AnchorMacICloudProbe/AnchorMacICloudProbe.xcodeproj -scheme AnchorMacICloudProbe -configuration Debug -derivedDataPath /tmp/anchor-mac-icloud-scale-derived -quiet build` | passed; signed macOS scale probe built |
+| `/tmp/anchor-mac-icloud-scale-derived/Build/Products/Debug/AnchorMacICloudProbe.app/Contents/MacOS/AnchorMacICloudProbe --icloud-scale-probe scale-10k-20260607 10000 20 cleanup` | passed; write `33759.85ms`, direct count `10000`, direct enumeration `27.70ms`, package-internal metadata count `0` |
+| `/tmp/anchor-mac-icloud-scale-derived/Build/Products/Debug/AnchorMacICloudProbe.app/Contents/MacOS/AnchorMacICloudProbe --icloud-scale-probe scale-50k-20260607 50000 20 cleanup` | passed; write `172355.40ms`, direct count `50000`, direct enumeration `142.63ms`, package-internal metadata count `0` |
+| `/tmp/anchor-mac-icloud-scale-derived/Build/Products/Debug/AnchorMacICloudProbe.app/Contents/MacOS/AnchorMacICloudProbe --icloud-scale-probe scale-100k-20260607 100000 20 cleanup` | passed; write `337324.94ms`, direct count `100000`, direct enumeration `299.51ms`, package-internal metadata count `0` |
 
 Signed-device runtime output:
 
@@ -244,6 +249,21 @@ Important macOS observation:
 - `NSMetadataQuery` can enumerate `.seg` files outside the package: 125 of 128 observed after the fixed live-update wait window.
 - macOS reported the freshly written package-internal segment as `isUbiquitous=false` and download status `nil` even though the package directory itself is ubiquitous; iOS reported the analogous segment as ubiquitous/current. The adapter should treat per-file resource-value behavior as platform-sensitive.
 
+Signed macOS scale output:
+
+```text
+10K: write_ms=33759.85 direct_seg_count=10000 direct_enumeration_ms=27.70 metadata_gathered=true metadata_seg_count=0 cleanup_ms=458.59
+50K: write_ms=172355.40 direct_seg_count=50000 direct_enumeration_ms=142.63 metadata_gathered=true metadata_seg_count=0 cleanup_ms=4230.80
+100K: write_ms=337324.94 direct_seg_count=100000 direct_enumeration_ms=299.51 metadata_gathered=true metadata_seg_count=0 cleanup_ms=11282.01
+```
+
+Scale interpretation:
+
+- macOS signed-app direct package-internal enumeration is not the current no-go: 100K files enumerated in about 300ms after writes completed.
+- Per-file coordinated writes are expensive but linear in this probe: about 3.3s per 1K files.
+- `NSMetadataQuery` remains unusable for package-internal segment discovery at every tested scale: 10K / 50K / 100K all returned 0 package-internal `.seg` files.
+- This does not prove remote placeholder behavior, iOS large-scale behavior, over-quota/signed-out states, or product steady-state segment budget.
+
 Two-device conflict harness output:
 
 ```text
@@ -342,7 +362,7 @@ Observed core boundary remains intact: core traffics only `SegmentId` / `BlobId`
 | placeholder download behavior | partial / platform-sensitive | iOS returned ok on a current local segment; macOS returned `NSCocoaErrorDomain:4` on a freshly written package-internal segment with nil download status; no remote placeholder case |
 | manifest conflict / `NSFileVersion` behavior | partial passed | same-device and online concurrent writes produced 0 conflict versions; offline iOS / online macOS fork produced 1 unresolved conflict version after reconnect; resolution policy not implemented |
 | signed-out / over-quota states | Blocked / not run | requires account/device state |
-| segment-file-count scale 1K/10K/50K/100K | partial compromise | iOS wrote 1024 files in 3720.38ms; macOS wrote 1024 files in 3247.49ms and direct enumeration saw 1024; package-internal metadata enumeration stayed 0; 10K/50K/100K not run |
+| segment-file-count scale 1K/10K/50K/100K | compromise | iOS wrote 1024 files in 3720.38ms; macOS wrote 1024 / 10K / 50K / 100K files and direct enumeration saw the same counts; macOS direct enumeration was 27.70ms at 10K, 142.63ms at 50K, 299.51ms at 100K; package-internal metadata enumeration stayed 0 |
 | local-only path-in-ubiquity boundary | Blocked / not run | requires runtime path/account/container cases |
 | macOS signed runtime | passed for real `.app` | true macOS app project signed with Mac Team Provisioning Profile and ran the probe; loose executable remains invalid for restricted iCloud entitlements |
 
@@ -359,9 +379,9 @@ The correct CP-1 state is now:
 - coordinated read/write: passed
 - local/current segment download call: passed
 - metadata-query discovery: package discovery passed on macOS, package-internal segment metadata enumeration failed
-- 1K write subset: passed for writes and direct enumeration, failed for package-internal metadata enumeration
+- 1K / 10K / 50K / 100K package-internal write/direct-enumeration path: passed on signed macOS app, failed for package-internal metadata enumeration
 - multi-device online concurrent manifest write: passed for convergence, produced 0 unresolved conflicts
 - offline/unsynced manifest conflict materialization: passed; current file was `ios-offline`, conflict version retained `mac-online`
-- 10K/50K/100K scale gate: not run
+- 10K/50K/100K scale gate: passed for signed macOS direct enumeration; not run for iOS or remote placeholder/sync delivery
 
-Stage 1 decision files should not approve an iCloud adapter that depends on `NSMetadataQuery` for per-segment discovery inside `.anchorvault`. The viable compromise shape is: `NSMetadataQuery` discovers vault packages, `NSFileCoordinator` protects reads/writes, and the adapter directly enumerates package-internal segment files. That compromise still needs a product conflict-resolution policy, remote placeholder, signed-out/over-quota, and 10K+ scale evidence before default transport approval.
+Stage 1 decision files should not approve an iCloud adapter that depends on `NSMetadataQuery` for per-segment discovery inside `.anchorvault`. The viable compromise shape is: `NSMetadataQuery` discovers vault packages, `NSFileCoordinator` protects reads/writes, and the adapter directly enumerates package-internal segment files. That compromise still needs a product conflict-resolution policy, remote placeholder, signed-out/over-quota, iOS large-scale delivery behavior, and steady-state segment budget evidence before default transport approval.

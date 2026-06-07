@@ -57,7 +57,7 @@
 - **Core（`core-evidence.md`）：** 74 测试、clippy 干净、wasm32+android 编译、零云符号、跨目标一致性 golden（8 向量，`aarch64-apple-darwin` 捕获）、million-op replay 线性（release `--ignored`，report-Observed ≈2.1µs/op、1.25M ops≈2.6s）。
 - **Binding（`apple-binding-report.md`）：** Rust macOS/iOS/iOS-sim 三 slice 构建；UniFFI generated Swift **full round-trip**（`EditorIntentDto` insert→`changedIds=[blk_a]`、UTF-16 caret `3:3`、`set_life=deleted` 返回 typed `ValidationErrorCode.directActiveToDeleted`、post-dispatch snapshot revision + 非空 segment bytes + `seg_` id）；C ABI/UniFFI 三 slice XCFramework + SwiftPM wrapper import；1/4/16/64MB bytes benchmark（C ABI 64MB ≈38.22ms/96MB，UniFFI 64MB ≈145.22ms/267MB，3.8×慢/2.8×RSS）。跨 FFI 真值一致：fixture `snapshot_revision 3ef88671…a877b63` 在两侧 Swift smoke 与 core `determinism_vectors` 逐字节一致。
 - **TextKit（`textkit-adapter-report.md`）：** macOS `NSTextView` runtime 设 UTF-16 selection、layout、adapter-owned `UndoManager` semantic-inverse-intent；iOS sim 编译；UTF-16 fixture 计数（emoji/ZWJ/combining/CRLF/mixed）；intent-shaped 映射 + patch replay 到 view-model projection（buffer 非真理）。
-- **iCloud（`icloud-drive-report.md`）：** signed iPhone + signed macOS `.app` 通过 ubiquity container lookup、`.anchorvault` package UTType（conform `com.apple.package`、`vault_is_ubiquitous=true`）、`NSFileCoordinator` 读写（equal）、package-level `NSMetadataQuery` 发现（macOS `count=1`）、package-internal **direct enumeration**（macOS 1024 hidden + 128 visible）、1024-file subset 写（iOS≈3720ms / macOS≈3247ms）、online 跨设备收敛（0 conflict）、offline fork 后 `NSFileVersion` 冲突 materialization（1 retained，未解决）。**确认：** package-internal `.seg` 发现**返回 0**（每变体），package-external `.seg` 被枚举（125/128）。
+- **iCloud（`icloud-drive-report.md`）：** signed iPhone + signed macOS `.app` 通过 ubiquity container lookup、`.anchorvault` package UTType（conform `com.apple.package`、`vault_is_ubiquitous=true`）、`NSFileCoordinator` 读写（equal）、package-level `NSMetadataQuery` 发现（macOS `count=1`）、package-internal **direct enumeration**（macOS 1024 hidden + 128 visible）、macOS 10K/50K/100K package-internal direct enumeration（≈27.70ms / 142.63ms / 299.51ms）、1024-file subset 写（iOS≈3720ms / macOS≈3247ms）、online 跨设备收敛（0 conflict）、offline fork 后 `NSFileVersion` 冲突 materialization（1 retained，未解决）。**确认：** package-internal `.seg` 发现**返回 0**（每变体与 10K/50K/100K），package-external `.seg` 被枚举（125/128）。
 
 ### 4.2 Recommended decision（当前基线）
 
@@ -67,14 +67,14 @@
 
 ### 4.3 Compromise（机制通过但未达批准）
 
-- **iCloud Drive 作首期默认 transport（B14）= compromise**，**不是**已批准。runtime/file-transport 机制已证，scale/placeholder/account/conflict-policy gate 未满足。
+- **iCloud Drive 作首期默认 transport（B14）= compromise**，**不是**已批准。runtime/file-transport 机制已证，macOS direct enumeration scale gate 通过到 100K；remote placeholder、account-state、iOS large-scale delivery、steady-state segment budget 与 conflict-policy gate 未满足。
 - **TextKit = mechanism-go**，产品 editor runtime 未完成。
 - **layout/Bun = compromise**：Option A 纪律守住，Bun glob 行为 Unknown。
 
 ### 4.4 Open gate（待证 / 待签署，不得当已验证）
 
 - **Binding freeze（B4）：** Swift 6 strict concurrency / async-`Sendable` release surface；最终 DTO/error vocabulary + wrapper import surface + XCFramework packaging + release/CI 复现的用户签署。typed `ValidationError` enum 已由 core-owner 决策并落地；现有 validated code 包含 `invalid_utf16_offset`、`direct_active_to_deleted`、`structural_dispatch_deferred`。
-- **iCloud（§6 最小矩阵）：** 10K/50K/100K segment-file-count scale、remote `.icloud` placeholder download、signed-out / over-quota、product conflict-resolution policy、million-op replay/merge/compaction + steady-state segment budget、local-only path-in-ubiquity 边界、iOS package-level metadata gather、repo-local signed Anchor app target。
+- **iCloud（§6 最小矩阵）：** remote `.icloud` placeholder download、signed-out / over-quota、product conflict-resolution policy、million-op replay/merge/compaction + steady-state segment budget、local-only path-in-ubiquity 边界、iOS large-scale delivery / package-level metadata gather、repo-local signed Anchor app target。
 - **TextKit（组 3）：** real-app responder-chain undo 抑制 / IME marked-text commit / accessibility / hit-testing / patch replay over moving views / keyboard→`EditorIntent` / UTF-16 内部单位换算（D18 fixture）。
 - **跨目标执行：** wasm（wasmtime）/ iOS slice 的 golden 向量**执行**接线（编译 gate 已过；执行 by construction，CI 接线 Not run）。
 
@@ -104,7 +104,7 @@
 
 | # | 最小验证项 | 当前态 |
 |---|---|---|
-| 1 | **segment-file-count scale 10K / 50K / 100K**：write_ms + direct-enumeration_ms + synced-segment-file-count；断言 N 个 logical op 不产 ~N 个 synced segment | 仅 1K（1024）跑过 |
+| 1 | **segment-file-count scale 10K / 50K / 100K**：write_ms + direct-enumeration_ms + synced-segment-file-count；断言 N 个 logical op 不产 ~N 个 synced segment | macOS direct enumeration passed 10K / 50K / 100K; package-internal metadata stayed 0; iOS large-scale delivery not run |
 | 2 | **remote `.icloud` placeholder download**：驱逐 package-internal segment 成真 placeholder 再 `startDownloadingUbiquitousItem` 到 `Current`（区别于本地/current；刻画 macOS `NSCocoaErrorDomain:4` 路径） | 仅 local/current |
 | 3 | **signed-out / over-quota account states** | Blocked / not run |
 | 4 | **product conflict-resolution policy**：对 `NSFileVersion` 冲突的 surfacing / preservation / resolution（绝不静默解决或丢弃 conflict version） | 仅 observe，无 policy |
@@ -137,7 +137,7 @@
 |---|---|---|---|
 | `cp-0-final.md` | decision-contract（CP-0 索引） | synced | §4 Stage 1 Status 与报告一致，无改 |
 | `cp-0-approval.md` | approval-surface | **已同步** | 中和 §4 #3（iCloud container 批准状态叙述）、§4 #8（CloudKit 50MB cap 叙述）、§6（free/paid team 时序对比）3 处编辑痕迹 → 目标态；批准语义 100% 保留 |
-| `key-decisions.md` | decision-contract | **已同步** | D06 Status 升为 `Needs Stage 1 scale/policy gate`（对齐 D14/D35）+ 吸收 1024-file signed-app Stage 1 Observed；保留 10K/50K/100K 等 open gate |
+| `key-decisions.md` | decision-contract | **已同步** | D06 Status 升为 `Needs Stage 1 policy / delivery gate`（对齐 D14/D35）+ 吸收 1024-file iOS/macOS 与 macOS 10K/50K/100K signed-app direct enumeration evidence；保留 placeholder/account/conflict/steady-state budget gates |
 | `contract-baseline.md` | decision-contract | **已同步** | Sync baseline 中「watermark…**不再**是…充分条件」→「**不是**」、「retention **扩为**四 horizon」→「**含**」；约束语义不变 |
 | `stage-1-spike-plan.md` | brief/plan | **已同步** | §1 Evidence 把「三目标**执行**逐字节相同」软化为「darwin 实跑捕获 + 多目标编译 gate 通过 + 执行接线为强制 CI gate（未实跑）」，`wasm32` 仍显式保留为强制 gate |
 | `stage-1-entry-brief.md` | brief | synced | 已反映 Stage 1 结果，无改 |

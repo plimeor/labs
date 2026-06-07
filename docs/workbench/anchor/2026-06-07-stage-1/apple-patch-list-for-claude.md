@@ -92,7 +92,7 @@ Passed:
 - Physical iPhone signed iCloud runtime passes container lookup, package type id, coordinated write/read, current segment download call, and 1024-file write subset.
 - True macOS signed `.app` provisioning/build/runtime passes; Xcode generated/used `Mac Team Provisioning Profile: dev.plimeor.AnchorMacICloudProbe`.
 - macOS signed `.app` runtime proves `.anchorvault` package metadata discovery works (`package_metadata_count=1`).
-- macOS signed `.app` runtime proves package-internal direct enumeration sees 1024 hidden `.anchor` segment files and 128 visible package-internal segment files.
+- macOS signed `.app` runtime proves package-internal direct enumeration sees 1024 hidden `.anchor` segment files, 128 visible package-internal segment files, and 10K / 50K / 100K package-internal scale counts.
 - macOS signed `.app` runtime proves `NSMetadataQuery` does not enumerate package-internal `.seg` files in this probe, while it can enumerate package-external `.seg` files.
 - macOS + iOS shared-container online conflict harness passes in coordinated mode: both devices converged to macOS `seq=79`, `conflict_versions=0`.
 - macOS + iOS shared-container online conflict harness passes in raw write mode: both devices converged to iOS `seq=119`, `conflict_versions=0`.
@@ -108,7 +108,7 @@ Open gates / blocked:
 - Remote placeholder download; current probe only called download on a local/current segment.
 - Product conflict-resolution policy for unresolved `NSFileVersion` manifest conflicts. Runtime materialization was observed; resolution/removal was not implemented or performed.
 - over-quota / signed-out states.
-- segment-file-count 10K/50K/100K scale gate.
+- remote placeholder, signed-out / over-quota, iOS large-scale delivery, and steady-state segment budget gates.
 
 ## Current decision state
 
@@ -126,11 +126,11 @@ Open gates / blocked:
 
 4. **iCloud Drive**
 
-   iCloud Drive state is compromise. Signed iPhone and macOS probes pass container lookup, package type id, coordinated read/write, package-level metadata discovery, package-internal direct enumeration, 1024-file subset, online convergence, and offline `NSFileVersion` conflict materialization. Package-internal `.seg` discovery does not rely on `NSMetadataQuery`.
+   iCloud Drive state is compromise. Signed iPhone and macOS probes pass container lookup, package type id, coordinated read/write, package-level metadata discovery, package-internal direct enumeration through 100K files on macOS, online convergence, and offline `NSFileVersion` conflict materialization. Package-internal `.seg` discovery does not rely on `NSMetadataQuery`.
 
 5. **iCloud remaining gates**
 
-   Default transport approval requires product conflict-resolution policy, remote placeholder behavior, signed-out / over-quota states, local-only path edge cases, 10K/50K/100K segment-file-count scale, and million-op core replay/compaction budget.
+   Default transport approval requires product conflict-resolution policy, remote placeholder behavior, signed-out / over-quota states, local-only path edge cases, iOS large-scale delivery behavior, and million-op core replay/compaction plus steady-state segment budget.
 
 6. **Core boundary**
 
