@@ -1,0 +1,21 @@
+[package]
+name = "anchor-core"
+version = "0.0.0"
+description = "Anchor platform-agnostic deterministic core (Stage 1 spike): op-log replay, conflict merge, canonical serialization, content-addressed identity."
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+# Source published directly (no generated artifacts). The crate is `#![no_std]`
+# + `alloc`, with zero external runtime dependencies, so it compiles to
+# wasm32-unknown-unknown and aarch64-linux-android by construction (D36).
+
+[dependencies]
+# Intentionally empty. BLAKE3, diff3, fractional-index order keys, and the HLC
+# total order are all vendored in-crate so the multi-target compile gate cannot
+# be broken by a transitive dependency, and so the diff3 / order-key
+# implementation is the single pinned one (D19 / D26).
+
+[features]
+default = []

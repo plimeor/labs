@@ -1,0 +1,18 @@
+[package]
+name = "anchor-core-ffi"
+version = "0.0.0"
+description = "Anchor Stage 1 Apple FFI spike wrapper around anchor-core."
+edition = "2021"
+publish = false
+
+[workspace]
+
+[lib]
+name = "anchor_core_ffi"
+crate-type = ["staticlib"]
+
+[dependencies]
+anchor-core = { path = "../../core" }
+
+[profile.release]
+panic = "abort"

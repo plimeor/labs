@@ -1,0 +1,44 @@
+namespace anchor_core_uniffi {
+    FixtureSummary open_fixture_vault();
+    TransactionResultSummary dispatch_editor_intent(EditorIntentDto intent);
+    RoundTripResult round_trip_insert(EditorIntentDto intent);
+    bytes read_fixture_segment();
+    bytes fixture_blob(u64 size);
+};
+
+dictionary EditorIntentDto {
+    string kind;
+    string target_id;
+    u32 at;
+    string text;
+    string life;
+};
+
+dictionary FixtureSummary {
+    string vault_id;
+    u64 note_count;
+    string snapshot_revision;
+    sequence<string> note_ids;
+};
+
+dictionary TransactionResultSummary {
+    sequence<string> changed_ids;
+    boolean has_validation_error;
+    string validation_error;
+    string selection_kind;
+    string selection_block_id;
+    u32 selection_start;
+    u32 selection_end;
+    u64 new_revision_count;
+    u64 conflict_count;
+    boolean projection_fresh;
+    boolean mirror_fresh;
+};
+
+dictionary RoundTripResult {
+    FixtureSummary before;
+    TransactionResultSummary transaction;
+    FixtureSummary after;
+    u64 segment_len;
+    string segment_id;
+};

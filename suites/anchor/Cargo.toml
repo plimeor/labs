@@ -1,0 +1,24 @@
+# Anchor Rust workspace — Stage 1 spike (CP-1).
+#
+# Scope: only the platform-agnostic deterministic core lives here today. The
+# CP-0 approved Option A layout also reserves `cli` (Rust bin) and `apple`
+# (Xcode workspace); those are NOT created in this Stage 1 spike (Apple work is
+# owned by Codex, CLI public schema is gated). See
+# docs/workbench/anchor/2026-06-07-stage-1/core-spike-report.md.
+#
+# This file does not touch the Bun workspace: there is intentionally no
+# `package.json` under suites/anchor/** (D02 — never add a placeholder
+# package.json to satisfy the `suites/*/*` glob).
+
+[workspace]
+members = ["core"]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[profile.release]
+# Deterministic, panic=abort keeps the FFI surface simple for the binding spike.
+panic = "abort"

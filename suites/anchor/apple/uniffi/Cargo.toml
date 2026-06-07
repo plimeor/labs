@@ -1,0 +1,22 @@
+[package]
+name = "anchor-core-uniffi"
+version = "0.0.0"
+description = "Anchor Stage 1 UniFFI wrapper around anchor-core for Apple binding verification."
+edition = "2021"
+publish = false
+
+[workspace]
+
+[lib]
+name = "anchor_core_uniffi"
+crate-type = ["staticlib", "cdylib"]
+
+[dependencies]
+anchor-core = { path = "../../core" }
+uniffi = "0.31.1"
+
+[build-dependencies]
+uniffi = { version = "0.31.1", features = ["build"] }
+
+[profile.release]
+panic = "abort"
