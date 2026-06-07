@@ -82,6 +82,7 @@ Passed:
 - UniFFI generated Swift source/header/modulemap succeeds.
 - UniFFI generated Swift smoke calls fixture summary, `EditorIntentDto`, `TransactionResultSummary`, typed `ValidationErrorCode`, post-dispatch snapshot revision, `SegmentId`, segment bytes, and blob bytes.
 - UniFFI three-slice XCFramework creation succeeds.
+- Release-surface rerun creates both C ABI and UniFFI three-slice XCFrameworks and runs generated Swift with `-swift-version 6 -strict-concurrency=complete -warnings-as-errors`.
 - UniFFI generated Swift compiles for macOS, iOS device SDK, and iOS Simulator SDK.
 - SwiftPM wrapper imports the FFI surface.
 - macOS Swift smoke calls fixture summary, dispatch insert, typed `ValidationErrorCode`, segment bytes, and blob bytes.
@@ -114,7 +115,7 @@ Open gates / blocked:
 
 1. **D01 binding**
 
-   Binding state is `UniFFI DTO / ordinary dispatch + C ABI bytes fast path`. UniFFI covers fixture summary, dispatch, typed `ValidationErrorCode`, changed snapshot, segment id, segment bytes, and blob bytes round-trip through generated Swift. Bulk segment/blob bytes use the C ABI fast path.
+   Binding state is `UniFFI DTO / ordinary dispatch + C ABI bytes fast path`. UniFFI covers fixture summary, dispatch, typed `ValidationErrorCode`, changed snapshot, segment id, segment bytes, and blob bytes round-trip through generated Swift. Synchronous generated Swift passes Swift 6 strict concurrency + warnings-as-errors against release artifacts. Bulk segment/blob bytes use the C ABI fast path.
 
 2. **DTO / error vocabulary**
 

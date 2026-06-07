@@ -46,7 +46,7 @@
 Apple / Xcode / Swift / TextKit / iCloud 现实验证（spike 组 2、3、4；验证「机制可行」，被调真值由 Claude / core 提供）：
 
 - **前置：** Apple 命令用 `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer` 前缀 + `-derivedDataPath` 避免 DerivedData 落 repo。Stage 1 本机已安装 `aarch64-apple-ios` / `aarch64-apple-ios-sim`；后续机器/CI 仍需显式检查并按需运行 `rustup target add aarch64-apple-ios aarch64-apple-ios-sim`。
-- **Binding spike：** Stage 1 证据支持 **UniFFI DTO / ordinary dispatch + C ABI bytes fast path**。已跑项包括 Rust 三 slice 构建、UniFFI generated Swift full round-trip、C ABI/UniFFI XCFramework、SwiftPM wrapper import、1/4/16/64MB bytes benchmark。开放项是最终 DTO/error vocabulary、Swift 6 strict concurrency release surface、产品分发签署。
+- **Binding spike：** Stage 1 证据支持 **UniFFI DTO / ordinary dispatch + C ABI bytes fast path**。已跑项包括 Rust 三 slice 构建、UniFFI generated Swift full round-trip、C ABI/UniFFI XCFramework、SwiftPM wrapper import、synchronous Swift 6 strict-concurrency release smoke、1/4/16/64MB bytes benchmark。开放项是最终 DTO/error vocabulary、UniFFI async `Sendable` surface、product wrapper/CI 复现、产品分发签署。
 - **Text surface adapter spike：** 事件 → `EditorIntent`、`EditorPatch` 回放、single-block / block / embedded 选择、undo via `NSUndoManager` semantic inverse intent（suppress direct buffer undo）、IME marked text / accessibility / hit-testing、跨 block 连续选择（spike-only）、UTF-16 offset 换算正确性。
 - **iCloud Drive adapter spike：** Stage 1 状态 = **compromise**。已跑项包括 signed iPhone/macOS runtime、ubiquity container、vault package UTType、package-level metadata discovery、`NSFileCoordinator` read/write、package-internal direct enumeration、macOS 10K/50K/100K scale direct enumeration、online convergence、offline `NSFileVersion` conflict materialization、core 云符号审计。开放项是 product conflict-resolution policy、remote placeholder download、signed-out / over-quota、iOS large-scale delivery、steady-state segment budget、local-only 路径判定边界（D21/D21a）、repo-local product app target entitlement。
 
@@ -106,6 +106,6 @@ rg -n "OpSyncPort|push_segment|pull_segment|SegmentId|BlobId" suites/anchor/core
 - 跨 block 文本选择无法在 Apple 原生 text surface 稳定处理 selection / IME / undo / accessibility。
 - 导入现有内容需做超出已记录 Markdown 限制的数据丢失选择。
 - CLI 契约需暴露阶段0 DTO 草图未覆盖的新公开 schema（含提前暴露二期 conflict/resolve schema）。
-- binding surface 出现 Anchor DTO 不支持 / Swift 6 strict concurrency 失败 / structured error 退化 strings / C ABI bytes fast path 无法保留 / release packaging 不可复现 → 重评含转 C ABI primary（D01）。
+- binding surface 出现 final Anchor DTO 不支持 / final generated Swift strict concurrency 失败 / structured error 退化 strings / C ABI bytes fast path 无法保留 / release packaging 或 CI/fresh-machine 不可复现 → 重评含转 C ABI primary（D01）。
 - Kleppmann 祖先检查实现引入 move 历史保留（滑向完整收敛 move）；time-travel 范围升级为需保留 move 历史的结构重演。
 - shared mutable manifest 或 iCloud file-version policy 无法提供可呈现、可保留、可解决的 conflict behavior（CP-1 前重设 manifest write 方案，不得回退为允许截断 open-conflict op）。

@@ -93,7 +93,7 @@ Apple 构建表面的证据态：工具链环境 **Observed**；Stage 1 spike bu
 - **Toolchain 可用 = Observed（apple-verification §2.2、§4.1）。** 默认 `xcode-select` 指向 `/Library/Developer/CommandLineTools`，该默认态下 `xcodebuild` 失败；但用一次性命令前缀 `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer` 观察到 Xcode 26.5（Build 17F42）、macOS SDK 26.5、iOS SDK 26.5、iOS Simulator SDK 26.5，以及 iOS 26.2 / 26.4 / 26.5 模拟器设备；`iPhone 17` 模拟器可 bootstatus 到 Finished 并 shutdown。SwiftPM（Swift 6.3.2）可用。
 - **Apple build surface 关键路径 = Observed（apple-verification §2.4、§4.1）。** SwiftPM library 可在 Xcode 26.5 下针对 `platform=macOS` 与 `generic/platform=iOS Simulator` 编译同源 `NSTextView` / `UITextView` adapter 与 iCloud adapter API；one-slice macOS staticlib XCFramework 创建成功。
 - **Stage 1 spike build = Observed（apple-binding-report.md / textkit-adapter-report.md / icloud-drive-report.md）。** `anchor-core` builds for macOS / iOS / iOS-sim; C ABI and UniFFI wrappers create three-slice XCFrameworks; SwiftPM wrapper imports; TextKit and iCloud adapter compile surfaces pass. Repo-local product Anchor app target / scheme remains outside this spike and is **Not run**.
-- **Rust Apple targets = Observed（apple-binding-report.md）。** `aarch64-apple-darwin`、`aarch64-apple-ios`、`aarch64-apple-ios-sim` are installed on this machine. Future CI/dev machines still need explicit target checks.
+- **Rust Apple targets = Observed（apple-binding-report.md）。** `aarch64-apple-darwin`、`aarch64-apple-ios`、`aarch64-apple-ios-sim` are installed on this machine. CI/dev machines require explicit target checks.
 - **binding host demo = Observed（apple-verification §2.4、§5.1）。** macOS 上 Rust staticlib 经 C ABI 被 SwiftPM executable link 并实际调用成功；项目内 `uniffi 0.31.1` 可生成并运行 minimal record/bytes Swift binding。详见 Binding baseline。
 
 > 本机无 `xcodegen` / `tuist` / Ruby `xcodeproj`，`xcodebuild` 无 create-project 子命令；自动生成 `.xcodeproj` 须 Apple 工程被批准创建后另行解决（apple-verification §2.2）。任何 Apple project / workspace / target / bundle id / entitlements 的创建均 **Needs user approval**。
@@ -105,11 +105,11 @@ Apple 构建表面的证据态：工具链环境 **Observed**；Stage 1 spike bu
 继续把 Rust core 作为平台无关核心是首选；binding 机制候选不是四选一，而是组合方案（apple-verification §5.1）：
 
 - **Recommended path = UniFFI（structured DTO / error / normal dispatch）+ generated Swift + Rust static libraries 打成 XCFramework + 由 local SwiftPM wrapper / binary target 消费；bulk segment/blob bytes 使用 C ABI fast path**（apple-binding-report.md）。
-- **可行性证据 = Observed（apple-verification §2.4、§5.1、§5.3；apple-binding-report.md）：** C ABI + Rust staticlib + SwiftPM host path 实际跑通；UniFFI 0.31.1 经项目内 `cargo run -p uniffi-bindgen-swift` 生成并运行 minimal record/bytes Swift binding；Stage 1 完成 Anchor DTO / fixture / `TransactionResultSummary` / typed `ValidationError` / segment bytes / blob bytes full round-trip，C ABI 与 UniFFI 三 slice XCFramework 均创建成功。
+- **可行性证据 = Observed（apple-verification §2.4、§5.1、§5.3；apple-binding-report.md）：** C ABI + Rust staticlib + SwiftPM host path 实际跑通；UniFFI 0.31.1 经项目内 `cargo run -p uniffi-bindgen-swift` 生成并运行 minimal record/bytes Swift binding；Stage 1 完成 Anchor DTO / fixture / `TransactionResultSummary` / typed `ValidationError` / segment bytes / blob bytes full round-trip，C ABI 与 UniFFI 三 slice XCFramework 均创建成功，generated Swift synchronous smoke 通过 Swift 6 strict concurrency + warnings-as-errors。
 - **C ABI bytes fast path = Recommended（apple-binding-report.md）。** C ABI 64MB bytes path 约 38.22ms / max RSS 约 96MB；UniFFI 64MB 约 145.22ms / max RSS 约 267MB。DTO / ordinary dispatch 走 UniFFI，bulk bytes 走 C ABI。
-- **Caveat（必须随 binding 决策携带）：** UniFFI Swift 6 支持仍有 rough edge，async generated code 的 `Sendable` 已知不完整；binding 产品分发冻结仍需最终 DTO/error vocabulary、Swift wrapper import surface、XCFramework packaging 与 release build/CI 复现签署。
+- **Caveat（必须随 binding 决策携带）：** UniFFI async generated code 的 `Sendable` 已知不完整；binding 产品分发冻结仍需最终 DTO/error vocabulary、product Swift wrapper import surface、release build/CI/fresh-machine 复现与用户签署。
 - **DTO 约束（Recommended，apple-verification §5.3）：** 避免在 FFI 边界暴露高度递归/泛型 DTO；`TransactionResult` / `ValidationError` / `SyncStatus` / `MirrorStatus` / `EditorPatch` 保持 structured，不为 binding 便利而 collapse 成 strings。
-- **Binding 机制作为产品分发边界冻结 = Needs user approval。** 当前证据支持 `UniFFI DTO / ordinary dispatch + C ABI bytes fast path`；最终签署对象是 DTO/error vocabulary、Swift wrapper import surface、XCFramework packaging 和 release build/CI 复现。
+- **Binding 机制作为产品分发边界冻结 = Needs user approval。** 当前证据支持 `UniFFI DTO / ordinary dispatch + C ABI bytes fast path`；最终签署对象是 DTO/error vocabulary、product Swift wrapper import surface、release build/CI/fresh-machine 复现。
 
 ---
 

@@ -6,7 +6,7 @@ Status: workbench artifact, not a public interface contract
 
 ## Conclusion
 
-Binding status is **passed for Stage 1 DTO/ordinary dispatch round-trip, not for pure UniFFI bulk bytes**.
+Binding status is **passed for Stage 1 DTO/ordinary dispatch round-trip and synchronous release-surface packaging, not for pure UniFFI bulk bytes or UniFFI async surface**.
 
 Observed in this run:
 
@@ -17,8 +17,9 @@ Observed in this run:
 - A separate UniFFI wrapper crate generates Swift source/header/modulemap, builds macOS/iOS/iOS-sim slices, creates a three-slice `AnchorCoreUniFFI.xcframework`, and runs a generated Swift full round-trip smoke.
 - UniFFI Swift calls the Claude-provided fixture, `EditorIntentDto`, `TransactionResultSummary`, generated `ValidationErrorCode`, post-dispatch fixture summary, `SegmentId`, segment bytes, and 1/4/16/64MB blob bytes.
 - C ABI bytes fast path is materially lighter for segment/blob transfer than UniFFI bytes in this debug Swift smoke.
+- A release-surface rerun creates both C ABI and UniFFI three-slice XCFrameworks under `/tmp/anchor-apple-release-surface`, then compiles and runs generated UniFFI Swift with `-swift-version 6 -strict-concurrency=complete -warnings-as-errors`.
 
-Follow-up observed after typed-validation freeze:
+Structured validation-error evidence:
 
 - Core DTO exposes `ValidationError` enum with stable `code/message`.
 - C ABI JSON maps `validation_error` to `{code,message}` and Swift decodes `ValidationErrorCode.directActiveToDeleted`.
@@ -27,6 +28,8 @@ Follow-up observed after typed-validation freeze:
 Not observed in this run:
 
 - Full production DTO vocabulary. The UniFFI wrapper uses a Stage 1 flat `EditorIntentDto` / `TransactionResultSummary` shape to avoid moving deterministic logic into Swift.
+- UniFFI async generated surface / `Sendable` behavior. The Stage 1 generated Swift smoke is synchronous.
+- Product-target SwiftPM binary-target import and fresh-machine/CI reproduction.
 
 Recommended binding direction: **UniFFI primary for DTO/ordinary dispatch + C ABI bytes fast path for segment/blob bytes**. A pure UniFFI-primary path for bulk bytes should not be frozen from current evidence.
 
@@ -51,6 +54,11 @@ Build outputs and DerivedData were kept outside the repo:
 - `/tmp/anchor-apple-stage1/AnchorCoreUniFFI.xcframework`
 - `/tmp/anchor-apple-stage1/swift-build*`
 - `/tmp/anchor-apple-stage1/DerivedData/*`
+- `/tmp/anchor-apple-release-surface/ffi-target`
+- `/tmp/anchor-apple-release-surface/uniffi-target`
+- `/tmp/anchor-apple-release-surface/uniffi-generated`
+- `/tmp/anchor-apple-release-surface/AnchorCoreFFI.xcframework`
+- `/tmp/anchor-apple-release-surface/AnchorCoreUniFFI.xcframework`
 
 ## Environment
 
@@ -226,6 +234,23 @@ This benchmark measures generated UniFFI `bytes` returned to Swift `Data`.
 
 UniFFI bytes are feasible for Stage 1 correctness, but they are not the right default for bulk segment/blob transport. Compared with the C ABI smoke, the 64MB transfer is roughly 3.8x slower and has roughly 2.8x max RSS.
 
+## Release-surface rerun
+
+Purpose: verify the selected binding shape with release artifacts and Swift strict-concurrency flags, without changing `anchor-core` crate type or root workspace files.
+
+| Command shape | Result |
+|---|---|
+| `cargo build --release --manifest-path suites/anchor/apple/ffi/Cargo.toml --target aarch64-apple-darwin --target-dir /tmp/anchor-apple-release-surface/ffi-target` | passed |
+| same C ABI wrapper release build for `aarch64-apple-ios` | passed |
+| same C ABI wrapper release build for `aarch64-apple-ios-sim` | passed |
+| `xcodebuild -create-xcframework ... -output /tmp/anchor-apple-release-surface/AnchorCoreFFI.xcframework` | passed; `xcframework successfully written out` |
+| `cargo build --release --manifest-path suites/anchor/apple/uniffi/Cargo.toml --target aarch64-apple-darwin --target-dir /tmp/anchor-apple-release-surface/uniffi-target` | passed |
+| same UniFFI wrapper release build for `aarch64-apple-ios` | passed |
+| same UniFFI wrapper release build for `aarch64-apple-ios-sim` | passed |
+| UniFFI bindgen into `/tmp/anchor-apple-release-surface/uniffi-generated` | passed |
+| `xcodebuild -create-xcframework ... -output /tmp/anchor-apple-release-surface/AnchorCoreUniFFI.xcframework` | passed; `xcframework successfully written out` |
+| `swiftc -swift-version 6 -strict-concurrency=complete -warnings-as-errors ... && /tmp/anchor-apple-release-surface/uniffi-smoke-strict` | passed; generated Swift smoke returned `.directActiveToDeleted`; 64MB UniFFI bytes transfer reported `134.06ms`, max RSS `267501568` |
+
 ## Stop-condition check
 
 No stop condition was hit.
@@ -234,4 +259,4 @@ No stop condition was hit.
 - Bulk bytes do not need to be forced through UniFFI.
 - Swift/TextKit side did not implement merge, normalization, op creation, diff3, order-key, or tree invariants.
 
-Open concern: Swift 6 strict concurrency / async `Sendable`, final production DTO/error vocabulary, release packaging, and CI reproduction still gate binding freeze.
+Remaining binding-freeze gates: UniFFI async `Sendable` surface, final production DTO/error vocabulary, product SwiftPM/binary-target integration, and CI/fresh-machine reproduction.

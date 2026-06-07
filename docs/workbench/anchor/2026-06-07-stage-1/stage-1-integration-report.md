@@ -40,7 +40,7 @@
 | **core deterministic（组 1）** | **go** | 74/0 测试、clippy 干净、`no_std`+`forbid(unsafe_code)`+零外部依赖、`BTreeMap`/`BTreeSet`（无迭代序不确定）、diff3/order-key/merge 为 core 内唯一 vendored 实现。Core side complete。 |
 | **core multi-target gate（D36）** | **go** | `wasm32-unknown-unknown` + `aarch64-linux-android` 编译 gate 通过；零依赖使 gate by construction 不可被 transitive crate 打破。仅**编译**门控；跨目标**执行**（wasmtime / android emulator）golden 接线留 CI（Not run）。 |
 | **mirror / search parity（组 5）** | **go** | `mirror_parity` 测试通过：structured search == ripgrep(md)、mirror 写失败隔离（op-log 不回滚）、body 冲突 git fence。 |
-| **Apple binding（组 2，A2/B4）** | **compromise** | 机制 frozen-ready 作 **Stage 1 recommendation**：`UniFFI DTO / ordinary dispatch + C ABI bytes fast path`。typed `ValidationError` enum 已落到 core DTO + C ABI Swift wrapper + UniFFI generated enum。产品分发**冻结**仍 gated on Swift 6 strict concurrency release surface、最终 DTO/error vocabulary、packaging / CI 复现与用户签署（§5）。 |
+| **Apple binding（组 2，A2/B4）** | **compromise** | 机制 frozen-ready 作 **Stage 1 recommendation**：`UniFFI DTO / ordinary dispatch + C ABI bytes fast path`。typed `ValidationError` enum 已落到 core DTO + C ABI Swift wrapper + UniFFI generated enum；synchronous release-surface smoke 已过 Swift 6 strict concurrency + warnings-as-errors。产品分发**冻结**仍 gated on async `Sendable` surface、最终 DTO/error vocabulary、CI/fresh-machine 复现与用户签署（§5）。 |
 | **TextKit adapter（组 3，D18）** | **compromise（mechanism-go）** | 机制面可行且边界干净（Swift 零确定性语义、buffer 非真理）；real-app responder-chain undo 抑制、IME marked-text commit、accessibility、hit-testing、patch replay over moving views、UTF-16 内部单位换算稳定性仍是**产品级 runtime gate**（Not run）。 |
 | **iCloud Drive（组 4，B14）** | **compromise** | signed iPhone + signed macOS app 通过 ubiquity/package/coordinator/direct-enumeration/online-converge/offline-conflict；package-internal `.seg` 发现**不依赖** `NSMetadataQuery`。默认 transport 仍 gated（§6）。 |
 | **layout / Bun（D02）** | **compromise** | Option A 纪律 live 守住（`members=["core"]`、`suites/anchor/**` 无 `package.json`、root 配置未动）；`bun install` / `bun run check` 对该 glob 的行为本轮未跑 = Unknown（实现期收口，非确定性 gate）。 |
@@ -55,7 +55,7 @@
 ### 4.1 Observed evidence（已实测，不含 Not run 当事实）
 
 - **Core（`core-evidence.md`）：** 74 测试、clippy 干净、wasm32+android 编译、零云符号、跨目标一致性 golden（8 向量，`aarch64-apple-darwin` 捕获）、million-op replay 线性（release `--ignored`，report-Observed ≈2.1µs/op、1.25M ops≈2.6s）。
-- **Binding（`apple-binding-report.md`）：** Rust macOS/iOS/iOS-sim 三 slice 构建；UniFFI generated Swift **full round-trip**（`EditorIntentDto` insert→`changedIds=[blk_a]`、UTF-16 caret `3:3`、`set_life=deleted` 返回 typed `ValidationErrorCode.directActiveToDeleted`、post-dispatch snapshot revision + 非空 segment bytes + `seg_` id）；C ABI/UniFFI 三 slice XCFramework + SwiftPM wrapper import；1/4/16/64MB bytes benchmark（C ABI 64MB ≈38.22ms/96MB，UniFFI 64MB ≈145.22ms/267MB，3.8×慢/2.8×RSS）。跨 FFI 真值一致：fixture `snapshot_revision 3ef88671…a877b63` 在两侧 Swift smoke 与 core `determinism_vectors` 逐字节一致。
+- **Binding（`apple-binding-report.md`）：** Rust macOS/iOS/iOS-sim 三 slice 构建；UniFFI generated Swift **full round-trip**（`EditorIntentDto` insert→`changedIds=[blk_a]`、UTF-16 caret `3:3`、`set_life=deleted` 返回 typed `ValidationErrorCode.directActiveToDeleted`、post-dispatch snapshot revision + 非空 segment bytes + `seg_` id）；C ABI/UniFFI 三 slice XCFramework + SwiftPM wrapper import；release-surface rerun 下 C ABI/UniFFI 三 slice XCFramework 均创建成功，generated Swift 通过 `-swift-version 6 -strict-concurrency=complete -warnings-as-errors` synchronous smoke；1/4/16/64MB bytes benchmark（C ABI 64MB ≈38.22ms/96MB，UniFFI 64MB ≈145.22ms/267MB，3.8×慢/2.8×RSS）。跨 FFI 真值一致：fixture `snapshot_revision 3ef88671…a877b63` 在两侧 Swift smoke 与 core `determinism_vectors` 逐字节一致。
 - **TextKit（`textkit-adapter-report.md`）：** macOS `NSTextView` runtime 设 UTF-16 selection、layout、adapter-owned `UndoManager` semantic-inverse-intent；iOS sim 编译；UTF-16 fixture 计数（emoji/ZWJ/combining/CRLF/mixed）；intent-shaped 映射 + patch replay 到 view-model projection（buffer 非真理）。
 - **iCloud（`icloud-drive-report.md`）：** signed iPhone + signed macOS `.app` 通过 ubiquity container lookup、`.anchorvault` package UTType（conform `com.apple.package`、`vault_is_ubiquitous=true`）、`NSFileCoordinator` 读写（equal）、package-level `NSMetadataQuery` 发现（macOS `count=1`）、package-internal **direct enumeration**（macOS 1024 hidden + 128 visible）、macOS 10K/50K/100K package-internal direct enumeration（≈27.70ms / 142.63ms / 299.51ms）、1024-file subset 写（iOS≈3720ms / macOS≈3247ms）、online 跨设备收敛（0 conflict）、offline fork 后 `NSFileVersion` 冲突 materialization（1 retained，未解决）。**确认：** package-internal `.seg` 发现**返回 0**（每变体与 10K/50K/100K），package-external `.seg` 被枚举（125/128）。
 
@@ -73,7 +73,7 @@
 
 ### 4.4 Open gate（待证 / 待签署，不得当已验证）
 
-- **Binding freeze（B4）：** Swift 6 strict concurrency / async-`Sendable` release surface；最终 DTO/error vocabulary + wrapper import surface + XCFramework packaging + release/CI 复现的用户签署。typed `ValidationError` enum 已由 core-owner 决策并落地；现有 validated code 包含 `invalid_utf16_offset`、`direct_active_to_deleted`、`structural_dispatch_deferred`。
+- **Binding freeze（B4）：** UniFFI async-`Sendable` surface；最终 DTO/error vocabulary + product wrapper import surface + release/CI 复现的用户签署。Synchronous generated Swift strict-concurrency release smoke and three-slice XCFramework packaging are observed；typed `ValidationError` enum 已由 core-owner 决策并落地，现有 validated code 包含 `invalid_utf16_offset`、`direct_active_to_deleted`、`structural_dispatch_deferred`。
 - **iCloud（§6 最小矩阵）：** remote `.icloud` placeholder download、signed-out / over-quota、product conflict-resolution policy、million-op replay/merge/compaction + steady-state segment budget、local-only path-in-ubiquity 边界、iOS large-scale delivery / package-level metadata gather、repo-local signed Anchor app target。
 - **TextKit（组 3）：** real-app responder-chain undo 抑制 / IME marked-text commit / accessibility / hit-testing / patch replay over moving views / keyboard→`EditorIntent` / UTF-16 内部单位换算（D18 fixture）。
 - **跨目标执行：** wasm（wasmtime）/ iOS slice 的 golden 向量**执行**接线（编译 gate 已过；执行 by construction，CI 接线 Not run）。
@@ -90,9 +90,9 @@
 
 **作为产品分发边界冻结（B4 / D01）仍待以下落地：**
 
-1. **Swift 6 strict concurrency / async-`Sendable` release surface** 证为冻结 gate（当前仅 compile-pass；D01 Risk 标 UniFFI async/Sendable 已知不完整）。
+1. **UniFFI async-`Sendable` release surface** 仍是冻结 gate；synchronous generated Swift 已在 release artifact 上通过 `-swift-version 6 -strict-concurrency=complete -warnings-as-errors`。
 2. **最终生产 DTO/error vocabulary 冻结**（Stage 1 用 flat `EditorIntentDto`/`TransactionResultSummary` 以免把确定性逻辑搬进 Swift；typed `ValidationError` enum 已进入 current DTO）。
-3. **用户签署** DTO/error vocabulary + Swift wrapper import surface + XCFramework packaging + release-build/CI 复现（含显式 Rust Apple-target 检查与 wasm32 一致性向量 gate）。
+3. **用户签署** DTO/error vocabulary + product Swift wrapper import surface + release-build/CI/fresh-machine 复现（含显式 Rust Apple-target 检查与 wasm32 一致性向量 gate）。
 
 在以上落地前，binding 是 recommendation，**不是**已冻结的产品分发边界。
 
@@ -164,7 +164,7 @@
   - conflict policy：扩展 offline-fork probe，跑一条 surfacing/preservation/resolution 路径（绝不静默解决 `NSFileVersion` 冲突）。
   - `cargo test --release --manifest-path suites/anchor/Cargo.toml -- --ignored scale_bench::replay_cost_curve`（million-op replay 线性，确认 1.25M+ ≈2.1µs/op + compaction 后稳态 segment budget）。
   - TextKit 产品 runtime：IME marked-text commit / accessibility range / hit-testing on rendered geometry / direct-buffer undo 抑制 / keyboard→`EditorIntent` / `EditorPatch` replay over splitting/moving views；UTF-16 内部单位换算稳定性（emoji/ZWJ/combining/CRLF/IME fixture，D18）。
-  - Binding freeze 输入：typed `ValidationError` enum 已落地；下一步重生成 UniFFI Swift + 证 Swift 6 strict concurrency / async-`Sendable` 于 release build；确认 release/CI 复现含显式 Rust Apple-target + wasm32 一致性向量 gate（fresh CI/dev 机器）。
+  - Binding freeze 输入：typed `ValidationError` enum 已落地；generated UniFFI Swift 的 synchronous strict-concurrency release smoke 与三 slice XCFramework packaging 已观察；剩余 gate 是 async-`Sendable` surface、final DTO/error vocabulary、product wrapper import surface、release/CI 复现（fresh CI/dev 机器）与用户签署。
 - **Stop condition：** 出现以下任一即暂停重评——(a) 须改 root workspace/`package.json`/`bun.lock`/lockfile 或加 placeholder `package.json`；(b) 在 Swift/TextKit 复制 core 确定性语义；(c) gate 未满足下升 iCloud 为默认 transport；(d) iCloud-Drive 路径引入 CloudKit schema / CKSyncEngine；(e) 公开 CLI schema 变更；(f) 把 Apple probe 变产品 app shell；(g) `anchor-core` 获任何 Apple 云/文件协调/account/ubiquity 类型（重跑 0-match 云符号 + Apple 类型审计，要求 exit 1）。另：scale 出现 N op→~N segment 的 no-go，使 batching/compaction 设计失效（非 transport 选择失效），须停。
 
 ---

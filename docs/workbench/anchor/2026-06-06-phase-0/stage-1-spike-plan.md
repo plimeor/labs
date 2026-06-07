@@ -102,7 +102,8 @@ cargo build -p anchor-core --target aarch64-linux-android
 - **Observed**：scratch host 路径已实跑——Rust staticlib + C ABI + SwiftPM executable link/run 成功；UniFFI 0.31.1 经 project-local `cargo run` 生成并运行 minimal record/bytes Swift binding（`Data` mapping 可运行）；one-slice macOS XCFramework creation 成功。
 - **Observed**：Stage 1 installed Rust iOS targets; `anchor-core` builds for macOS / iOS / iOS-sim; C ABI and UniFFI wrappers build three staticlib slices; both XCFrameworks are created; SwiftPM wrapper imports; generated Swift smoke calls fixture summary, `EditorIntentDto`, `TransactionResultSummary`, typed `ValidationError`, post-dispatch snapshot revision, `SegmentId`, segment bytes, and blob bytes.
 - **Observed**：C ABI bytes benchmark passes 1/4/16/64MB; 64MB around 38.22ms and max RSS around 96MB. UniFFI 64MB around 145.22ms and max RSS around 267MB in Stage 1 generated Swift smoke.
-- **Caveat**：UniFFI Swift 6 support and async `Sendable` remain release-surface risks; final production DTO/error vocabulary, release packaging, and CI reproduction still need binding-freeze signoff.
+- **Observed**：Synchronous release-surface rerun creates both C ABI and UniFFI three-slice XCFrameworks and runs generated Swift with `-swift-version 6 -strict-concurrency=complete -warnings-as-errors`.
+- **Caveat**：Binding-freeze signoff covers UniFFI async `Sendable` surface, final production DTO/error vocabulary, product wrapper import surface, and CI/fresh-machine reproduction.
 
 **Commands（Stage 1 observed; keep as reproducible skeleton）：**
 
@@ -142,6 +143,7 @@ xcodebuild -scheme AnchorCoreBindings -destination 'generic/platform=iOS Simulat
 
 - 三 slice XCFramework 构建成功且被 SwiftPM wrapper import。
 - Generated Swift smoke validates fixture summary, dispatch result summary, validation error, post-dispatch revision, segment bytes, and blob bytes.
+- Generated Swift synchronous smoke passes Swift 6 strict concurrency + warnings-as-errors against release artifacts.
 - 1/4/16/64MB benchmark gives the primary/fast-path decision: UniFFI for DTO / ordinary dispatch, C ABI for bulk bytes.
 
 **Failure conditions（apple-verification.md §5.2/§5.3）：** DTO shape 不被 UniFFI 干净支持；generated Swift 无法过 Swift 6 strict concurrency；structured errors 退化成 strings；C ABI bytes fast path 无法保留；async boundary 要求 Anchor 不能接受的 Rust runtime 假设；modulemap/header mismatch 或缺 slice 导致 XCFramework 不可 import。
@@ -257,7 +259,7 @@ rg -n "OpSyncPort|push_segment|pull_segment|SegmentId|BlobId" suites/anchor/core
 
 - spike 组 1、5（Claude/core）的 case 全部经 `cargo test -p anchor-core` 落成正式测试并通过，`cargo clippy --all-targets` 干净；diff3 + order-key 跨设备一致性向量集（含 `wasm32` target）作为强制 CI gate 通过。
 - **World A 受保护不变量：** core 多目标编译 gate 通过（`anchor-core` 编到 `wasm32-unknown-unknown` + `aarch64-linux-android`，D36）；client 零真理逻辑 grep 红线通过（D37）。
-- spike 组 2、3（Codex/Apple + editor 合约）有可重复命令或 Xcode scheme + spike 报告；Stage 1 reports 已覆盖 binding round-trip、bytes benchmark、TextKit macOS smoke 和 iOS compile。剩余签署面是 final DTO/error vocabulary、Swift 6 strict concurrency release surface、real app responder-chain undo/IME/accessibility proof。
+- spike 组 2、3（Codex/Apple + editor 合约）有可重复命令或 Xcode scheme + spike 报告；Stage 1 reports 已覆盖 binding round-trip、bytes benchmark、synchronous Swift 6 strict-concurrency release smoke、TextKit macOS smoke 和 iOS compile。剩余签署面是 final DTO/error vocabulary、UniFFI async `Sendable` surface、product wrapper/CI 复现、real app responder-chain undo/IME/accessibility proof。
 - spike 组 4（iCloud）保留 runtime evidence matrix；Stage 1 report 已覆盖 signed container、package UTType、file coordination、package metadata, package-internal direct enumeration, online convergence, offline conflict materialization, and core cloud-symbol audit。未跑项必须标明，不当已验证事实。
 - **iCloud Drive 作首期默认 transport 的批准 gated on Stage 1 scale/policy gate（cp-0-approval.md B14）：** 50K ops 仅 smoke、不足进 CP-1；CP-1 需 (a) million-scale operation history 的 replay / merge / compaction / snapshot-fallback / time-travel 证据，(b) batching + compaction 后明确的 steady-state segment-file budget（N 个 op 不产约 N 个 segment），(c) 该 budget 下 iCloud Drive 真机 go/compromise（非 no-go）实测，(d) product conflict-resolution policy，(e) remote placeholder / account-state behavior，(f) 四-horizon retention 正确性测试通过；**no-go 则转 CloudKit / object-store**。
 - 任何「必须调整的模型点」回填 contract-baseline.md / key-decisions.md / fixture-set.md，决策编号沿用 D01–D38（含 D18a、D21a、D38 time travel）、fixture 编号沿用 F01–F43（含 F42 segment budget、F43 retention）。
