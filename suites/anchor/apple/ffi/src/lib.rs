@@ -167,16 +167,33 @@ fn conflicts_json(conflicts: &[anchor_core::model::ConflictRecord]) -> String {
     out
 }
 
+fn validation_error_object_json(code: &str, message: &str) -> String {
+    format!(
+        "{{\"code\":{},\"message\":{}}}",
+        json_string(code),
+        json_string(message)
+    )
+}
+
+fn validation_error_json(error: Option<&anchor_core::dto::ValidationError>) -> String {
+    error
+        .map(|error| validation_error_object_json(error.code(), error.message()))
+        .unwrap_or_else(|| "null".to_string())
+}
+
+fn transaction_error_json(code: &str, message: &str) -> String {
+    format!(
+        "{{\"changed_ids\":[],\"validation_error\":{},\"new_revisions\":{},\"selection_hint\":null,\"conflicts\":[],\"projection_fresh\":true,\"mirror_fresh\":true}}",
+        validation_error_object_json(code, message),
+        "{}"
+    )
+}
+
 fn transaction_result_json(result: anchor_core::dto::TransactionResult) -> String {
-    let validation_error = result
-        .validation_error
-        .as_deref()
-        .map(json_string)
-        .unwrap_or_else(|| "null".to_string());
     format!(
         "{{\"changed_ids\":{},\"validation_error\":{},\"new_revisions\":{},\"selection_hint\":{},\"conflicts\":{},\"projection_fresh\":{},\"mirror_fresh\":{}}}",
         json_string_list(&result.changed_ids),
-        validation_error,
+        validation_error_json(result.validation_error.as_ref()),
         json_string_map(&result.new_revisions),
         selection_json(result.selection_hint),
         conflicts_json(&result.conflicts),
@@ -261,18 +278,21 @@ pub extern "C" fn anchor_session_dispatch_insert_text_json(
     text_len: usize,
 ) -> AnchorByteBuffer {
     if session.is_null() {
-        return string_buffer("{\"validation_error\":\"null_session\"}".to_string());
+        return string_buffer(transaction_error_json(
+            "adapter_null_session",
+            "null session",
+        ));
     }
     let target_id = match unsafe { read_utf8(target_ptr, target_len) } {
         Ok(value) => value,
         Err(error) => {
-            return string_buffer(format!("{{\"validation_error\":{}}}", json_string(&error)))
+            return string_buffer(transaction_error_json("adapter_parse_error", &error));
         }
     };
     let text = match unsafe { read_utf8(text_ptr, text_len) } {
         Ok(value) => value,
         Err(error) => {
-            return string_buffer(format!("{{\"validation_error\":{}}}", json_string(&error)))
+            return string_buffer(transaction_error_json("adapter_parse_error", &error));
         }
     };
     let session = unsafe { &mut *session };
@@ -295,12 +315,15 @@ pub extern "C" fn anchor_session_dispatch_direct_delete_json(
     target_len: usize,
 ) -> AnchorByteBuffer {
     if session.is_null() {
-        return string_buffer("{\"validation_error\":\"null_session\"}".to_string());
+        return string_buffer(transaction_error_json(
+            "adapter_null_session",
+            "null session",
+        ));
     }
     let target_id = match unsafe { read_utf8(target_ptr, target_len) } {
         Ok(value) => value,
         Err(error) => {
-            return string_buffer(format!("{{\"validation_error\":{}}}", json_string(&error)))
+            return string_buffer(transaction_error_json("adapter_parse_error", &error));
         }
     };
     let session = unsafe { &mut *session };

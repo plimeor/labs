@@ -48,7 +48,8 @@ struct SmokeMain {
         )
         let delete = dispatchEditorIntent(intent: deleteIntent)
         precondition(delete.hasValidationError)
-        print("uniffi:dispatch error=\(delete.validationError)")
+        precondition(delete.validationErrorCode == .directActiveToDeleted)
+        print("uniffi:dispatch error=\(delete.validationErrorCode) message=\(delete.validationErrorMessage)")
 
         let roundTrip = roundTripInsert(intent: insertIntent)
         precondition(roundTrip.before.snapshotRevision == expectedSnapshot)

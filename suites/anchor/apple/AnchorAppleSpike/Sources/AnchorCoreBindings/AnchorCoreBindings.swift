@@ -47,9 +47,22 @@ public struct ConflictRecord: Decodable, Equatable {
     }
 }
 
+public enum ValidationErrorCode: String, Decodable, Equatable {
+    case invalidUTF16Offset = "invalid_utf16_offset"
+    case directActiveToDeleted = "direct_active_to_deleted"
+    case structuralDispatchDeferred = "structural_dispatch_deferred"
+    case adapterNullSession = "adapter_null_session"
+    case adapterParseError = "adapter_parse_error"
+}
+
+public struct ValidationError: Decodable, Equatable {
+    public let code: ValidationErrorCode
+    public let message: String
+}
+
 public struct TransactionResult: Decodable, Equatable {
     public let changedIDs: [String]
-    public let validationError: String?
+    public let validationError: ValidationError?
     public let newRevisions: [String: String]
     public let selectionHint: SelectionHint?
     public let conflicts: [ConflictRecord]

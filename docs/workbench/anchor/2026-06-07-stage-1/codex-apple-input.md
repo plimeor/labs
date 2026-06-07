@@ -35,10 +35,13 @@ Session::vault(&self) -> &model::Vault
 ### 0.3 `TransactionResult`（structured，不退化 strings）
 
 ```
-{ changed_ids: [String], validation_error: Option<String>,
+{ changed_ids: [String], validation_error: Option<ValidationError>,
   new_revisions: Map<String,String>,   // node id -> snapshot_revision
   selection_hint: Option<Selection>,   // Text{block_id,start,end} | Block{block_id}
   conflicts: [ConflictRecord], projection_fresh: bool, mirror_fresh: bool }
+
+ValidationError = { code: enum, message: String }
+code ∈ invalid_utf16_offset | direct_active_to_deleted | structural_dispatch_deferred
 ```
 
 `ConflictRecord`（派生读模型，**非**公开 CLI schema——D31 延后二期）：`{ target_id, kind, sub_field_key?, live_op_id?, losing_op_ids[], pinned_op_ids[] }`，`kind ∈ body_overlap|scalar|tag|move_skipped|location_relocated|reorder_blend|life_tie|ancestor_life_vs_descendant_edit|split_merge_structural|journal_merge`。

@@ -25,10 +25,18 @@ pub struct FixtureSummary {
     pub note_ids: Vec<String>,
 }
 
+pub enum ValidationErrorCode {
+    NoError,
+    InvalidUtf16Offset,
+    DirectActiveToDeleted,
+    StructuralDispatchDeferred,
+}
+
 pub struct TransactionResultSummary {
     pub changed_ids: Vec<String>,
     pub has_validation_error: bool,
-    pub validation_error: String,
+    pub validation_error_code: ValidationErrorCode,
+    pub validation_error_message: String,
     pub selection_kind: String,
     pub selection_block_id: String,
     pub selection_start: u32,
@@ -85,15 +93,37 @@ fn selection_fields(selection: Option<anchor_core::dto::Selection>) -> (String, 
     }
 }
 
+fn validation_error_code(error: &anchor_core::dto::ValidationError) -> ValidationErrorCode {
+    match error {
+        anchor_core::dto::ValidationError::InvalidUtf16Offset => {
+            ValidationErrorCode::InvalidUtf16Offset
+        }
+        anchor_core::dto::ValidationError::DirectActiveToDeleted => {
+            ValidationErrorCode::DirectActiveToDeleted
+        }
+        anchor_core::dto::ValidationError::StructuralDispatchDeferred => {
+            ValidationErrorCode::StructuralDispatchDeferred
+        }
+    }
+}
+
 fn transaction_summary(result: CoreTransactionResult) -> TransactionResultSummary {
-    let validation_error = result.validation_error.unwrap_or_default();
-    let has_validation_error = !validation_error.is_empty();
+    let (has_validation_error, validation_error_code, validation_error_message) =
+        match result.validation_error {
+            Some(error) => (
+                true,
+                validation_error_code(&error),
+                error.message().to_string(),
+            ),
+            None => (false, ValidationErrorCode::NoError, String::new()),
+        };
     let (selection_kind, selection_block_id, selection_start, selection_end) =
         selection_fields(result.selection_hint);
     TransactionResultSummary {
         changed_ids: result.changed_ids,
         has_validation_error,
-        validation_error,
+        validation_error_code,
+        validation_error_message,
         selection_kind,
         selection_block_id,
         selection_start,

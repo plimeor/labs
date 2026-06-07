@@ -13,14 +13,19 @@ Observed in this run:
 - `anchor-core` builds for macOS, iOS device, and iOS Simulator targets.
 - A separate Apple FFI wrapper crate builds three staticlib slices without changing `anchor-core` crate type.
 - Three-slice `AnchorCoreFFI.xcframework` creation succeeds.
-- SwiftPM wrapper imports the C ABI wrapper and calls the Claude-provided fixture, `TransactionResult`, validation field, segment bytes, and 1/4/16/64MB blob bytes.
+- SwiftPM wrapper imports the C ABI wrapper and calls the Claude-provided fixture, `TransactionResult`, typed validation error field, segment bytes, and 1/4/16/64MB blob bytes.
 - A separate UniFFI wrapper crate generates Swift source/header/modulemap, builds macOS/iOS/iOS-sim slices, creates a three-slice `AnchorCoreUniFFI.xcframework`, and runs a generated Swift full round-trip smoke.
-- UniFFI Swift calls the Claude-provided fixture, `EditorIntentDto`, `TransactionResultSummary`, validation error field, post-dispatch fixture summary, `SegmentId`, segment bytes, and 1/4/16/64MB blob bytes.
+- UniFFI Swift calls the Claude-provided fixture, `EditorIntentDto`, `TransactionResultSummary`, generated `ValidationErrorCode`, post-dispatch fixture summary, `SegmentId`, segment bytes, and 1/4/16/64MB blob bytes.
 - C ABI bytes fast path is materially lighter for segment/blob transfer than UniFFI bytes in this debug Swift smoke.
+
+Follow-up observed after typed-validation freeze:
+
+- Core DTO exposes `ValidationError` enum with stable `code/message`.
+- C ABI JSON maps `validation_error` to `{code,message}` and Swift decodes `ValidationErrorCode.directActiveToDeleted`.
+- UniFFI UDL exposes generated `ValidationErrorCode`; generated Swift smoke asserts `.directActiveToDeleted`.
 
 Not observed in this run:
 
-- Typed validation error enum at the core DTO level. Current core surface exposes `validation_error: Option<String>` inside a structured `TransactionResult` envelope.
 - Full production DTO vocabulary. The UniFFI wrapper uses a Stage 1 flat `EditorIntentDto` / `TransactionResultSummary` shape to avoid moving deterministic logic into Swift.
 
 Recommended binding direction: **UniFFI primary for DTO/ordinary dispatch + C ABI bytes fast path for segment/blob bytes**. A pure UniFFI-primary path for bulk bytes should not be frozen from current evidence.
@@ -120,7 +125,7 @@ Smoke output:
 ```text
 fixture:vault=vault_demo_0001 notes=1 snapshot=3ef88671e9a22cb9de21e22b0c4e635b6ecc569142197675700285dd2a877b63
 dispatch:insert changed=blk_a selection=3:3
-dispatch:error validation=direct active→deleted rejected; trash first (D10/D20)
+dispatch:error validation=direct_active_to_deleted
 segment:bytes=979
 ```
 
@@ -129,7 +134,7 @@ Observed DTO facts:
 - `open_fixture_vault()` returns the expected fixture vault id, one note, and expected snapshot revision.
 - `dispatchInsertText(targetID: "blk_a", at: 0, text: "🍎 ")` returns `changed_ids = ["blk_a"]`.
 - Selection hint is UTF-16 aware: the inserted string `"🍎 "` advances the caret by 3 UTF-16 code units.
-- Direct active to deleted dispatch returns a structured `TransactionResult.validation_error` field.
+- Direct active to deleted dispatch returns structured `TransactionResult.validation_error.code = "direct_active_to_deleted"`.
 - `read_segment()` returns non-empty segment bytes.
 
 ## Bytes benchmark
@@ -183,7 +188,7 @@ UniFFI smoke output:
 ```text
 uniffi:fixture vault=vault_demo_0001 notes=1 snapshot=3ef88671e9a22cb9de21e22b0c4e635b6ecc569142197675700285dd2a877b63
 uniffi:dispatch insert changed=blk_a selection=3:3
-uniffi:dispatch error=direct active→deleted rejected; trash first (D10/D20)
+uniffi:dispatch error=directActiveToDeleted message=direct active→deleted rejected; trash first (D10/D20)
 uniffi:roundtrip before=3ef88671e9a22cb9de21e22b0c4e635b6ecc569142197675700285dd2a877b63 after=56e9e39d17157e6bc97d9008aef910791ae4d89b340b4aa767abb8f2fba0e1b6 segment=987 id=seg_1a1fa331b3f1e2c09a880af24bc76e74c5f829c80e47cd7752cf895454a364e3
 uniffi:segment bytes=806 checksum=9609028308393580495
 ```
@@ -229,4 +234,4 @@ No stop condition was hit.
 - Bulk bytes do not need to be forced through UniFFI.
 - Swift/TextKit side did not implement merge, normalization, op creation, diff3, order-key, or tree invariants.
 
-Open concern: if "structured error" means a typed validation-error enum rather than `validation_error: Option<String>`, the current core DTO is not enough. Claude/core owner should decide whether Stage 1 needs a typed `ValidationError` enum before binding freeze.
+Open concern: Swift 6 strict concurrency / async `Sendable`, final production DTO/error vocabulary, release packaging, and CI reproduction still gate binding freeze.

@@ -43,7 +43,8 @@ print("dispatch:insert changed=\(changedIDs) selection=\(selectionStart):\(selec
 
 let delete = try session.dispatchDirectDelete(targetID: "blk_a")
 precondition(delete.validationError != nil)
-let validationError = delete.validationError ?? "none"
+precondition(delete.validationError?.code == .directActiveToDeleted)
+let validationError = delete.validationError?.code.rawValue ?? "none"
 print("dispatch:error validation=\(validationError)")
 
 let segment = try session.readSegment()

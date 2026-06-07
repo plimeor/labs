@@ -100,9 +100,9 @@ cargo build -p anchor-core --target aarch64-linux-android
 **Codex status（apple-verification.md §4、§5；Stage 1 apple-binding-report.md）：**
 
 - **Observed**：scratch host 路径已实跑——Rust staticlib + C ABI + SwiftPM executable link/run 成功；UniFFI 0.31.1 经 project-local `cargo run` 生成并运行 minimal record/bytes Swift binding（`Data` mapping 可运行）；one-slice macOS XCFramework creation 成功。
-- **Observed**：Stage 1 installed Rust iOS targets; `anchor-core` builds for macOS / iOS / iOS-sim; C ABI and UniFFI wrappers build three staticlib slices; both XCFrameworks are created; SwiftPM wrapper imports; generated Swift smoke calls fixture summary, `EditorIntentDto`, `TransactionResultSummary`, validation error, post-dispatch snapshot revision, `SegmentId`, segment bytes, and blob bytes.
+- **Observed**：Stage 1 installed Rust iOS targets; `anchor-core` builds for macOS / iOS / iOS-sim; C ABI and UniFFI wrappers build three staticlib slices; both XCFrameworks are created; SwiftPM wrapper imports; generated Swift smoke calls fixture summary, `EditorIntentDto`, `TransactionResultSummary`, typed `ValidationError`, post-dispatch snapshot revision, `SegmentId`, segment bytes, and blob bytes.
 - **Observed**：C ABI bytes benchmark passes 1/4/16/64MB; 64MB around 38.22ms and max RSS around 96MB. UniFFI 64MB around 145.22ms and max RSS around 267MB in Stage 1 generated Swift smoke.
-- **Caveat**：UniFFI Swift 6 support and async `Sendable` remain release-surface risks; final core DTO currently needs typed validation errors rather than `Option<String>` before binding freeze.
+- **Caveat**：UniFFI Swift 6 support and async `Sendable` remain release-surface risks; final production DTO/error vocabulary, release packaging, and CI reproduction still need binding-freeze signoff.
 
 **Commands（Stage 1 observed; keep as reproducible skeleton）：**
 

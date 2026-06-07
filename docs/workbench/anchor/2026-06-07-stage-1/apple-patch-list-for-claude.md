@@ -80,11 +80,11 @@ Passed:
 - Three-slice XCFramework creation succeeds.
 - Separate UniFFI wrapper builds three staticlib slices.
 - UniFFI generated Swift source/header/modulemap succeeds.
-- UniFFI generated Swift smoke calls fixture summary, `EditorIntentDto`, `TransactionResultSummary`, validation error, post-dispatch snapshot revision, `SegmentId`, segment bytes, and blob bytes.
+- UniFFI generated Swift smoke calls fixture summary, `EditorIntentDto`, `TransactionResultSummary`, typed `ValidationErrorCode`, post-dispatch snapshot revision, `SegmentId`, segment bytes, and blob bytes.
 - UniFFI three-slice XCFramework creation succeeds.
 - UniFFI generated Swift compiles for macOS, iOS device SDK, and iOS Simulator SDK.
 - SwiftPM wrapper imports the FFI surface.
-- macOS Swift smoke calls fixture summary, dispatch insert, validation error, segment bytes, and blob bytes.
+- macOS Swift smoke calls fixture summary, dispatch insert, typed `ValidationErrorCode`, segment bytes, and blob bytes.
 - C ABI bytes benchmark passes 1/4/16/64MB with 64MB around 38.22ms and max RSS around 96MB.
 - TextKit macOS smoke passes UTF-16 selection/layout/semantic undo probe.
 - TextKit iOS Simulator compile passes.
@@ -114,11 +114,11 @@ Open gates / blocked:
 
 1. **D01 binding**
 
-   Binding state is `UniFFI DTO / ordinary dispatch + C ABI bytes fast path`. UniFFI covers fixture summary, dispatch, validation error, changed snapshot, segment id, segment bytes, and blob bytes round-trip through generated Swift. Bulk segment/blob bytes use the C ABI fast path.
+   Binding state is `UniFFI DTO / ordinary dispatch + C ABI bytes fast path`. UniFFI covers fixture summary, dispatch, typed `ValidationErrorCode`, changed snapshot, segment id, segment bytes, and blob bytes round-trip through generated Swift. Bulk segment/blob bytes use the C ABI fast path.
 
 2. **DTO / error vocabulary**
 
-   The binding surface preserves a structured `TransactionResult` envelope. Final CP-1 freeze still needs core-owned typed validation errors if validation semantics must be enum-shaped rather than `validation_error: Option<String>`.
+   The binding surface preserves a structured `TransactionResult` envelope. Core DTO now exposes typed `ValidationError` with stable `code/message`, and both C ABI Swift wrapper and UniFFI generated Swift smoke assert `direct_active_to_deleted`.
 
 3. **TextKit adapter**
 

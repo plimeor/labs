@@ -1,7 +1,7 @@
 //! The Apple-binding call surface (owned by Codex): open → dispatch → read.
 
 use anchor_core::dto::{
-    blob_id, fixture_blob, open_fixture_vault, EditorIntent, OpStamp, Session,
+    blob_id, fixture_blob, open_fixture_vault, EditorIntent, OpStamp, Session, ValidationError,
 };
 use anchor_core::hlc::Hlc;
 use anchor_core::model::Life;
@@ -38,7 +38,10 @@ fn dispatch_add_tag_round_trips() {
     assert_eq!(result.changed_ids, vec![note_id.clone()]);
     assert!(result.validation_error.is_none());
     assert!(result.new_revisions.contains_key(&note_id));
-    assert!(session.vault().nodes[&note_id].content.tags.contains("research"));
+    assert!(session.vault().nodes[&note_id]
+        .content
+        .tags
+        .contains("research"));
 }
 
 #[test]
@@ -80,7 +83,11 @@ fn dispatch_rejects_direct_active_to_deleted() {
         },
         stamp("op_del", 2000),
     );
-    assert!(result.validation_error.is_some(), "active→deleted must be rejected");
+    assert_eq!(
+        result.validation_error,
+        Some(ValidationError::DirectActiveToDeleted),
+        "active→deleted must be rejected"
+    );
 }
 
 #[test]
@@ -88,7 +95,11 @@ fn segment_bytes_surface_is_stable() {
     let s1 = Session::open_fixture();
     let s2 = Session::open_fixture();
     assert!(!s1.read_segment().is_empty());
-    assert_eq!(s1.segment_id(), s2.segment_id(), "fixture segment id is stable");
+    assert_eq!(
+        s1.segment_id(),
+        s2.segment_id(),
+        "fixture segment id is stable"
+    );
 }
 
 #[test]

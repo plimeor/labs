@@ -21,10 +21,18 @@ dictionary FixtureSummary {
     sequence<string> note_ids;
 };
 
+enum ValidationErrorCode {
+    "NoError",
+    "InvalidUtf16Offset",
+    "DirectActiveToDeleted",
+    "StructuralDispatchDeferred",
+};
+
 dictionary TransactionResultSummary {
     sequence<string> changed_ids;
     boolean has_validation_error;
-    string validation_error;
+    ValidationErrorCode validation_error_code;
+    string validation_error_message;
     string selection_kind;
     string selection_block_id;
     u32 selection_start;

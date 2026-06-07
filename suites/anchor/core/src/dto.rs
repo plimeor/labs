@@ -12,9 +12,7 @@ use crate::hash;
 use crate::hlc::Hlc;
 use crate::id::journal_note_id;
 use crate::marks::Mark;
-use crate::model::{
-    body_sub_rev, scalar_sub_rev, BodyState, Life, Location, TargetKind, Vault,
-};
+use crate::model::{body_sub_rev, scalar_sub_rev, BodyState, Life, Location, TargetKind, Vault};
 use crate::op::{Op, OpBuilder, OpKind, OpPayload, Register, SubFieldKey};
 use crate::replay::replay;
 use crate::sync_port::SegmentId;
@@ -106,12 +104,44 @@ pub enum EditorIntent {
 #[derive(Clone, Debug)]
 pub struct TransactionResult {
     pub changed_ids: Vec<String>,
-    pub validation_error: Option<String>,
+    pub validation_error: Option<ValidationError>,
     pub new_revisions: BTreeMap<String, String>,
     pub selection_hint: Option<Selection>,
     pub conflicts: Vec<crate::model::ConflictRecord>,
     pub projection_fresh: bool,
     pub mirror_fresh: bool,
+}
+
+/// Typed validation failures produced by core dispatch.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ValidationError {
+    InvalidUtf16Offset,
+    DirectActiveToDeleted,
+    StructuralDispatchDeferred,
+}
+
+impl ValidationError {
+    pub fn code(&self) -> &'static str {
+        match self {
+            ValidationError::InvalidUtf16Offset => "invalid_utf16_offset",
+            ValidationError::DirectActiveToDeleted => "direct_active_to_deleted",
+            ValidationError::StructuralDispatchDeferred => "structural_dispatch_deferred",
+        }
+    }
+
+    pub fn message(&self) -> &'static str {
+        match self {
+            ValidationError::InvalidUtf16Offset => {
+                "text edit produced invalid UTF-16; check Apple UTF-16 offset boundary"
+            }
+            ValidationError::DirectActiveToDeleted => {
+                "direct active→deleted rejected; trash first (D10/D20)"
+            }
+            ValidationError::StructuralDispatchDeferred => {
+                "structural split/merge dispatch deferred to CP-2"
+            }
+        }
+    }
 }
 
 /// Summary returned by `open_fixture_vault`.
@@ -306,7 +336,11 @@ impl Session {
     /// text insertion the caret collapses just after the inserted run.
     fn selection_hint(&self, intent: &EditorIntent) -> Option<Selection> {
         match intent {
-            EditorIntent::InsertText { target_id, at, text } => {
+            EditorIntent::InsertText {
+                target_id,
+                at,
+                text,
+            } => {
                 let caret = at + text.encode_utf16().count() as u32;
                 Some(Selection::Text {
                     block_id: target_id.clone(),
@@ -328,10 +362,10 @@ impl Session {
         }
     }
 
-    fn error_result(&self, message: String) -> TransactionResult {
+    fn error_result(&self, error: ValidationError) -> TransactionResult {
         TransactionResult {
             changed_ids: Vec::new(),
-            validation_error: Some(message),
+            validation_error: Some(error),
             new_revisions: BTreeMap::new(),
             selection_hint: None,
             conflicts: Vec::new(),
@@ -349,7 +383,7 @@ impl Session {
         })
     }
 
-    fn build_op(&self, intent: &EditorIntent, stamp: &OpStamp) -> Result<Op, String> {
+    fn build_op(&self, intent: &EditorIntent, stamp: &OpStamp) -> Result<Op, ValidationError> {
         let kind_of = |id: &str| {
             self.vault
                 .nodes
@@ -358,13 +392,20 @@ impl Session {
                 .unwrap_or(TargetKind::Block)
         };
         match intent {
-            EditorIntent::InsertText { target_id, at, text } => {
-                let current = self.current_body(target_id).unwrap_or(crate::model::Body::plain(""));
+            EditorIntent::InsertText {
+                target_id,
+                at,
+                text,
+            } => {
+                let current = self
+                    .current_body(target_id)
+                    .unwrap_or(crate::model::Body::plain(""));
                 let mut units: Vec<u16> = current.text.encode_utf16().collect();
                 let at = (*at as usize).min(units.len());
                 let ins: Vec<u16> = text.encode_utf16().collect();
                 units.splice(at..at, ins.iter().cloned());
-                let new_text = String::from_utf16(&units).map_err(|_| "bad utf16".to_string())?;
+                let new_text =
+                    String::from_utf16(&units).map_err(|_| ValidationError::InvalidUtf16Offset)?;
                 let splice = crate::marks::Splice {
                     at: at as u32,
                     old_len: 0,
@@ -401,9 +442,13 @@ impl Session {
                 kind,
                 expand,
             } => {
-                let mut current = self.current_body(target_id).unwrap_or(crate::model::Body::plain(""));
+                let mut current = self
+                    .current_body(target_id)
+                    .unwrap_or(crate::model::Body::plain(""));
                 let base = body_sub_rev(&current);
-                current.marks.push(Mark::new(kind.clone(), *start, *end, *expand));
+                current
+                    .marks
+                    .push(Mark::new(kind.clone(), *start, *end, *expand));
                 Ok(OpBuilder::new(
                     stamp.op_id.clone(),
                     stamp.hlc.clone(),
@@ -541,9 +586,7 @@ impl Session {
                 if *life == Life::Deleted {
                     let current = self.vault.nodes.get(target_id).map(|n| n.life);
                     if current != Some(Life::Trashed) {
-                        return Err(
-                            "direct active→deleted rejected; trash first (D10/D20)".to_string()
-                        );
+                        return Err(ValidationError::DirectActiveToDeleted);
                     }
                 }
                 let op_kind = if *life == Life::Active {
@@ -565,7 +608,7 @@ impl Session {
                 .build())
             }
             EditorIntent::SplitBlock { .. } | EditorIntent::MergeBackward { .. } => {
-                Err("structural split/merge dispatch deferred to CP-2".to_string())
+                Err(ValidationError::StructuralDispatchDeferred)
             }
         }
     }

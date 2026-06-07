@@ -105,9 +105,9 @@ Apple 构建表面的证据态：工具链环境 **Observed**；Stage 1 spike bu
 继续把 Rust core 作为平台无关核心是首选；binding 机制候选不是四选一，而是组合方案（apple-verification §5.1）：
 
 - **Recommended path = UniFFI（structured DTO / error / normal dispatch）+ generated Swift + Rust static libraries 打成 XCFramework + 由 local SwiftPM wrapper / binary target 消费；bulk segment/blob bytes 使用 C ABI fast path**（apple-binding-report.md）。
-- **可行性证据 = Observed（apple-verification §2.4、§5.1、§5.3；apple-binding-report.md）：** C ABI + Rust staticlib + SwiftPM host path 实际跑通；UniFFI 0.31.1 经项目内 `cargo run -p uniffi-bindgen-swift` 生成并运行 minimal record/bytes Swift binding；Stage 1 完成 Anchor DTO / fixture / `TransactionResultSummary` / validation error / segment bytes / blob bytes full round-trip，C ABI 与 UniFFI 三 slice XCFramework 均创建成功。
+- **可行性证据 = Observed（apple-verification §2.4、§5.1、§5.3；apple-binding-report.md）：** C ABI + Rust staticlib + SwiftPM host path 实际跑通；UniFFI 0.31.1 经项目内 `cargo run -p uniffi-bindgen-swift` 生成并运行 minimal record/bytes Swift binding；Stage 1 完成 Anchor DTO / fixture / `TransactionResultSummary` / typed `ValidationError` / segment bytes / blob bytes full round-trip，C ABI 与 UniFFI 三 slice XCFramework 均创建成功。
 - **C ABI bytes fast path = Recommended（apple-binding-report.md）。** C ABI 64MB bytes path 约 38.22ms / max RSS 约 96MB；UniFFI 64MB 约 145.22ms / max RSS 约 267MB。DTO / ordinary dispatch 走 UniFFI，bulk bytes 走 C ABI。
-- **Caveat（必须随 binding 决策携带）：** UniFFI Swift 6 支持仍有 rough edge，async generated code 的 `Sendable` 已知不完整；当前 core DTO 的 `validation_error: Option<String>` 不是最终 typed validation enum 形状；binding 产品分发冻结仍需最终 DTO/error vocabulary 签署。
+- **Caveat（必须随 binding 决策携带）：** UniFFI Swift 6 支持仍有 rough edge，async generated code 的 `Sendable` 已知不完整；binding 产品分发冻结仍需最终 DTO/error vocabulary、Swift wrapper import surface、XCFramework packaging 与 release build/CI 复现签署。
 - **DTO 约束（Recommended，apple-verification §5.3）：** 避免在 FFI 边界暴露高度递归/泛型 DTO；`TransactionResult` / `ValidationError` / `SyncStatus` / `MirrorStatus` / `EditorPatch` 保持 structured，不为 binding 便利而 collapse 成 strings。
 - **Binding 机制作为产品分发边界冻结 = Needs user approval。** 当前证据支持 `UniFFI DTO / ordinary dispatch + C ABI bytes fast path`；最终签署对象是 DTO/error vocabulary、Swift wrapper import surface、XCFramework packaging 和 release build/CI 复现。
 
