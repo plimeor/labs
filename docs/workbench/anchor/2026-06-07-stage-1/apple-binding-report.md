@@ -6,7 +6,7 @@ Status: workbench artifact, not a public interface contract
 
 ## Conclusion
 
-Binding status is **passed for Stage 1 DTO/ordinary dispatch round-trip and synchronous release-surface packaging, not for pure UniFFI bulk bytes or UniFFI async surface**.
+Binding status is **B4 approved for UniFFI DTO/ordinary dispatch + C ABI bytes fast path**, with Stage 1 DTO/ordinary dispatch round-trip and synchronous release-surface packaging passed. Pure UniFFI bulk bytes are not the approved default; UniFFI async surface remains a release implementation gate.
 
 Observed in this run:
 
@@ -31,7 +31,7 @@ Not observed in this run:
 - UniFFI async generated surface / `Sendable` behavior. The Stage 1 generated Swift smoke is synchronous.
 - Product-target SwiftPM binary-target import and fresh-machine/CI reproduction.
 
-Recommended binding direction: **UniFFI primary for DTO/ordinary dispatch + C ABI bytes fast path for segment/blob bytes**. A pure UniFFI-primary path for bulk bytes should not be frozen from current evidence.
+Approved binding direction（B4，2026-06-07）: **UniFFI primary for DTO/ordinary dispatch + C ABI bytes fast path for segment/blob bytes**. A pure UniFFI-primary path for bulk bytes is outside the approved default.
 
 ## Scope
 

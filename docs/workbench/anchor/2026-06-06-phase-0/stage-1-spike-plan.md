@@ -103,7 +103,7 @@ cargo build -p anchor-core --target aarch64-linux-android
 - **Observed**：Stage 1 installed Rust iOS targets; `anchor-core` builds for macOS / iOS / iOS-sim; C ABI and UniFFI wrappers build three staticlib slices; both XCFrameworks are created; SwiftPM wrapper imports; generated Swift smoke calls fixture summary, `EditorIntentDto`, `TransactionResultSummary`, typed `ValidationError`, post-dispatch snapshot revision, `SegmentId`, segment bytes, and blob bytes.
 - **Observed**：C ABI bytes benchmark passes 1/4/16/64MB; 64MB around 38.22ms and max RSS around 96MB. UniFFI 64MB around 145.22ms and max RSS around 267MB in Stage 1 generated Swift smoke.
 - **Observed**：Synchronous release-surface rerun creates both C ABI and UniFFI three-slice XCFrameworks and runs generated Swift with `-swift-version 6 -strict-concurrency=complete -warnings-as-errors`.
-- **Caveat**：Binding-freeze signoff covers UniFFI async `Sendable` surface, final production DTO/error vocabulary, product wrapper import surface, and CI/fresh-machine reproduction.
+- **Approved boundary（B4，2026-06-07）**：Binding product boundary is `UniFFI DTO / ordinary dispatch + C ABI bytes fast path`. Release implementation gates cover UniFFI async `Sendable` surface, final production DTO/error vocabulary, product wrapper import surface, and CI/fresh-machine reproduction.
 
 **Commands（Stage 1 observed; keep as reproducible skeleton）：**
 
@@ -259,7 +259,7 @@ rg -n "OpSyncPort|push_segment|pull_segment|SegmentId|BlobId" suites/anchor/core
 
 - spike 组 1、5（Claude/core）的 case 全部经 `cargo test -p anchor-core` 落成正式测试并通过，`cargo clippy --all-targets` 干净；diff3 + order-key 跨设备一致性向量集（含 `wasm32` target）作为强制 CI gate 通过。
 - **World A 受保护不变量：** core 多目标编译 gate 通过（`anchor-core` 编到 `wasm32-unknown-unknown` + `aarch64-linux-android`，D36）；client 零真理逻辑 grep 红线通过（D37）。
-- spike 组 2、3（Codex/Apple + editor 合约）有可重复命令或 Xcode scheme + spike 报告；Stage 1 reports 已覆盖 binding round-trip、bytes benchmark、synchronous Swift 6 strict-concurrency release smoke、TextKit macOS smoke 和 iOS compile。剩余签署面是 final DTO/error vocabulary、UniFFI async `Sendable` surface、product wrapper/CI 复现、real app responder-chain undo/IME/accessibility proof。
+- spike 组 2、3（Codex/Apple + editor 合约）有可重复命令或 Xcode scheme + spike 报告；Stage 1 reports 已覆盖 binding round-trip、bytes benchmark、synchronous Swift 6 strict-concurrency release smoke、TextKit macOS smoke 和 iOS compile。Binding 产品边界已批准（B4，2026-06-07）；release gates 是 final DTO/error vocabulary、UniFFI async `Sendable` surface、product wrapper/CI 复现、real app responder-chain undo/IME/accessibility proof。
 - spike 组 4（iCloud）保留 runtime evidence matrix；Stage 1 report 已覆盖 signed container、package UTType、file coordination、package metadata, package-internal direct enumeration, online convergence, offline conflict materialization, and core cloud-symbol audit。未跑项必须标明，不当已验证事实。
 - **iCloud Drive 作首期默认 transport 已批准（cp-0-approval.md B14，2026-06-07）：** 批准形状为 compromise constraints；CP-1 仍需 (a) million-scale operation history 的 replay / merge / compaction / snapshot-fallback / time-travel 证据，(b) batching + compaction 后明确的 steady-state segment-file budget（N 个 op 不产约 N 个 segment），(c) remote placeholder / account-state behavior，(d) product conflict-resolution policy，(e) 四-horizon retention 正确性测试通过；delivery no-go-like result triggers batching/transport design reset and user review.
 - 任何「必须调整的模型点」回填 contract-baseline.md / key-decisions.md / fixture-set.md，决策编号沿用 D01–D38（含 D18a、D21a、D38 time travel）、fixture 编号沿用 F01–F43（含 F42 segment budget、F43 retention）。

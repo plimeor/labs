@@ -11,7 +11,7 @@
 
 ## 1. 结论（CP-1 readiness）
 
-**Core side = complete；CP-1 整体 = 未退出（compromise，按 axis 分）。** Core owner 的确定性 core（spike 组 1、5）已落成正式测试并通过；World A 多目标编译 gate、client 零真理逻辑红线、core 零云符号边界通过。Codex / Apple verifier 的 binding（组 2）与 TextKit（组 3）机制面通过、可作 Stage 1 recommendation；iCloud Drive（组 4）已由用户批准为首期 default transport，批准形状为 **default transport with compromise constraints**。CP-1 整体退出仍 gated on 一组 Codex/Apple implementation gates + binding 用户签署项（见 §6、§9）。Stop condition check 见 §11。
+**Core side = complete；CP-1 整体 = 未退出（按 axis 分）。** Core owner 的确定性 core（spike 组 1、5）已落成正式测试并通过；World A 多目标编译 gate、client 零真理逻辑红线、core 零云符号边界通过。Codex / Apple verifier 的 binding（组 2）已由用户批准为 B4 产品边界；TextKit（组 3）机制面通过；iCloud Drive（组 4）已由用户批准为首期 default transport，批准形状为 **default transport with compromise constraints**。CP-1 整体退出仍 gated on Codex/Apple implementation gates（见 §6、§9）。Stop condition check 见 §11。
 
 ---
 
@@ -40,13 +40,13 @@ Stage 1 evidence is committed and synchronized into the current decision files. 
 | **core deterministic（组 1）** | **go** | 74/0 测试、clippy 干净、`no_std`+`forbid(unsafe_code)`+零外部依赖、`BTreeMap`/`BTreeSet`（无迭代序不确定）、diff3/order-key/merge 为 core 内唯一 vendored 实现。Core side complete。 |
 | **core multi-target gate（D36）** | **go** | `wasm32-unknown-unknown` + `aarch64-linux-android` 编译 gate 通过；零依赖使 gate by construction 不可被 transitive crate 打破。仅**编译**门控；跨目标**执行**（wasmtime / android emulator）golden 接线留 CI（Not run）。 |
 | **mirror / search parity（组 5）** | **go** | `mirror_parity` 测试通过：structured search == ripgrep(md)、mirror 写失败隔离（op-log 不回滚）、body 冲突 git fence。 |
-| **Apple binding（组 2，A2/B4）** | **compromise** | 机制 frozen-ready 作 **Stage 1 recommendation**：`UniFFI DTO / ordinary dispatch + C ABI bytes fast path`。typed `ValidationError` enum 已落到 core DTO + C ABI Swift wrapper + UniFFI generated enum；synchronous release-surface smoke 已过 Swift 6 strict concurrency + warnings-as-errors。产品分发**冻结**仍 gated on async `Sendable` surface、最终 DTO/error vocabulary、CI/fresh-machine 复现与用户签署（§5）。 |
+| **Apple binding（组 2，A2/B4）** | **approved / release-gated** | 用户已于 2026-06-07 批准产品边界：`UniFFI DTO / ordinary dispatch + C ABI bytes fast path`。typed `ValidationError` enum 已落到 core DTO + C ABI Swift wrapper + UniFFI generated enum；synchronous release-surface smoke 已过 Swift 6 strict concurrency + warnings-as-errors。Release implementation gates 为 async `Sendable` surface、最终 DTO/error vocabulary、product wrapper import surface、CI/fresh-machine 复现（§5）。 |
 | **TextKit adapter（组 3，D18）** | **compromise（mechanism-go）** | 机制面可行且边界干净（Swift 零确定性语义、buffer 非真理）；real-app responder-chain undo 抑制、IME marked-text commit、accessibility、hit-testing、patch replay over moving views、UTF-16 内部单位换算稳定性仍是**产品级 runtime gate**（Not run）。 |
 | **iCloud Drive（组 4，B14）** | **approved default transport / compromise constraints** | 用户已批准 iCloud Drive 作首期 default transport（2026-06-07）。signed iPhone + signed macOS app 通过 ubiquity/package/coordinator/direct-enumeration/online-converge/offline-conflict；package-internal `.seg` 发现**不依赖** `NSMetadataQuery`。remote placeholder / account states / iOS large-scale / steady-state budget / conflict policy 仍是 delivery gates（§6）。 |
 | **layout / Bun（D02）** | **compromise** | Option A 纪律 live 守住（`members=["core"]`、`suites/anchor/**` 无 `package.json`、root 配置未动）；`bun install` / `bun run check` 对该 glob 的行为本轮未跑 = Unknown（实现期收口，非确定性 gate）。 |
 | **retention（D14/D38）** | **compromise** | 四-horizon 模型内部一致、core `retention`(7) + `segment_budget`(3) 测试通过；steady-state segment budget、million-op compaction、stale-peer watermark advance、product conflict-resolution policy 是 scale-gate / Codex-Apple 工作（未测）。 |
 
-> **Verdict 语义：** go = 本轮证据足以进 CP-1 当前基线；compromise = 机制/core 面通过但仍有明确 open gate 或用户签署前置；blocked / no-go = 无（本轮未出现）。
+> **Verdict 语义：** go = 本轮证据足以进 CP-1 当前基线；approved / release-gated = 产品边界已批准但仍有 release delivery gate；compromise = 机制/core 面通过但仍有明确 open gate；blocked / no-go = 无（本轮未出现）。
 
 ---
 
@@ -59,21 +59,21 @@ Stage 1 evidence is committed and synchronized into the current decision files. 
 - **TextKit（`textkit-adapter-report.md`）：** macOS `NSTextView` runtime 设 UTF-16 selection、layout、adapter-owned `UndoManager` semantic-inverse-intent；iOS sim 编译；UTF-16 fixture 计数（emoji/ZWJ/combining/CRLF/mixed）；intent-shaped 映射 + patch replay 到 view-model projection（buffer 非真理）。
 - **iCloud（`icloud-drive-report.md`）：** signed iPhone + signed macOS `.app` 通过 ubiquity container lookup、`.anchorvault` package UTType（conform `com.apple.package`、`vault_is_ubiquitous=true`）、`NSFileCoordinator` 读写（equal）、package-level `NSMetadataQuery` 发现（macOS `count=1`）、package-internal **direct enumeration**（macOS 1024 hidden + 128 visible）、macOS 10K/50K/100K package-internal direct enumeration（≈27.70ms / 142.63ms / 299.51ms）、1024-file subset 写（iOS≈3720ms / macOS≈3247ms）、online 跨设备收敛（0 conflict）、offline fork 后 `NSFileVersion` 冲突 materialization（1 retained，未解决）。**确认：** package-internal `.seg` 发现**返回 0**（每变体与 10K/50K/100K），package-external `.seg` 被枚举（125/128）。
 
-### 4.2 Recommended decision（当前基线）
+### 4.2 Approved / recommended decision（当前基线）
 
-- **Binding：** `UniFFI DTO / ordinary dispatch + C ABI bytes fast path`（**非** pure-UniFFI bulk bytes）。C ABI fast path **保留**（非删除），因 UniFFI 64MB 慢 3.8×/RSS 2.8×。
+- **Binding（B4 approved，2026-06-07）：** `UniFFI DTO / ordinary dispatch + C ABI bytes fast path`（**非** pure-UniFFI bulk bytes）。C ABI fast path **保留**（非 fallback-only），因 UniFFI 64MB 慢 3.8×/RSS 2.8×。
 - **iCloud adapter 形状：** `NSMetadataQuery` 发现 vault/package；`NSFileCoordinator` 保护读写；package-internal segment 用 **file-coordinated direct enumeration**（**不**用 `NSMetadataQuery` 枚举 package internals）；manifest 默认 per-device immutable cursor。
 - **边界：** core 永不出现云/文件协调/account 类型；Swift/TextKit 不实现 merge/normalization/op-creation/tree-invariant/diff3/order-key；Option A `suites/anchor/*` 为已批准 spike 位置。
 
-### 4.3 Compromise（机制通过但未达批准）
+### 4.3 Compromise / delivery gates（机制通过或路线批准后的剩余门）
 
-- **iCloud Drive 作首期默认 transport（B14）= approved default transport with compromise constraints**。runtime/file-transport 机制已证，macOS direct enumeration scale gate 通过到 100K；remote placeholder、account-state、iOS large-scale delivery、steady-state segment budget 与 conflict-policy 是交付 gate，不再阻塞 transport 路线选择。
+- **iCloud Drive 作首期默认 transport（B14）= approved default transport with compromise constraints**。runtime/file-transport 机制已证，macOS direct enumeration scale gate 通过到 100K；remote placeholder、account-state、iOS large-scale delivery、steady-state segment budget 与 conflict-policy 是交付 gate；transport 路线选择状态保持 approved。
 - **TextKit = mechanism-go**，产品 editor runtime 未完成。
 - **layout/Bun = compromise**：Option A 纪律守住，Bun glob 行为 Unknown。
 
-### 4.4 Open gate（待证 / 待签署，不得当已验证）
+### 4.4 Open gate（待证 / 交付，不得当已验证）
 
-- **Binding freeze（B4）：** UniFFI async-`Sendable` surface；最终 DTO/error vocabulary + product wrapper import surface + release/CI 复现的用户签署。Synchronous generated Swift strict-concurrency release smoke and three-slice XCFramework packaging are observed；typed `ValidationError` enum 已由 core-owner 决策并落地，现有 validated code 包含 `invalid_utf16_offset`、`direct_active_to_deleted`、`structural_dispatch_deferred`。
+- **Binding release gates（B4 approved）：** UniFFI async-`Sendable` surface；最终 DTO/error vocabulary；product wrapper import surface；release/CI/fresh-machine 复现。Synchronous generated Swift strict-concurrency release smoke and three-slice XCFramework packaging are observed；typed `ValidationError` enum 已由 core-owner 决策并落地，现有 validated code 包含 `invalid_utf16_offset`、`direct_active_to_deleted`、`structural_dispatch_deferred`。
 - **iCloud（§6 最小矩阵）：** remote `.icloud` placeholder download、signed-out / over-quota、product conflict-resolution policy、million-op replay/merge/compaction + steady-state segment budget、local-only path-in-ubiquity 边界、iOS large-scale delivery / package-level metadata gather、repo-local signed Anchor app target。
 - **TextKit（组 3）：** real-app responder-chain undo 抑制 / IME marked-text commit / accessibility / hit-testing / patch replay over moving views / keyboard→`EditorIntent` / UTF-16 内部单位换算（D18 fixture）。
 - **跨目标执行：** wasm（wasmtime）/ iOS slice 的 golden 向量**执行**接线（编译 gate 已过；执行 by construction，CI 接线 Not run）。
@@ -84,17 +84,15 @@ Stage 1 evidence is committed and synchronized into the current decision files. 
 
 ---
 
-## 5. Binding — final recommendation
+## 5. Binding — approved product boundary
 
-**Binding 已 frozen-ready 作为 Stage 1 recommendation：`UniFFI 生成 Swift（DTO / 结构化 error / 普通 dispatch）+ C ABI bytes fast path（bulk segment/blob）`。** C ABI fast path 是**保留**项（非 fallback-only 也非 pure-UniFFI），由 64MB benchmark（3.8× 时延 / 2.8× RSS）直接支撑。Swift 侧零确定性语义（`EditorIntent`/`OpStamp` 在 Rust 构造，时钟/熵由 Swift 传入，D36）。
+**B4 已由用户于 2026-06-07 批准：`UniFFI 生成 Swift（DTO / 结构化 error / 普通 dispatch）+ C ABI bytes fast path（bulk segment/blob）`。** C ABI fast path 是**保留**项（非 fallback-only 也非 pure-UniFFI），由 64MB benchmark（3.8× 时延 / 2.8× RSS）直接支撑。Swift 侧零确定性语义（`EditorIntent`/`OpStamp` 在 Rust 构造，时钟/熵由 Swift 传入，D36）。
 
-**作为产品分发边界冻结（B4 / D01）仍待以下落地：**
+**Release implementation gates：**
 
 1. **UniFFI async-`Sendable` release surface** 仍是冻结 gate；synchronous generated Swift 已在 release artifact 上通过 `-swift-version 6 -strict-concurrency=complete -warnings-as-errors`。
 2. **最终生产 DTO/error vocabulary 冻结**（Stage 1 用 flat `EditorIntentDto`/`TransactionResultSummary` 以免把确定性逻辑搬进 Swift；typed `ValidationError` enum 已进入 current DTO）。
-3. **用户签署** DTO/error vocabulary + product Swift wrapper import surface + release-build/CI/fresh-machine 复现（含显式 Rust Apple-target 检查与 wasm32 一致性向量 gate）。
-
-在以上落地前，binding 是 recommendation，**不是**已冻结的产品分发边界。
+3. **Product Swift wrapper import surface + release-build/CI/fresh-machine 复现**（含显式 Rust Apple-target 检查与 wasm32 一致性向量 gate）。
 
 ---
 
@@ -135,9 +133,9 @@ Stage 1 evidence is committed and synchronized into the current decision files. 
 
 | 文件 | 角色 | 状态 | 本轮动作 |
 |---|---|---|---|
-| `cp-0-final.md` | decision-contract（CP-0 索引） | **已同步** | §4 / §6 作为 Stage 1 后当前入口：binding recommendation、TextKit mechanism、B14 default transport approval、core gate 与剩余 open gates 对齐 |
-| `cp-0-approval.md` | approval-surface | **已同步** | 保留 CP-0 批准事实；A2/B4 更新为 Stage 1 evidence-backed recommendation + user signoff pending；B14 更新为 approved default transport with compromise constraints |
-| `key-decisions.md` | decision-contract | **已同步** | D01 typed `ValidationError` + release-surface evidence；D06/D35 macOS 10K/50K/100K direct enumeration evidence；保留 placeholder/account/conflict/steady-state budget gates |
+| `cp-0-final.md` | decision-contract（CP-0 索引） | **已同步** | §4 / §6 作为 Stage 1 后当前入口：B4 approved binding product boundary、TextKit mechanism、B14 default transport approval、core gate 与剩余 open gates 对齐 |
+| `cp-0-approval.md` | approval-surface | **已同步** | 保留 CP-0 批准事实；A2/B4 更新为 approved binding product boundary；B14 更新为 approved default transport with compromise constraints |
+| `key-decisions.md` | decision-contract | **已同步** | D01 B4 approved binding product boundary + typed `ValidationError` + release-surface evidence；D06/D35 macOS 10K/50K/100K direct enumeration evidence；保留 placeholder/account/conflict/steady-state budget gates |
 | `contract-baseline.md` | decision-contract | **已同步** | Binding / sync baseline 吸收 typed error、C ABI bytes fast path、iCloud direct-enumeration compromise |
 | `stage-1-spike-plan.md` | brief/plan | **已同步** | Stage 1 observed items 与 remaining product gates 分离；不把 product runtime / CI / default transport 当已批准 |
 | `stage-1-entry-brief.md` | brief | **已同步** | 已反映 Stage 1 binding/iCloud/TextKit 当前状态 |
@@ -152,7 +150,7 @@ Stage 1 evidence is committed and synchronized into the current decision files. 
 
 ## 9. Remaining work
 
-**当前整合不需要补跑 Apple verifier。** Core side complete（74 测试、多目标 gate、边界干净）；binding / TextKit / iCloud mechanism evidence 已进入当前基线，B14 默认 transport 已获用户批准。CP-1 整体退出仍依赖后续 Codex/Apple implementation gates + binding 用户签署工作，非 core 工作。
+**当前整合不需要补跑 Apple verifier。** Core side complete（74 测试、多目标 gate、边界干净）；B4 binding 产品边界、TextKit mechanism evidence、B14 默认 transport 均已进入当前基线。CP-1 整体退出仍依赖后续 Codex/Apple implementation gates，非 core 工作。
 
 **精确命令 / 环境 / stop condition：**
 
@@ -164,14 +162,14 @@ Stage 1 evidence is committed and synchronized into the current decision files. 
   - conflict policy：扩展 offline-fork probe，跑一条 surfacing/preservation/resolution 路径（绝不静默解决 `NSFileVersion` 冲突）。
   - `cargo test --release --manifest-path suites/anchor/Cargo.toml -- --ignored scale_bench::replay_cost_curve`（million-op replay 线性，确认 1.25M+ ≈2.1µs/op + compaction 后稳态 segment budget）。
   - TextKit 产品 runtime：IME marked-text commit / accessibility range / hit-testing on rendered geometry / direct-buffer undo 抑制 / keyboard→`EditorIntent` / `EditorPatch` replay over splitting/moving views；UTF-16 内部单位换算稳定性（emoji/ZWJ/combining/CRLF/IME fixture，D18）。
-  - Binding freeze 输入：typed `ValidationError` enum 已落地；generated UniFFI Swift 的 synchronous strict-concurrency release smoke 与三 slice XCFramework packaging 已观察；剩余 gate 是 async-`Sendable` surface、final DTO/error vocabulary、product wrapper import surface、release/CI 复现（fresh CI/dev 机器）与用户签署。
+  - Binding release 输入：typed `ValidationError` enum 已落地；generated UniFFI Swift 的 synchronous strict-concurrency release smoke 与三 slice XCFramework packaging 已观察；剩余 gate 是 async-`Sendable` surface、final DTO/error vocabulary、product wrapper import surface、release/CI 复现（fresh CI/dev 机器）。
 - **Stop condition：** 出现以下任一即暂停重评——(a) 须改 root workspace/`package.json`/`bun.lock`/lockfile 或加 placeholder `package.json`；(b) 在 Swift/TextKit 复制 core 确定性语义；(c) iCloud transport 依赖 package-internal `NSMetadataQuery`、静默处理 unresolved `NSFileVersion` conflict，或绕过 placeholder/account-state gates；(d) iCloud-Drive 路径引入 CloudKit schema / CKSyncEngine；(e) 公开 CLI schema 变更；(f) 把 Apple probe 变产品 app shell；(g) `anchor-core` 获任何 Apple 云/文件协调/account/ubiquity 类型（重跑 0-match 云符号 + Apple 类型审计，要求 exit 1）。另：scale 出现 N op→~N segment 的 no-go，使 batching/compaction 设计失效（非 transport 选择失效），须停。
 
 ---
 
 ## 10. Commit status
 
-Stage 1 integration is committed through `71611aa Document Anchor binding release surface`; B14 default transport approval is recorded in the current docs update. Any new edits must keep the same scope: docs/workbench only, no code / lockfile / workspace / `Cargo.toml` member / app target / entitlement / bundle id changes, and no wording that implies CP-1 overall exit or iCloud transport delivery gates are complete.
+B4 binding approval and B14 default transport approval are recorded in the current decision docs. Any new edits must keep the same scope: docs/workbench only, no code / lockfile / workspace / `Cargo.toml` member / app target / entitlement / bundle id changes, and no wording that implies CP-1 overall exit or iCloud transport delivery gates are complete.
 
 ---
 
