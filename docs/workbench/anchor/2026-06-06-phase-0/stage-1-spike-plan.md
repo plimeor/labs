@@ -1,7 +1,7 @@
 # Anchor Phase 0 — Stage 1 探索验证（spike）计划
 
 日期：2026-06-07
-状态：CP-0 整合稿（Step 3，Claude 整合 Codex Apple 验证证据）。本文件**只规划 Stage 1 spike，不实现**。
+状态：CP-0 整合稿（Step 3，Claude 整合 Codex Apple 验证证据）。本文件**只规划 Stage 1 spike，不实现**。CP-0 已批准（见 `cp-0-approval.md` §0）；本文件是 CP-1 / Stage 1 的执行计划，启动 briefing 见 `stage-1-entry-brief.md`，CP-0 冻结结论与进入 Stage 1 禁止的顺手扩展见 `cp-0-final.md`。
 
 > 边界声明（强制）：本文件是 workbench 工件，**不是公开接口契约**。创建 workbench 目录**不授权**任何 package / workspace / app / lockfile 改动，也不授权创建 `suites/anchor` / `apps/anchor-*` / `packages/anchor-*` / 顶层 `anchor-apple/` / Xcode project / Swift Package / Rust crate / entitlements / bundle id / iCloud container，更不授权改动 `package.json` / `bun.lock` / 任何 `tsconfig` / workspace 配置或写任何 Rust / Swift / TS 代码。本文件**不创建任何工程**，所有命令均为**目标态命令骨架**，标注其执行态（Observed / Recommended / Not run）。
 >

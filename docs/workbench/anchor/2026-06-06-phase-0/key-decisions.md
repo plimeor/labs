@@ -200,7 +200,7 @@
 - **Decision**：附件为**内容寻址 blobs**，Note/Block 只存 `BlobRef`；**单附件上限 = 50MB（用户 2026-06-07 定），由 dispatch 在写入前校验并以独立失败态拒绝超限。** 50MB 同时兼容首期 iCloud Drive / 本地文件与二期 CloudKit `CKAsset`（archived CloudKit Web Services 限 `CKAsset` field 最大 50MB），**消除原 64MB-vs-50MB 冲突**：二期 CloudKit 路线因此**无需**分片 / 降 cap / out-of-band asset storage。**二期 CloudKit / CKSyncEngine 路线已获用户批准（B8，2026-06-07，仍为二期实现）**，通过同一 `OpSyncPort` 接入，CloudKit record schema 绝不进 core；op 形状仍须在任何 CloudKit 记录落地前冻结。
 - **Status**：Recommended（cap=50MB 已定；二期 CloudKit 路线 B8 已批准）
 - **Rationale**：把 cap 统一压到 50MB 一步对齐 CKAsset 上限，首期与二期单一阈值、无分支决策，是最干净路径（用户取舍：超 50MB 附件须走外链 / 用户侧处理）。
-- **Evidence**：**用户决定（2026-06-07）：最大附件 50MB + 批准 B8。** Codex §7.3：**Observed**（官方文档）— Apple archived CloudKit Web Services data size limits 写明 `CKAsset` field 最大 50MB、record 最大 1MB 不含 asset。plan §8.2 草拟值为 64MB——本决策以 50MB **冻结/取代**该草拟值（workbench 决策为操作准绳，plan 为历史草稿）。首期 iCloud Drive file package 对单文件 50MB 的真实行为 = **Not run**（付费 ADP team 已开通、见 D35；待 Anchor signed app 实测）。
+- **Evidence**：**用户决定（2026-06-07）：最大附件 50MB + 批准 B8。** Codex §7.3：**Observed**（官方文档）— Apple archived CloudKit Web Services data size limits 写明 `CKAsset` field 最大 50MB、record 最大 1MB 不含 asset。plan §8.2 / §8.4 原草拟 64MB，已按本决策**同步为 50MB**（CP-0 固化；plan 为历史方向记录，workbench 为操作准绳）。首期 iCloud Drive file package 对单文件 50MB 的真实行为 = **Not run**（付费 ADP team 已开通、见 D35；待 Anchor signed app 实测）。
 - **Risk**：50MB 上限对个别大附件偏紧——产品取舍，超限以独立失败态拒绝并引导外链；二期 CloudKit 仍须在 record schema 落地前冻结 op 形状。
 - **Stop condition**：cap=50MB 已定且对齐 CloudKit。二期 CloudKit/CKSyncEngine 路线已批准（B8），但任何 CloudKit record schema 进入 user private database 前仍须冻结 op 形状；CloudKit record schema 绝不进 core。
 

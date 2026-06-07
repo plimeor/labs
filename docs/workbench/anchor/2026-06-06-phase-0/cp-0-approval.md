@@ -3,11 +3,31 @@
 日期：2026-06-07
 状态：**workbench artifact** —— 非公开接口契约。本文件是 6 文件 Phase-0 packet 的最终面向用户审阅、可逐条勾选批准的整合稿（Step 3：Claude 综合 Codex 的 Apple/Xcode/Swift-Rust/TextKit/iCloud 验证证据）。它是 packet 的对外封面，所有断言由同目录四份责任文件支撑，本文件不重复其细节、只承载可批准结论与勾选清单。
 
+**CP-0 status：Approved。Approved date：2026-06-07。** 全部 CP-0 核心检查点（A1、A3–A9）与边界项（B1–B3、B5–B13、B15–B16）已批准，B6 / B14 据 D22 / D21 firm 部分锁定，仅余两项 Stage-1-gated 待定：A2 / B4（Apple binding 方向与机制冻结）与 B14 的「iCloud Drive 作首期默认 transport」整体确认（scale-gated）。结构化摘要见 §0，逐条勾选证据见 §8，CP-0 索引与下一步入口见同目录 `cp-0-final.md` / `stage-1-entry-brief.md`。
+
 > **边界声明（AGENTS 工作台规则，强制）：** 创建本 workbench 目录**不授权**任何 package / workspace / app / 生成 lockfile 改动。具体而言，本文件**不**授权创建 `suites/anchor`、`apps/anchor-*`、`packages/anchor-*`、顶层 `anchor-apple/`、任何 Xcode project / workspace、Swift Package、Rust crate、entitlements、bundle id、iCloud container，也**不**授权写 Rust / Swift / TS 代码或改动 `package.json` / `bun.lock` / 任何 `tsconfig` / workspace 配置。本文件唯一落盘动作就是它自身。权威且稳定的 CLI / API / schema / file-format 契约在实现后归 `anchor-core` 包 README；本文件只是可批准 CP-0 的封面。
 
 > **引用约定：** `[plan §X]` 指 `docs/plans/2026-06-06-anchor-apple-native-note-workbench.md`；`[conflict §X]` 指 `docs/plans/2026-06-06-anchor-conflict-resolution-model.md`；Codex 验证证据指同目录 `apple-verification.md`。同目录姐妹文件以相对名引用：`contract-baseline.md`、`key-decisions.md`、`fixture-set.md`、`stage-1-spike-plan.md`、`project-layout-options.md`。
 
 > **标注词汇（全 packet 一致）：** **Observed**（Codex 本机实跑或官方文档直接支持）、**Recommended**（建议的目标状态 / 命令骨架）、**Needs user approval**（触 workspace / package / Apple project 边界、新公开 CLI schema、加密所有权、付费 Apple Developer Program、entitlement / 容器、plan §13 暂停条件）、**Needs Stage 1 spike**（机制可行性已验证、Anchor 专属构建 / 运行未证，留待 Stage 1）、**Blocked**（当前环境无法验证，被硬门控）、**Not run**（未执行项，不得当已验证事实）。
+
+---
+
+## 0. Final approval summary（最终批准摘要）
+
+> 本节是 CP-0 的可执行结论摘要；逐条批准证据见 §8，完整论证见同目录责任文件。所有落地动作仍受第 8/9 节门控，本 packet 不自行创建任何东西。
+
+- **CP-0 status：** Approved。
+- **Approved date：** 2026-06-07。
+- **Approved project layout：** Primary = Option A `suites/anchor/*`（内层 `core` = Rust crate `anchor-core` 含 `anchor-editor-core` module、`cli` = Rust bin、`apple` = Xcode workspace macOS+iOS targets、`fixtures/`、嵌套 `Cargo.toml`）；Fallback = Option C 顶层 glob 外 `anchor-apple/` + core 仍留 `suites/anchor/core`（仅实现期 Bun glob 容忍度 / Xcode 嵌套成本过高时启用）。绝不为适配 glob 添加 placeholder `package.json`（第 3 节；key-decisions.md D02）。
+- **Approved contract baseline：** 以 contract-baseline.md 的 Strongest conclusion + 五责任面 Responsibility boundary matrix 为准——Note 原生、Apple 原生优先、平台无关 Rust `anchor-core`；append-only op-log 真理层；单一已校验 dispatch；恰好三 dispatch register（location/content/life），content 内部分解 sub-field cell `{body, type_id, props[k], tags[t]}`；冲突模型（body 确定性 diff3 / keep-both、props/type_id causality-aware LWW、tags OR-Set add-wins、life 时钟无关 lattice、全序 `T`、journal 内容寻址身份）；Apple 客户端 / CLI / `OpSyncPort` 适配器均为 dispatch 外壳、不拥有业务真理；DTO + schema envelope 归 core（第 2 节；contract-baseline.md）。
+- **Decisions frozen for CP-1：** 平台路线（A1）；core / editor / 客户端↔core 传输 / CLI / sync 责任边界（第 2 节）；冲突模型全部规则与 op-envelope 完整字段预留（D24，非协商；conflict §7.1）；journal 内容寻址身份与「一日一 journal」取舍（B10/D08）；顶层 Note 表示 / Calendar 排序 / journal 默认 parent / trash-restore 边界（B11/D07–D09）；`life` 4-state lattice + 终态可达 + 非级联（D10/D20/D27）；sub_rev stale guard（D11）、同步 ingestion（D12）、提交节奏（D13）；diff3 + order-key 跨设备一致性 gate（D19/D26）；snapshot_revision canonicalization（D30）；附件 cap = 50MB 对齐 `CKAsset`（D17/B8）；字体来源 = 内置 JetBrains Mono + 系统字体（D18a/B7）；mirror 组织 = 人类可读路径 + 不纳入版本库（D05/B12）；vault file package `com.apple.package` UTType（D34/B13）；local-only 防误放硬规则 + blocked-open（D21/D21a）；加密 envelope 缝 + non-ZK 文案（D22/B6）；World A core `wasm32` + android 可编译性 + client 零真理逻辑红线（A9/D36/D37）；time travel 一等能力 + 四-horizon retention（B15/D38）；7-day conflict horizon = 纯 UI（B16）；Kleppmann 祖先检查在范围内（B9/D32）；公开 `ConflictRecord` / `resolve` CLI schema 延后二期（B5/D31，op-envelope 预留留 Phase 0）。
+- **Decisions intentionally deferred to Stage 1 spike：** Apple binding 方向与机制最终冻结（A2/B4/D01——UniFFI primary vs UniFFI DTO + C ABI fast path，待 1/4/16/64MB bytes benchmark + Swift 6 strict concurrency + Anchor DTO round-trip）；iCloud Drive 作首期默认 transport 的整体确认（B14——gated on Stage 1 scale gate：segment-file-count 1K/10K/50K/100K + million-op replay/merge/compaction + steady-state segment budget + 真机 go/compromise，no-go 转 CloudKit / 中立 object-store）；UTF-16 ↔ core 内部 offset 换算稳定性（D18）；manifest 并发协调（默认 per-device immutable cursor，D14）；iCloud Anchor file-package runtime / placeholder / quota / signed-out（D35）；core 多目标编译 gate 与依赖政策实跑（D36）；保留期数值 / stale-peer 退出规则 / archive 压缩格式（D38）。机制可行性已 Observed，Anchor 专属构建 / 运行 / 规模未证。
+- **Boundary changes authorized / not authorized：**
+  - **Authorized（随实现授权落地，本 packet 不自行创建）：** 创建 `suites/anchor*` 目录 / 工程结构（B1）；Anchor Xcode 工程 / target / bundle id / signing team / entitlements（B2）；Anchor iCloud container / capability（B3，付费 ADP team 已开通）；vault file package `com.apple.package` UTType 声明落 Info.plist（B13）。
+  - **Not authorized（待用户后续签署或永久排除）：** binding 机制作为产品分发边界冻结（B4，待 Stage 1 证据）；iCloud Drive 作首期默认 transport 的整体确认（B14，scale-gated）；完整 ZK / 密钥分发（延后）；任何 CloudKit record schema 落地（B8 是二期路线批准、非 schema 落地许可，op 形状须先冻结）；公开 conflict/resolve CLI schema（二期）；任何超出 Option A/C 的 package / workspace 重组；为适配 glob 添加 placeholder `package.json`（永久禁止）；在本 packet 范围内写任何 Rust / Swift / TS 代码或改 `package.json` / `bun.lock` / `tsconfig` / workspace 配置。
+- **Stop condition satisfied：** 是。本 packet 唯一落盘动作是 workbench 文档自身；未创建任何 `suites/anchor*` / `apps/anchor-*` / `packages/anchor-*` / `anchor-apple/` / Xcode / Swift Package / Rust crate / entitlements / bundle id / iCloud container，未改任何 lockfile / workspace 配置，未写任何 Rust / Swift / TS 代码，未把任何 Blocked / Not run / Unknown 项当已验证事实（第 9 节）。
+- **Entry condition for CP-1：** 按 `stage-1-entry-brief.md` 进入 Stage 1——先获目录 / 工程创建的实现授权，再按 `stage-1-spike-plan.md` 执行五组 spike；CP-1 退出须 core spike 经 `cargo test -p anchor-core` 落成正式测试 + diff3 / order-key / `wasm32` 一致性 gate 通过 + core 多目标编译 gate 通过 + Apple spike 留可重复命令 / scheme + 报告 + iCloud scale gate 给出 go/compromise；通过 CP-1 前不实现持久应用写入（plan §11 CP-1；stage-1-spike-plan.md §6）。
 
 ---
 

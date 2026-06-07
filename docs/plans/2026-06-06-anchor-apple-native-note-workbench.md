@@ -6,6 +6,8 @@
 > 规划记录（历史记录，非当前接口契约）。实现后，权威且稳定的 CLI / API / schema / file format 契约归 `anchor-core` 包 README。
 >
 > 本方案把 Anchor 定义为新项目：产品对象、交互行为、平台路线、编辑器、存储真理层、同步边界和 CLI 契约一起设计。首期产品形态、UI 行为、数据契约和实现都以本方案为准。
+>
+> **CP-0 已批准（2026-06-07）。** 阶段0 平台 / 产品 / 契约基线、关键技术决策（D01–D38）、fixture set（F01–F43）与 Stage 1 验证计划经用户逐条批准。最终批准稿见 `docs/workbench/anchor/2026-06-06-phase-0/cp-0-approval.md`，CP-0 索引与冻结结论见同目录 `cp-0-final.md`，下一轮执行入口见同目录 `stage-1-entry-brief.md`。完整 decision table、fixture 矩阵、Apple 验证证据与命令清单归该 workbench packet，不回灌本方案；本方案保持产品 / 架构方向摘要。CP-0 冻结结论与两项 Stage-1-gated 待定项（Apple binding 机制冻结、iCloud Drive 作首期默认 transport 的规模门）见 §11 阶段0 / CP-0。
 
 ---
 
@@ -315,10 +317,10 @@ UI 必须一等呈现以下状态：
   | `paragraphIndent` | 0–3 | 0.1 | em | 0 |
 
 - 单位标签是 UI 约定，原生映射需明确：`fontSize` = 点；`lineHeight` = 无单位行高倍数；`lineWidth` / `paragraphSpacing` / `paragraphIndent` = 编辑器字号的倍数。Apple TextKit 排版按此映射，避免与跨平台输出偏差。
-- normalize 与 clamp 精度：非有限数值回到默认值；越界有限数值被 clamp 到字段上下限；类型不符的值（如字符串）被忽略并保留默认值；未知字体被丢弃。
+- normalize 与 clamp 精度：非有限数值回到默认值；越界有限数值被 clamp 到字段上下限；类型不符的值（如字符串）被忽略并保留默认值；未安装 / 未知字体回退（代码字体回退内置 `JetBrains Mono`，正文 / 标题回退系统默认，正文 / 标题的回退因此为设备相关）。
 - 字体和排版进入外观 store，一键重置恢复默认值。主题与排版可以是两个独立 store，Apple 侧可统一，但主题的 `system → light/dark` 解析保持独立关注点。
 - 字体调整必须即时生效，不要求重启或重建文档模型。
-- 阶段0 决定字体来源：随包内置一组跨平台一致字体，还是枚举原生 OS 字体（后者会改变“未知字体被丢弃”的含义）。
+- 字体来源：代码字体随包内置 `JetBrains Mono`（OFL，跨设备一致）；正文 / 标题默认系统字体，用户可在本机已安装系统字体中切换。字体属外观 settings、不进 op-log 真理层，故正文 / 标题字体可用性的设备相关只影响渲染，不破坏 op-log 确定性或 `snapshot_revision`。
 
 ---
 
@@ -338,7 +340,7 @@ UI 必须一等呈现以下状态：
 - 传输无关的 `OpSyncPort` trait（list / pull / push segment + blob，仅 SegmentId / BlobId + 字节，不含任何云类型）；具体同步传输适配器在 core 之外按平台实现此接口。
 - CLI DTO、Apple binding DTO、后续客户端 DTO 与 schema version envelope。
 
-首选继续把 Rust core 作为平台无关核心；Apple binding 机制（C ABI、UniFFI、Swift Package、XCFramework 或其他）在阶段0决定。
+首选继续把 Rust core 作为平台无关核心。CP-0 推荐 Apple binding 路径为 UniFFI 生成 Swift API + XCFramework 打包 Rust static libraries + 本地 SwiftPM wrapper 消费，C ABI bytes 作 bulk segment / blob fast-path 退路；binding 方向（A2）与机制作为产品分发边界的最终冻结（B4）均 Stage-1-gated（待 Stage 1 binding spike 证据 + 用户签署）。平台无关不止于 Apple：`anchor-core`（含内部模块 `anchor-editor-core`）的 `wasm32` + android 可编译性是 CP-1 受保护不变量——core 依赖须 wasm + android 可编译、确定性 / merge 路径 `no_std`-friendly 且不碰 OS 线程 / 文件系统 / 时钟 / 浮点，diff3 / order-key 一致性向量集纳入 `wasm32` target，并设 client 零真理逻辑 CI 红线；受保护的是「core 现在就保持可复用」，web / android 客户端仍延后（见 §9）。
 
 **客户端 ↔ core 传输：** Apple 客户端通过进程内 binding 直接调用 core，不经网络。`anchor serve` + `/rpc` op 信封作为可选的本地开发 / 测试传输保留，与 CLI、Apple binding 共享同一 op registry、DTO 词汇和同一 dispatch 入口——它是 localhost 开发工具，不是产品同步通道。所有传输面只是 dispatch 的外壳。
 
@@ -408,9 +410,9 @@ Block 字段：
 - `Calendar`：journal 的日期聚合 projection。打开 / 创建 journal 时，系统按 content-addressed `note_id`（见 Note 字段）解析当天 journal——同 vault 同日恒命中同一 Note，并发离线创建退化为对同一 target 的幂等 create，trashed 后重开则 restore 同一 Note 而非铸造重复；年 / 月 / 周 / 日期分组由 projection 计算，用于日期跳转和列表展示。
 - `calendar_date`：journal Note 的隐藏属性，既是 content-addressed `note_id` 的派生输入，也用于日期查询、跳转、today projection 和 Calendar 聚合；同日唯一性由身份派生保证（by construction），无需运行时去重检查或结构化 merge。它不拥有归属语义，journal 的 `parent_note_id` 仍按普通 Note 规则处理。
 
-阶段0必须冻结顶层 Note 的内部表示（`parent_note_id = null` 还是隐藏 root sentinel）、Calendar projection 排序、journal 默认 parent，以及 trash / restore 对 journal Note 的边界（含「journal 被 trashed 后重开『今日』须解析回同一 content-addressed id 并 restore，不产生重复」）。journal 身份、`calendar_date` 唯一性、journal 创建与 rename / move 规则由 content-addressed `note_id` 决定：同日去重是身份不变量，rename 改 title runs、move 改 `location`，均不触身份。
+顶层 Note 的内部表示冻结为 `parent_note_id = null` 的普通 Note（非隐藏 root sentinel）；Calendar projection 的年 / 月 / 周 / 日期分组仅作 UI 分组、按 `calendar_date` 排序、不进 `parent_note_id`；journal 默认 parent 按普通 Note 规则；trash / restore 对 journal Note 的边界为「journal 被 trashed 后重开『今日』解析回同一 content-addressed id 并 restore，不产生重复」。journal 身份、`calendar_date` 唯一性、journal 创建与 rename / move 规则由 content-addressed `note_id` 决定：同日去重是身份不变量，rename 改 title runs、move 改 `location`，均不触身份。
 
-行内内容是纯文本加排序、合并后的 typed range marks。行内 offset 对外以 UTF-16 code unit 表达（对齐 Apple TextKit / Swift String bridging 与后续客户端编辑器边界）；core 内部存储单位与换算边界在阶段0定下，导入既有 byte-offset span 时一并转换。硬 block 边界创建新 block；`\n` 是行内文本中的软换行。
+行内内容是纯文本加排序、合并后的 typed range marks。行内 offset 对外以 UTF-16 code unit 表达（对齐 Apple TextKit / Swift String bridging 与后续客户端编辑器边界）；core 内部存储单位与对外 UTF-16 的确定性换算在 binding 边界完成，其在 emoji / ZWJ / combining mark / CRLF / IME marked text 下的稳定性由 Stage 1 fixture 验证，导入既有 byte-offset span 时一并转换。硬 block 边界创建新 block；`\n` 是行内文本中的软换行。
 
 Block 内容类型：
 
@@ -420,7 +422,7 @@ Block 内容类型：
 - Schema：prop-def、type。
 - 兼容载体：带 `min_schema` 和无损 payload 的 unsupported。
 
-附件是内容寻址 blobs。Note / block 只存 `BlobRef`；单附件上限 64MB，由 dispatch 在写入前校验并以独立失败态拒绝超限。
+附件是内容寻址 blobs。Note / block 只存 `BlobRef`；单附件上限 50MB（对齐 CloudKit `CKAsset` 上限），由 dispatch 在写入前校验并以独立失败态拒绝超限。
 
 ### 8.3 规范序列化与修订
 
@@ -437,20 +439,20 @@ Block 内容类型：
 每个 Note / block 有三个 merge registers：
 
 - `location`：parent + order。
-- `content`：content + props + tags。
+- `content`：content + props + tags；merge 时内部分解为具名 sub-field cell `{body, type_id, props[k], tags[t]}`（仍是恰好三个 dispatch register，非新增 register 轴）。
 - `life`：生命周期枚举 `active / archived / trashed / deleted`，保留 archive 与 trash 的区分以及可逆 restore；`deleted` 是终态 tombstone。
 
-每条 op 记录 `{target_id, target_kind, register, base_register_rev, new_register_rev, hlc, actor}`，并预留 `provenance` 与 `approvalState` 字段以承载导入来源和日后 agent 审批语义（见 §9 排除）。本地 UI / CLI 写入携带 touched target/register 的 base rev 作为 stale guard；同步 ingestion 接受远端 op 进入 merge pipeline，并以 op id / HLC / actor 做幂等与排序。合并按 target id + register 进行，用 HLC `(wall, logical, device)` 做字段级 LWW。Move-vs-edit 同时保留两边更改；删除会级联 tombstone 整个子树；edit-vs-delete 采用 delete-wins。
+每条 op 记录 `{target_id, target_kind, register, base_register_rev, new_register_rev, hlc, actor}`，op-shape 冻结时按配套方案 §7.1 预留完整信封（含 `op_id`、`op_envelope_version`、`sub_field_key` / `sub_rev`、`op_kind`、`dominates_frontier`、`observed_adds` 等），并预留 `provenance` / `approvalState`（承载导入来源，不复用于人工冲突复审，见 §9 排除）。本地 UI / CLI 写入携带 touched cell 的 `base_sub_rev` 作为 stale guard；同步 ingestion 接受远端 op 进入 merge pipeline，按全序键 `T = (hlc.wall, hlc.logical, hlc.device, actor, op_id)` 做幂等去重与排序。合并按 target + register 进行，content 内部逐 sub-field cell 调和：`body` 走确定性 3-way diff3 / keep-both（永不静默 LWW），`props` / `type_id` 走 causality-aware per-cell LWW，`tags` 走 OR-Set add-wins。Move-vs-edit 两边保留；`life` 走时钟无关优先级 lattice 且**非级联**（子树消失是派生 root-reachability 可见性规则，非命令式级联 tombstone）；edit-vs-delete **保留编辑 + 节点可逆 trashed**，终态 `deleted` 仅经显式 `trashed → deleted` 且因果支配编辑可达。冲突处置细节以配套方案为准。
 
-**Compaction：** op-log 纯追加会无界增长，冷启动会从创世 replay。阶段0定下定期物化快照 + 截断 / 分段策略，使 replay 从最近快照起算，并明确它与 HLC / merge 的交互。GC 与同步的正确性交互同样在阶段0定下：GC 必须经 manifest 协调并保留一个窗口；若某设备离线超过保留窗口、其 replay 基底 segment 已被回收，则要么不 GC 到所有已知 peer 都拥有的 snapshot 之下，要么 fallback 到整快照重拉，否则无法收敛并丢失数据。承载快照与 segment 集合的 manifest 是被多设备写的共享可变文件，其竞争协调属 storage / transport 范畴；被 tombstone 子树遗弃的内容寻址 blob 的分布式安全 GC 同属此范畴。
+**Compaction：** op-log 纯追加会无界增长，冷启动会从创世 replay。Compaction 策略冻结为：定期物化快照 + 截断 / 分段使 replay 从最近快照起算，由 **causal-stability watermark**（所有已知设备各自已确认 HLC frontier 的 `min`，非日历 epoch）门控截断；保留期为四 horizon（conflict / replay-safety / audit / time-travel），硬规则**绝不截断属于 open `ConflictRecord` 成员的 op**。GC 分两层：< watermark 且已被全 peer snapshot 覆盖的 op 只可 truncate-to-snapshot / archive，hard-delete 仅在 time-travel / audit horizon 之下且经显式 excise；离线超窗设备整快照重拉以使 watermark 可推进。承载快照与 segment 集合的 manifest 默认取 per-device immutable cursor（免 conflict），其在 iCloud 下的并发协调（`NSFileVersion`）runtime 由 Stage 1 实测；被 tombstone 子树遗弃的内容寻址 blob 的分布式安全 GC 同属 storage / transport 范畴。
 
-**Vault 落盘布局：** 真理层 op-log 是被同步的核心产物（位置如 `.anchor/operations/`）；projection（SQLite，如 `.anchor/cache/index.sqlite`）是可从 op-log 重建的本地缓存，不进入同步；配置 `.anchor/config/vault.toml` 声明 `source_of_truth = "op-log"`、`sync`（adapter 选择，`none` 表示纯本地）与 projection 路径。`.md` / `.json` 镜像是导出产物，由 post-commit mirror job 写入并记录 freshness。同步 / 提交单元是 op-log 的不可变 op-segment 文件（如 `.anchor/operations/<device_id>/<seq>.seg`，每设备独占命名空间、一封一密、永不修改）；选不可变 segment 而非单个增长日志，是因为 iCloud Drive 无 delta 同步、任何改动都整文件重传，不可变 segment 只上传一次、永不重传。`.md` / `.json` 镜像不进入同步，镜像是有损派生物，同步它会制造第二真理。阶段0仍需确定镜像的目录组织（Note id 寻址 vs 人类可读路径）与镜像是否纳入版本库。
+**Vault 落盘布局：** 真理层 op-log 是被同步的核心产物（位置如 `.anchor/operations/`）；projection（SQLite，如 `.anchor/cache/index.sqlite`）是可从 op-log 重建的本地缓存，不进入同步；配置 `.anchor/config/vault.toml` 声明 `source_of_truth = "op-log"`、`sync`（adapter 选择，`none` 表示纯本地）与 projection 路径。`.md` / `.json` 镜像是导出产物，由 post-commit mirror job 写入并记录 freshness。同步 / 提交单元是 op-log 的不可变 op-segment 文件（如 `.anchor/operations/<device_id>/<seq>.seg`，每设备独占命名空间、一封一密、永不修改）；选不可变 segment 而非单个增长日志，是因为 iCloud Drive 无 delta 同步、任何改动都整文件重传，不可变 segment 只上传一次、永不重传。`.md` / `.json` 镜像不进入同步，镜像是有损派生物，同步它会制造第二真理。镜像目录组织采用人类可读路径、不纳入版本库（NoteId 寻址仅作实现期去歧义不可行时的备选）。
 
-**Vault 同步形态与 local-only 落盘语义：** 每个 vault 的同步形态独立，三选一。Synced（iCloud）：vault 作为 file package 放进 ubiquity container 的 `Documents/`，OS 守护进程同步新增 segment，projection 留本地 Application Support、不进 container。Synced（中立 object-store）：vault 在本地任意目录，object-store 适配器把 segment + blob 推 / 拉到用户自有 bucket；该路线默认非零知识，零知识需 Anchor 自加客户端加密层，且无自托管服务时向新设备分发密钥是跨平台共享 vault 的真实阻塞，阶段0 决策。Local-only：`sync = "none"`，vault 放非 ubiquity 目录（OS 同步守护进程不可见，字节无法离开设备），并标记 `NSURLIsExcludedFromBackupKey` 排除备份；core 不为其挂载任何 adapter，唯一出网调用点 `OpSyncPort::push` 受 adapter 门控、可 grep 审计。vault-open 时断言路径不在任何 ubiquity container 下，否则拒绝打开并报警。`synced → local-only` 切换不可逆：已离开设备的字节无法收回，local-only 保证只对此后写入成立。
+**Vault 同步形态与 local-only 落盘语义：** 每个 vault 的同步形态独立，三选一。Synced（iCloud）：vault 作为 file package 放进 ubiquity container 的 `Documents/`，OS 守护进程同步新增 segment，projection 留本地 Application Support、不进 container。Synced（中立 object-store）：vault 在本地任意目录，object-store 适配器把 segment + blob 推 / 拉到用户自有 bucket；该路线默认非零知识，零知识需 Anchor 自加客户端加密层。首期不实现零知识，阶段0 锁定 `OpSyncPort` 与持久化间的 encryption envelope 缝（首期 no-op，日后接客户端加密层不迁移 op-log）+ non-ZK 文案（绝不对中立 object-store 暗示零知识）；完整 ZK 与无自托管服务下向新设备分发密钥延后到 ZK 真被需要时评估。Local-only：`sync = "none"`，vault 放非 ubiquity 目录（OS 同步守护进程不可见，字节无法离开设备），并标记 `NSURLIsExcludedFromBackupKey` 排除备份；core 不为其挂载任何 adapter，唯一出网调用点 `OpSyncPort::push` 受 adapter 门控、可 grep 审计。vault-open 时断言路径不在任何 ubiquity container 下，否则拒绝打开并报警。`synced → local-only` 切换不可逆：已离开设备的字节无法收回，local-only 保证只对此后写入成立。
 
-Apple 首期同步路线：不建设自有服务器；首期 transport 是 iCloud Drive 文件适配器，零配置、core 纯文件 I/O、无任何 CloudKit 代码。CloudKit / CKSyncEngine 后置为二期可选升级，为 Apple 用户提供更高质量同步，通过同一 `OpSyncPort` 接入，不成为真理归属方；其 64MB blob cap 超过 CKAsset 上限，CloudKit 档需在分片 / 降 cap / out-of-band 之间先定一种，且 CloudKit record schema 一旦进入用户私有库即难迁移，op 形状须在任何 CloudKit 记录落地前冻结。iCloud Drive 同步的 vault 不跨出 Apple 生态，跨平台需该 vault 改用中立 object-store 适配器（同步形态逐 vault 选择，iCloud→中立需一次迁移）。任何适配器只负责传输 / 持久化，不拥有 merge 语义。
+Apple 首期同步路线：不建设自有服务器；首期 transport 是 iCloud Drive 文件适配器，零配置、core 纯文件 I/O、无任何 CloudKit 代码。CloudKit / CKSyncEngine 后置为二期可选升级，为 Apple 用户提供更高质量同步，通过同一 `OpSyncPort` 接入，不成为真理归属方；单附件 50MB cap 与 CloudKit `CKAsset` 上限一致，二期 CloudKit 无需分片 / 降 cap / out-of-band，且 CloudKit record schema 一旦进入用户私有库即难迁移，op 形状须在任何 CloudKit 记录落地前冻结。iCloud Drive 同步的 vault 不跨出 Apple 生态，跨平台需该 vault 改用中立 object-store 适配器（同步形态逐 vault 选择，iCloud→中立需一次迁移）。任何适配器只负责传输 / 持久化，不拥有 merge 语义。
 
-**设计依据（竞品取舍与 Rust 边界）：** 选型参考 Obsidian（本地文件即真理 + 可插拔传输，local-only = 不配同步）与 Litestream（不可变文件复制到对象存储）。竞品中 Bear 用 Core Data + CloudKit、是 Apple-only（无 Windows / Android），押注 CloudKit 锁死生态；Craft 自建中立后端覆盖全平台，但走的是本方案排除的自托管服务器。Anchor 取第三条路：op-log 文件 + 用户自有云 / 文件目录当传输，得跨平台覆盖又不付自托管代价。Rust core 不能直接调 CloudKit，但 iCloud Drive 路线下 core 只做文件 I/O、连 Swift 侧也无云 API，「Rust↔CloudKit」问题不存在；二期 CloudKit 由 Swift 薄 CKSyncEngine 适配器承接，core 不出现 CKRecord / zone / token。绑定机制在阶段0定，UniFFI 为自然选择。
+**设计依据（竞品取舍与 Rust 边界）：** 选型参考 Obsidian（本地文件即真理 + 可插拔传输，local-only = 不配同步）与 Litestream（不可变文件复制到对象存储）。竞品中 Bear 用 Core Data + CloudKit、是 Apple-only（无 Windows / Android），押注 CloudKit 锁死生态；Craft 自建中立后端覆盖全平台，但走的是本方案排除的自托管服务器。Anchor 取第三条路：op-log 文件 + 用户自有云 / 文件目录当传输，得跨平台覆盖又不付自托管代价。Rust core 不能直接调 CloudKit，但 iCloud Drive 路线下 core 只做文件 I/O、连 Swift 侧也无云 API，「Rust↔CloudKit」问题不存在；二期 CloudKit 由 Swift 薄 CKSyncEngine 适配器承接，core 不出现 CKRecord / zone / token。绑定方向见 §8.1（UniFFI 推荐路径 + XCFramework / SwiftPM wrapper，C ABI bytes fast-path 退路；机制冻结 Stage-1-gated）。
 
 ### 8.5 写入路径
 
@@ -469,13 +471,13 @@ Apple 首期同步路线：不建设自有服务器；首期 transport 是 iClou
 
 单一已校验 dispatch 是首期要建立并守住的不变量：每条持久写入路径都调用执行 append 前校验的 core 私有 helper，对 core 写入点 grep 必须能证明这一点。
 
-**提交节奏：** 阶段0决定每个 `EditorIntent` 是同步落一条 op，还是防抖 / 批量合并为 commit op——这决定 op-log 粒度与 replay / mirror 开销，必须在冻结 op 形状前定下。
+**提交节奏：** 每个语义 `EditorIntent` 落一条 op（句 / 段边界、防抖，绝不 mid-keystroke）；op 粒度经 batching 与同步单元解耦（segment 非 per-op 文件），op:segment 比与稳态 segment 预算由 Stage 1 实测。这决定 op-log 粒度与 replay / mirror 开销。
 
 ### 8.6 导入、导出与镜像
 
 Markdown 是导入 / 导出格式。Frontmatter `id` 在导入时定义 Note 身份；缺失时创建新 Note。规范 `.json` 导出携带 Note / block ids，支持幂等重导入；`.md` 导出是有损且 grep 友好的导出。
 
-Mirror 生成发生在 dispatch append 和 materialization 成功之后的 post-commit job。Mirror 写入失败记录 freshness / diagnostics；op-log 保持已提交状态，后续真理层编辑继续使用当前 materialized state。搜索和 backlinks 使用结构化 projection（SQLite FTS 或 replay 后内存索引，阶段0定）；对 mirror 跑 ripgrep 是本地检查便利，不是真理归属方。
+Mirror 生成发生在 dispatch append 和 materialization 成功之后的 post-commit job。Mirror 写入失败记录 freshness / diagnostics；op-log 保持已提交状态，后续真理层编辑继续使用当前 materialized state。搜索和 backlinks 使用结构化 projection，默认 SQLite FTS（与 `.anchor/cache/index.sqlite` projection 一致、可重建；replay 后内存索引为备选）；对 mirror 跑 ripgrep 是本地检查便利，不是真理归属方。
 
 ---
 
@@ -545,6 +547,15 @@ CLI 公开词汇使用 Note / block op。其中 show / search / tag / prop / dia
 - Apple binding 选择有明确验证命令和失败条件。
 
 检查点 CP-0：平台路线、Apple binding 方案、`anchor-editor-core` 合约、交互契约、信息架构、DTO 草图、关键技术决策和 fixture set 已批准。
+
+**CP-0 批准结论（2026-06-07，权威记录见 `docs/workbench/anchor/2026-06-06-phase-0/cp-0-approval.md`，索引见 `cp-0-final.md`）：**
+
+- 项目布局冻结为 Primary = Option A `suites/anchor/*`（`core` / `cli` / `apple` / `fixtures` + 嵌套 Cargo workspace 与 Xcode workspace）；实现期 Bun glob 容忍度或 Xcode 嵌套成本过高时退路 = glob 外顶层 `anchor-apple/`、core 仍留 `suites/anchor/core`。绝不为适配 glob 添加 placeholder `package.json`。目录 / 工程的实际创建随实现授权执行。
+- Apple binding 推荐路径 = UniFFI + XCFramework + SwiftPM wrapper（C ABI bytes fast-path 退路）；binding 方向（A2）与机制冻结（B4）均 Stage-1-gated（见 §8.1）。
+- 受保护不变量：`anchor-core`（含 `anchor-editor-core`）的 `wasm32` + android 可编译性作为 CP-1 gate，client 零真理逻辑 CI 红线；web / android client 仍延后（见 §8.1、§9）。
+- 公开 `ConflictRecord` / `resolve` CLI schema 延后二期；Phase 0 仅在 op 信封预留所需字段。其余 Apple 工程 / iCloud container / 字体来源 / mirror 组织等契约级决策的权威记录归 workbench packet（cp-0-approval.md、key-decisions.md）。
+- 两项 Stage-1-gated 待定项：Apple binding 机制冻结；iCloud Drive 作首期默认 transport 的批准（gated on Stage 1 规模门——million-op replay/merge/compaction + steady-state segment budget + iCloud Drive 真机 go/compromise；no-go 转 CloudKit / 中立 object-store）。
+- 通过 CP-0 后按 `stage-1-entry-brief.md` 进入 Stage 1；通过 CP-1 前不实现持久应用写入。
 
 ### 阶段 1：确定性 core 探索验证
 
@@ -697,7 +708,7 @@ CLI 公开词汇使用 Note / block op。其中 show / search / tag / prop / dia
 
 - 在 `suites/anchor` 运行 `cargo test -p anchor-core`。
 - 在 `suites/anchor` 运行 `cargo clippy -p anchor-core --all-targets`。
-- Apple 工程创建后，阶段0补充 macOS 和 iOS 的实际 `xcodebuild` 命令。
+- macOS 和 iOS 的实际 `xcodebuild` 命令在 Apple 工程创建后确定；CP-0 已给出命令骨架（见 workbench `stage-1-spike-plan.md` / `apple-verification.md`）。
 
 手动 / artifact 证据：
 
