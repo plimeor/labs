@@ -45,7 +45,7 @@ rustup target add aarch64-apple-ios aarch64-apple-ios-sim
 
 ## 1. Core deterministic spikes
 
-**Owner：Claude / core。** 目标：把 plan §11 阶段1 确定性 core 产物与 conflict §13.2 全部冲突 fixture 落成跨运行/跨设备确定性可 replay 的正式测试。覆盖 fixture-set.md F01–F41 中的 core 项与 conflict fixture（F23–F35）。Codex 验证此组**无 Apple 依赖**：算法纯在 Rust core，跨平台一致由「同一编译产物」保证（apple-verification.md §5.3、§8.4 关于 diff3/order-key 的结论）。
+**Owner：Claude / core。** 目标：把 plan §11 阶段1 确定性 core 产物与 conflict §13.2 全部冲突 fixture 落成跨运行/跨设备确定性可 replay 的正式测试。覆盖 fixture-set.md F01–F43 中的 core 项与 conflict fixture（F23–F35）。Codex 验证此组**无 Apple 依赖**：算法纯在 Rust core，跨平台一致由「同一编译产物」保证（apple-verification.md §5.3、§8.4 关于 diff3/order-key 的结论）。
 
 **Commands（Recommended / Not run，工程未创建）：**
 
@@ -72,6 +72,9 @@ cargo build -p anchor-core --target aarch64-linux-android
 | **diff3 + order-key 跨设备逐字节一致向量集** | **强制 CI gate**：pin diff3 实现 + `diff_algo_version`；macOS、iOS 与 **wasm32**（World A 非-Apple target）须产出逐字节相同 merge 结果与 fractional key。算法**只在 Rust core 执行**——证据来自 Rust core vectors，**不**来自 TextKit/Swift 专属实现；跨平台一致 by construction，但 CI 一致性向量集仍为强制门控 | F23、F26；D19、D26；conflict §12 |
 | **core 多目标编译 gate（wasm32 + android）** | **CP-1 一道 gate**：证明 `anchor-core`（含 `anchor-editor-core`）编到 `wasm32-unknown-unknown` 与 `aarch64-linux-android`，不止 Apple slice；落实 core 依赖政策（每个依赖 wasm + android 可编译、确定性/merge 路径 `no_std`-friendly、不碰 OS 线程/fs/时钟/浮点）。**保护的是 core 现在就保持可复用，web/android client 仍延后** | D36；plan §8.1 |
 | **client 零真理逻辑 CI 红线** | grep gate 证明 Apple 及未来任何 client 侧零 merge / normalization / op-creation / tree-invariant 校验（这些唯一归 `anchor-core::dispatch`）；client 只表达意图、消费 DTO/patch、传字节（World C 陷阱绊线） | D37；plan §8.5、§13 |
+| **op-count scale（50K→10M+ logical ops）** | replay cost 曲线 = O(snapshot-load + ops-since-snapshot)；million-op 下两种 ingestion 顺序 ＋ 不匹配 watermark 逐字节相同物化 + `snapshot_revision`；**50K ops 仅 smoke、不足进 CP-1** | F34、F42；D06、D14；§6 |
+| **segment batching ratio & steady-state budget** | 正常使用 op:segment 比、最坏 burst、compaction 后稳态 segment 文件数；**断言 N 个 logical op 不产生 ~N 个 synced segment（failure shape）**；候选 size/time/idle/前后台 flush + 本地 unsynced WAL staging + max 一 active unsealed segment | F42；D06、D13 |
+| **四-horizon retention 正确性** | conflict horizon 不解 open-conflict pin；>time-travel-horizon 内 op 只 archive 不 hard-delete；离线超窗设备整快照重拉收敛；loser/tombstone/`op_envelope_version` 在 audit horizon 内保留；restore = 前向 dominating op；旧 envelope ops 经 read-time upcasting 重建出记录的 `snapshot_revision` | F43；D14、D38 |
 
 **Evidence（通过证据）：**
 
@@ -194,7 +197,26 @@ xcodebuild -scheme AnchorCoreBindings -destination 'generic/platform=iOS Simulat
 | **manifest 并发写行为** | 观测 concurrent manifest writes 的 `NSFileVersion` / conflict-version behavior；若 shared mutable manifest conflicts noisy，CP-1 前必须重设 manifest write 方案（区分不可变 segment 与可变 manifest，D06/D14） | Needs Stage 1 spike |
 | signed-out / over-quota | 真实 account/device 上观测 signed-out 与 over-quota 状态（simulator 无法证明时） | Needs Stage 1 spike（付费 team 已开通） |
 | **local-only 路径判定边界（D21 / D21a）** | resolved path 是否解析进 ubiquity 的判定：正常 iCloud Drive 路径、app ubiquity `Documents/`、指向 iCloud 的 symlink、iCloud 内指向外部的 symlink、外部卷、挪动后恢复的 security-scoped bookmark、Finder 挪动的 package 目录、`.icloud` placeholder、signed-out；判定可靠时 `sync="none"` 误放→ typed `local_only_vault_in_ubiquity`、拒开、不挂 adapter | Needs Stage 1 spike（判定不可靠则按 D21a 减弱 product claim） |
+| **segment-file-count scale（1K/10K/50K/100K）** | 逐档真机测 NSMetadataQuery initial gathering 延迟、live-update 延迟、duplicate re-delivery、CPU/RSS、UI 阻塞；记录每档 go/compromise/no-go（Apple **不文档化任何规模数字**，全须实测，apple-verification §7.5） | Needs Stage 1 spike |
+| **placeholder / cold-start replay** | 冷/新设备多少 segment 为 `.notDownloaded`、批量 materialize 成本、是否必须全下才能 replay、深度 time-travel 重建需 force-download archived/evicted segment 的成本（apple-verification §7.5；key-decisions.md D38） | Needs Stage 1 spike |
+| **coordinated read/write at scale** | per-segment `coordinate()` vs 一次 `prepare()` 批量的延迟/阻塞；segment 读全程 off-main + 先 gate 下载状态；presenter 进后台 `removeFilePresenter` 防死锁（apple-verification §7.5） | Needs Stage 1 spike |
+| **manifest 方案对比** | per-device immutable cursor（默认，免 conflict）vs shared mutable manifest（多 writer 隐患：winner 不确定/无自动 merge/loser 占配额/document-scope 可 bounced）vs epoch manifest vs directory-listing 推导：conflict/文件数/GC 正确性/frontier 维护（apple-verification §7.5；本节 manifest 对比表） | Needs Stage 1 spike |
+| **blob in package at 50MB** | 50MB blob 在 file package 内 placeholder/materialize/上传/驱逐 + UI 阻塞；blob 与 op-segment 分目录/节奏/GC（cap=50MB，D17） | Needs Stage 1 spike |
+| **account-switch 硬边界** | `ubiquityIdentityToken` nil 退化 local-only；`NSUbiquityIdentityDidChange` 账号切换**绝不跨 identity 合并 segment**（apple-verification §7.5） | Needs Stage 1 spike |
 | core 云符号审计 | core 零云符号 | Recommended（命令骨架，下方） |
+
+**两条分离的 scale 轴：** op-count（50K smoke / 500K / 1M / 5M / 10M+ logical ops，core 面 replay/merge/compaction/retention，spike 组 1）与 synced-segment-file-count（1K/10K/50K/100K，同步层实际枚举的 filesystem objects，Apple 面上表）。同步压力看 segment 文件数，非 logical op 数。
+
+**Manifest 方案对比（S4-F 评估，默认 per-device immutable cursor）：**
+
+| 方案 | iCloud conflict | 文件数 | GC 正确性 | frontier 维护 |
+|---|---|---|---|---|
+| **per-device immutable cursor（默认）** | 极低（write-once 永不进 conflict 路径） | 中（随 compaction 收敛） | 低（frontier = 各 cursor 的 min，纯函数） | 中（维护 known-device 集，同 D12 HWM） |
+| shared mutable manifest | 高（多 writer：winner 不透明、无自动 merge、loser 占配额、document-scope 可 bounced） | 低（1 文件） | 高（读到陈旧 / 冲突值） | 低但不可靠 |
+| epoch manifest（周期整体重写、内容寻址命名） | 中（需 epoch 选举 / 确定命名） | 中 | 中 | 中 |
+| directory-listing + segment-header 推导 | 无 manifest 即无 manifest conflict | 0 额外 | 低（永远从真理段推导） | 高（每次冷启动全扫，依赖 NSMetadataQuery 规模） |
+
+权威 frontier 始终可由 directory-listing + segment-header 推导；KVS / per-device cursor 仅加速发现，失效则退化全扫、不丢数据。
 
 **Commands（Recommended / Not run）：**
 
@@ -236,5 +258,6 @@ rg -n "OpSyncPort|push_segment|pull_segment|SegmentId|BlobId" suites/anchor/core
 - **World A 受保护不变量：** core 多目标编译 gate 通过（`anchor-core` 编到 `wasm32-unknown-unknown` + `aarch64-linux-android`，D36）；client 零真理逻辑 grep 红线通过（D37）。
 - spike 组 2、3（Codex/Apple + editor 合约）有可重复命令或 Xcode scheme + spike 报告，列出 binding round-trip / bytes benchmark 与 single-block/block/embedded/跨 block 选择的通过/失败证据。
 - spike 组 4（iCloud）在付费 team + 授权 profile 前置满足后给出 runtime 证据，或在未满足时明确标 Blocked / Not run，不当已验证事实。
-- 任何「必须调整的模型点」回填 contract-baseline.md / key-decisions.md / fixture-set.md，决策编号沿用 D01–D37（含 D18a、D21a）、fixture 编号沿用 F01–F41。
+- **iCloud Drive 作首期默认 transport 的批准 gated on Stage 1 scale gate（cp-0-approval.md B14）：** 50K ops 仅 smoke、不足进 CP-1；CP-1 需 (a) million-scale operation history 的 replay / merge / compaction / snapshot-fallback / time-travel 证据，(b) batching + compaction 后明确的 steady-state segment-file budget（N 个 op 不产约 N 个 segment），(c) 该 budget 下 iCloud Drive 真机 go/compromise（非 no-go）实测，(d) 四-horizon retention 正确性测试通过；**no-go 则转 CloudKit / object-store**。
+- 任何「必须调整的模型点」回填 contract-baseline.md / key-decisions.md / fixture-set.md，决策编号沿用 D01–D38（含 D18a、D21a、D38 time travel）、fixture 编号沿用 F01–F43（含 F42 segment budget、F43 retention）。
 - **通过前不实现持久应用写入**（plan §11 CP-1）。

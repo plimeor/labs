@@ -86,12 +86,12 @@
 
 ### D06 — Op-segment 作为同步单元 + segment 大小
 
-- **Decision**：同步/提交单元 = op-log 的**不可变 op-segment 文件**（`.anchor/operations/<device_id>/<seq>.seg`，每设备独占命名空间、一封一密、**永不修改**），而非单个增长日志，也不是 mirror；segment 大小阈值为阶段0待定数值，与提交节奏（D13）共定，留待 Stage 1 iCloud 行为实测后收口。
+- **Decision**：同步/提交单元 = op-log 的**不可变 op-segment 文件**（`.anchor/operations/<device_id>/<seq>.seg`，每设备独占命名空间、一封一密、**永不修改**），而非单个增长日志，也不是 mirror；segment 大小阈值为阶段0待定数值，与提交节奏（D13）共定，留待 Stage 1 iCloud 行为实测后收口。segment 大小、batching policy 与长期 segment-file budget 按两条分离的 scale 轴实测：logical-op-count（50K smoke / 500K / 1M / 5M / 10M+）与 synced-segment-file-count（1K / 10K / 50K / 100K，同步层实际枚举的 filesystem objects）；排除「每 op 一 segment」反模式（stage-1-spike-plan.md §4）。
 - **Status**：Needs Stage 1 spike
 - **Rationale**：iCloud Drive 无 delta 同步、任何改动整文件重传，不可变 segment 只上传一次、永不重传。
 - **Evidence**：plan §8.4（不可变 segment 理由）、§11（同步单元 / segment 大小 / 提交节奏）。Codex §7.1：**Observed** — `ICloudAdapterProbe` 的 `NSMetadataQuery` / `NSFileCoordinator` adapter API 编译面 macOS + iOS sim 通过，core-only `SegmentId`/bytes 协议形态可保持；**Observed** — segment 写一次、新内容新 segment 形态可由 content hash + mtime 验证（设计层）。**Not run** — iCloud Drive ubiquity container 对大量小文件的真实枚举/同步成本、`.icloud` placeholder 下载成本（付费 ADP team 已开通、见 D35；待 Anchor signed app 在真实 account 实测）。
 - **Risk**：segment 过小 → 文件数爆炸、iCloud 元数据/枚举压力；过大 → 提交延迟与重传粒度变粗；阈值依赖 iCloud Drive / `NSMetadataQuery` 真实行为，目前未证。
-- **Stop condition**：immutable segment 单元不可动摇。若 Stage 1 实测 iCloud 对小文件枚举/placeholder 成本不可接受，须重设 segment 大小区间与提交节奏，但不得回退为可变增长日志。
+- **Stop condition**：immutable segment 单元不可动摇。若 Stage 1 实测 iCloud 对小文件枚举/placeholder 成本不可接受，须重设 segment 大小区间与提交节奏，但不得回退为可变增长日志。若正常编辑下 N 个 logical op 产生约 N 个 synced segment 文件，则 batching 失效、方案不可接受，须重设 batching/compaction。
 
 ---
 
@@ -157,7 +157,7 @@
 
 ### D13 — 提交节奏 / op-log 粒度
 
-- **Decision**：**每个语义 `EditorIntent` 一条 op**（句/段边界，防抖），**绝不 mid-keystroke**（Logseq+Syncthing 冲突爆炸反模式）。这决定 op-log 粒度、replay / mirror 开销，以及 §6.1 body 合并触发频率，**必须在冻结 op 形状前定下**。
+- **Decision**：**每个语义 `EditorIntent` 一条 op**（句/段边界，防抖），**绝不 mid-keystroke**（Logseq+Syncthing 冲突爆炸反模式）。这决定 op-log 粒度、replay / mirror 开销，以及 §6.1 body 合并触发频率，**必须在冻结 op 形状前定下**。op 粒度经 batching policy 与同步单元（D06）解耦：segment 不是 per-op 文件。op:segment 比、最坏 burst、compaction 后稳态 segment count 须实测；候选策略含 size / time / idle / 前后台 flush、本地 unsynced WAL staging、单个 active unsealed segment（stage-1-spike-plan.md §4）。
 - **Status**：Recommended
 - **Rationale**：粗提交加宽 diff、制造重叠冲突；mid-keystroke 提交触发冲突爆炸。
 - **Evidence**：plan §8.5；conflict §13.1 #3。防抖窗口与 segment 大小耦合（Codex 未触此项）。
@@ -166,8 +166,8 @@
 
 ### D14 — op-log compaction + GC 保留窗口 + manifest/cursor 协调 + causal-stability watermark + open-conflict pin
 
-- **Decision**：定期物化快照 + 截断/分段，使 replay 从最近快照起算。GC 经 **manifest 协调**并**保留一个窗口**：不 GC 到所有已知 peer 都拥有的 snapshot 之下，否则 fallback 整快照重拉。引入单一共享 primitive **causal-stability watermark** = 所有已知设备各自已确认 HLC frontier 的 `min`（per-device frontier 的 `min`，**非**日历 epoch），门控：op-log 截断、loser-payload / trashed 节点 / OR-Set observed-add id 的硬删（仅当可证无并发编辑能复活）、以及**硬规则：绝不截断任何属于 open `ConflictRecord` 成员的 op**（含 §6.3 登记的后代 content op）。承载快照与 segment 集合的 manifest 是多设备写的共享可变文件；其**多写竞争协调与 conflict-version 行为**为 Stage 1 iCloud 实测项。
-- **Status**：Needs Stage 1 spike
+- **Decision**：定期物化快照 + 截断/分段，使 replay 从最近快照起算。GC 经 **manifest 协调**并**保留一个窗口**：不 GC 到所有已知 peer 都拥有的 snapshot 之下，否则 fallback 整快照重拉。引入单一共享 primitive **causal-stability watermark** = 所有已知设备各自已确认 HLC frontier 的 `min`（per-device frontier 的 `min`，**非**日历 epoch），门控：op-log 截断、loser-payload / trashed 节点 / OR-Set observed-add id 的硬删（仅当可证无并发编辑能复活）、以及**硬规则：绝不截断任何属于 open `ConflictRecord` 成员的 op**（含 §6.3 登记的后代 content op）。承载快照与 segment 集合的 manifest 是多设备写的共享可变文件；其**多写竞争协调与 conflict-version 行为**为 Stage 1 iCloud 实测项。retention 模型扩为四 horizon（conflict / replay-safety / audit / time-travel，见 D38 边界表）：(a) 7-day conflict horizon 仅是 UI 冲突呈现策略，**绝不作 op-retention / hard-delete / compaction 安全依据**（wall-clock age ≠ 因果稳定）；(b) GC 分两层——< watermark、非 open-conflict、已被 snapshot 覆盖的 ops 只可 truncate-to-snapshot / archive（压缩 immutable segment，保持 reachable），hard-delete 仅在 time-travel/audit horizon 之下且经显式 excise（非 compaction 副作用）；(c) watermark 稳定因此**不再是**硬删 loser-payload / trashed 节点 / OR-Set observed-add id 的充分条件（较原规则收紧），它们移到 time-travel/audit + excise 门下；(d) stale-peer 退出规则——离线超窗 peer 否则永久钉低 watermark、令 GC 停摆，须判 stale → 移出 known-device 集合 → 回归强制整快照重拉；(e) manifest 默认取 per-device immutable cursor（免 conflict），非 shared mutable manifest。
+- **Status**：Needs Stage 1 spike（7-day horizon = UI-only 与 time-travel retention 模型已由用户 B16/B15 批准；watermark/manifest/stale-peer/segment budget 的真实 runtime 留 Stage 1）
 - **Rationale**：watermark 提供单一因果稳定门控所有硬删；GC 保留窗口避免新设备无法重建；不可变 segment 与共享可变 manifest 须严格区分。
 - **Evidence**：plan §8.4；conflict §10、§13.1 #6、§11。Codex §7.1/§7.4：**Observed** — `NSFileCoordinator` adapter API 编译面可用、无 entitlement CLI 下 `coordinated_bytes=7 coordinator_error=none`；付费 ADP team 已开通（D35），entitlement / 真机 ubiquity lookup 前置已满足。**Not run** — iCloud Drive 下多设备并发写共享 manifest 的真实协调（`NSFileVersion` / conflict-version 行为、最后写者语义）须由 Anchor signed app 在真实 account 观测。Codex §8.2 明示：区分 immutable segment files 与任何 mutable manifest，manifest conflict behavior 必须作为 Stage 1 iCloud proof。
 - **Risk**：manifest 多写竞争协调与 `.icloud` placeholder / `NSFileCoordinator` 真实并发语义强相关且未证；watermark 依赖「已知设备集合」的可靠维护。
@@ -425,6 +425,26 @@
 - **Evidence**：plan §4.3（所有写入经 core dispatch）、§8.1（client 不复制 core 领域规则）、§8.5（单一已校验 dispatch，对写入点 grep 可证）、§13；Codex §8.4（任何独立于 Rust core 的 Swift-side diff3/order-key semantics 列为移出首期）。CI 红线本身 = **Recommended（命令骨架）**，Anchor 工程创建后落地。
 - **Risk**：grep 红线须覆盖到位，否则真理逻辑可能从 view model 或 attribute 处理悄悄渗入。
 - **Stop condition**：若某 UI 行为「必须」在 client 侧持久化 platform editor state 或自行创建 op，即触 plan §13 暂停条件（要求持久化平台 editor state / 非 dispatch 写入路径），须暂停。
+
+### D38 — Time travel 一等能力 + 四-horizon retention model（用户 2026-06-07 批准 B15）
+
+- **Decision**（用户 2026-06-07 定，B15）：**Time travel 是一等产品能力（非普通审计日志）。** 范围 = **per-note**（时间轴键于 semantic commit `macro_op_id`，snapshot 作重建锚点，raw op 作 snapshot 间 replay substrate，segment 作存储/archive/GC 单元）；保留期 = **用户可配 + 安全下界**（默认 ≥ audit/restore horizon；合规场景可使 audit > time-travel，二者独立、无普适序）；模式 = **read-only 查看 + restore**，restore **= emit 前向 dominating `set`/`restore`/`resolve` op（绝不倒带/重写/分叉 op-log，否则 fork `snapshot_revision`，与 conflict §8、D20 一致）**。time travel **反向约束 D14**：>time-travel-horizon 之外才可硬删，horizon 之内只能 compact-to-snapshot-delta-chain / archive（压缩 immutable segment）/ checkpoint chain（保持 reachable）。**最小保留集**：op payload **或** snapshot delta（每个 horizon 覆盖区间至少其一）＋ 每保留 checkpoint 的 `snapshot_revision`（D30，可验证跨设备逐字节一致）＋ tombstone（D10，否则删除内容在过去重建复活）＋ `op_envelope_version`（D24，read-time **upcasting** 重解释旧 envelope，**绝不重写存储字节**）。time-travel 查询：用户以 wall-clock 选目标，重建按全序 `T` 取 `hlc.wall ≤ target` 的 op 集合（**非严格 T 前缀**，时钟偏斜下近似）；**watermark 之下 as-of 视图稳定/canonical、之上可能随迟到 op 改变**，UI 须诚实标注历史时间戳来自原始设备 wall clock。「永久删除/被遗忘权」是**独立 excise 路径**（非 compaction 副作用），须连带清除对应 loser payload / tombstoned content / 嵌入字节的 snapshot delta。
+
+  **四-horizon 边界（hard-delete 须分别尊重，不得以其一蕴含其二）：**
+
+  | Horizon | 决定者 | 到期后 |
+  |---|---|---|
+  | conflict（候选 7 天，B16） | 产品 UX（wall-clock） | 停 surface 新冲突；**不据此硬删、不解 open-conflict pin** |
+  | replay-safety | causal-stability watermark + snapshot 覆盖 + open-conflict pin | 可 truncate-to-snapshot |
+  | audit / restore | retention 策略（≥ replay-safety） | 截断 loser op 后须 resolve op 记录弃值 |
+  | time-travel | 独立产品选择（默认 ≥ audit；合规场景 audit 可反超） | 可 compact-to-snapshot-delta / archive，保持 reachable |
+
+  关系：`conflict ≤ replay-safety` 恒成立；`audit` 与 `time-travel` 互不蕴含。**硬删资格 = 五个数据安全条件全部成立（① < watermark；② 非 open-conflict 成员；③ 已被全 peer snapshot 覆盖；④ 超 audit horizon；⑤ 超 time-travel horizon）＋ 一个流程门（⑥ 经显式 excise，非 compaction 默认路径）**；否则只能 archive。
+- **Status**：Recommended（B15 用户 2026-06-07 批准 time travel 为一等能力 + per-note + 可配保留期 + 查看&restore；具体保留期数值、stale-peer 退出规则、archive 压缩格式、time-travel 重建在 iCloud 下的 placeholder 下载成本留 Stage 1，见 stage-1-spike-plan.md §1/§4）
+- **Rationale**：time travel 若需重建 7 天以前状态，则 >7d ops 不能仅因超过 conflict horizon（D14）或低于 watermark 就 hard-delete——只能压缩为可验证历史表示。把它现在锁为一等能力 + 在 op-envelope（D24 `op_envelope_version`/`macro_op_id`）与 `snapshot_revision`（D30）层备齐重建/验证/upcasting 钩子，避免日后被迫 op-log 迁移。
+- **Evidence**：**用户决定（2026-06-07，B15）。** Anchor 已有 `snapshot_revision`（D30）/ tombstone（D10）/ `op_envelope_version`（D24）三块；缺的「time-travel horizon 内 op payload 不得硬删、只能 archive」策略由本决策补齐。prior-art（Datomic as-of/excision、Git/Dolt reachability GC + archive、event-sourcing snapshot+upcasting）见 apple-verification §7.5（标 Inferred）；retention 四 horizon 边界见本决策上表。
+- **Risk**：time-travel retention horizon 是独立产品选择、可远超 conflict/replay-safety horizon，是硬删的真正约束；保留期过长放大 iCloud/object-store 文件数与配额压力（apple-verification §7.5）、放大「首期非 ZK」披露义务（D22）；archive 段在 iCloud 下可能被 placeholder-evict，深度重建需 force-download（成本 Not run）。
+- **Stop condition**：若实现把 time-travel-horizon **之内**的 op hard-delete（而非 archive），或把 restore 实现为倒带/重写 op-log，即破坏 time travel 与无丢失保证，须停止。time-travel 范围若从 per-note 升级为需保留 move 历史的结构重演，须复核是否触 plan §13（完整收敛 move）暂停条件。
 
 ---
 

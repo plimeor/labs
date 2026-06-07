@@ -69,7 +69,7 @@
 11. **顶层 Note 表示 / Calendar 排序 / journal 默认 parent / trash-restore 边界 = 已批准（B11，2026-06-07）。** 顶层 Note = `parent_note_id = null` 普通 Note（非持久 sentinel）、Calendar 是日期聚合 projection（分组不进 `parent_note_id`）、journal 默认 parent 按普通 Note 规则、trashed 重开「今日」→ restore 不铸重复（key-decisions.md D07、D08、D09；plan §8.2、§11）。
 12. **mirror 目录组织 + 是否纳入版本库 = 已批准（B12，2026-06-07）。** `.md` / `.json` mirror = 有损 post-commit 派生导出、不进同步；目录组织 = **人类可读路径**、**不纳入版本库**（锁定默认，NoteId 寻址仅作备选）（key-decisions.md D05；plan §8.4）。
 13. **Anchor vault file package 的 `com.apple.package` UTType 声明 = 已批准（B13，2026-06-07）。** vault file package 须声明符合 `com.apple.package` 的 exported document type / UTType，否则 iCloud 把 file wrapper 当普通目录枚举、`NSMetadataQuery` 可能返回 package 内部文件；该声明落在 Apple project 的 Info.plist 面，随实现授权落地（key-decisions.md D34；apple-verification §7.1）。
-14. **Sync 路线作为首期产品选择 + local-only 防误放语义。** **local-only 防误放已由 D21 / D21a firm（2026-06-07）：`sync = "none"` 严禁置于任何 iCloud ubiquity container 下，vault-open 强制断言、`synced → local-only` 不可逆；手动挪入 iCloud 的 local-only vault 按 blocked misplacement 处理——拒开 + typed `local_only_vault_in_ubiquity`、不挂 adapter、不 merge，提供 Move Back / Convert to iCloud Sync（D21a）。** iCloud Drive 作为首期 `OpSyncPort` 产品路线的整体确认仍待用户签署（§13 暂停条件级选择）（key-decisions.md D21、D21a；plan §8.4、§13；apple-verification §8.5）。
+14. **Sync 路线作为首期产品选择 + local-only 防误放语义。** **local-only 防误放已由 D21 / D21a firm（2026-06-07）：`sync = "none"` 严禁置于任何 iCloud ubiquity container 下，vault-open 强制断言、`synced → local-only` 不可逆；手动挪入 iCloud 的 local-only vault 按 blocked misplacement 处理——拒开 + typed `local_only_vault_in_ubiquity`、不挂 adapter、不 merge，提供 Move Back / Convert to iCloud Sync（D21a）。** iCloud Drive 作为首期 `OpSyncPort` 产品路线的整体确认仍待用户签署（§13 暂停条件级选择）（key-decisions.md D21、D21a；plan §8.4、§13；apple-verification §8.5）。该批准 gated on Stage 1 scale gate：先跑 segment-file-count（1K/10K/50K/100K）+ million-op scale spike，go/compromise 才批为首期默认，no-go 转 CloudKit / object-store；机制已 Observed、规模 / 同步性能未证（stage-1-spike-plan.md §4/§6；apple-verification §7.5）。
 
 ---
 
@@ -77,10 +77,10 @@
 
 摘要引用 stage-1-spike-plan.md 的五组 spike，严格二分 owner。CP-1 退出前所有 core spike 经 `cargo test -p anchor-core` 落成正式测试、Apple spike 留可重复命令或 Xcode scheme + 报告；通过前不实现持久应用写入（stage-1-spike-plan.md §6；plan §11 CP-1）。
 
-1. **Core deterministic spikes（Owner：Claude / core）：** canonical_serialize、id + fractional order、op-log replay、HLC LWW merge、diff3 body merge + mark re-clamp、OR-Set tag、life lattice、journal 内容寻址身份、mirror/projection parity、**diff3 + order-key 跨设备逐字节一致向量集（强制 CI gate，含 `wasm32` target）**、**core 多目标编译 gate（`wasm32` + android，World A 受保护不变量 D36）**、**client 零真理逻辑 CI 红线（D37）**。覆盖 F01–F41 的 core 项与 F23–F35（stage-1-spike-plan.md §1）。
+1. **Core deterministic spikes（Owner：Claude / core）：** canonical_serialize、id + fractional order、op-log replay、HLC LWW merge、diff3 body merge + mark re-clamp、OR-Set tag、life lattice、journal 内容寻址身份、mirror/projection parity、**diff3 + order-key 跨设备逐字节一致向量集（强制 CI gate，含 `wasm32` target）**、**core 多目标编译 gate（`wasm32` + android，World A 受保护不变量 D36）**、**client 零真理逻辑 CI 红线（D37）**。覆盖 F01–F43 的 core 项与 F23–F35（stage-1-spike-plan.md §1）；并覆盖 op-count scale（50K→10M+）、segment batching ratio & steady-state budget、四-horizon retention 正确性（F42/F43）。
 2. **Apple binding spike（Owner：Codex / Apple，被调 DTO/fixture 真值由 Claude/core 提供）：** Rust iOS targets 安装、UniFFI 对 Anchor DTO、structured errors + async-Sendable、1·4·16·64MB bytes transfer 成本、XCFramework 三 slice + SwiftPM wrapper import、Apple target round-trip；据 pass criteria 决定 UniFFI primary vs UniFFI DTO + C ABI fast path（stage-1-spike-plan.md §2；D01）。
 3. **Text surface adapter spike（Owner：Codex / Apple + Claude editor 合约）：** 事件 → `EditorIntent`、`EditorPatch` 回放、single-block / block / embedded 选择、undo via `NSUndoManager` semantic inverse intent、IME marked text / accessibility / hit-testing、跨 block 连续选择（spike-only，非首期承诺）、UTF-16 offset 换算正确性。覆盖 F19–F22（stage-1-spike-plan.md §3）。
-4. **iCloud Drive adapter spike（Owner：Codex / Apple；前置 = 付费 ADP team【已开通，§2.6】+ Anchor bundle id + iCloud container + capability + 授权 signed app）：** Anchor target iCloud-capability 签名、ubiquity container、vault file package UTType、coordinated write 可见性、`NSMetadataQuery` live notifications、placeholder download、`NSFileCoordinator` 不阻塞 UI、**manifest 并发写行为（`NSFileVersion` / conflict-version）**、signed-out / over-quota、core 云符号审计。（demo 已 Observed 付费 team 下 entitlement provisioning + 真机 ubiquity lookup，剩余为 Anchor 专属 file-package runtime。）覆盖 F34 的 iCloud Drive 面（stage-1-spike-plan.md §4）。
+4. **iCloud Drive adapter spike（Owner：Codex / Apple；前置 = 付费 ADP team【已开通，§2.6】+ Anchor bundle id + iCloud container + capability + 授权 signed app）：** Anchor target iCloud-capability 签名、ubiquity container、vault file package UTType、coordinated write 可见性、`NSMetadataQuery` live notifications、placeholder download、`NSFileCoordinator` 不阻塞 UI、**manifest 并发写行为（`NSFileVersion` / conflict-version）**、signed-out / over-quota、core 云符号审计。（demo 已 Observed 付费 team 下 entitlement provisioning + 真机 ubiquity lookup，剩余为 Anchor 专属 file-package runtime。）覆盖 F34 的 iCloud Drive 面（stage-1-spike-plan.md §4）；并覆盖 segment-file-count scale（1K/10K/50K/100K）、placeholder / cold-start replay、coordinated read/write at scale、manifest 方案对比、blob-in-package 50MB、account-switch 硬边界。50K ops 仅 smoke，CP-1 需 million-op + steady-state segment budget。
 5. **Mirror / search parity spike（Owner：Claude / core）：** post-commit mirror 生成 + freshness、mirror 写失败隔离（op-log 不回滚）、structured search/backlinks 后端对比、打开的 body 冲突渲染。覆盖 F36（及 F16/F17 backlink 面）（stage-1-spike-plan.md §5）。
 
 ---
@@ -119,7 +119,8 @@
 - **iCloud Anchor file-package runtime / conflict / quota：** ubiquity 行为、`NSFileVersion` 多写 manifest 冲突、placeholder 下载成本、over-quota / signed-out 状态，全部待 Anchor signed app（付费 ADP team 已开通，基础 entitlement + 真机 ubiquity lookup 已 Observed）（Not run，apple-verification §2.6、§7.4；key-decisions.md D14、D35）。
 - **UniFFI Anchor DTO / async 成本：** 演进型 DTO 在 FFI 边界的表达力、Swift 6 strict concurrency、64MB `bytes -> Data` debug 约 2.35s / max RSS 约 267MB 是否可接受 bulk blob hot path（apple-verification §5.2；key-decisions.md D01）。
 - **内部 offset 单位：** 对外 UTF-16 已定；core 内部存储单位与 Swift/Rust 换算在 emoji / ZWJ / combining mark / CRLF / IME marked text 下的稳定性待 fixture 验证（key-decisions.md D18；apple-verification §8.6）。
-- **manifest 并发协调：** 不可变 segment 与可变共享 manifest 的区分、manifest 多写竞争与 conflict-version 行为（key-decisions.md D14；stage-1-spike-plan.md §4）。
+- **manifest 并发协调：** 不可变 segment 与可变共享 manifest 的区分、manifest 多写竞争与 conflict-version 行为（key-decisions.md D14；stage-1-spike-plan.md §4）。默认取 per-device immutable cursor（免 conflict），shared mutable manifest 是文档级多 writer 隐患（apple-verification §7.5；stage-1-spike-plan.md §4）。
+- **iCloud Drive op-segment scale / 同步性能：** Apple 官方文档只给机制、对 `NSMetadataQuery` 枚举 / live-update 延迟、placeholder 批量下载、coordinated read/write 在大量文件下的阻塞、file-package 内部文件数阈值、over-quota 收敛**一律不给数字**；50K ops 仅 smoke。segment 大小、batching policy、长期 segment-file budget、四-horizon retention（含 time-travel D38）、stale-peer 退出规则全须 Stage 1 实测（apple-verification §7.5；key-decisions.md D14/D38；stage-1-spike-plan.md §4；Not run）。
 - **完整 ZK / 加密密钥分发（延后）：** Phase-0 已锁定首期非 ZK + encryption envelope 边界 + non-ZK 文案（D22）；完整 ZK 与无自托管服务下向新设备分发密钥延后到 ZK 真被需要时评估（key-decisions.md D22）。
 - **系统字体枚举 / 切换实现：** 字体来源已定（B7：内置 `JetBrains Mono` 代码字体 + 正文 / 标题用系统字体、用户可切换已安装系统字体，D18a）；原生系统字体枚举 / 切换的实现行为（`NSFontManager` / `CTFontManager` 可用集、缺失回退）本身 = Not run，留 Stage 1 由 Codex 验证（key-decisions.md D18a）。
 - **CloudKit 二期实现细节：** blob cap 已统一为 50MB（D17，对齐 `CKAsset`，B8 已批准），cap 冲突已消除；剩余仅二期 runtime（CKSyncEngine change-token / zone schema 设计、op 形状冻结）待二期评估（key-decisions.md D17；apple-verification §7.3）。
@@ -129,19 +130,19 @@
 
 ## 8. CP-0 approval checklist（可逐条勾选批准清单）
 
-对应 plan §11 CP-0 检查点（line 547：平台路线、Apple binding 方案、`anchor-editor-core` 合约、交互契约、信息架构、DTO 草图、关键技术决策、fixture set 已批准），加上本次新增的边界批准项。**每项二选一：[批准] / [暂缓]；已由用户于 2026-06-07 决定的项以 [x] 标注其结论——B1（布局=Option A）、B2（Xcode 工程等创建已授权）、B3（付费 ADP team 已开通）、B5（CLI schema 放二期）、B7（字体来源）、B8（CloudKit 二期路线）、B9（Kleppmann 签署）、B10（一日一 journal）、B11（Note/Calendar/journal 边界）、B12（mirror 组织）、B13（UTType 声明）；B6（加密）与 B14（sync 路线）已据 D22 / D21 firm 部分锁定（见各项）；仅余 B4（binding 冻结，待 Stage 1 证据）。** 任一项暂缓不阻塞其余项，但触边界项暂缓则对应落地动作不得进行。
+对应 plan §11 CP-0 检查点（line 547：平台路线、Apple binding 方案、`anchor-editor-core` 合约、交互契约、信息架构、DTO 草图、关键技术决策、fixture set 已批准），加上本次新增的边界批准项。**每项二选一：[批准] / [暂缓]；已由用户于 2026-06-07 决定的项以 [x] 标注其结论——B1（布局=Option A）、B2（Xcode 工程等创建已授权）、B3（付费 ADP team 已开通）、B5（CLI schema 放二期）、B7（字体来源）、B8（CloudKit 二期路线）、B9（Kleppmann 签署）、B10（一日一 journal）、B11（Note/Calendar/journal 边界）、B12（mirror 组织）、B13（UTType 声明）、B15（time travel 一等能力 + retention 模型）、B16（7-day horizon = 纯 UI 冲突呈现）；B6（加密）与 B14（sync 路线，已 firm；iCloud 作首期默认 transport 的批准另 gated on Stage 1 scale gate）已据 D22 / D21 firm 部分锁定（见各项）；仅余 B4（binding 冻结，待 Stage 1 证据）。plan §11 CP-0 核心检查点 A1、A3–A9 已批准；A2（binding 方向）随 B4 暂缓待 Stage 1 binding spike。CP-0 方向与契约基线实质通过，唯二待定项为 binding（A2 / B4，Stage-1-gated）与 iCloud 作首期默认 transport（B14，scale-gated）。** 任一项暂缓不阻塞其余项，但触边界项暂缓则对应落地动作不得进行。
 
 **A. plan §11 CP-0 核心检查点**
 
-- [ ] 批准 / [ ] 暂缓 — **A1 平台路线：** macOS + iOS 首期 → iPadOS 第二 → 其他平台最后（第 2 节；plan §11）。
-- [ ] 批准 / [ ] 暂缓 — **A2 Apple binding 方案（方向）：** UniFFI + XCFramework / SwiftPM wrapper primary、C ABI bytes fast-path fallback；机制冻结待 Stage 1（第 2、5 节；key-decisions.md D01）。机制作为产品分发边界的最终冻结另见 B4。
-- [ ] 批准 / [ ] 暂缓 — **A3 `anchor-editor-core` 合约：** core 内部无 UI 模块边界（第 2 节；contract-baseline.md「Editor baseline」）。
-- [ ] 批准 / [ ] 暂缓 — **A4 交互契约：** 选择 / 结构编辑 / Note 行为 / 引用 / props·type / 命令 / Settings / 失败态，经 fixture set 复查通过（fixture-set.md F01–F41；plan §11）。
-- [ ] 批准 / [ ] 暂缓 — **A5 信息架构：** 顶层 Note / 子 Note / journal / Calendar projection 的 macOS / iOS 信息架构草图（contract-baseline.md；key-decisions.md D07–D09）。
-- [ ] 批准 / [ ] 暂缓 — **A6 DTO 草图：** Note / block / op / projection / search result / validation error / mirror status / settings / sync status 的 core DTO 草图（清单取自 plan §11 line 547），DTO 词汇与版本归 Rust core 所有（所有权由 contract-baseline.md「Responsibility boundary matrix」支撑；apple-verification §3.4）。
-- [ ] 批准 / [ ] 暂缓 — **A7 关键技术决策：** key-decisions.md D01–D37（含 D18a、D21a）的 Status=Recommended 项作为 CP-0 基线纳入（第 2 节；key-decisions.md）。
-- [ ] 批准 / [ ] 暂缓 — **A8 fixture set：** F01–F41 作为 CP-0 设计产物冻结（fixture-set.md）。
-- [ ] 批准 / [ ] 暂缓 — **A9 World A core 跨平台可编译性（受保护不变量）：** `anchor-core` 的 `wasm32` + android 可编译性作为 CP-1 gate、diff3/order-key 一致性向量集纳入 wasm target、client 零真理逻辑 CI 红线；web/android client 仍延后（第 2、5 节；key-decisions.md D36、D37）。
+- [x] 批准（2026-06-07）/ [ ] 暂缓 — **A1 平台路线：** macOS + iOS 首期 → iPadOS 第二 → 其他平台最后（第 2 节；plan §11）。
+- [ ] 批准 / [x] 暂缓（2026-06-07）— **A2 Apple binding 方案（方向）：** UniFFI + XCFramework / SwiftPM wrapper primary、C ABI bytes fast-path fallback；机制冻结待 Stage 1（第 2、5 节；key-decisions.md D01）。机制作为产品分发边界的最终冻结另见 B4。**用户 2026-06-07 未批准本项——binding 方向与机制冻结一并随 B4 待 Stage 1 binding spike 证据后再定。**
+- [x] 批准（2026-06-07）/ [ ] 暂缓 — **A3 `anchor-editor-core` 合约：** core 内部无 UI 模块边界（第 2 节；contract-baseline.md「Editor baseline」）。
+- [x] 批准（2026-06-07）/ [ ] 暂缓 — **A4 交互契约：** 选择 / 结构编辑 / Note 行为 / 引用 / props·type / 命令 / Settings / 失败态，经 fixture set 复查通过（fixture-set.md F01–F43；plan §11）。
+- [x] 批准（2026-06-07）/ [ ] 暂缓 — **A5 信息架构：** 顶层 Note / 子 Note / journal / Calendar projection 的 macOS / iOS 信息架构草图（contract-baseline.md；key-decisions.md D07–D09）。
+- [x] 批准（2026-06-07）/ [ ] 暂缓 — **A6 DTO 草图：** Note / block / op / projection / search result / validation error / mirror status / settings / sync status 的 core DTO 草图（清单取自 plan §11 line 547），DTO 词汇与版本归 Rust core 所有（所有权由 contract-baseline.md「Responsibility boundary matrix」支撑；apple-verification §3.4）。
+- [x] 批准（2026-06-07）/ [ ] 暂缓 — **A7 关键技术决策：** key-decisions.md D01–D38（含 D18a、D21a、D38 time travel）的 Status=Recommended 项作为 CP-0 基线纳入（第 2 节；key-decisions.md）。
+- [x] 批准（2026-06-07）/ [ ] 暂缓 — **A8 fixture set：** F01–F43（含 F42 segment budget、F43 四-horizon retention）作为 CP-0 设计产物冻结（fixture-set.md）。
+- [x] 批准（2026-06-07）/ [ ] 暂缓 — **A9 World A core 跨平台可编译性（受保护不变量）：** `anchor-core` 的 `wasm32` + android 可编译性作为 CP-1 gate、diff3/order-key 一致性向量集纳入 wasm target、client 零真理逻辑 CI 红线；web/android client 仍延后（第 2、5 节；key-decisions.md D36、D37）。
 
 **B. 本次新增的边界批准项（对应第 4 节）**
 
@@ -158,7 +159,9 @@
 - [x] 批准（2026-06-07）— **B11 顶层 Note 表示 / Calendar 排序 / journal 默认 parent / trash-restore 边界**（第 4 节 #11；key-decisions.md D07–D09）。
 - [x] 批准（2026-06-07）— **B12 mirror 目录组织 + 是否纳入版本库**（默认锁定：人类可读路径 + 不纳入版本库）（第 4 节 #12；key-decisions.md D05）。
 - [x] 批准（2026-06-07）— **B13 Anchor vault file package 的 `com.apple.package` UTType 声明**（第 4 节 #13；key-decisions.md D34）。
-- [x] local-only 防误放已 firm（D21，2026-06-07）/ [ ] sync 路线首期产品选择待确认 — **B14 sync 路线 + local-only 防误放语义：** `sync="none"` 严禁置于任何 iCloud ubiquity container 已 firm；iCloud Drive 作首期 `OpSyncPort` 路线的整体确认仍待（第 4 节 #14；key-decisions.md D21）。
+- [x] local-only 防误放已 firm（D21，2026-06-07）/ [ ] iCloud 作首期默认 transport 待 Stage 1 scale gate — **B14 sync 路线 + local-only 防误放语义：** `sync="none"` 严禁置于任何 iCloud ubiquity container 已 firm；iCloud Drive 作首期 `OpSyncPort` 默认路线的整体确认 **gated on Stage 1 scale gate（go/compromise 才批，no-go 转 CloudKit/object-store；2026-06-07 决定）**（第 4 节 #14；key-decisions.md D21；stage-1-spike-plan.md §6）。
+- [x] 批准（2026-06-07）— **B15 Time travel 一等能力 + 四-horizon retention model：** per-note + 用户可配保留期 + read-only 查看&restore；restore = 前向 dominating op；>time-travel-horizon 内 op 只 archive 不 hard-delete；watermark 单独不再足以硬删 loser-payload/trashed/observed-add（移到 time-travel/audit + excise 门下）（第 4 节；key-decisions.md D38、D14）。
+- [x] 批准（2026-06-07）— **B16 7-day conflict horizon = 纯 UI 冲突呈现策略：** 绝不作 op-retention / hard-delete / compaction 安全依据；硬删仍由因果稳定 + snapshot 覆盖 + retention + time-travel 各自独立论证（第 4 节；key-decisions.md D14、D38）。
 
 ---
 
@@ -172,4 +175,4 @@
 - 不把任何标 Blocked / Not run / Unknown 的项当已验证事实陈述。
 - 第 8 节中被暂缓的项，其对应落地动作保持冻结，直至用户在后续轮次明确批准。
 
-通过本 CP-0（第 8 节勾选）后，方可按 stage-1-spike-plan.md 进入 Stage 1；Stage 1 任何「必须调整的模型点」回填 contract-baseline.md / key-decisions.md / fixture-set.md（决策编号沿用 D01–D37（含 D18a、D21a）、fixture 编号沿用 F01–F41），且通过 CP-1 前不实现持久应用写入（plan §11 CP-1）。
+通过本 CP-0（第 8 节勾选）后，方可按 stage-1-spike-plan.md 进入 Stage 1；Stage 1 任何「必须调整的模型点」回填 contract-baseline.md / key-decisions.md / fixture-set.md（决策编号沿用 D01–D38（含 D18a、D21a、D38 time travel）、fixture 编号沿用 F01–F43（含 F42 segment budget、F43 retention）），且通过 CP-1 前不实现持久应用写入（plan §11 CP-1）。

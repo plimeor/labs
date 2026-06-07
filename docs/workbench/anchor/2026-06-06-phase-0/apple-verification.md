@@ -816,6 +816,21 @@ rg -n "OpSyncPort|push_segment|pull_segment|SegmentId|BlobId" suites/anchor/core
 
 **Failure condition：** 如果 core 需要 cloud/account/file-coordination types 才能实现 merge 或 read bytes，`OpSyncPort` boundary 已失效。
 
+### 7.5 Scale / 性能：documented mechanics vs undocumented scale
+
+**iCloud adapter 的机制面有官方文档支持，但 Apple 对任何规模 / 性能数字一律不文档化——故「API 编译面可行」不等于「iCloud 同步在 Anchor 规模下可行」，规模必须实测（Stage 1，stage-1-spike-plan.md §4）。** 下列为 Source-supported（developer.apple.com），与本节上文 Codex 本机 Observed 区分。
+
+- **NSMetadataQuery**（segment 发现）：两相（initial gathering → live-update），`DidUpdate.userInfo` 拆 added/changed/removed（iOS 8/macOS 10.9+）；`notificationBatchingInterval` 默认 1.0s（仅合并窗口，非延迟保证）；`results` proxy 整份 copy 有「performance and memory issues」，应用 `result(at:)`。**未文档化**：任何文件数下的 gathering / live-update 延迟、内存上限、是否 duplicate / re-deliver、主线程阻塞。(https://developer.apple.com/documentation/foundation/nsmetadataquery)
+- **Placeholder / dataless / eviction**：`URLUbiquitousItemDownloadingStatus`（.notDownloaded/.downloaded/.current）、`startDownloadingUbiquitousItem`、`evictUbiquitousItem`（只删本地）；读 dataless 内容触发同步 materialize，「can take a long time」可致 watchdog crash；OS 按 LRU 自动驱逐、不通知 app。**未文档化**：批量 materialize 成本、冷设备是否必须全下才能 replay、N 文件延迟；无 batch / 预取 API。(https://developer.apple.com/documentation/technotes/tn3150-getting-ready-for-data-less-files)
+- **NSFileCoordinator**：同步阻塞；未下载项 coordinated read「blocks (potentially for a long time)」；批量 `prepare(...)`「much more efficient」（只定性）；后台带 presenter 会跨进程死锁，须 `removeFilePresenter`。**未文档化**：单次 / 批量延迟量级、UI 不阻塞保证、规模阈值。(https://developer.apple.com/documentation/foundation/nsfilecoordinator)
+- **NSFileVersion / conflict**：iCloud 自动建版本，winner「on some basis」（不透明、不确定）、**无自动内容 merge**、loser 持续占配额直到 `removeOtherVersions`、document-scope 新文件冲突生 bounced 重复文件。→ **不可变 write-once-per-device segment 永不进 conflict 路径（佐证 D06）；共享可变 manifest 是文档级多 writer 隐患（D14 默认 per-device cursor）。** (https://developer.apple.com/library/archive/technotes/tn2336/_index.html)
+- **quota / account**：`ubiquityIdentityToken`（nil=未登录，O(1)）、`NSUbiquityIdentityDidChange`（账号切换硬边界，绝不跨 identity 合并 segment）；over-quota 仅反应式错误（`NSUbiquitousFileNotUploadedDueToQuotaError` / `NSFileProviderError.insufficientQuota`），**无预查 API、无收敛保证**。(https://developer.apple.com/documentation/foundation/icloud-error-codes)
+- **file package（`com.apple.package`）**：声明后 iCloud + `NSMetadataQuery` 当单 document（否则枚举内部文件，D34）；增量「only changed elements」但 element 未定义、不保证 = 单文件；只整包原子写。**未文档化**：内部文件数阈值、O(changed) vs O(total)、partial-materialize replay、内部文件级 conflict 粒度。(https://developer.apple.com/library/archive/documentation/General/Conceptual/iCloudDesignGuide/Chapters/DesigningForDocumentsIniCloud.html)
+- **NSUbiquitousKeyValueStore**（manifest/cursor 候选）：硬上限 1MB 总 / 1024 key / 1MB 单值；服务端 recency check、无 merge hook；「several times per minute」、frequent writes 被 defer。→ **只配作极小 per-device cursor hint，权威 frontier 仍须可从 segment 推导。** (https://developer.apple.com/documentation/foundation/nsubiquitouskeyvaluestore)
+- **CloudKit / CKSyncEngine**（scale gate no-go 时的转向候选）：server change-token + push（免文件枚举）、内建 batching + 退避；CKRecord ~1MB、CKAsset 50MB（仅 archived 文档、当前 reference 无、需实测）、per-request 400 items / 2MB（guideline 可变）、rate limit 无公开数字。→ **结构上比 iCloud Drive 更适合 million 多小对象。** (https://developer.apple.com/documentation/cloudkit/cksyncengine-4b4w9)
+
+> **Prior-art（Inferred，非 Apple；支撑 D14/D38 的四 horizon + 两层 GC）：** log compaction 安全用 causal stability + min-of-known-frontiers（**非 wall-clock**；Kafka lagging-consumer 数据丢失教训）；time-travel retention 用 snapshot+delta / archive 而非硬删（Datomic as-of/excision、Git/Dolt reachability GC + archive、event-sourcing snapshot+read-time upcasting）。
+
 ---
 
 ## 8. Patch list for Claude
