@@ -87,9 +87,9 @@
 ### D06 — Op-segment 作为同步单元 + segment 大小
 
 - **Decision**：同步/提交单元 = op-log 的**不可变 op-segment 文件**（`.anchor/operations/<device_id>/<seq>.seg`，每设备独占命名空间、一封一密、**永不修改**），而非单个增长日志，也不是 mirror；segment 大小阈值为阶段0待定数值，与提交节奏（D13）共定，留待 Stage 1 iCloud 行为实测后收口。segment 大小、batching policy 与长期 segment-file budget 按两条分离的 scale 轴实测：logical-op-count（50K smoke / 500K / 1M / 5M / 10M+）与 synced-segment-file-count（1K / 10K / 50K / 100K，同步层实际枚举的 filesystem objects）；排除「每 op 一 segment」反模式（stage-1-spike-plan.md §4）。
-- **Status**：Needs Stage 1 spike
+- **Status**：Needs Stage 1 scale/policy gate（1K signed-app write/enumeration observed；10K/50K/100K segment-file-count、remote placeholder、steady-state segment budget 留 Stage 1）
 - **Rationale**：iCloud Drive 无 delta 同步、任何改动整文件重传，不可变 segment 只上传一次、永不重传。
-- **Evidence**：plan §8.4（不可变 segment 理由）、§11（同步单元 / segment 大小 / 提交节奏）。Codex §7.1：**Observed** — `ICloudAdapterProbe` 的 `NSMetadataQuery` / `NSFileCoordinator` adapter API 编译面 macOS + iOS sim 通过，core-only `SegmentId`/bytes 协议形态可保持；**Observed** — segment 写一次、新内容新 segment 形态可由 content hash + mtime 验证（设计层）。**Not run** — iCloud Drive ubiquity container 对大量小文件的真实枚举/同步成本、`.icloud` placeholder 下载成本（付费 ADP team 已开通、见 D35；待 Anchor signed app 在真实 account 实测）。
+- **Evidence**：plan §8.4（不可变 segment 理由）、§11（同步单元 / segment 大小 / 提交节奏）。Codex §7.1：**Observed** — `ICloudAdapterProbe` 的 `NSMetadataQuery` / `NSFileCoordinator` adapter API 编译面 macOS + iOS sim 通过，core-only `SegmentId`/bytes 协议形态可保持；**Observed** — segment 写一次、新内容新 segment 形态可由 content hash + mtime 验证（设计层）。Stage 1 icloud-drive-report.md：**Observed** — signed app 在真实 account 写 1024 个 segment 文件（iOS ≈3720ms / macOS ≈3247ms），file-coordinated direct package-internal enumeration 见 1024 段，placeholder 下载行为 platform-sensitive（iOS `start_download=ok`、macOS `NSCocoaErrorDomain:4`）。**Not run** — 10K/50K/100K segment-file-count 真机枚举/同步成本、remote `.icloud` placeholder 下载、million-op 后稳态 segment budget（见 D14/D35、stage-1-spike-plan.md §4）。
 - **Risk**：segment 过小 → 文件数爆炸、iCloud 元数据/枚举压力；过大 → 提交延迟与重传粒度变粗；阈值依赖 iCloud Drive / `NSMetadataQuery` 真实行为，目前未证。
 - **Stop condition**：immutable segment 单元不可动摇。若 Stage 1 实测 iCloud 对小文件枚举/placeholder 成本不可接受，须重设 segment 大小区间与提交节奏，但不得回退为可变增长日志。若正常编辑下 N 个 logical op 产生约 N 个 synced segment 文件，则 batching 失效、方案不可接受，须重设 batching/compaction。
 

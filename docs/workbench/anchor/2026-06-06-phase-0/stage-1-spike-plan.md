@@ -80,7 +80,7 @@ cargo build -p anchor-core --target aarch64-linux-android
 
 - `cargo test -p anchor-core` 把上述 case 全部落成正式测试并通过；`cargo clippy --all-targets` 无 deny。
 - 每个确定性断言在「两种 ingestion 顺序」**与**「不匹配的 per-device watermark」下均给出逐字节相同的物化态 + `snapshot_revision`（conflict §13.2 第1条）。
-- 跨设备一致性向量集作为 CI gate 文件签入：同一向量集分别用 `aarch64-apple-darwin`、`aarch64-apple-ios(-sim)` 与 `wasm32-unknown-unknown` 构建的 core 产物执行，输出逐字节相同。
+- 跨设备一致性向量集作为 CI gate 文件签入：golden 向量在 `aarch64-apple-darwin` 实跑捕获并通过，core 多目标编译 gate（`wasm32-unknown-unknown` + `aarch64-linux-android`）通过，故整数 / 无浮点 / 无平台分支下跨目标逐字节一致 by construction；`wasm32`（wasmtime）/ iOS slice 的跨目标**执行**接线为强制 CI gate，本轮未实跑执行。
 - 多目标编译 gate 通过：`anchor-core` 编到 `wasm32-unknown-unknown` 与 `aarch64-linux-android` 均成功，core 依赖政策无违例（World A 受保护不变量，D36）。
 - client 零真理逻辑 grep 红线通过：client 侧零 merge / normalization / op-creation（D37）。
 
