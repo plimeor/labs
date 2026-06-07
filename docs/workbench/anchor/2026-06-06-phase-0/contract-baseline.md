@@ -1,0 +1,197 @@
+# Anchor Phase-0 Contract Baseline
+
+任务：`docs/workbench/anchor/2026-06-06-phase-0/`
+日期：2026-06-07
+状态：**workbench artifact** —— 非公开接口契约。本文件是 6 文件 Phase-0 packet 的整合稿（Step 3：Claude 吸收 Codex 的 Apple/Xcode/Swift-Rust/TextKit/iCloud 验证证据），作为可批准 CP-0 的责任基线。
+
+> 边界声明（AGENTS 工作台规则）：创建本 workbench 目录**不授权**任何 package / workspace / app / 生成 lockfile 改动，**不**创建 `suites/anchor`、`apps/anchor-*`、`packages/anchor-*`、顶层 `anchor-apple/`，**不**写 Rust/Swift/TS 代码，**不**改 `package.json` / `bun.lock` / 任何 `tsconfig` / workspace 配置。本文件唯一落盘动作就是它自身。权威且稳定的 CLI / API / schema / file-format 契约在实现后归 `anchor-core` 包 README；本文件只是 Phase-0 责任基线的对齐稿。
+>
+> 引用约定：`[plan §X]` 指 `docs/plans/2026-06-06-anchor-apple-native-note-workbench.md`；`[conflict §X]` 指 `docs/plans/2026-06-06-anchor-conflict-resolution-model.md`；Codex 验证证据指同目录 `apple-verification.md`。同目录姐妹文件用相对名引用（如 `key-decisions.md`、`fixture-set.md`、`project-layout-options.md`）。
+>
+> 标注词汇：**Observed**（Codex 本机实跑或官方文档直接支持）、**Recommended**（建议的目标状态/命令骨架）、**Needs user approval**（触 workspace/package/Apple project 边界、新公开 CLI schema、加密所有权、付费 Apple Developer Program、entitlement/容器、plan §13 暂停条件）、**Needs Stage 1 spike**（机制可行性已验证但 Anchor 专属构建/运行未证）、**Blocked**（当前环境无法验证，被硬门控）、**Not run**（未执行项，不得当已验证事实）。
+
+---
+
+## Strongest conclusion
+
+**单一最可辩护的 Phase-0 结论（CP-0 基线判断）：**
+
+Anchor 是一个 **Note 原生（非 Markdown 文本壳）、Apple 原生优先（macOS + iOS 首期）、核心平台无关（platform-agnostic Rust `anchor-core`）** 的本地知识工作台；其真理层是 **append-only op-log**（物化 state、`.json`/`.md` mirror、SQLite projection 全为 replay 派生，不是真理）[plan §2、§8.4]；所有持久写入收敛到**单一已校验 dispatch** 这一首期必须建立并守住的不变量 [plan §8.5]；冲突调和保持**恰好三个 dispatch register（`location` / `content` / `life`）作为产品不变量** [plan §4.3、§8.4；conflict §3.1]；Apple 客户端通过**进程内 binding 直接调用 core**（非网络），客户端不拥有任何业务真理 [plan §8.1]。
+
+五条支柱**可进入 CP-0**（Observed，apple-verification §1）：Apple-native 首期路线、Rust `anchor-core` 真理层、Apple 客户端进程内 binding、TextKit mechanism-only、iCloud Drive adapter 只给 core 喂 `SegmentId` / `BlobId` + 字节。在此之上，三类边界判断带各自的证据态：binding 机制为 **Recommended**（UniFFI + XCFramework/SwiftPM wrapper，gated by Stage 1 binding spike）；Apple 工程位置 = **用户已批准 Option A `suites/anchor/*`（2026-06-07）**，Option C 仅作实现期 Bun-glob / Xcode 嵌套成本过高时的退路；Apple runtime 行为为 **Needs Stage 1 spike**（Anchor target build、TextKit 适配、UTF-16 换算），其中 iCloud Documents/ubiquity 的**基础能力已由付费 Apple Developer Program（Individual）team Observed 证明**（entitlement profile + signed device artifact + 真机 ubiquity container lookup non-nil，apple-verification §2.6），Anchor 自身 file-package runtime 留 **Needs Stage 1 spike**。
+
+**显式限定：实现仍需单独授权。** 本结论是契约方向的对齐，不是实现许可；plan §10 把「授权后的第一个实现单元」定义为阶段0，§13 保留若干必须用户决策的岔口（package/workspace/Apple project 边界变化、binding 成本不可接受、同步路线产品级选择等）[plan §13]。当前仓库**没有** `suites/anchor`、没有任何 Anchor 代码、没有 Rust/Cargo crate、没有 Swift/Xcode 工程（Observed，apple-verification §2.1）；CP-0 只能批准目标边界、命令骨架与 Stage 1 验证计划，不得声称 Anchor app 已可构建或 Anchor 的 iCloud Drive 同步已可用（iCloud 基础 entitlement / 真机 ubiquity 能力已由 demo Observed，Anchor 专属 file-package runtime 仍 Not run）。
+
+---
+
+## Platform baseline
+
+平台顺序（产品不变量，全 packet 一致）：
+
+1. **macOS + iOS** 首期。
+2. **iPadOS** 第二（在 macOS + iOS 跑通后进入）。
+3. **其他平台**最后评估。
+
+依据 [plan §3、§11]。核心判断 [plan §3]：**UI 可以平台化；核心必须平台无关。** Apple 客户端可用 SwiftUI / AppKit / UIKit 与原生系统能力，但 `anchor-core` 的模型、操作语义、规范化、校验、replay、导入导出、合并、同步逻辑**不绑定**其中任何一个 [plan §2]。
+
+首期非 Apple 客户端、独立 Web 客户端、iPadOS 专项优化均为**显式非目标** [plan §9]；它们只能作为 reserved hook 存在（op 信封预留、core ABI / 同步传输边界稳定后再评估 [plan §3、§11]），不得拉回首期 in-scope。
+
+**Core 跨平台可编译性 = CP-1 受保护不变量（区分于延后的 client）。** 在 platform-agnostic Rust core 取向下，**`anchor-core`（含 `anchor-editor-core`）的 wasm32 + android 可编译性**不是延后项，而是从 Apple-first 阶段起就**主动守住**的不变量：core 依赖须能编到非-Apple target，确定性 / merge 路径保持 `no_std`-friendly、不碰 OS 线程 / 文件系统 / 时钟 / 浮点；多目标编译（macOS slice + wasm32 + android）作为 CP-1 一道 gate，diff3 / order-key 一致性向量集纳入 wasm target。受保护的是「core 现在就保持可复用」，**web / android 的 client 仍延后**到 macOS + iOS 跑通之后 [key-decisions.md D36、D37、D19、D26]。
+
+---
+
+## Core responsibility baseline
+
+`anchor-core` 拥有真理层、共享模型与全部不变量 [plan §8.1；conflict §3、§5]：
+
+- **领域模型**：`Note` / `Block` / `Inline` / `PropDef` / `Type` / `Tag` / `BlobRef`。Note 与 Block 是**唯一**的一阶持久对象；公开模型、op target、DTO 字段、CLI 词汇固定为 Note / Block；tree item / cursor / projection row 等只是私有实现 [plan §8.1、§8.2]。
+- **规范序列化与修订**：`canonical_serialize`（JCS 风格、确定性、禁 `f64`、数字用规范十进制字符串）；`rev = blake3(canonical_serialize(self))` 覆盖自身规范字段、**排除 `lww`**、非 Merkle hash；`snapshot_revision` 为派生子树 hash 供读缓存 / UI stale / 导出快照标识 [plan §8.3]。
+- **校验与规范化**：tree invariants、schema-aware normalization、非法结构最终拒绝。
+- **Append-only op-log**：真理层；replay 与物化 Note/block tree。
+- **合并语义（冲突模型，全部归 core）**[conflict §3-§7]：
+  - 恰好三个 dispatch register `location` / `content` / `life`（产品不变量，**不**扩成 5）[conflict §3.1]。
+  - `content` 内部分解为具名 sub-field cell `{body, type_id, props[k], tags[t]}`，每 cell 携 `sub_rev`，是对 per-`(target, register)` guard 的严格泛化、非新增 register 轴 [conflict §3.1-§3.4]。
+  - `body` = 确定性 3-way **diff3** merge / keep-both（不相交 hunk auto-merge，重叠或 base 不可恢复则 keep-both，**永不**静默 LWW），并对合并文本重 clamp UTF-16 mark offset [conflict §5.3、§6.1]。
+  - `props[k]` / `type_id` = causality-aware per-cell LWW（一侧因果支配取该侧，仅真并发回退 wall-clock）[conflict §5.3、§6.6]。
+  - `tags[t]` = OR-Set add-wins，复用 `op_id` 作 add-identity，`tag_remove` 携 `observed_adds`，存储 watermark-bounded GC [conflict §5.3、§6.7]。
+  - `life` = 时钟无关优先级 lattice（`active < {trashed, archived} < deleted`），非级联、派生子树可见性（root-reachability over merged tree）、终态 `deleted` 仅经显式 `trashed → deleted` 且 `dominates_frontier` 因果支配编辑可达；dispatch 拒绝直接 `active → deleted` [conflict §5.4、§6.3]。
+  - 全局全序键 `T = (hlc.wall, hlc.logical, hlc.device, actor, op_id)`，保证无 tie、replay 为纯 fold、跨 replica 逐字节一致 [conflict §4]。
+  - **content-addressed journal identity**：`note_id = blake3("journal:" ‖ vault_id ‖ calendar_date)`，同 vault 同日恒为同一 Note（去重是**身份不变量**，by construction，无运行时去重检查）；普通 Note 仍铸造随机 nanoid；这是已采纳的承诺模型 [plan §4.3、§8.2；conflict §6.9、§13.1 #9]。
+- **HLC / LWW** 机制与上述 merge 规则。
+- **Replay / materialization**：从空状态 replay 重建同一棵 materialized tree。
+- **SQLite projection**（或等价本地 projection）：派生、可重建、**不是真理归属方**、不进入同步 [plan §8.1、§8.4]。
+- **导入 / 导出 + mirror queue + freshness**：Markdown importer、`.json`/`.md` exporter；mirror 是 post-commit job 写出的有损派生物、记录 freshness，mirror 写失败只影响 freshness/diagnostics、不回滚 op-log [plan §8.6]。
+- **单一已校验 dispatch**：首期要建立并守住的不变量——每条持久写入路径都调用「append 前校验」的 core 私有 helper，对 core 写入点 grep 必须能证明 [plan §8.5]。
+- **`OpSyncPort` trait**：传输无关（list / pull / push segment + blob，仅 `SegmentId` / `BlobId` + 字节，**不含任何云类型**）[plan §8.1]。
+- **DTO / schema envelope owner**：Rust core **拥有** DTO 词汇与版本（schema version envelope）；Swift binding 层与 CLI 只**消费** generated/projection DTO，不得独立定义 `Note` / `Block` / op / validation-error 语义（Observed-supported，apple-verification §3.4）[plan §8.1]。
+
+> `anchor-editor-core` 是 `anchor-core` 内部的无 UI 编辑语义模块，**非独立 crate/package**；其职责与边界见下文 Editor baseline 与 Responsibility boundary matrix [plan §8.1]。
+
+---
+
+## Apple client baseline
+
+Apple 客户端拥有原生产品表面，且**不复制 core 领域规则**——它可以预检明显 UI 约束，但 **core 校验始终是权威关卡** [plan §8.1]：
+
+- 原生窗口、导航、菜单、输入、拖拽、快捷键、分享、文件、安全权限、系统外观（macOS / iOS / iPadOS）[plan §8.1、§7.1]。
+- 原生编辑器 surface、原生 Settings（主题 / 字体 / 排版，语义见 [plan §5.1、§7.2]）。
+- 原生离线存储位置与文件访问。
+- **实现 `OpSyncPort`**：首期 transport = **iCloud Drive 文件适配器** —— `NSFileCoordinator` 协调读写、`.icloud` placeholder 下载、`NSMetadataQuery` 发现远端 segment，把**已下载已协调的字节**喂给 core；**core 永不出现 CloudKit / iCloud 类型** [plan §8.1、§3、§8.4]。
+- 对 core DTO 的展示、错误呈现、交互状态。
+- 一等呈现失败态（unsupported / newer schema / 校验错误 / replay conflict / stale mirror / blob 缺失 / sync pending / not-yet-downloaded / over-quota / iCloud unavailable）[plan §6.8]。
+
+**Apple 编辑器 adapter**（属客户端侧、非 core）：把 `NSTextView` / `UITextView` / TextKit / 原生键盘事件转换为 `EditorIntent`，把 `EditorPatch` 转换为原生 view model 更新 [plan §8.1]。详见下文 Editor baseline。
+
+Codex 已确认 Apple 客户端是 native shell、不拥有 business truth（Observed，apple-verification §1）；具体 Apple 工程位置、target、bundle、entitlement、签名行为见下文 Apple build baseline 与 Sync baseline。
+
+---
+
+## Apple build baseline
+
+Apple 构建表面的证据态：工具链环境 **Observed**、Anchor target build **Not run**（工程不存在）。
+
+- **Toolchain 可用 = Observed（apple-verification §2.2、§4.1）。** 默认 `xcode-select` 指向 `/Library/Developer/CommandLineTools`，该默认态下 `xcodebuild` 失败；但用一次性命令前缀 `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer` 观察到 Xcode 26.5（Build 17F42）、macOS SDK 26.5、iOS SDK 26.5、iOS Simulator SDK 26.5，以及 iOS 26.2 / 26.4 / 26.5 模拟器设备；`iPhone 17` 模拟器可 bootstatus 到 Finished 并 shutdown。SwiftPM（Swift 6.3.2）可用。
+- **Apple build surface 关键路径 = Observed（apple-verification §2.4、§4.1）。** SwiftPM library 可在 Xcode 26.5 下针对 `platform=macOS` 与 `generic/platform=iOS Simulator` 编译同源 `NSTextView` / `UITextView` adapter 与 iCloud adapter API；one-slice macOS staticlib XCFramework 创建成功。
+- **Anchor target build = Not run（apple-verification §2.3）。** 仓库无 Anchor Xcode project / scheme，故未跑任何 Anchor `xcodebuild`、`swift build`、`cargo build`。本文件给出的所有 macOS / iOS 构建命令只能是 **Recommended 命令骨架**，scheme/workspace/header/library/module 名等到工程存在后才能定。验证命令推荐统一用 `DEVELOPER_DIR` 前缀（不改全局 `xcode-select`）、用 `-derivedDataPath` 避免 DerivedData 落进 repo；本机 Xcode 26.5 **不支持** `xcodebuild -list -packagePath`，直接 package 验证须在 package cwd 跑 `xcodebuild -list`（Observed，apple-verification §2.4）。
+- **Rust iOS targets 未安装 = Needs Stage 1 spike 前置条件（apple-verification §2.2、§2.4）。** 仅 `aarch64-apple-darwin` 已装；`aarch64-apple-ios` / `aarch64-apple-ios-sim` 未装，scratch iOS-sim staticlib build 因此失败（`can't find crate for std`）。multi-slice XCFramework 与任何 iOS Rust slice 声明在装齐 targets 前不成立。
+- **binding host demo = Observed（apple-verification §2.4、§5.1）。** macOS 上 Rust staticlib 经 C ABI 被 SwiftPM executable link 并实际调用成功；项目内 `uniffi 0.31.1` 可生成并运行 minimal record/bytes Swift binding。详见 Binding baseline。
+
+> 本机无 `xcodegen` / `tuist` / Ruby `xcodeproj`，`xcodebuild` 无 create-project 子命令；自动生成 `.xcodeproj` 须 Apple 工程被批准创建后另行解决（apple-verification §2.2）。任何 Apple project / workspace / target / bundle id / entitlements 的创建均 **Needs user approval**。
+
+---
+
+## Binding baseline
+
+继续把 Rust core 作为平台无关核心是首选；binding 机制候选不是四选一，而是组合方案（apple-verification §5.1）：
+
+- **Recommended path = UniFFI（structured DTO / error / normal dispatch）+ generated Swift + Rust static libraries 打成 XCFramework + 由 local SwiftPM wrapper / binary target 消费，gated by Stage 1 binding spike**（apple-verification §5.3）。
+- **可行性证据 = Observed（apple-verification §2.4、§5.1、§5.3）：** C ABI + Rust staticlib + SwiftPM host path 实际跑通（Swift 调到 Rust symbol，非仅编译 header）；UniFFI 0.31.1 经项目内 `cargo run -p uniffi-bindgen-swift` 生成并运行 minimal record/bytes Swift binding，`bytes -> Data` 映射可运行。这是机制证明，**未证** Anchor DTO / error / async shape。细节见 apple-verification §5。
+- **C ABI bytes fast-path fallback = Recommended（apple-verification §5.3）。** UniFFI 适合 DTO / normal dispatch；bulk segment/blob 字节是否继续走 UniFFI、还是启用 C ABI 显式 fast path，留 Stage 1 决策。
+- **Caveat（必须随 binding 决策携带）：** UniFFI Swift 6 支持仍有 rough edge，async generated code 的 `Sendable` 已知不完整；64MB `bytes -> Data` 在 debug build 下单次传输约 2.35s、进程 max RSS 约 267MB，bulk blob hot path **不能无条件**压在 UniFFI `Data` transfer 上（Observed，apple-verification §2.4、§5.2）。
+- **DTO 约束（Recommended，apple-verification §5.3）：** 避免在 FFI 边界暴露高度递归/泛型 DTO；`TransactionResult` / `ValidationError` / `SyncStatus` / `MirrorStatus` / `EditorPatch` 保持 structured，不为 binding 便利而 collapse 成 strings。
+- **Binding 机制作为产品分发边界冻结 = Needs user approval（Stage 1 证据之后）。** 选定「UniFFI primary」还是「UniFFI DTO + C ABI bytes fast path」是产品分发决策，须 Stage 1 binding spike（含 Anchor DTO round-trip、1/4/16/64MB bytes benchmark、Swift 6 strict concurrency build）后由用户批准。
+
+---
+
+## CLI baseline
+
+CLI 是**本地结构化命令契约（NOT MCP）**，与 Apple binding 共享同一 dispatch 入口、同一 op registry、同一 DTO 词汇 [plan §8.1]：
+
+- **`apiVersion` 信封**的稳定命令。
+- **vault 解析**：`--vault` / `$ANCHOR_VAULT` / 向上发现。
+- **全局 I/O 契约**：`--format tsv|json`、`--fields`、`--limit`、`--count`。
+- **固定退出码**：`0` ok、`1` usage、`2` not_found、`3` conflict、`4` blocked、`5` vault_not_open、`6` io [plan §8.1]。
+- **typed blocked 错误（exit `4` 下的具名原因）**：例如 local-only vault 被误放入 iCloud → error code `local_only_vault_in_ubiquity` + machine-readable payload（`vaultPath` / `sync` / `detectedContainerKind` / `recommendedActions`）；CLI 不自动修复、不写配置、不创建 iCloud container、不改 op-log [key-decisions.md D21a]。
+- **结构化 Note / Block 读取**；**写入一律通过 core dispatch**；面向 replay / mirror / schema / 校验状态的**诊断命令** [plan §8.1]。
+- **公开词汇以 Note / block op 为对象**；net-new 动词：**MOVE**（Note reparent 或 block reparent + fractional order）、**EXPORT / IMPORT**、**TYPE**（PropDef / Type schema）、PropDef-backed **PROP**、真实 **DELETE / tombstone** [plan §9]。
+
+`anchor serve` + `/rpc` 仅是**可选 localhost 开发 / 测试传输**，共享同一 op registry / DTO / dispatch，**不是产品同步通道** [plan §8.1]。
+
+> 冲突模型新增的 `ConflictRecord` 与 `resolve` / `restore` / `restore_order` / `restore_subtree` 的公开 CLI/DTO 面**放二期（Phase 2）**——用户已于 2026-06-07 决定。Phase 0 / 首期**不暴露**此 CLI schema，只在 op-envelope 层预留所需字段（`key-decisions.md` D24，含 `restore` op_kind / `observed_adds` / `dominates_frontier` 等）；因 `ConflictRecord` 是**派生读模型**（replay 重算、非持久 op），二期暴露**无 op-log 迁移成本**。首期 CLI 的冲突可见面仅为既有退出码 `3`（conflict）[conflict §9、§12、§13.1 #13；key-decisions.md D31]。
+
+---
+
+## Sync baseline
+
+- **op-log 是真理**；物化 state、`.json`/`.md` mirror、SQLite projection 都是 replay 派生，**mirrors + SQLite 不进入同步** [plan §8.4；conflict §10]。
+- **同步 / 提交单元 = 不可变 per-device op-segment 文件**（`.anchor/operations/<device_id>/<seq>.seg`，每设备独占命名空间、一封一密、**永不修改**）；选不可变 segment 而非单增长日志，是因为 iCloud Drive 无 delta 同步、任何改动整文件重传，不可变 segment 只上传一次 [plan §8.4]。
+- **`OpSyncPort` 传输无关**：仅 `SegmentId` / `BlobId` + 字节，不含任何云类型；任何适配器只负责传输 / 持久化，**不拥有 merge 语义** [plan §8.1、§8.4、§13]。
+- **iCloud Drive vault file package 必须声明符合 `com.apple.package` 的 exported document type / UTType（Contract correction，Observed-supported，apple-verification §7.1）。** 否则 iCloud 会把 file wrapper 当普通目录枚举，`NSMetadataQuery` 可能返回 package 内部文件，用户也可能把 package 内容看成散落文件。
+- **iCloud Drive 首期**（零配置、core 纯文件 I/O、无 CloudKit 代码）。Codex 已确认 iCloud adapter 的 Foundation API 编译面对 macOS / iOS simulator 可行（Observed：`ICloudAdapterProbe` 编译通过；无 entitlement CLI 下 `url(forUbiquityContainerIdentifier:)` 返回 nil、`NSMetadataQuery` / `NSFileCoordinator` API 可用，apple-verification §7.1）。
+- **iCloud Documents / ubiquity 基础能力 = Observed（付费 ADP team），Anchor 专属 file-package runtime = Needs Stage 1 spike（apple-verification §2.6、§7）。** 用户已开通付费 Apple Developer Program（Individual）team（`isFreeProvisioningTeam=0`）；demo project 经 automatic signing 生成含 iCloud Documents entitlement 的 development provisioning profile、signed device artifact（签名含 `CloudDocuments` + iCloud container / ubiquity container ids），并在 paired、Developer Mode、登录 iCloud 的真机返回 **non-nil ubiquity container URL**（`/private/var/mobile/Library/Mobile Documents/iCloud~dev~plimeor~…`）；simulator 启动不再报 `Security policy issue`，但 sim ubiquity lookup 仍 nil（sim 未登录 iCloud）。**Anchor 自身**的 bundle id / iCloud container id / capability 设置仍是实现期动作（创建 / 绑定 Apple Developer 侧资源）；Anchor file package 的 runtime 行为——package UTType、placeholder download、`NSMetadataQuery` live updates、file coordination、`NSFileVersion` conflict、signed-out / over-quota——留 Stage 1 spike（须 Anchor signed app + 真实 account 观测）。
+- **单附件上限 = 50MB（D17，对齐 CloudKit `CKAsset`）。** 由 dispatch 写前校验、以独立失败态拒绝超限。50MB 同时兼容首期 iCloud Drive / 本地与二期 CloudKit `CKAsset`（archived CloudKit Web Services 限 `CKAsset` field 最大 50MB），**消除原 64MB-vs-50MB 冲突**，二期 CloudKit 因此无需分片 / 降 cap / out-of-band（用户 2026-06-07 定）。
+- **CloudKit / CKSyncEngine 后置二期可选（路线已获用户批准 B8，2026-06-07，仍为二期实现）**：通过同一 `OpSyncPort` 接入，不成为真理归属方，**core 永不出现 CloudKit record schema**；op 形状须在任何 CloudKit 记录落地前冻结（apple-verification §7.3）。
+- **跨平台 / Web 用中立 object-store（S3 / WebDAV）适配器，非 iCloud**（iCloud 无 Web API）[plan §3、§8.4、§9]。
+- **local-only 语义（硬规则，用户 2026-06-07 firming）**：**`sync = "none"` 的 vault 严禁置于任何 iCloud ubiquity container 下**；放非 ubiquity 目录、标 `NSURLIsExcludedFromBackupKey` 排除备份、core 不挂任何 adapter、唯一出网点 `OpSyncPort::push` 受 adapter 门控可 grep 审计；**vault-open 强制断言路径不在任何 ubiquity container 下，否则拒开报警**；**`synced → local-only` 不可逆**（已离开设备的字节无法收回）[plan §8.4；key-decisions.md D21]。
+- **local-only 误放入 iCloud = blocked open（D21a）。** 用户绕过 Anchor 手动把 `sync = "none"` vault 挪进 ubiquity container 后，Anchor **不自动转同步**，而识别为 **blocked misplacement**：拒开、不挂 `OpSyncPort` adapter、不上传 / 拉取 / merge，返回 typed `local_only_vault_in_ubiquity`（CLI exit 4、payload 含 `recommendedActions = ["move_back","convert_to_icloud_sync"]`），提供 **Move Back** / **Convert to iCloud Sync** 两动作。**隐私边界**：OS 可能已上传，故只声称「Anchor 不从 iCloud 管理位置打开 / 续写 local-only vault」，**不**声称「字节绝不离开设备」[key-decisions.md D21a]。
+- **causal-stability watermark 门控 compaction**：watermark = 所有已知设备各自已确认 HLC frontier 的 `min`（非日历 epoch）；门控 op-log 截断进快照、loser-payload / trashed 节点 / OR-Set observed-add id 的硬删；**硬规则：绝不截断属于 open `ConflictRecord` 成员的 op**（含祖先删除 / 后代编辑登记的后代 content op）——把「无静默丢失」直接绑到 compaction [conflict §10、§13.1 #6；plan §8.4]。
+- **无 Anchor 自有云服务** [plan §2、§8.4]。
+
+> **加密信封边界（D22，已锁定 Phase-0 范围）：** 首期不实现 zero-knowledge；阶段0 锁定 `OpSyncPort` 与持久化之间的 **encryption envelope 缝**（首期 no-op / pass-through，日后接客户端加密层不迁移 op-log）+ **non-ZK 文案**，**绝不对中立 object-store 暗示 zero-knowledge**；完整 ZK / 密钥分发延后。**Mirror 目录组织（D05，已批准 2026-06-07）：** 人类可读路径 + 不纳入版本库（默认锁定）。**segment 大小与提交节奏、compaction GC 保留窗口与 manifest / cursor 协调**仍为 Phase-0 / Stage 1 收口项；其中**不可变 segment 文件**与**任何可变 manifest** 的区分须明确，manifest 的 `NSFileVersion` conflict 行为属 Stage 1 iCloud proof（apple-verification §8.2 D06/D14）[plan §8.4、§11]。**Sync 路线作为首期产品选择（B14）仍待用户确认（§13 暂停条件，plan §13）；local-only「sync=none 严禁置 iCloud」已由 D21 firm。**
+
+---
+
+## Editor baseline
+
+**`anchor-editor-core` 是 `anchor-core` 内部的无 UI 编辑语义模块，NOT a separate package/crate** [plan §8.1]。它只拥有可移植的 selection / intent shaping / patch 映射；持久化、schema 校验、op 创建、merge、最终非法结构拒绝**唯一边界是 `anchor-core::dispatch`** [plan §8.1]。
+
+`anchor-editor-core` 拥有的类型与职责 [plan §8.1]：
+
+- `EditorSnapshot`：面向编辑器的 Note / block tree 投影。
+- `BlockProjection`：block 到可编辑 / 嵌入 / 装饰块的投影。
+- `InlineRun`：文本 + typed range marks 的显示与命中测试片段。
+- `EditorSelection`：文本选择 / block 选择 / 嵌入编辑器选择的可移植表示。
+- `EditorIntent`：insert text、replace range、split block、merge backward、exit-container-on-empty、indent / outdent（reparent）、move block、transform block、apply mark、insert code block、paste fragment。
+- `EditorPatch`：dispatch 接受事务后返回给平台 adapter 的最小视图更新。
+- `TransactionResult`：changed ids、selection hint、validation error、new target/register revisions、projection freshness、mirror freshness、stale snapshot conflict。
+- 行为职责：portable selection、intent shaping、选择提升 / 降级规则、paste fragment shaping、跨 block 文本编辑**拆分建议**、platform patch 生成、undo intent 映射。
+
+**归 `anchor-core::dispatch`（不归 editor-core）：** tree invariant、schema-aware normalization、op creation、merge、最终非法结构拒绝 [plan §8.1]。
+
+**Apple 编辑器 adapter**（客户端侧）：把 `NSTextView` / `UITextView` / TextKit / 原生键盘事件 → `EditorIntent`，把 `EditorPatch` → 原生 view model；负责渲染、文本 / block 选择、intent 提取、代码 block 局部编辑器、表格交互 [plan §8.1]。
+
+**TextKit = mechanism-only（Observed，apple-verification §6）。** Apple 文档把 TextKit 定位为 text storage/layout infrastructure，匹配 Anchor 对其 input / layout / selection / hit-testing / IME surface 的角色。Codex 已证：`NSTextView` / `UITextView` adapter 编译面在 macOS + iOS simulator 通过；macOS `NSTextView` runtime 可设 UTF-16 selection、layout manager / text container 可用、`UndoManager` semantic undo closure 可执行（`textkit:undo_events=semantic-inverse-intent`）。**TextKit / `NSTextView`-`UITextView` / `NSRange`-`NSTextRange` / 平台 selection / view identity / 滚动-焦点-IME state 只作输入、排版、显示、命中测试机制，永不作持久化或文档模型**；`anchor-editor-core` 同样不拥有它们 [plan §8.1、§4.2、§13]。Undo 接 `NSUndoManager`，但 undo 动作 dispatch inverse intent / op，不直接改 TextKit buffer [plan §8.1]；若 undo 能在不产生 core op 的情况下改 TextKit buffer，则 editor boundary 失效（apple-verification §6.4）。
+
+**TextKit IME / 跨 view selection / accessibility / direct buffer undo 截断 / patch replay = Not run → Needs Stage 1 spike（apple-verification §6.1）。** Codex 只验证了 macOS runtime 的 selection / layout / semantic undo closure，未跑完整 editor view hierarchy、real input event capture、IME marked text、direct buffer undo interception、accessibility range 或 patch replay。
+
+**首期选择能力**：单块文本选择 + block 选择 + 嵌入编辑器选择。**跨 block 连续文本选择 = spike-only，非首期 UI 能力（apple-verification §6.3、§8.1）。** editor-core 可对 cross-block edit intent 做 shape/split 建议，但在 spike proof 前**不**承诺 polished continuous native selection；其难点（跨多 text view 连续选择、accessibility range、边缘 IME composition、跨多 buffer undo grouping、选择横跨 disappearing/splitting blocks 时的 patch replay）留 Stage 1。
+
+**UTF-16 边界（apple-verification §8.1 D18）。** 行内 offset 对外以 UTF-16 code unit 表达（对齐 Apple TextKit / Swift String bridging）为合理 Apple 边界；core 内部存储单位与 Swift/Rust 换算须 Stage 1 用 emoji / ZWJ / combining mark / CRLF/newline / IME marked text fixture 验证。
+
+**diff3 + fractional order-key 只在 Rust core 执行（Recommended，apple-verification §1、§8.4）。** 不由 Swift / TextKit 各自实现；同一编译产物经 binding 调用 → 跨 macOS / iOS 逐字节一致 by construction。fixture 的「双端逐字节一致」证据来自 Rust core consistency vectors，**不**来自 TextKit/Swift 专属实现；CI 一致性向量集仍是强制 gate（见 `fixture-set.md` F23 / F26）。
+
+---
+
+## Responsibility boundary matrix
+
+下表澄清五个责任面之间的边界——谁拥有什么、谁被禁止拥有什么。依据 [plan §8.1、§8.4、§8.5；conflict §3、§5、§6、§9；apple-verification §1、§3.4、§5、§6、§7]。
+
+| 责任面 | 拥有（owns） | 禁止拥有（forbidden from owning） |
+|---|---|---|
+| **`anchor-core`** | Note/Block/Inline/PropDef/Type/Tag/BlobRef 模型；`canonical_serialize` + blake3 `rev`；校验 / 规范化；append-only op-log + replay/materialization；三 register（location/content/life）merge 全部规则（content sub-field cell、diff3 body、OR-Set tags、causality-aware props/type_id LWW、life lattice、全序 `T`、content-addressed journal identity）[conflict §3-§6]；diff3 + fractional order-key 算法的**唯一**执行处（跨平台逐字节一致 by construction）；SQLite projection（派生、可重建）；import/export + mirror queue + freshness；**单一已校验 dispatch**；`OpSyncPort` trait（仅 id + 字节）；**DTO 词汇 + 版本 + schema envelope owner** [plan §8.1] | 任何 UI / 平台框架（SwiftUI/AppKit/UIKit）作为语义拥有者 [plan §9、§13]；TextKit/NSRange/view identity 作为持久化 [plan §4.2、§8.1]；任何云类型（CloudKit/CKRecord/CKAsset/zone/token、iCloud account state、`NSFileCoordinator`/`NSMetadataQuery`/`.icloud` placeholder）[plan §8.1、§8.4、§13；apple-verification §7.2]；diff3/order-key 在 Swift/TextKit 侧的另一份实现（apple-verification §8.4）；传输 / merge 之外的设备本地冲突 state（冲突态是派生读模型，非持久 sidecar）[conflict §2 原则7、§9] |
+| **`anchor-editor-core`**（core 内部模块，非独立 crate/package） | portable `EditorSnapshot`/`BlockProjection`/`InlineRun`/`EditorSelection`/`EditorIntent`/`EditorPatch`/`TransactionResult`；selection promote/demote；paste-fragment shaping；跨 block 文本编辑**拆分建议**；platform patch 生成；undo-intent 映射 [plan §8.1] | tree invariant / schema-aware normalization / op creation / merge / 最终非法结构拒绝（全归 `anchor-core::dispatch`）[plan §8.1]；TextKit / NSTextView / NSRange / 平台 selection / view identity [plan §8.1]；持久化真理；polished cross-block continuous native selection 作首期承诺（spike-only，apple-verification §6.3） |
+| **Apple 客户端 + 编辑器 adapter** | 原生产品表面（窗口/导航/菜单/输入/拖拽/分享/文件/外观/Settings/原生编辑器 surface/原生存储位置）；TextKit/NSTextView/UITextView 事件 → `EditorIntent`、`EditorPatch` → 原生 view model；**实现 `OpSyncPort`**（首期 iCloud Drive：NSFileCoordinator/.icloud/NSMetadataQuery + ubiquity container lookup / placeholder/download state / quota/account state / user-visible sync state → 字节给 core）[plan §8.1；apple-verification §7.2] | core 领域规则的副本（可预检明显 UI 约束，但 core 校验是权威）[plan §8.1]；任何持久写入的非 dispatch 路径（所有写入经 core dispatch）[plan §4.3、§13]；把 TextKit/selection/view identity/`NSAttributedString` attributes 当作模型或持久化 [plan §13；apple-verification §6.2]；business truth [plan §4.3] |
+| **CLI** | `apiVersion` 信封；vault 解析（`--vault`/`$ANCHOR_VAULT`/向上发现）；`--format tsv\|json`/`--fields`/`--limit`/`--count`；固定退出码（0/1/2/3/4/5/6）；结构化 Note/Block 读取；net-new MOVE/EXPORT/IMPORT/TYPE/PROP/DELETE；诊断命令 [plan §8.1、§9] | 任何绕过 core dispatch 的写入（写入一律通过 dispatch）[plan §8.1]；独立于 core 的 DTO 词汇（消费 core DTO，不独立定义 Note/Block/op/validation-error 语义，apple-verification §3.4）；MCP 语义（CLI 是本地结构化命令契约，**NOT MCP**） |
+| **`OpSyncPort` 适配器**（core 之外按平台实现） | segment + blob 的 list/pull/push 传输 / 持久化（仅 `SegmentId`/`BlobId` + 字节）[plan §8.1、§8.4] | merge / 冲突调和语义（全归 core）[plan §8.4、§13]；向 core 泄漏任何云 / 文件协调类型（CloudKit/CKRecord/CKAsset/zone/token、iCloud account state、`NSFileCoordinator`/`NSMetadataQuery`/`.icloud` placeholder、record shape）——**core 永不出现 CloudKit / iCloud 类型**，适配器只把已下载已协调的字节交给 core [plan §8.1、§8.4、§13；apple-verification §7.2]；成为真理归属方（op-log 是真理）[plan §8.4] |
+
+**边界主轴（一句话）：** 真理、模型、校验、merge、op 创建、DTO/schema 所有权、diff3/order-key 执行唯一归 `anchor-core`（含其内部 `anchor-editor-core` 仅做 selection/intent/patch 映射）；Apple 客户端、CLI、`OpSyncPort` 适配器都是 dispatch 的外壳，表达意图 / 呈现 / 传输字节，**都不拥有业务真理** [plan §4.3、§8.1、§8.5；apple-verification §1]。
