@@ -26,6 +26,14 @@ Apple spike implementation files:
 - `suites/anchor/apple/uniffi/SwiftSmoke/smoke.swift`
 - `suites/anchor/apple/macos-icloud-probe/AnchorMacICloudProbe.swift`
 - `suites/anchor/apple/macos-icloud-probe/AnchorMacICloudProbe.entitlements`
+- `suites/anchor/apple/AnchorMacICloudProbe/AnchorMacICloudProbe.xcodeproj/project.pbxproj`
+- `suites/anchor/apple/AnchorMacICloudProbe/AnchorMacICloudProbe.xcodeproj/project.xcworkspace/contents.xcworkspacedata`
+- `suites/anchor/apple/AnchorMacICloudProbe/AnchorMacProbe.entitlements`
+- `suites/anchor/apple/AnchorMacICloudProbe/AnchorMacProbeInfo.plist`
+- `suites/anchor/apple/AnchorMacICloudProbe/AnchorMacICloudProbe/AnchorMacICloudProbeApp.swift`
+- `suites/anchor/apple/AnchorMacICloudProbe/AnchorMacICloudProbe/ContentView.swift`
+- `suites/anchor/apple/AnchorMacICloudProbe/AnchorMacICloudProbe/ICloudRuntimeProbe.swift`
+- `suites/anchor/apple/AnchorMacICloudProbe/AnchorMacICloudProbe/Assets.xcassets/**`
 
 Workbench reports:
 
@@ -68,12 +76,14 @@ Repo-external Apple runtime probes extended for shared-container conflict testin
 - `suites/anchor/core/**`
 - any product app shell
 - any repo-local product app entitlement, bundle id, provisioning profile, or iCloud container
+- any repo-local product app target; the repo-local Xcode project is a verifier-only macOS project
 
 ## Current verification summary
 
 Passed:
 
 - Xcode/Swift/Rust environment with explicit `DEVELOPER_DIR`.
+- Bun glob check passes: `bun install --dry-run --frozen-lockfile --ignore-scripts`, and `find suites/anchor -name package.json -print` returns 0 files.
 - Rust Apple targets installed: `aarch64-apple-ios`, `aarch64-apple-ios-sim`.
 - `anchor-core` builds for macOS, iOS, and iOS Simulator.
 - Separate C ABI FFI wrapper builds three staticlib slices.
@@ -98,18 +108,25 @@ Passed:
 - macOS + iOS shared-container online conflict harness passes in coordinated mode: both devices converged to macOS `seq=79`, `conflict_versions=0`.
 - macOS + iOS shared-container online conflict harness passes in raw write mode: both devices converged to iOS `seq=119`, `conflict_versions=0`.
 - macOS + iOS shared-container offline fork conflict harness passes: after iPhone was offline, iOS wrote `ios-offline`, macOS wrote `mac-online`, reconnect selected `ios-offline` as current and exposed 1 unresolved `NSFileVersion` conflict containing the `mac-online` JSON.
+- Repo-local Xcode-created macOS verifier project exists under `suites/anchor/apple/AnchorMacICloudProbe`.
+- Repo-local verifier target supports macOS only (`SUPPORTED_PLATFORMS = macosx`).
+- Repo-local verifier `project.pbxproj` is Xcode-created and was not hand-patched after creation.
+- Repo-local verifier macOS signed build passes with `Mac Team Provisioning Profile: dev.plimeor.AnchorMacICloudProbe` using explicit build settings: `CODE_SIGN_ENTITLEMENTS=AnchorMacProbe.entitlements`, `INFOPLIST_FILE=AnchorMacProbeInfo.plist`, `GENERATE_INFOPLIST_FILE=NO`.
+- Repo-local verifier runtime has CloudDocuments-only iCloud entitlement against shared container `<ICLOUD_CONTAINER>`; CloudKit is not enabled.
+- Repo-local verifier macOS runtime passes container lookup, `.anchorvault` Info.plist package declaration, coordinated read/write, 1024-file subset, and 10K / 50K / 100K direct enumeration; package-internal `NSMetadataQuery` count remains 0. Current repo-local scale timings are 10K `3634.66ms` write / `22.53ms` enum, 50K `18455.09ms` write / `124.70ms` enum, and 100K `38509.85ms` write / `269.50ms` enum.
+- Repo-local verifier macOS placeholder/download probe observes package-internal segment behavior: `isUbiquitous=false`, download status `nil`, `evictUbiquitousItem` and `startDownloadingUbiquitousItem` both return `NSCocoaErrorDomain:4`.
 - core cloud-symbol grep audit passes with 0 cloud matches.
 
 Open gates / blocked:
 
-- Repo-local signed Anchor app target.
+- Repo-local signed Anchor product app target; the current repo-local project is a verifier target only.
 - Full Anchor target iCloud runtime.
 - standalone signed macOS CLI remains invalid for restricted iCloud entitlements; use a real `.app`.
 - iOS physical-device `NSMetadataQuery` did not gather within the probe windows and returned 0 segment results.
-- Remote placeholder download; current probe only called download on a local/current segment.
+- Remote placeholder download; current macOS probe observed local package-internal evict/download failure, not a true remote `.icloud` placeholder.
 - Product conflict-resolution policy for unresolved `NSFileVersion` manifest conflicts. Runtime materialization was observed; resolution/removal was not implemented or performed.
 - over-quota / signed-out states.
-- remote placeholder, signed-out / over-quota, iOS large-scale delivery, and steady-state segment budget gates.
+- remote placeholder, signed-out / over-quota, non-macOS large-scale delivery, and steady-state segment budget gates.
 
 ## Current decision state
 

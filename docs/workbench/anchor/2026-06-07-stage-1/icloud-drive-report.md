@@ -6,32 +6,38 @@ Status: workbench artifact, not a public interface contract
 
 ## Conclusion
 
-iCloud Drive status is **compromise / still not CP-1 viable**.
+iCloud Drive status is **compromise: viable as the CP-1 default transport only with direct package-internal enumeration and explicit delivery gates**.
 
-The connected iPhone removed the earlier hard runtime blocker. This run now proves the signed entitlement path and several iCloud file-transport mechanisms on a physical device:
+The current CP-1 gate is macOS-only and uses a repo-local macOS verifier app created through Xcode UI. The verifier project file was not hand-patched after creation; the iCloud entitlement and Info.plist inputs were supplied as explicit `xcodebuild` build settings for the signed runtime probe. This run proves:
 
 - explicit and implicit ubiquity container lookup return non-nil
 - a `.anchorvault` directory declared as `dev.plimeor.anchor.vault` conforms to `com.apple.package`
 - the vault package path is reported as ubiquitous
 - `NSFileCoordinator` write/read of a segment succeeds
-- the segment reports `isUbiquitousItem = true` and download status `Current`
-- `startDownloadingUbiquitousItem(at:)` succeeds on the local/current segment
+- the package-internal segment reports `isUbiquitousItem = false` and download status `nil` on macOS
+- `evictUbiquitousItem(at:)` and `startDownloadingUbiquitousItem(at:)` both return `NSCocoaErrorDomain:4` for the freshly written package-internal segment on macOS
 - same-device manifest double-write produced 0 unresolved conflict versions
-- a 1024 segment measured subset wrote in about 3720ms
-- a shared-container macOS + iOS timed conflict harness ran on two physical devices
-- online coordinated and raw concurrent writes converged cross-device but produced 0 `NSFileVersion` conflicts
-- a true offline iOS / online macOS manifest fork produced 1 unresolved `NSFileVersion` conflict after iOS reconnected
-- signed macOS scale probe wrote 10K / 50K / 100K package-internal segment files and direct-enumerated the same counts
+- a 1024 segment measured subset wrote in about 378ms
+- repo-local signed macOS scale wrote 10K / 50K / 100K package-internal segment files and direct-enumerated the same counts
+- package-internal `NSMetadataQuery` gathered but returned 0 `.seg` files at 1K / 10K / 50K / 100K
 
-But it is **not viable for CP-1 default transport approval as originally phrased** because package-internal segment discovery cannot rely on `NSMetadataQuery`. A real signed macOS app proves `NSMetadataQuery` can discover the `.anchorvault` package itself and can discover files outside the package, but it still returns 0 for `.seg` files inside the `.anchorvault` package, including a visible non-dot subdirectory and the 10K / 50K / 100K scale runs. This keeps iCloud Drive in compromise state: use metadata query for vault/package discovery, use file coordination plus direct package-internal enumeration for segment files, and keep remote placeholder, conflict-resolution, account-state, iOS scale/delivery, and steady-state segment-budget gates open.
+The hard constraint is that package-internal segment discovery cannot rely on `NSMetadataQuery`. A real signed macOS app proves `NSMetadataQuery` can discover the `.anchorvault` package itself and can discover files outside the package, but it still returns 0 for `.seg` files inside the `.anchorvault` package, including a visible non-dot subdirectory and the 10K / 50K / 100K scale runs. The viable adapter shape is: use metadata query for vault/package discovery, use file coordination plus direct package-internal enumeration for segment files, and keep remote placeholder, conflict-resolution, account-state, non-macOS scale/delivery, and steady-state segment-budget gates open.
 
-The manifest conflict gate is no longer blocked at the runtime-detection layer: same-account online concurrent writes converge without unresolved versions, while an offline iOS fork followed by reconnect produced a real unresolved conflict version. This does not approve product conflict resolution. It only proves the adapter can observe the file-version conflict surface.
+Historical Stage 1 multi-device evidence remains recorded below: same-account online concurrent writes converged without unresolved versions, while an offline iOS fork followed by reconnect produced a real unresolved conflict version. This does not approve product conflict resolution. It only proves the adapter can observe the file-version conflict surface outside the current macOS-only gate.
 
 ## Created probe files
 
 - `suites/anchor/apple/AnchorAppleSpike/Sources/AnchorICloudDriveProbe/AnchorICloudDriveProbe.swift`
 - `suites/anchor/apple/macos-icloud-probe/AnchorMacICloudProbe.swift`
 - `suites/anchor/apple/macos-icloud-probe/AnchorMacICloudProbe.entitlements`
+- `suites/anchor/apple/AnchorMacICloudProbe/AnchorMacICloudProbe.xcodeproj/project.pbxproj`
+- `suites/anchor/apple/AnchorMacICloudProbe/AnchorMacICloudProbe.xcodeproj/project.xcworkspace/contents.xcworkspacedata`
+- `suites/anchor/apple/AnchorMacICloudProbe/AnchorMacProbe.entitlements`
+- `suites/anchor/apple/AnchorMacICloudProbe/AnchorMacProbeInfo.plist`
+- `suites/anchor/apple/AnchorMacICloudProbe/AnchorMacICloudProbe/AnchorMacICloudProbeApp.swift`
+- `suites/anchor/apple/AnchorMacICloudProbe/AnchorMacICloudProbe/ContentView.swift`
+- `suites/anchor/apple/AnchorMacICloudProbe/AnchorMacICloudProbe/ICloudRuntimeProbe.swift`
+- `suites/anchor/apple/AnchorMacICloudProbe/AnchorMacICloudProbe/Assets.xcassets/**`
 
 The repo-local probe references iCloud Drive APIs only in the Swift adapter layer:
 
@@ -89,6 +95,21 @@ For the multi-device conflict harness, the iOS and macOS repo-external probes we
 - launch flag: `--icloud-conflict-probe <runID> <startEpochMilliseconds> <writer> <mode> <iterations> <settleSeconds>`
 - modes tested: `coordinated` via `NSFileCoordinator` with `.forReplacing`, and `raw` via direct `Data.write`
 
+Repo-local Xcode-created macOS verifier app:
+
+- project: `suites/anchor/apple/AnchorMacICloudProbe/AnchorMacICloudProbe.xcodeproj`
+- target/scheme: `AnchorMacICloudProbe`
+- created through Xcode UI as a macOS App
+- platforms: macOS only (`SUPPORTED_PLATFORMS = macosx`)
+- bundle id: `dev.plimeor.AnchorMacICloudProbe`
+- team: `<DEVELOPER_NAME>` / `<TEAM_ID>`
+- project configuration provenance: `project.pbxproj` is Xcode-created; Codex did not hand-patch it
+- signed build input: `CODE_SIGN_ENTITLEMENTS=AnchorMacProbe.entitlements`
+- Info.plist input: `INFOPLIST_FILE=AnchorMacProbeInfo.plist GENERATE_INFOPLIST_FILE=NO`
+- iCloud runtime entitlement: CloudDocuments only, shared container `<ICLOUD_CONTAINER>`, CloudKit not enabled
+- Info.plist runtime declaration: `.anchorvault` exported as `dev.plimeor.anchor.vault` conforming to `com.apple.package`
+- runtime probe entrypoint: app init runs only for `--icloud-runtime-probe` or `--icloud-scale-probe`
+
 ## Commands and results
 
 | Command | Result |
@@ -127,6 +148,18 @@ For the multi-device conflict harness, the iOS and macOS repo-external probes we
 | `/tmp/anchor-mac-icloud-scale-derived/Build/Products/Debug/AnchorMacICloudProbe.app/Contents/MacOS/AnchorMacICloudProbe --icloud-scale-probe scale-10k-20260607 10000 20 cleanup` | passed; write `33759.85ms`, direct count `10000`, direct enumeration `27.70ms`, package-internal metadata count `0` |
 | `/tmp/anchor-mac-icloud-scale-derived/Build/Products/Debug/AnchorMacICloudProbe.app/Contents/MacOS/AnchorMacICloudProbe --icloud-scale-probe scale-50k-20260607 50000 20 cleanup` | passed; write `172355.40ms`, direct count `50000`, direct enumeration `142.63ms`, package-internal metadata count `0` |
 | `/tmp/anchor-mac-icloud-scale-derived/Build/Products/Debug/AnchorMacICloudProbe.app/Contents/MacOS/AnchorMacICloudProbe --icloud-scale-probe scale-100k-20260607 100000 20 cleanup` | passed; write `337324.94ms`, direct count `100000`, direct enumeration `299.51ms`, package-internal metadata count `0` |
+| `bun install --dry-run --frozen-lockfile --ignore-scripts` | passed; workspace resolution did not pull `suites/anchor/apple` into Bun workspaces |
+| `find suites/anchor -name package.json -print` | passed; 0 results |
+| `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project suites/anchor/apple/AnchorMacICloudProbe/AnchorMacICloudProbe.xcodeproj -list` | passed; target/scheme `AnchorMacICloudProbe` present |
+| `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project suites/anchor/apple/AnchorMacICloudProbe/AnchorMacICloudProbe.xcodeproj -scheme AnchorMacICloudProbe -showdestinations` | passed; destinations are macOS only |
+| `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project suites/anchor/apple/AnchorMacICloudProbe/AnchorMacICloudProbe.xcodeproj -scheme AnchorMacICloudProbe -destination 'platform=macOS,arch=arm64' -configuration Debug -derivedDataPath /tmp/anchor-apple-stage1/DerivedData/AnchorMacICloudProbe-xcode-ui -allowProvisioningUpdates -allowProvisioningDeviceRegistration CODE_SIGN_ENTITLEMENTS=AnchorMacProbe.entitlements INFOPLIST_FILE=AnchorMacProbeInfo.plist GENERATE_INFOPLIST_FILE=NO build` | passed; Xcode used `Mac Team Provisioning Profile: dev.plimeor.AnchorMacICloudProbe` and Apple Development signing; the project file was not modified by this command |
+| `codesign -d --entitlements :- /tmp/anchor-apple-stage1/DerivedData/AnchorMacICloudProbe-xcode-ui/Build/Products/Debug/AnchorMacICloudProbe.app` | passed; CloudDocuments and shared `<ICLOUD_CONTAINER>` entitlements present |
+| `plutil -p /tmp/anchor-apple-stage1/DerivedData/AnchorMacICloudProbe-xcode-ui/Build/Products/Debug/AnchorMacICloudProbe.app/Contents/Info.plist` | passed; `.anchorvault` exported package UTType and `NSUbiquitousContainers` declaration present |
+| `security cms -D -i /tmp/anchor-apple-stage1/DerivedData/AnchorMacICloudProbe-xcode-ui/Build/Products/Debug/AnchorMacICloudProbe.app/Contents/embedded.provisionprofile` | passed; Xcode-managed profile includes both `iCloud.dev.plimeor.AnchorMacICloudProbe` and `<ICLOUD_CONTAINER>` |
+| `/tmp/anchor-apple-stage1/DerivedData/AnchorMacICloudProbe-xcode-ui/Build/Products/Debug/AnchorMacICloudProbe.app/Contents/MacOS/AnchorMacICloudProbe --icloud-runtime-probe` | passed, app exited 0; package-internal segment evict/download both returned `NSCocoaErrorDomain:4` |
+| `/tmp/anchor-apple-stage1/DerivedData/AnchorMacICloudProbe-xcode-ui/Build/Products/Debug/AnchorMacICloudProbe.app/Contents/MacOS/AnchorMacICloudProbe --icloud-scale-probe 10000` | passed; write `3634.66ms`, direct count `10000`, direct enumeration `22.53ms`, package-internal metadata count `0` |
+| `/tmp/anchor-apple-stage1/DerivedData/AnchorMacICloudProbe-xcode-ui/Build/Products/Debug/AnchorMacICloudProbe.app/Contents/MacOS/AnchorMacICloudProbe --icloud-scale-probe 50000` | passed; write `18455.09ms`, direct count `50000`, direct enumeration `124.70ms`, package-internal metadata count `0` |
+| `/tmp/anchor-apple-stage1/DerivedData/AnchorMacICloudProbe-xcode-ui/Build/Products/Debug/AnchorMacICloudProbe.app/Contents/MacOS/AnchorMacICloudProbe --icloud-scale-probe 100000` | passed; write `38509.85ms`, direct count `100000`, direct enumeration `269.50ms`, package-internal metadata count `0` |
 
 Signed-device runtime output:
 
@@ -257,12 +290,49 @@ Signed macOS scale output:
 100K: write_ms=337324.94 direct_seg_count=100000 direct_enumeration_ms=299.51 metadata_gathered=true metadata_seg_count=0 cleanup_ms=11282.01
 ```
 
+Repo-local signed macOS verifier runtime output:
+
+```text
+icloud_probe explicit_nil=false
+icloud_probe implicit_nil=false
+icloud_probe container_path=/Users/plimeor/Library/Mobile Documents/iCloud~dev~plimeor~AnchorProvisionProbe
+icloud_probe vault_package=AnchorStage1MacProbe.anchorvault
+icloud_probe vault_uttype_lookup=dyn.ah62d4rv4ge80c5xdrb11e7xbsz0hk
+icloud_probe vault_type_identifier=dev.plimeor.anchor.vault
+icloud_probe vault_is_ubiquitous=true
+icloud_probe coordinated_segment_bytes=30
+icloud_probe coordinated_segment_equal=true
+icloud_probe segment_is_ubiquitous=false
+icloud_probe segment_download_status=nil
+icloud_probe segment_type_identifier=dyn.ah62d4rv4ge80c5xdrb11e65fq6
+icloud_probe evict_segment_error=NSCocoaErrorDomain:4 file not found
+icloud_probe after_evict_is_ubiquitous=false
+icloud_probe after_evict_download_status=nil
+icloud_probe start_download_error=NSCocoaErrorDomain:4 file not found
+icloud_probe manifest_conflict_versions=0
+icloud_probe metadata_initial_gathered=true
+icloud_probe metadata_seg_count=0
+icloud_probe scale_subset_files=1024
+icloud_probe scale_subset_write_ms=377.70
+icloud_probe scale_subset_direct_count=1024
+icloud_probe scale_subset_enum_ms=2.41
+icloud_probe cleanup_removed=true
+```
+
+Repo-local signed macOS verifier scale output:
+
+```text
+10K: write_ms=3634.66 direct_seg_count=10000 direct_enumeration_ms=22.53 metadata_gathered=true metadata_seg_count=0 cleanup_ms=673.31
+50K: write_ms=18455.09 direct_seg_count=50000 direct_enumeration_ms=124.70 metadata_gathered=true metadata_seg_count=0 cleanup_ms=5374.98
+100K: write_ms=38509.85 direct_seg_count=100000 direct_enumeration_ms=269.50 metadata_gathered=true metadata_seg_count=0 cleanup_ms=12324.26
+```
+
 Scale interpretation:
 
 - macOS signed-app direct package-internal enumeration is not the current no-go: 100K files enumerated in about 300ms after writes completed.
-- Per-file coordinated writes are expensive but linear in this probe: about 3.3s per 1K files.
+- Per-file direct writes are linear in this probe: about 0.36s per 1K files for the current repo-local verifier run.
 - `NSMetadataQuery` remains unusable for package-internal segment discovery at every tested scale: 10K / 50K / 100K all returned 0 package-internal `.seg` files.
-- This does not prove remote placeholder behavior, iOS large-scale behavior, over-quota/signed-out states, or product steady-state segment budget.
+- This does not prove remote placeholder behavior, non-macOS large-scale behavior, over-quota/signed-out states, or product steady-state segment budget.
 
 Two-device conflict harness output:
 
@@ -354,34 +424,35 @@ Observed core boundary remains intact: core traffics only `SegmentId` / `BlobId`
 
 | Item | Status | Evidence |
 |---|---|---|
-| Anchor target iCloud capability signing | partial passed | repo-external signed probe target has CloudDocuments entitlement; no repo-local Anchor app target exists |
-| ubiquity container lookup | passed | explicit and implicit lookup returned non-nil on physical iPhone |
-| vault file package with `com.apple.package` UTType | passed for local runtime type id | `.anchorvault` package reported `dev.plimeor.anchor.vault` and `isUbiquitousItem=true` |
-| `NSMetadataQuery` live discovery | compromise | iOS device did not gather in the probe windows; macOS signed app gathered and discovered `.anchorvault` package, but did not enumerate package-internal `.seg` files |
-| `NSFileCoordinator` read/write | passed | coordinated write/read of 28 bytes, equality true |
-| placeholder download behavior | partial / platform-sensitive | iOS returned ok on a current local segment; macOS returned `NSCocoaErrorDomain:4` on a freshly written package-internal segment with nil download status; no remote placeholder case |
-| manifest conflict / `NSFileVersion` behavior | partial passed | same-device and online concurrent writes produced 0 conflict versions; offline iOS / online macOS fork produced 1 unresolved conflict version after reconnect; resolution policy not implemented |
+| Anchor target iCloud capability signing | partial passed | repo-local Xcode-created verifier app is signed with CloudDocuments entitlement via explicit build settings; no repo-local product Anchor app target exists |
+| ubiquity container lookup | passed | explicit and implicit lookup returned non-nil on repo-local signed macOS verifier |
+| vault file package with `com.apple.package` UTType | passed for local runtime type id | `.anchorvault` package reported `dev.plimeor.anchor.vault` and `isUbiquitousItem=true`; repo-local Info.plist exports `.anchorvault` as `dev.plimeor.anchor.vault` conforming to `com.apple.package` |
+| `NSMetadataQuery` live discovery | compromise | repo-local macOS verifier gathered but returned 0 package-internal `.seg` files at 1K / 10K / 50K / 100K |
+| `NSFileCoordinator` read/write | passed | coordinated write/read of 30 bytes, equality true |
+| placeholder download behavior | partial / macOS package-internal failure observed | macOS package-internal segment reported `isUbiquitous=false`, download status `nil`; `evictUbiquitousItem` and `startDownloadingUbiquitousItem` both returned `NSCocoaErrorDomain:4`; no remote placeholder case |
+| manifest conflict / `NSFileVersion` behavior | partial passed | same-device macOS manifest double-write produced 0 conflict versions; historical offline iOS / online macOS fork produced 1 unresolved conflict version after reconnect; resolution policy not implemented |
 | signed-out / over-quota states | Blocked / not run | requires account/device state |
-| segment-file-count scale 1K/10K/50K/100K | compromise | iOS wrote 1024 files in 3720.38ms; macOS wrote 1024 / 10K / 50K / 100K files and direct enumeration saw the same counts; macOS direct enumeration was 27.70ms at 10K, 142.63ms at 50K, 299.51ms at 100K; package-internal metadata enumeration stayed 0 |
+| segment-file-count scale 1K/10K/50K/100K | compromise | repo-local macOS verifier wrote 1024 / 10K / 50K / 100K files; direct enumeration saw the same counts; enumeration was `22.53ms` at 10K, `124.70ms` at 50K, `269.50ms` at 100K; package-internal metadata enumeration stayed 0 |
 | local-only path-in-ubiquity boundary | Blocked / not run | requires runtime path/account/container cases |
-| macOS signed runtime | passed for real `.app` | true macOS app project signed with Mac Team Provisioning Profile and ran the probe; loose executable remains invalid for restricted iCloud entitlements |
+| macOS signed runtime | passed for real `.app` | repo-external and repo-local macOS app projects signed with Mac Team Provisioning Profile and ran the probe; repo-local project file was Xcode-created and not hand-patched; loose executable remains invalid for restricted iCloud entitlements |
 
 ## Decision impact
 
-iCloud Drive should remain **compromise / still not CP-1 viable as default transport**.
+iCloud Drive should remain **compromise: viable as the CP-1 default transport only under the direct-enumeration adapter shape and remaining delivery gates**.
 
 The correct CP-1 state is now:
 
 - iCloud adapter compile surface: passed
 - Core cloud boundary audit: passed
-- signed physical-device ubiquity container: passed
+- signed macOS ubiquity container: passed
 - package type id and ubiquitous package path: passed
 - coordinated read/write: passed
-- local/current segment download call: passed
+- package-internal segment placeholder/download behavior: macOS failure observed with `NSCocoaErrorDomain:4`; remote placeholder not proved
+- repo-local Xcode-created macOS verifier: project created through Xcode UI; `project.pbxproj` not hand-patched; signed macOS build/runtime passed via explicit entitlement/Info build settings
 - metadata-query discovery: package discovery passed on macOS, package-internal segment metadata enumeration failed
-- 1K / 10K / 50K / 100K package-internal write/direct-enumeration path: passed on signed macOS app, failed for package-internal metadata enumeration
+- 1K / 10K / 50K / 100K package-internal write/direct-enumeration path: passed on repo-local signed macOS app, failed for package-internal metadata enumeration
 - multi-device online concurrent manifest write: passed for convergence, produced 0 unresolved conflicts
 - offline/unsynced manifest conflict materialization: passed; current file was `ios-offline`, conflict version retained `mac-online`
-- 10K/50K/100K scale gate: passed for signed macOS direct enumeration; not run for iOS or remote placeholder/sync delivery
+- 10K/50K/100K scale gate: passed for signed macOS direct enumeration; not run for remote placeholder/sync delivery
 
-Stage 1 decision files should not approve an iCloud adapter that depends on `NSMetadataQuery` for per-segment discovery inside `.anchorvault`. The viable compromise shape is: `NSMetadataQuery` discovers vault packages, `NSFileCoordinator` protects reads/writes, and the adapter directly enumerates package-internal segment files. That compromise still needs a product conflict-resolution policy, remote placeholder, signed-out/over-quota, iOS large-scale delivery behavior, and steady-state segment budget evidence before default transport approval.
+Stage 1 decision files should not approve an iCloud adapter that depends on `NSMetadataQuery` for per-segment discovery inside `.anchorvault`. The viable compromise shape is: `NSMetadataQuery` discovers vault packages, `NSFileCoordinator` protects reads/writes, and the adapter directly enumerates package-internal segment files. That compromise still needs a product conflict-resolution policy, remote placeholder, signed-out/over-quota, non-macOS large-scale delivery behavior, and steady-state segment budget evidence before default transport approval.

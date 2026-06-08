@@ -3,7 +3,7 @@
 日期：2026-06-07
 状态：**workbench artifact** —— 非公开接口契约。本文件把 Codex / Apple verifier 的 Stage 1 实测报告（binding / TextKit / iCloud Drive）与 Claude / core owner 的 core spike 证据（`core-spike-report.md` / `core-evidence.md`）整合为**当前决策状态**与 **CP-1 下一步 gate** 的收口结论。
 
-> **边界声明（AGENTS 工作台规则，强制）：** 创建本文件**不授权**任何 package / workspace / app / 生成 lockfile 改动；**不**改 root `package.json` / `bun.lock` / `tsconfig` / workspace 配置，**不**创建产品 app shell / entitlement / bundle id / iCloud container，**不**把 Apple probe 升级为产品工程。权威接口契约在实现后归 `anchor-core` 包 README。
+> **边界声明（AGENTS 工作台规则，强制）：** 创建本文件**不授权**任何 package / workspace / 产品 app / 生成 lockfile 改动；**不**改 root `package.json` / `bun.lock` / `tsconfig` / workspace 配置，**不**创建产品 app shell / entitlement / bundle id / iCloud container。`suites/anchor/apple/AnchorMacICloudProbe` 是 verifier-only macOS Xcode project，不是产品工程。权威接口契约在实现后归 `anchor-core` 包 README。
 >
 > 引用：core 报告 = `core-spike-report.md` / `core-evidence.md`；Apple 报告 = `apple-binding-report.md` / `textkit-adapter-report.md` / `icloud-drive-report.md`；交接 = `codex-apple-input.md`（core→Codex 被调 surface）/ `apple-patch-list-for-claude.md`（Codex→integration evidence）；决策 = `../2026-06-06-phase-0/`（`cp-0-final.md` / `cp-0-approval.md` / `key-decisions.md` D01–D38 / `contract-baseline.md` / `fixture-set.md` F01–F43 / `stage-1-spike-plan.md` / `stage-1-entry-brief.md`）。
 
@@ -17,12 +17,14 @@
 
 ## 2. Verified ground truth（Stage 1 Observed）
 
-Stage 1 evidence is committed and synchronized into the current decision files. Integration scope contains no code, root workspace, lockfile, Apple product app, entitlement, or bundle id changes.
+Stage 1 evidence is synchronized into the current decision files. The current repo-local Apple addition is limited to a verifier-only macOS project created through Xcode UI under `suites/anchor/apple/AnchorMacICloudProbe`; `project.pbxproj` was not hand-patched after creation. The signed iCloud runtime uses explicit `xcodebuild` entitlement/Info build settings. Root workspace, lockfile, core, and product app targets remain unchanged.
 
 | 命令 | 观察 |
 |---|---|
-| `git status --short` | clean |
+| `git status --short` | expected changes are docs plus verifier-only Apple project files under `suites/anchor/apple/AnchorMacICloudProbe` |
 | `git diff --check` | clean |
+| `bun install --dry-run --frozen-lockfile --ignore-scripts` | passed；Bun workspace resolution did not pull `suites/anchor/apple` into workspaces |
+| `find suites/anchor -name package.json -print` | 0 results |
 | `cargo test --manifest-path suites/anchor/Cargo.toml` | **74 passed; 0 failed**；1 ignored（`scale_bench::replay_cost_curve`，默认门控） |
 | `cargo build … --target wasm32-unknown-unknown` | `Finished` — OK |
 | `cargo build … --target aarch64-linux-android` | `Finished` — OK |
@@ -42,8 +44,8 @@ Stage 1 evidence is committed and synchronized into the current decision files. 
 | **mirror / search parity（组 5）** | **go** | `mirror_parity` 测试通过：structured search == ripgrep(md)、mirror 写失败隔离（op-log 不回滚）、body 冲突 git fence。 |
 | **Apple binding（组 2，A2/B4）** | **approved / release-gated** | 用户已于 2026-06-07 批准产品边界：`UniFFI DTO / ordinary dispatch + C ABI bytes fast path`。typed `ValidationError` enum 已落到 core DTO + C ABI Swift wrapper + UniFFI generated enum；synchronous release-surface smoke 已过 Swift 6 strict concurrency + warnings-as-errors。Release implementation gates 为 async `Sendable` surface、最终 DTO/error vocabulary、product wrapper import surface、CI/fresh-machine 复现（§5）。 |
 | **TextKit adapter（组 3，D18）** | **compromise（mechanism-go）** | 机制面可行且边界干净（Swift 零确定性语义、buffer 非真理）；real-app responder-chain undo 抑制、IME marked-text commit、accessibility、hit-testing、patch replay over moving views、UTF-16 内部单位换算稳定性仍是**产品级 runtime gate**（Not run）。 |
-| **iCloud Drive（组 4，B14）** | **approved default transport / compromise constraints** | 用户已批准 iCloud Drive 作首期 default transport（2026-06-07）。signed iPhone + signed macOS app 通过 ubiquity/package/coordinator/direct-enumeration/online-converge/offline-conflict；package-internal `.seg` 发现**不依赖** `NSMetadataQuery`。remote placeholder / account states / iOS large-scale / steady-state budget / conflict policy 仍是 delivery gates（§6）。 |
-| **layout / Bun（D02）** | **compromise** | Option A 纪律 live 守住（`members=["core"]`、`suites/anchor/**` 无 `package.json`、root 配置未动）；`bun install` / `bun run check` 对该 glob 的行为本轮未跑 = Unknown（实现期收口，非确定性 gate）。 |
+| **iCloud Drive（组 4，B14）** | **approved default transport / compromise constraints** | 用户已批准 iCloud Drive 作首期 default transport（2026-06-07）。signed macOS app + repo-local Xcode-created macOS verifier 通过 ubiquity/package/coordinator/direct-enumeration/build-signing gates；repo-local verifier 的 project file 只由 Xcode UI 生成，CloudDocuments/Info 由 build settings 输入；package-internal `.seg` 发现**不依赖** `NSMetadataQuery`。remote placeholder / account states / non-macOS runtime-scale / steady-state budget / conflict policy 仍是 delivery gates（§6）。 |
+| **layout / Bun（D02）** | **go for macOS-only verifier placement** | Option A 纪律 live 守住（`members=["core"]`、`suites/anchor/**` 无 `package.json`、root 配置未动）；`bun install --dry-run --frozen-lockfile --ignore-scripts` passed。 |
 | **retention（D14/D38）** | **compromise** | 四-horizon 模型内部一致、core `retention`(7) + `segment_budget`(3) 测试通过；steady-state segment budget、million-op compaction、stale-peer watermark advance、product conflict-resolution policy 是 scale-gate / Codex-Apple 工作（未测）。 |
 
 > **Verdict 语义：** go = 本轮证据足以进 CP-1 当前基线；approved / release-gated = 产品边界已批准但仍有 release delivery gate；compromise = 机制/core 面通过但仍有明确 open gate；blocked / no-go = 无（本轮未出现）。
@@ -57,7 +59,7 @@ Stage 1 evidence is committed and synchronized into the current decision files. 
 - **Core（`core-evidence.md`）：** 74 测试、clippy 干净、wasm32+android 编译、零云符号、跨目标一致性 golden（8 向量，`aarch64-apple-darwin` 捕获）、million-op replay 线性（release `--ignored`，report-Observed ≈2.1µs/op、1.25M ops≈2.6s）。
 - **Binding（`apple-binding-report.md`）：** Rust macOS/iOS/iOS-sim 三 slice 构建；UniFFI generated Swift **full round-trip**（`EditorIntentDto` insert→`changedIds=[blk_a]`、UTF-16 caret `3:3`、`set_life=deleted` 返回 typed `ValidationErrorCode.directActiveToDeleted`、post-dispatch snapshot revision + 非空 segment bytes + `seg_` id）；C ABI/UniFFI 三 slice XCFramework + SwiftPM wrapper import；release-surface rerun 下 C ABI/UniFFI 三 slice XCFramework 均创建成功，generated Swift 通过 `-swift-version 6 -strict-concurrency=complete -warnings-as-errors` synchronous smoke；1/4/16/64MB bytes benchmark（C ABI 64MB ≈38.22ms/96MB，UniFFI 64MB ≈145.22ms/267MB，3.8×慢/2.8×RSS）。跨 FFI 真值一致：fixture `snapshot_revision 3ef88671…a877b63` 在两侧 Swift smoke 与 core `determinism_vectors` 逐字节一致。
 - **TextKit（`textkit-adapter-report.md`）：** macOS `NSTextView` runtime 设 UTF-16 selection、layout、adapter-owned `UndoManager` semantic-inverse-intent；iOS sim 编译；UTF-16 fixture 计数（emoji/ZWJ/combining/CRLF/mixed）；intent-shaped 映射 + patch replay 到 view-model projection（buffer 非真理）。
-- **iCloud（`icloud-drive-report.md`）：** signed iPhone + signed macOS `.app` 通过 ubiquity container lookup、`.anchorvault` package UTType（conform `com.apple.package`、`vault_is_ubiquitous=true`）、`NSFileCoordinator` 读写（equal）、package-level `NSMetadataQuery` 发现（macOS `count=1`）、package-internal **direct enumeration**（macOS 1024 hidden + 128 visible）、macOS 10K/50K/100K package-internal direct enumeration（≈27.70ms / 142.63ms / 299.51ms）、1024-file subset 写（iOS≈3720ms / macOS≈3247ms）、online 跨设备收敛（0 conflict）、offline fork 后 `NSFileVersion` 冲突 materialization（1 retained，未解决）。**确认：** package-internal `.seg` 发现**返回 0**（每变体与 10K/50K/100K），package-external `.seg` 被枚举（125/128）。
+- **iCloud（`icloud-drive-report.md`）：** signed macOS `.app` + repo-local Xcode-created macOS verifier 通过 ubiquity container lookup、`.anchorvault` package UTType（conform `com.apple.package`、`vault_is_ubiquitous=true`）、`NSFileCoordinator` 读写（equal）、package-level `NSMetadataQuery` 发现（macOS `count=1`）、package-internal **direct enumeration**（macOS 1024 hidden + 128 visible）、macOS 10K/50K/100K package-internal direct enumeration（≈27.70ms / 142.63ms / 299.51ms）、repo-local macOS 10K/50K/100K direct enumeration（≈22.53ms / 124.70ms / 269.50ms）、1024-file subset 写（macOS≈3247ms / repo-local macOS≈378ms）、online 跨设备收敛（0 conflict）、offline fork 后 `NSFileVersion` 冲突 materialization（1 retained，未解决）。Repo-local verifier builds/runs for macOS only with CloudDocuments entitlement preserved by explicit build settings, and `project.pbxproj` was not hand-patched. **确认：** package-internal `.seg` 发现**返回 0**（每变体与 10K/50K/100K），package-external `.seg` 被枚举（125/128）；macOS package-internal segment evict/download both return `NSCocoaErrorDomain:4`。
 
 ### 4.2 Approved / recommended decision（当前基线）
 
@@ -67,14 +69,14 @@ Stage 1 evidence is committed and synchronized into the current decision files. 
 
 ### 4.3 Compromise / delivery gates（机制通过或路线批准后的剩余门）
 
-- **iCloud Drive 作首期默认 transport（B14）= approved default transport with compromise constraints**。runtime/file-transport 机制已证，macOS direct enumeration scale gate 通过到 100K；remote placeholder、account-state、iOS large-scale delivery、steady-state segment budget 与 conflict-policy 是交付 gate；transport 路线选择状态保持 approved。
+- **iCloud Drive 作首期默认 transport（B14）= approved default transport with compromise constraints**。runtime/file-transport 机制已证，macOS direct enumeration scale gate 通过到 100K；remote placeholder、account-state、non-macOS large-scale delivery、steady-state segment budget 与 conflict-policy 是交付 gate；transport 路线选择状态保持 approved。
 - **TextKit = mechanism-go**，产品 editor runtime 未完成。
-- **layout/Bun = compromise**：Option A 纪律守住，Bun glob 行为 Unknown。
+- **layout/Bun = go for macOS-only verifier placement**：Option A 纪律守住，Bun glob dry-run passed。
 
 ### 4.4 Open gate（待证 / 交付，不得当已验证）
 
 - **Binding release gates（B4 approved）：** UniFFI async-`Sendable` surface；最终 DTO/error vocabulary；product wrapper import surface；release/CI/fresh-machine 复现。Synchronous generated Swift strict-concurrency release smoke and three-slice XCFramework packaging are observed；typed `ValidationError` enum 已由 core-owner 决策并落地，现有 validated code 包含 `invalid_utf16_offset`、`direct_active_to_deleted`、`structural_dispatch_deferred`。
-- **iCloud（§6 最小矩阵）：** remote `.icloud` placeholder download、signed-out / over-quota、product conflict-resolution policy、million-op replay/merge/compaction + steady-state segment budget、local-only path-in-ubiquity 边界、iOS large-scale delivery / package-level metadata gather、repo-local signed Anchor app target。
+- **iCloud（§6 最小矩阵）：** remote `.icloud` placeholder download、signed-out / over-quota、product conflict-resolution policy、million-op replay/merge/compaction + steady-state segment budget、local-only path-in-ubiquity 边界、non-macOS large-scale delivery / package-level metadata gather、repo-local signed Anchor app target。
 - **TextKit（组 3）：** real-app responder-chain undo 抑制 / IME marked-text commit / accessibility / hit-testing / patch replay over moving views / keyboard→`EditorIntent` / UTF-16 内部单位换算（D18 fixture）。
 - **跨目标执行：** wasm（wasmtime）/ iOS slice 的 golden 向量**执行**接线（编译 gate 已过；执行 by construction，CI 接线 Not run）。
 
@@ -102,14 +104,14 @@ Stage 1 evidence is committed and synchronized into the current decision files. 
 
 | # | 最小验证项 | 当前态 |
 |---|---|---|
-| 1 | **segment-file-count scale 10K / 50K / 100K**：write_ms + direct-enumeration_ms + synced-segment-file-count；断言 N 个 logical op 不产 ~N 个 synced segment | macOS direct enumeration passed 10K / 50K / 100K; package-internal metadata stayed 0; iOS large-scale delivery not run |
-| 2 | **remote `.icloud` placeholder download**：驱逐 package-internal segment 成真 placeholder 再 `startDownloadingUbiquitousItem` 到 `Current`（区别于本地/current；刻画 macOS `NSCocoaErrorDomain:4` 路径） | 仅 local/current |
+| 1 | **segment-file-count scale 10K / 50K / 100K**：write_ms + direct-enumeration_ms + synced-segment-file-count；断言 N 个 logical op 不产 ~N 个 synced segment | repo-local macOS verifier passed 10K / 50K / 100K direct enumeration (`22.53ms` / `124.70ms` / `269.50ms` enum); package-internal metadata stayed 0; non-macOS large-scale delivery not run |
+| 2 | **remote `.icloud` placeholder download**：驱逐 package-internal segment 成真 placeholder 再 `startDownloadingUbiquitousItem` 到 `Current`（区别于本地/current；刻画 macOS `NSCocoaErrorDomain:4` 路径） | macOS package-internal evict/download attempted; both returned `NSCocoaErrorDomain:4`; true remote placeholder not proved |
 | 3 | **signed-out / over-quota account states** | Blocked / not run |
 | 4 | **product conflict-resolution policy**：对 `NSFileVersion` 冲突的 surfacing / preservation / resolution（绝不静默解决或丢弃 conflict version） | 仅 observe，无 policy |
 | 5 | **million-op replay / merge / compaction + steady-state segment budget**（signed-app 语境 + release `--ignored` 基准） | report-Observed core 面线性，未在 iCloud 语境重跑 |
 | 6 | **local-only path-in-ubiquity 边界（D21/D21a）**：symlink / 外部卷 / security-scoped bookmark / signed-out | Blocked / not run |
-| 7 | **iOS package-level metadata gather**（仅 macOS 证 `package_metadata_gathered=true`；iOS probe 窗口内 `metadata_seg_count=0`） | Not demonstrated on iOS |
-| 8 | **repo-local signed Anchor app target + 全 Anchor-target iCloud runtime**（今天只有 repo-external signed probe） | Not run |
+| 7 | **non-macOS package-level metadata gather**（本轮 macOS-only gate 不覆盖） | Not run in this macOS-only gate |
+| 8 | **repo-local signed Anchor product app target + 全 Anchor-target iCloud runtime** | Product target not run; repo-local verifier-only macOS target builds and runtime pass |
 | 9 | **用户确认 B14**（sync 路线作首期产品选择，plan §13 stop condition） | approved 2026-06-07 |
 
 **no-go 转 CloudKit / 中立 object-store**（B14）。若实测 N 个 logical op → ~N 个 synced segment，则 batching/compaction 设计失效（不是 transport 选择失效），须重设 batching。
@@ -150,11 +152,11 @@ Stage 1 evidence is committed and synchronized into the current decision files. 
 
 ## 9. Remaining work
 
-**当前整合不需要补跑 Apple verifier。** Core side complete（74 测试、多目标 gate、边界干净）；B4 binding 产品边界、TextKit mechanism evidence、B14 默认 transport 均已进入当前基线。CP-1 整体退出仍依赖后续 Codex/Apple implementation gates，非 core 工作。
+**当前整合已补入 repo-local Xcode-created Apple verifier evidence。** 该 verifier project 通过 Xcode UI 创建；`project.pbxproj` 未手动 patch；signed runtime 通过 explicit entitlement/Info build settings 验证。Core side complete（74 测试、多目标 gate、边界干净）；B4 binding 产品边界、TextKit mechanism evidence、B14 默认 transport 均已进入当前基线。CP-1 整体退出仍依赖后续 Codex/Apple implementation gates，非 core deterministic 工作。
 
 **精确命令 / 环境 / stop condition：**
 
-- **Env：** macOS + Xcode 26.5 (17F42)、Swift 6.3.2、rustc/cargo 1.95.0；`aarch64-apple-darwin` + `aarch64-apple-ios` + `aarch64-apple-ios-sim` targets 已装；付费 ADP team（已开通，apple-verification §2.6）+ signed Anchor-context app + 真实 iCloud account + 物理 iOS 设备；构建产物落 `/tmp/anchor-apple-stage1`（**repo 外**）；probe 只在 `suites/anchor/apple/**`（Option A）；root `package.json` / `bun.lock` / workspace config / `suites/anchor/core` / `suites/anchor/Cargo.toml` **不得改**。
+- **Env：** macOS + Xcode 26.5 (17F42)、Swift 6.3.2、rustc/cargo 1.95.0；`aarch64-apple-darwin` target 已装；付费 ADP team（已开通，apple-verification §2.6）+ signed macOS verifier app + 真实 iCloud account；构建产物落 `/tmp/anchor-apple-stage1`（**repo 外**）；probe 只在 `suites/anchor/apple/**`（Option A）；repo-local verifier project 为 `suites/anchor/apple/AnchorMacICloudProbe/AnchorMacICloudProbe.xcodeproj`，由 Xcode UI 创建且不手改 project file；root `package.json` / `bun.lock` / workspace config / `suites/anchor/core` / `suites/anchor/Cargo.toml` **不得改**。
 - **命令骨架：**
   - iCloud scale：在真实 account 写 + file-coordinated direct-enumerate package-internal `.seg` 于 10_000 / 50_000 / 100_000，记 `write_ms` + `enumeration_ms` + synced-segment-file-count（断言 N op 不产 ~N segment）。
   - remote placeholder：驱逐 package-internal segment 成真 `.icloud` placeholder，再 `startDownloadingUbiquitousItem` 到 `Current`（刻画 macOS `NSCocoaErrorDomain:4`）。
@@ -169,7 +171,7 @@ Stage 1 evidence is committed and synchronized into the current decision files. 
 
 ## 10. Commit status
 
-B4 binding approval and B14 default transport approval are recorded in the current decision docs. Any new edits must keep the same scope: docs/workbench only, no code / lockfile / workspace / `Cargo.toml` member / app target / entitlement / bundle id changes, and no wording that implies CP-1 overall exit or iCloud transport delivery gates are complete.
+B4 binding approval and B14 default transport approval are recorded in the current decision docs. Repo-local Apple edits are limited to the verifier-only macOS Xcode project under `suites/anchor/apple/AnchorMacICloudProbe`; product app target, root workspace, lockfile, and `Cargo.toml` membership remain unchanged. Future edits must not imply CP-1 overall exit or iCloud transport delivery gates are complete.
 
 ---
 
@@ -182,7 +184,7 @@ B4 binding approval and B14 default transport approval are recorded in the curre
 | 绕过 B14 compromise constraints 发布 iCloud transport | 否（transport approved; delivery gates preserved） |
 | CloudKit schema / CKSyncEngine | 否 |
 | 公开 CLI schema 变更 | 否 |
-| Apple probe 变产品 app shell | 否（仅 SwiftPM probe + repo-external 签名 probe） |
+| Apple probe 变产品 app shell | 否（SwiftPM probe + repo-external 签名 probe + repo-local verifier-only macOS Xcode project；无产品 app target） |
 | `anchor-core` 泄漏 Apple 云/文件协调类型 | 否（0 matches, exit 1） |
 
 **全部未触发。**
