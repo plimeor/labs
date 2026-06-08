@@ -108,13 +108,9 @@ Passed:
 - macOS + iOS shared-container online conflict harness passes in coordinated mode: both devices converged to macOS `seq=79`, `conflict_versions=0`.
 - macOS + iOS shared-container online conflict harness passes in raw write mode: both devices converged to iOS `seq=119`, `conflict_versions=0`.
 - macOS + iOS shared-container offline fork conflict harness passes: after iPhone was offline, iOS wrote `ios-offline`, macOS wrote `mac-online`, reconnect selected `ios-offline` as current and exposed 1 unresolved `NSFileVersion` conflict containing the `mac-online` JSON.
-- Repo-local Xcode-created macOS verifier project exists under `suites/anchor/apple/AnchorMacICloudProbe`.
-- Repo-local verifier target supports macOS only (`SUPPORTED_PLATFORMS = macosx`).
-- Repo-local verifier `project.pbxproj` is Xcode-created and was not hand-patched after creation.
-- Repo-local verifier macOS signed build passes with `Mac Team Provisioning Profile: dev.plimeor.AnchorMacICloudProbe` using explicit build settings: `CODE_SIGN_ENTITLEMENTS=AnchorMacProbe.entitlements`, `INFOPLIST_FILE=AnchorMacProbeInfo.plist`, `GENERATE_INFOPLIST_FILE=NO`.
-- Repo-local verifier runtime has CloudDocuments-only iCloud entitlement against shared container `<ICLOUD_CONTAINER>`; CloudKit is not enabled.
-- Repo-local verifier macOS runtime passes container lookup, `.anchorvault` Info.plist package declaration, coordinated read/write, 1024-file subset, and 10K / 50K / 100K direct enumeration; package-internal `NSMetadataQuery` count remains 0. Current repo-local scale timings are 10K `3634.66ms` write / `22.53ms` enum, 50K `18455.09ms` write / `124.70ms` enum, and 100K `38509.85ms` write / `269.50ms` enum.
-- Repo-local verifier macOS placeholder/download probe observes package-internal segment behavior: `isUbiquitous=false`, download status `nil`, `evictUbiquitousItem` and `startDownloadingUbiquitousItem` both return `NSCocoaErrorDomain:4`.
+- Repo-local verifier exists under `suites/anchor/apple/AnchorMacICloudProbe` as an Xcode-created macOS-only project (`SUPPORTED_PLATFORMS = macosx`).
+- Repo-local verifier signed build passes with `Mac Team Provisioning Profile: dev.plimeor.AnchorMacICloudProbe`; the runtime uses CloudDocuments-only entitlement for `<ICLOUD_CONTAINER>` via `CODE_SIGN_ENTITLEMENTS=AnchorMacProbe.entitlements`, `INFOPLIST_FILE=AnchorMacProbeInfo.plist`, and `GENERATE_INFOPLIST_FILE=NO`.
+- Repo-local verifier macOS runtime passes container lookup, `.anchorvault` Info.plist package declaration, coordinated read/write, 1024-file subset, and 10K / 50K / 100K direct enumeration; package-internal `NSMetadataQuery` count remains 0, and package-internal placeholder/download attempts return `NSCocoaErrorDomain:4`. Current scale timings are 10K `3634.66ms` write / `22.53ms` enum, 50K `18455.09ms` write / `124.70ms` enum, and 100K `38509.85ms` write / `269.50ms` enum.
 - core cloud-symbol grep audit passes with 0 cloud matches.
 
 Open gates / blocked:
@@ -124,7 +120,7 @@ Open gates / blocked:
 - standalone signed macOS CLI remains invalid for restricted iCloud entitlements; use a real `.app`.
 - iOS physical-device `NSMetadataQuery` did not gather within the probe windows and returned 0 segment results.
 - Remote placeholder download; current macOS probe observed local package-internal evict/download failure, not a true remote `.icloud` placeholder.
-- Product conflict-resolution policy for unresolved `NSFileVersion` manifest conflicts. Runtime materialization was observed; resolution/removal was not implemented or performed.
+- Product conflict-resolution policy for unresolved `NSFileVersion` manifest conflicts. Runtime materialization was observed; resolution/removal remains open.
 - over-quota / signed-out states.
 - remote placeholder, signed-out / over-quota, non-macOS large-scale delivery, and steady-state segment budget gates.
 

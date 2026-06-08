@@ -8,7 +8,7 @@ Status: workbench artifact, not a public interface contract
 
 iCloud Drive status is **compromise: viable as the CP-1 default transport only with direct package-internal enumeration and explicit delivery gates**.
 
-The current CP-1 gate is macOS-only and uses a repo-local macOS verifier app created through Xcode UI. The verifier project file was not hand-patched after creation; the iCloud entitlement and Info.plist inputs were supplied as explicit `xcodebuild` build settings for the signed runtime probe. This run proves:
+The current CP-1 gate is macOS-only and uses a repo-local macOS verifier app created through Xcode UI. Persistent project configuration stays Xcode-created; the signed runtime probe supplies iCloud entitlement and Info.plist inputs through explicit `xcodebuild` build settings. This run proves:
 
 - explicit and implicit ubiquity container lookup return non-nil
 - a `.anchorvault` directory declared as `dev.plimeor.anchor.vault` conforms to `com.apple.package`
@@ -103,7 +103,7 @@ Repo-local Xcode-created macOS verifier app:
 - platforms: macOS only (`SUPPORTED_PLATFORMS = macosx`)
 - bundle id: `dev.plimeor.AnchorMacICloudProbe`
 - team: `<DEVELOPER_NAME>` / `<TEAM_ID>`
-- project configuration provenance: `project.pbxproj` is Xcode-created; Codex did not hand-patch it
+- persistent project configuration: Xcode UI output
 - signed build input: `CODE_SIGN_ENTITLEMENTS=AnchorMacProbe.entitlements`
 - Info.plist input: `INFOPLIST_FILE=AnchorMacProbeInfo.plist GENERATE_INFOPLIST_FILE=NO`
 - iCloud runtime entitlement: CloudDocuments only, shared container `<ICLOUD_CONTAINER>`, CloudKit not enabled
@@ -152,7 +152,7 @@ Repo-local Xcode-created macOS verifier app:
 | `find suites/anchor -name package.json -print` | passed; 0 results |
 | `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project suites/anchor/apple/AnchorMacICloudProbe/AnchorMacICloudProbe.xcodeproj -list` | passed; target/scheme `AnchorMacICloudProbe` present |
 | `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project suites/anchor/apple/AnchorMacICloudProbe/AnchorMacICloudProbe.xcodeproj -scheme AnchorMacICloudProbe -showdestinations` | passed; destinations are macOS only |
-| `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project suites/anchor/apple/AnchorMacICloudProbe/AnchorMacICloudProbe.xcodeproj -scheme AnchorMacICloudProbe -destination 'platform=macOS,arch=arm64' -configuration Debug -derivedDataPath /tmp/anchor-apple-stage1/DerivedData/AnchorMacICloudProbe-xcode-ui -allowProvisioningUpdates -allowProvisioningDeviceRegistration CODE_SIGN_ENTITLEMENTS=AnchorMacProbe.entitlements INFOPLIST_FILE=AnchorMacProbeInfo.plist GENERATE_INFOPLIST_FILE=NO build` | passed; Xcode used `Mac Team Provisioning Profile: dev.plimeor.AnchorMacICloudProbe` and Apple Development signing; the project file was not modified by this command |
+| `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project suites/anchor/apple/AnchorMacICloudProbe/AnchorMacICloudProbe.xcodeproj -scheme AnchorMacICloudProbe -destination 'platform=macOS,arch=arm64' -configuration Debug -derivedDataPath /tmp/anchor-apple-stage1/DerivedData/AnchorMacICloudProbe-xcode-ui -allowProvisioningUpdates -allowProvisioningDeviceRegistration CODE_SIGN_ENTITLEMENTS=AnchorMacProbe.entitlements INFOPLIST_FILE=AnchorMacProbeInfo.plist GENERATE_INFOPLIST_FILE=NO build` | passed; Xcode used `Mac Team Provisioning Profile: dev.plimeor.AnchorMacICloudProbe` and Apple Development signing; entitlement/Info inputs are command-line build settings |
 | `codesign -d --entitlements :- /tmp/anchor-apple-stage1/DerivedData/AnchorMacICloudProbe-xcode-ui/Build/Products/Debug/AnchorMacICloudProbe.app` | passed; CloudDocuments and shared `<ICLOUD_CONTAINER>` entitlements present |
 | `plutil -p /tmp/anchor-apple-stage1/DerivedData/AnchorMacICloudProbe-xcode-ui/Build/Products/Debug/AnchorMacICloudProbe.app/Contents/Info.plist` | passed; `.anchorvault` exported package UTType and `NSUbiquitousContainers` declaration present |
 | `security cms -D -i /tmp/anchor-apple-stage1/DerivedData/AnchorMacICloudProbe-xcode-ui/Build/Products/Debug/AnchorMacICloudProbe.app/Contents/embedded.provisionprofile` | passed; Xcode-managed profile includes both `iCloud.dev.plimeor.AnchorMacICloudProbe` and `<ICLOUD_CONTAINER>` |
@@ -430,11 +430,11 @@ Observed core boundary remains intact: core traffics only `SegmentId` / `BlobId`
 | `NSMetadataQuery` live discovery | compromise | repo-local macOS verifier gathered but returned 0 package-internal `.seg` files at 1K / 10K / 50K / 100K |
 | `NSFileCoordinator` read/write | passed | coordinated write/read of 30 bytes, equality true |
 | placeholder download behavior | partial / macOS package-internal failure observed | macOS package-internal segment reported `isUbiquitous=false`, download status `nil`; `evictUbiquitousItem` and `startDownloadingUbiquitousItem` both returned `NSCocoaErrorDomain:4`; no remote placeholder case |
-| manifest conflict / `NSFileVersion` behavior | partial passed | same-device macOS manifest double-write produced 0 conflict versions; historical offline iOS / online macOS fork produced 1 unresolved conflict version after reconnect; resolution policy not implemented |
+| manifest conflict / `NSFileVersion` behavior | partial passed | same-device macOS manifest double-write produced 0 conflict versions; historical offline iOS / online macOS fork produced 1 unresolved conflict version after reconnect; resolution policy remains open |
 | signed-out / over-quota states | Blocked / not run | requires account/device state |
 | segment-file-count scale 1K/10K/50K/100K | compromise | repo-local macOS verifier wrote 1024 / 10K / 50K / 100K files; direct enumeration saw the same counts; enumeration was `22.53ms` at 10K, `124.70ms` at 50K, `269.50ms` at 100K; package-internal metadata enumeration stayed 0 |
 | local-only path-in-ubiquity boundary | Blocked / not run | requires runtime path/account/container cases |
-| macOS signed runtime | passed for real `.app` | repo-external and repo-local macOS app projects signed with Mac Team Provisioning Profile and ran the probe; repo-local project file was Xcode-created and not hand-patched; loose executable remains invalid for restricted iCloud entitlements |
+| macOS signed runtime | passed for real `.app` | repo-external and repo-local macOS app projects signed with Mac Team Provisioning Profile and ran the probe; repo-local persistent project configuration is Xcode UI output; loose executable remains invalid for restricted iCloud entitlements |
 
 ## Decision impact
 
@@ -448,7 +448,7 @@ The correct CP-1 state is now:
 - package type id and ubiquitous package path: passed
 - coordinated read/write: passed
 - package-internal segment placeholder/download behavior: macOS failure observed with `NSCocoaErrorDomain:4`; remote placeholder not proved
-- repo-local Xcode-created macOS verifier: project created through Xcode UI; `project.pbxproj` not hand-patched; signed macOS build/runtime passed via explicit entitlement/Info build settings
+- repo-local Xcode-created macOS verifier: signed macOS build/runtime passed with command-line entitlement/Info build inputs
 - metadata-query discovery: package discovery passed on macOS, package-internal segment metadata enumeration failed
 - 1K / 10K / 50K / 100K package-internal write/direct-enumeration path: passed on repo-local signed macOS app, failed for package-internal metadata enumeration
 - multi-device online concurrent manifest write: passed for convergence, produced 0 unresolved conflicts
