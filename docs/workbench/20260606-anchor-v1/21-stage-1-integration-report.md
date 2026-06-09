@@ -3278,3 +3278,65 @@ B4 binding approval and B14 default transport approval are recorded in the curre
 - **Axis matrix delta:** iCloud remains `approved default transport WITH compromise constraints`; physical iPhone launch and local iCloud container mechanism move from blocked/open to closed/observed; remote delivery remains open.
 - **Gate evaluation:** CONTINUE for remaining non-device-local delivery gates. Do not claim true remote `.icloud` placeholder, package metadata delivery, product sync, or CP-1 exit from this local physical-device runtime floor.
 - **New doc:** `docs/workbench/20260606-anchor-v1/69-physical-iphone-icloud-runtime-rerun-report.md`
+
+## 60. Progress ledger update — 2026-06-10 — physical iPhone UniFFI async runtime
+
+本节追加 `70-physical-iphone-uniffi-async-runtime-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 60.1 Axis matrix after doc 70
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go** — unchanged after doc 70 |
+| multi-target compile | **go** — unchanged after doc 70 |
+| zero-cloud-symbol boundary | **go** — unchanged after doc 70 |
+| binding（B4） | **approved boundary / release-distribution-gated** — physical-device generated async runtime and development-signed verifier app-bundle runtime observed; Developer ID / App Store distribution and product app integration remain open |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — unchanged after doc 70 |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — unchanged after doc 70 |
+| layout / retention | **compromise** — unchanged after doc 70 |
+| cross-target execution CI | **closed as hosted machine gate** — unchanged after doc 70 |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 60.2 Open-gate checklist after doc 70
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| iPhoneOS generated async standalone `arm64` compile/link | closed / observed | `40 §3.1`-`§3.3`, `43 §3` |
+| temporary development-signed UniFFI verifier `.app` packaging | **closed / valid signed app bundle observed** | `70 §3.2` |
+| physical iPhone install/runtime for generated async binding | **closed / exit `0` observed** | `70 §3.3`-`§3.4` |
+| original iCloud probe app restoration | closed / observed | `70 §3.5` |
+| product app integration of the binding package | open / not implemented | `70 §4` |
+| Developer ID Application identity | open / no match observed locally | `68 §3.2` |
+| Developer ID Installer identity | open / no match observed locally | `68 §3.2` |
+| Apple Distribution identity | open / no match observed locally | `68 §3.2` |
+| macOS product app archive / notarization | open / no product archive and no Developer ID identity | `68 §4` |
+| App Store / TestFlight distribution path | open / no Apple Distribution identity or upload artifact | `68 §4` |
+| iOS package-internal metadata propagation | open / metadata gathered `false`, count `0` | `69 §3.4` |
+| iOS true remote `.icloud` placeholder/download | open / `segment_is_ubiquitous=false`, `start_download_error=NSCocoaErrorDomain:4` | `69 §3.4` |
+| iOS/non-macOS end-to-end CloudDocuments delivery | open / local container mechanism only | `69 §4` |
+| actual signed-out account runtime | open / not run | `64 §4` |
+| actual over-quota account runtime | open / not run | `64 §4` |
+| product compaction integration from real op-log to sealed/compacted segment files | open / not implemented | `65 §4` |
+| million-op replay / merge / compaction inside real iCloud product context | open / not run | `65 §4` |
+| product conflict-resolution UX / core integration | open / not implemented | `39 §4`-`§5` |
+| product TextKit/UI runtime integration | open / not implemented | `66 §4` |
+| CP-1 whole-exit | open / human sign-off not reached | this section |
+
+### Ledger entry — 2026-06-10 — iteration 49 — doc 70-physical-iphone-uniffi-async-runtime-report.md
+
+- **Checkpoint / cursor:** CP-1 Apple half, binding physical-device generated async runtime gate.
+- **Action selected:** package the existing iPhoneOS UniFFI generated async smoke into a development-signed verifier `.app`, install it on the physical iPhone, and run it.
+- **Owner classification:** Apple/binding verifier → executed with `/tmp` verifier app bundle assembled from existing artifacts; no repo Apple project, product app, root workspace, public CLI schema, or core production source mutation.
+- **Scope-fence check:** passed — no root workspace / package / lockfile changes; no public CLI schema; no repo product app shell; no Swift-side deterministic core semantics; original iCloud probe app restored after the runtime check.
+- **Evidence (Observed = command + output):**
+  - `otool -L uniffi-async-smoke-iphoneos` → iPhoneOS smoke originally loads `libanchor_core_uniffi.dylib` through an absolute `/tmp` path.
+  - `install_name_tool` + `codesign` packaging script → verifier app valid on disk, satisfies designated requirement, executable load path rewritten to `@executable_path/Frameworks/libanchor_core_uniffi.dylib`.
+  - `devicectl device install app ... PhysicalUniFFIAsyncSmoke-20260610/AnchorProvisionProbe.app` → app installed on physical iPhone.
+  - `devicectl device process launch ... dev.plimeor.AnchorProvisionProbe` → `uniffi:async fixture snapshot=3ef88671...`, dispatch insert/error output, segment output, 1MB/4MB/16MB/64MB benches, and `The app terminated with the exit code 0.`
+  - `devicectl device install app ... AnchorProvisionProbe.app` → original iCloud runtime probe app restored.
+- **Gates closed this iteration:** physical-device generated async runtime; development-signed verifier app-bundle/device runtime integration for the binding smoke.
+- **Gates still open:** product app binding integration, Developer ID notarization, App Store/TestFlight distribution, real release upload/distribution channel, product TextKit/UI integration, iCloud remote/account/product-context gates, CP-1 whole-exit.
+- **Backfill to 04/05/06:** `04` binding/iCloud baseline and `05` D01/D35 evidence updated to remove the stale physical-device locked/open wording and record docs 69/70; no new D/F numbers.
+- **Axis matrix delta:** binding moves from `approved boundary / partially release-gated` with physical-device runtime open to `approved boundary / release-distribution-gated`; release distribution remains open.
+- **Gate evaluation:** CONTINUE only for remaining distribution, product-integration, account-state, remote-delivery, or human sign-off gates. Do not claim Developer ID/App Store release, product app integration, or CP-1 exit from this verifier runtime proof.
+- **New doc:** `docs/workbench/20260606-anchor-v1/70-physical-iphone-uniffi-async-runtime-report.md`
