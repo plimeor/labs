@@ -118,6 +118,17 @@ struct AnchorTextKitSmoke {
         precondition(responderUndo.textAfterUndoAction == "edited text")
         precondition(!responderUndo.textViewAllowsUndo)
         print("textkit:appkit_responder_undo=semantic-inverse-intent buffer_unchanged=true")
+
+        let focusLifecycle = runtime.appKitFocusLifecycleProbe()
+        precondition(focusLifecycle.splitViewSubviewCount == 2)
+        precondition(focusLifecycle.scrollDocumentIDs == ["blk_a", "code_1"])
+        precondition(focusLifecycle.firstResponderAcceptedA)
+        precondition(focusLifecycle.firstResponderAcceptedB)
+        precondition(focusLifecycle.firstResponderAfterA == "blk_a")
+        precondition(focusLifecycle.firstResponderAfterB == "code_1")
+        precondition(focusLifecycle.selectionA.location == 1 && focusLifecycle.selectionA.length == 0)
+        precondition(focusLifecycle.selectionB.location == 0 && focusLifecycle.selectionB.length == 0)
+        print("textkit:appkit_focus_lifecycle=split_scroll blk_a->code_1 selections=1:0,0:0")
         #else
         print("textkit:runtime=not-run-on-this-platform")
         #endif

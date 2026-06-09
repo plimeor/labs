@@ -122,6 +122,17 @@ public struct AppKitResponderUndoSuppressionResult: Equatable {
     public let textAfterUndoAction: String
     public let textViewAllowsUndo: Bool
 }
+
+public struct AppKitFocusLifecycleResult: Equatable {
+    public let splitViewSubviewCount: Int
+    public let scrollDocumentIDs: [String]
+    public let firstResponderAcceptedA: Bool
+    public let firstResponderAcceptedB: Bool
+    public let firstResponderAfterA: String?
+    public let firstResponderAfterB: String?
+    public let selectionA: NSRange
+    public let selectionB: NSRange
+}
 #endif
 
 public final class NativeEditorAdapterProbe {
@@ -656,6 +667,56 @@ public final class MacTextKitRuntimeProbe {
             semanticUndoEvents: recorder.events,
             textAfterUndoAction: textView.string,
             textViewAllowsUndo: textView.allowsUndo
+        )
+    }
+
+    public func appKitFocusLifecycleProbe() -> AppKitFocusLifecycleResult {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 640, height: 320),
+            styleMask: [.titled, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        let splitView = NSSplitView(frame: NSRect(x: 0, y: 0, width: 640, height: 320))
+        splitView.isVertical = true
+
+        let viewA = IntentCapturingTextView(blockID: "blk_a")
+        let viewB = IntentCapturingTextView(blockID: "code_1")
+        viewA.frame = NSRect(x: 0, y: 0, width: 310, height: 320)
+        viewB.frame = NSRect(x: 0, y: 0, width: 310, height: 320)
+        viewA.string = "AB"
+        viewB.string = "CD"
+        viewA.setSelectedRange(NSRange(location: 1, length: 0))
+        viewB.setSelectedRange(NSRange(location: 0, length: 0))
+
+        let scrollA = NSScrollView(frame: NSRect(x: 0, y: 0, width: 320, height: 320))
+        let scrollB = NSScrollView(frame: NSRect(x: 320, y: 0, width: 320, height: 320))
+        scrollA.documentView = viewA
+        scrollB.documentView = viewB
+        scrollA.hasVerticalScroller = true
+        scrollB.hasVerticalScroller = true
+
+        splitView.addArrangedSubview(scrollA)
+        splitView.addArrangedSubview(scrollB)
+        window.contentView = splitView
+
+        let acceptedA = window.makeFirstResponder(viewA)
+        let firstResponderAfterA = (window.firstResponder as? NSTextView)?.identifier?.rawValue
+
+        let acceptedB = window.makeFirstResponder(viewB)
+        let firstResponderAfterB = (window.firstResponder as? NSTextView)?.identifier?.rawValue
+
+        return AppKitFocusLifecycleResult(
+            splitViewSubviewCount: splitView.arrangedSubviews.count,
+            scrollDocumentIDs: [scrollA, scrollB].compactMap { scrollView in
+                (scrollView.documentView as? NSTextView)?.identifier?.rawValue
+            },
+            firstResponderAcceptedA: acceptedA,
+            firstResponderAcceptedB: acceptedB,
+            firstResponderAfterA: firstResponderAfterA,
+            firstResponderAfterB: firstResponderAfterB,
+            selectionA: viewA.selectedRange(),
+            selectionB: viewB.selectedRange()
         )
     }
 
