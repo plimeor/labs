@@ -84,6 +84,18 @@ public struct MarkedTextCommitProbeResult: Equatable {
     public let intent: EditorIntentProbe
 }
 
+#if os(macOS)
+public struct AppKitTextSurfaceLifecycleResult: Equatable {
+    public let initialBlockIDs: [String]
+    public let afterInsertBlockIDs: [String]
+    public let insertedSelection: NSRange
+    public let afterMoveBlockIDs: [String]
+    public let afterRemoveBlockIDs: [String]
+    public let removedViewDetached: Bool
+    public let remainingViewCount: Int
+}
+#endif
+
 public final class NativeEditorAdapterProbe {
     private(set) public var blocks: [TextSurfaceState]
 
@@ -220,6 +232,108 @@ private final class IntentCapturingTextView: NSTextView {
 }
 
 @MainActor
+private final class AppKitTextSurfaceHost {
+    private let container = NSView(frame: NSRect(x: 0, y: 0, width: 600, height: 400))
+    private var surfaces: [(blockID: String, textView: NSTextView)] = []
+    private var lastRemovedView: NSTextView?
+
+    init(blocks: [TextSurfaceState]) {
+        surfaces = blocks.map { block in
+            (block.blockID, Self.makeTextView(for: block))
+        }
+        rebuildSubviews()
+    }
+
+    var blockIDsFromSubviews: [String] {
+        container.subviews.compactMap { view in
+            (view as? NSTextView)?.identifier?.rawValue
+        }
+    }
+
+    var remainingViewCount: Int {
+        container.subviews.count
+    }
+
+    var removedViewDetached: Bool {
+        lastRemovedView?.superview == nil
+    }
+
+    func selectedRange(for blockID: String) -> NSRange {
+        guard let textView = surfaces.first(where: { $0.blockID == blockID })?.textView else {
+            return NSRange(location: NSNotFound, length: 0)
+        }
+        return textView.selectedRange()
+    }
+
+    func apply(_ patch: EditorPatchProbe) {
+        switch patch {
+        case let .replaceBlockText(blockID, text, selectionStartUTF16, selectionEndUTF16):
+            guard let index = surfaces.firstIndex(where: { $0.blockID == blockID }) else {
+                return
+            }
+            let textView = surfaces[index].textView
+            textView.string = text
+            textView.setSelectedRange(NSRange(location: selectionStartUTF16, length: selectionEndUTF16 - selectionStartUTF16))
+        case let .insertTextSurface(afterBlockID, blockID, text, selectionStartUTF16, selectionEndUTF16):
+            guard let afterIndex = surfaces.firstIndex(where: { $0.blockID == afterBlockID }) else {
+                return
+            }
+            let surface = TextSurfaceState(
+                blockID: blockID,
+                text: text,
+                selection: NSRange(location: selectionStartUTF16, length: selectionEndUTF16 - selectionStartUTF16)
+            )
+            surfaces.insert((blockID, Self.makeTextView(for: surface)), at: afterIndex + 1)
+            rebuildSubviews()
+        case let .moveTextSurface(blockID, toIndex):
+            guard let fromIndex = surfaces.firstIndex(where: { $0.blockID == blockID }) else {
+                return
+            }
+            let surface = surfaces.remove(at: fromIndex)
+            let boundedIndex = min(max(toIndex, 0), surfaces.count)
+            surfaces.insert(surface, at: boundedIndex)
+            rebuildSubviews()
+        case let .removeTextSurface(blockID):
+            guard let index = surfaces.firstIndex(where: { $0.blockID == blockID }) else {
+                return
+            }
+            let surface = surfaces.remove(at: index)
+            lastRemovedView = surface.textView
+            surface.textView.removeFromSuperview()
+            rebuildSubviews()
+        case let .selectBlocks(blockIDs):
+            for surface in surfaces where blockIDs.contains(surface.blockID) {
+                surface.textView.setSelectedRange(NSRange(location: 0, length: (surface.textView.string as NSString).length))
+            }
+        case let .focusEmbedded(blockID, startUTF16, endUTF16):
+            guard let textView = surfaces.first(where: { $0.blockID == blockID })?.textView else {
+                return
+            }
+            textView.setSelectedRange(NSRange(location: startUTF16, length: endUTF16 - startUTF16))
+        }
+    }
+
+    private static func makeTextView(for state: TextSurfaceState) -> NSTextView {
+        let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 600, height: 80))
+        textView.identifier = NSUserInterfaceItemIdentifier(state.blockID)
+        textView.string = state.text
+        textView.setSelectedRange(state.selection)
+        return textView
+    }
+
+    private func rebuildSubviews() {
+        for view in container.subviews {
+            view.removeFromSuperview()
+        }
+
+        for (index, surface) in surfaces.enumerated() {
+            surface.textView.frame = NSRect(x: 0, y: index * 90, width: 600, height: 80)
+            container.addSubview(surface.textView)
+        }
+    }
+}
+
+@MainActor
 public final class MacTextKitRuntimeProbe {
     private let textView: NSTextView
     private let semanticUndoManager = UndoManager()
@@ -303,6 +417,38 @@ public final class MacTextKitRuntimeProbe {
         capturingView.keyDown(with: keyEvent(characters: "\u{7F}", keyCode: 51))
 
         return capturingView.capturedIntents
+    }
+
+    public func appKitViewLifecycleProbe() -> AppKitTextSurfaceLifecycleResult {
+        let host = AppKitTextSurfaceHost(blocks: [
+            TextSurfaceState(blockID: "blk_a", text: "Morning note."),
+            TextSurfaceState(blockID: "code_1", text: "let x = 1")
+        ])
+        let initial = host.blockIDsFromSubviews
+
+        host.apply(.insertTextSurface(
+            afterBlockID: "blk_a",
+            blockID: "blk_b",
+            text: "Split tail.",
+            selectionStartUTF16: 0,
+            selectionEndUTF16: 5
+        ))
+        let afterInsert = host.blockIDsFromSubviews
+        let insertedSelection = host.selectedRange(for: "blk_b")
+
+        host.apply(.moveTextSurface(blockID: "code_1", toIndex: 0))
+        let afterMove = host.blockIDsFromSubviews
+
+        host.apply(.removeTextSurface(blockID: "blk_b"))
+        return AppKitTextSurfaceLifecycleResult(
+            initialBlockIDs: initial,
+            afterInsertBlockIDs: afterInsert,
+            insertedSelection: insertedSelection,
+            afterMoveBlockIDs: afterMove,
+            afterRemoveBlockIDs: host.blockIDsFromSubviews,
+            removedViewDetached: host.removedViewDetached,
+            remainingViewCount: host.remainingViewCount
+        )
     }
 
     private func keyEvent(characters: String, keyCode: UInt16) -> NSEvent {

@@ -80,6 +80,16 @@ struct AnchorTextKitSmoke {
         ]
         precondition(keyboardIntents == expectedKeyboardIntents)
         print("textkit:keyboard_intents=split@1,merge_backward")
+
+        let lifecycle = runtime.appKitViewLifecycleProbe()
+        precondition(lifecycle.initialBlockIDs == ["blk_a", "code_1"])
+        precondition(lifecycle.afterInsertBlockIDs == ["blk_a", "blk_b", "code_1"])
+        precondition(lifecycle.insertedSelection.location == 0 && lifecycle.insertedSelection.length == 5)
+        precondition(lifecycle.afterMoveBlockIDs == ["code_1", "blk_a", "blk_b"])
+        precondition(lifecycle.afterRemoveBlockIDs == ["code_1", "blk_a"])
+        precondition(lifecycle.removedViewDetached)
+        precondition(lifecycle.remainingViewCount == 2)
+        print("textkit:appkit_view_lifecycle=insert_move_remove")
         #else
         print("textkit:runtime=not-run-on-this-platform")
         #endif
