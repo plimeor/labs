@@ -250,18 +250,18 @@
 - **Decision**（用户 2026-06-07 firming）：**`sync = "none"`（local-only）的 vault 严禁置于任何 iCloud ubiquity container 下——硬产品规则，不是建议。** Local-only vault 放**非 ubiquity 目录**（OS 同步守护进程不可见、字节无法离开设备），标 **`NSURLIsExcludedFromBackupKey`** 排除备份；core 不挂任何 adapter，唯一出网点 `OpSyncPort::push` 受 adapter 门控、可 grep 审计。**vault-open 时强制断言路径不在任何 ubiquity container 下，否则拒绝打开并报警**（该断言是上述硬规则的执行点）。**`synced → local-only` 切换不可逆**（已离开设备的字节无法收回，local-only 保证只对此后写入成立）。路径-in-ubiquity 判定由 **Swift adapter 拥有**（core 不出现 ubiquity 类型）。
 - **Status**：Recommended
 - **Rationale**：path-in-ubiquity detection 必须由 Swift adapter 拥有（core 不出现 ubiquity 类型）；断言守住 local-only 保证。
-- **Evidence**：plan §8.4、§11。Codex §7.1/§7.2/§8.2：**Observed** — 无 entitlement CLI 下 `url(forUbiquityContainerIdentifier:nil)` 返回 nil（`icloud:container_nil=true`），ubiquity lookup / resource keys（`isUbiquitousItem` 等）API 可用；adapter 拥有 URL / ubiquity / file coordination 边界形态可行；§2.6 付费 team entitled app 在真机返回 non-nil ubiquity container URL，进一步佐证「adapter 拥有 ubiquity 边界、core 不出现 ubiquity 类型」可行。**Not run** — 符号链接 / 外部卷等边界情形的判定、`NSURLIsExcludedFromBackupKey` 真实生效，须 Stage 1 验证（Codex §8.2：若 local-only 成为 product claim，须用 symlink / external volume cases 测试）。
-- **Risk**：「路径是否在 ubiquity container 下」的判定边界情形（符号链接 / 外部卷）依赖 Apple 真实 API，误判会破坏 local-only 保证。
-- **Stop condition**：local-only 语义已定。若 local-only 作为 product claim 发布，须先用 symlink / external volume cases 通过 Stage 1 验证，否则不得承诺该保证。
+- **Evidence**：plan §8.4、§11。Codex §7.1/§7.2/§8.2：**Observed** — 无 entitlement CLI 下 `url(forUbiquityContainerIdentifier:nil)` 返回 nil（`icloud:container_nil=true`），ubiquity lookup / resource keys（`isUbiquitousItem` 等）API 可用；adapter 拥有 URL / ubiquity / file coordination 边界形态可行；§2.6 付费 team entitled app 在真机返回 non-nil ubiquity container URL，进一步佐证「adapter 拥有 ubiquity 边界、core 不出现 ubiquity 类型」可行。Stage 1 46-local-only-path-classifier-report.md：**Observed** — signed macOS verifier 的 local sandbox vault 不在 ubiquity container、`isUbiquitousItem=false`、`isExcludedFromBackup=true`、`blocked_local_only_open=false`；direct iCloud Documents vault raw/resolved path 均在 container 且 `isUbiquitousItem=true`，blocked；local symlink→iCloud 因 resolved path/ubiquity blocked；iCloud symlink→local 因 raw path/ubiquity blocked。**Not run** — external volume、security-scoped bookmark restoration、`.icloud` placeholder path classification、signed-out/unavailable account path classification。
+- **Risk**：「路径是否在 ubiquity container 下」的判定边界情形仍依赖 Apple 真实 API；本轮关闭 normal local / direct iCloud / symlink 两向的机制下限，但 external volume、bookmark、placeholder、signed-out 状态仍不能作为已验证 product claim。
+- **Stop condition**：local-only 语义已定。若 local-only 作为 product claim 发布，须先关闭 remaining path/account cases，或把公开保证限缩为已观察的 local/direct-iCloud/symlink 分类范围。
 
 ### D21a — local-only vault 被手动挪入 iCloud（误放 + blocked open）
 
 - **Decision**：被用户绕过 Anchor、经 Finder / Files / shell **手动挪入 iCloud Drive / ubiquity container** 的 local-only vault（配置仍 `sync = "none"`）**不自动转换为 iCloud synced vault**。Anchor 在 vault-open 时把它识别为 **blocked misplacement**：拒绝打开、不挂载 `OpSyncPort` adapter、不上传 / 不拉取 / 不 merge 远端 segment、不视其为合法 synced vault；返回可恢复的 typed blocked 状态 `local_only_vault_in_ubiquity`，并提供两个显式动作：**Move Back**（移回非 ubiquity 目录后重开）与 **Convert to iCloud Sync**（进入显式迁移流程，创建合规 iCloud synced vault）。合法 iCloud synced vault 必须经显式迁移 / 创建流程并满足 file package 的 `com.apple.package` UTType 约束（D34）。
-- **Status**：Recommended（D21 的明确化；路径判定边界仍需 Stage 1 spike）
+- **Status**：Recommended（D21 的明确化；normal local / direct iCloud / symlink classifier floor observed，remaining path/account cases still open）
 - **Rationale**：local-only 的产品语义不是「当前没打开同步开关」，而是「Anchor 不把该 vault 放在 OS 同步守护进程可见的位置、也不为它挂载同步 adapter」。手动挪入 iCloud 后 Anchor 已无法保证字节从未离开本机（OS 可能已开始上传），但仍能守住自己的边界：不继续打开、不继续写入、不把该状态升级为同步。正确分类是**误放位置 + blocked open**，不是隐式同步启用，也不是自动迁移成功。
-- **Evidence**：**用户提出（2026-06-07）。** 关联 D21（local-only 硬规则）、D34（`com.apple.package` UTType）。Codex §7.1/§7.2：**Observed** — ubiquity lookup / `isUbiquitousItem` 等 resource-key API 可用，adapter 拥有 URL / ubiquity / file coordination 边界可行。**Not run** — 路径判定边界情形（symlink / 外部卷 / security-scoped bookmark / Finder 挪动 package / `.icloud` placeholder / signed-out）须 Stage 1 验证（见下「Stage 1 路径判定验证项」）。
-- **Risk**：**隐私边界**——OS 可能在 Anchor 下次观察路径前已上传文件，故 Anchor 不能声称「local-only vault 被手动挪入 iCloud 后字节绝不离开设备」，只能声称「Anchor 不会从 iCloud 管理的位置打开或继续写入 local-only vault」。路径判定若不可靠，product claim 须减弱（见 Stop condition）。
-- **Stop condition**：若 Anchor 无法可靠判定 local-only vault 路径是否解析进 ubiquity 存储，product claim 须减弱为「Anchor 阻止 local-only vault 的已知 iCloud 管理路径，但路径判定边界情形在验证前不支持」。
+- **Evidence**：**用户提出（2026-06-07）。** 关联 D21（local-only 硬规则）、D34（`com.apple.package` UTType）。Codex §7.1/§7.2：**Observed** — ubiquity lookup / `isUbiquitousItem` 等 resource-key API 可用，adapter 拥有 URL / ubiquity / file coordination 边界可行。Stage 1 46-local-only-path-classifier-report.md：**Observed** — conservative classifier blocks direct iCloud Documents vault, local symlink whose resolved target is in iCloud, and iCloud-visible symlink whose resolved target is local; it allows only the non-ubiquity local vault and verifies backup exclusion. **Not run** — external volume、security-scoped bookmark、Finder UI move surface、`.icloud` placeholder、signed-out/unavailable account。
+- **Risk**：**隐私边界**——OS 可能在 Anchor 下次观察路径前已上传文件，故 Anchor 不能声称「local-only vault 被手动挪入 iCloud 后字节绝不离开设备」，只能声称「Anchor 不会从 iCloud 管理的位置打开或继续写入 local-only vault」。本轮把 symlink 两向纳入 conservative blocked policy；remaining path/account cases 未验证前，product claim 须保留范围限定。
+- **Stop condition**：若 Anchor 无法可靠判定 local-only vault 的 raw path 或 resolved target 是否落在 ubiquity 存储，product claim 须减弱为「Anchor 阻止 local-only vault 的已知 iCloud 管理路径，但未验证路径/账号边界不支持」。
 
   **User-facing behavior（打开该 vault 时）：** ① 检测 `sync = "none"`；② Apple adapter 检测 resolved path 位于 ubiquity container 下；③ 返回 typed blocked `local_only_vault_in_ubiquity`；④ UI 显示「该 vault 是 local-only，但当前位置受 iCloud 管理」；⑤ 提供 **Move Back** 与 **Convert to iCloud Sync** 两个显式动作。
 
@@ -271,7 +271,7 @@
 
   **Migration rule（`local-only → iCloud synced` 是显式转换流程）：** 须 ① 要求用户意图；② 校验目标 iCloud container 可用；③ 创建 / 移动进合规 Anchor iCloud synced vault package；④ 保证 package UTType conform `com.apple.package`；⑤ SQLite projection 留在 ubiquity container 外；⑥ 只经 `OpSyncPort` 同步不可变 op-segment 文件与 blob；⑦ `.md` / `.json` mirror 与 SQLite projection 不进同步。**单纯路径挪动不满足此规则。**
 
-  **Stage 1 路径判定验证项（发布 local-only 作为 product guarantee 前必验，owner Codex/Apple）：** 正常 iCloud Drive 路径、app ubiquity container `Documents/`、指向 iCloud 的 symlink、iCloud 内指向外部的 symlink、外部卷路径、挪动后恢复的 security-scoped bookmark、Finder 挪动的 package 目录、`.icloud` placeholder 状态、signed-out / unavailable iCloud account 状态。
+  **Stage 1 路径判定验证项（发布 local-only 作为 product guarantee 前必验，owner Codex/Apple）：** normal local path / app ubiquity container `Documents/` / 指向 iCloud 的 symlink / iCloud 内指向外部的 symlink 已有机制下限（doc 46）；外部卷路径、挪动后恢复的 security-scoped bookmark、Finder 挪动的 package UI surface、`.icloud` placeholder 状态、signed-out / unavailable iCloud account 状态仍需验证。
 
 ### D22 — 加密与密钥所有权
 

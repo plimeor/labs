@@ -7,6 +7,7 @@ enum ICloudProbeCommand {
     case conflictPolicy(runID: String)
     case conflictResolve(runID: String)
     case placeholder
+    case localOnlyPath
 
     init?(arguments: [String]) {
         if arguments.contains("--icloud-runtime-probe") {
@@ -16,6 +17,11 @@ enum ICloudProbeCommand {
 
         if arguments.contains("--icloud-placeholder-probe") {
             self = .placeholder
+            return
+        }
+
+        if arguments.contains("--icloud-local-only-path-probe") {
+            self = .localOnlyPath
             return
         }
 
@@ -71,6 +77,8 @@ enum ICloudRuntimeProbe {
             try runConflictResolveProbe(runID: runID)
         case .placeholder:
             try runPlaceholderProbe()
+        case .localOnlyPath:
+            try runLocalOnlyPathProbe()
         }
     }
 
@@ -330,6 +338,74 @@ enum ICloudRuntimeProbe {
             let nsError = error as NSError
             print("icloud_placeholder \(label)_read_after_start_error=\(nsError.domain):\(nsError.code)")
         }
+    }
+
+    private static func runLocalOnlyPathProbe() throws {
+        let fileManager = FileManager.default
+        let container = try resolvedContainer()
+        let documents = container.appendingPathComponent("Documents", isDirectory: true)
+        try fileManager.createDirectory(at: documents, withIntermediateDirectories: true)
+
+        let iCloudRoot = documents.appendingPathComponent("AnchorLocalOnlyPathProbe", isDirectory: true)
+        let localRoot = fileManager.temporaryDirectory.appendingPathComponent("anchor-local-only-path-probe", isDirectory: true)
+        try resetDirectory(iCloudRoot)
+        try resetDirectory(localRoot)
+        try fileManager.createDirectory(at: iCloudRoot, withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: localRoot, withIntermediateDirectories: true)
+
+        let localVault = localRoot.appendingPathComponent("LocalOnly.anchorvault", isDirectory: true)
+        let iCloudVault = iCloudRoot.appendingPathComponent("ManualMovedLocalOnly.anchorvault", isDirectory: true)
+        try fileManager.createDirectory(at: localVault, withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: iCloudVault, withIntermediateDirectories: true)
+        try Data("local-only\n".utf8).write(to: localVault.appendingPathComponent("manifest.json"), options: .atomic)
+        try Data("misplaced\n".utf8).write(to: iCloudVault.appendingPathComponent("manifest.json"), options: .atomic)
+
+        var backupValues = URLResourceValues()
+        backupValues.isExcludedFromBackup = true
+        var mutableLocalVault = localVault
+        try mutableLocalVault.setResourceValues(backupValues)
+
+        let localSymlinkToICloud = localRoot.appendingPathComponent("LinkToICloud.anchorvault")
+        let iCloudSymlinkToLocal = iCloudRoot.appendingPathComponent("LinkToLocal.anchorvault")
+        try fileManager.createSymbolicLink(at: localSymlinkToICloud, withDestinationURL: iCloudVault)
+        try fileManager.createSymbolicLink(at: iCloudSymlinkToLocal, withDestinationURL: localVault)
+
+        print("icloud_local_only_path container_path=\(container.path)")
+        print("icloud_local_only_path local_root=\(localRoot.path)")
+        printPathClassification(label: "local_temp_vault", url: localVault, container: container)
+        printPathClassification(label: "icloud_documents_vault", url: iCloudVault, container: container)
+        printPathClassification(label: "local_symlink_to_icloud", url: localSymlinkToICloud, container: container)
+        printPathClassification(label: "icloud_symlink_to_local", url: iCloudSymlinkToLocal, container: container)
+
+        try fileManager.removeItem(at: iCloudRoot)
+        try fileManager.removeItem(at: localRoot)
+        print("icloud_local_only_path cleanup_icloud_removed=\(!fileManager.fileExists(atPath: iCloudRoot.path))")
+        print("icloud_local_only_path cleanup_local_removed=\(!fileManager.fileExists(atPath: localRoot.path))")
+    }
+
+    private static func printPathClassification(label: String, url: URL, container: URL) {
+        let raw = url.standardizedFileURL
+        let resolved = raw.resolvingSymlinksInPath().standardizedFileURL
+        let resolvedContainer = container.resolvingSymlinksInPath().standardizedFileURL
+        let rawInContainer = isPath(raw.path, inside: resolvedContainer.path)
+        let resolvedInContainer = isPath(resolved.path, inside: resolvedContainer.path)
+        let rawIsUbiquitous = resourceBool(raw, key: .isUbiquitousItemKey) ?? false
+        let resolvedIsUbiquitous = resourceBool(resolved, key: .isUbiquitousItemKey) ?? false
+        let excludedFromBackup = resourceBool(resolved, key: .isExcludedFromBackupKey) ?? false
+        let shouldBlock = rawInContainer || resolvedInContainer || rawIsUbiquitous || resolvedIsUbiquitous
+
+        print("icloud_local_only_path \(label)_raw_path=\(raw.path)")
+        print("icloud_local_only_path \(label)_resolved_path=\(resolved.path)")
+        print("icloud_local_only_path \(label)_raw_in_container=\(rawInContainer)")
+        print("icloud_local_only_path \(label)_resolved_in_container=\(resolvedInContainer)")
+        print("icloud_local_only_path \(label)_raw_is_ubiquitous=\(rawIsUbiquitous)")
+        print("icloud_local_only_path \(label)_resolved_is_ubiquitous=\(resolvedIsUbiquitous)")
+        print("icloud_local_only_path \(label)_excluded_from_backup=\(excludedFromBackup)")
+        print("icloud_local_only_path \(label)_blocked_local_only_open=\(shouldBlock)")
+    }
+
+    private static func isPath(_ path: String, inside containerPath: String) -> Bool {
+        path == containerPath || path.hasPrefix("\(containerPath)/")
     }
 
     private static func resolvedContainer() throws -> URL {
