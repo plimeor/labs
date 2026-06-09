@@ -2709,3 +2709,86 @@ B4 binding approval and B14 default transport approval are recorded in the curre
 - **Axis matrix delta:** unchanged except the physical-device blocker is clarified: `available (paired)` is not proof of unlocked SpringBoard launchability.
 - **Gate evaluation:** CONTINUE — next action should not repeat physical-device runtime until the iPhone is actually unlocked at launch time; choose Android execution feasibility, another iCloud edge, product/UI runtime mechanism, or signed-device generated async runtime only when device launchability is confirmed.
 - **New doc:** `docs/workbench/20260606-anchor-v1/60-ios-device-locked-rerun-report.md`
+
+---
+
+## 51. Progress ledger update — 2026-06-10 — Android emulator CI wiring
+
+本节追加 `61-android-emulator-ci-wiring-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 51.1 Axis matrix after doc 61
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go**（unchanged） |
+| multi-target compile | **go**（unchanged） |
+| zero-cloud-symbol boundary | **go**（unchanged after doc 61 audit） |
+| binding（B4） | **approved boundary / partially release-gated** — unchanged after doc 60 |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — unchanged after doc 60 |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — unchanged after doc 60 |
+| layout / retention | **compromise** — unchanged after doc 60 |
+| cross-target execution CI | **hosted native/wasm/iOS-sim closed; Android emulator job wired / hosted execution pending** |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 51.2 Open-gate checklist after doc 61
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| Android runner branch | closed as wiring / local no-NDK screening | `61 §4.1`-`§4.4` |
+| Android emulator workflow config | closed as YAML/config wiring | `61 §3`, `61 §4.2` |
+| local Android execution | open / unavailable (`not_run_no_ndk`) | `61 §4.4`-`§4.5` |
+| hosted Android emulator execution | open / not observed until PR workflow runs | `61 §5` |
+| hosted native/wasm/iOS Simulator execution | closed / latest hosted run passed | `41 §3`, PR run `27237089281` |
+| physical iPhone app launch | open / blocked by locked device | `60 §3.5`-`§3.6` |
+| physical iPhone iCloud runtime | open / not observed | `60 §4` |
+| iOS/non-macOS CloudDocuments delivery | open / not observed | `60 §4`, `45 §4` |
+| product app-hosted UIKit responder chain | open / not run | `59 §5` |
+| cross-window / cross-document undo grouping | open / not run | `59 §5` |
+| product inverse-op dispatch through `anchor-core::dispatch` | open / not run | `59 §5` |
+| product app-hosted UIKit menu command system | open / not run | `58 §5`, `59 §5` |
+| `UIApplication` / scene / window command installation | open / not run | `58 §5`, `59 §5` |
+| product app-hosted UIKit patch replay across real document windows / tabs / sheets / restored scroll state | open / not run | `57 §5`, `58 §5`, `59 §5` |
+| product app-hosted UIKit focus/window lifecycle | open / not run | `56 §5`, `57 §5`, `58 §5`, `59 §5` |
+| VoiceOver / Accessibility Inspector runtime | open / not run | `56 §5`, `57 §5`, `58 §5`, `59 §5` |
+| full product focus lifecycle across document windows / tabs / sheets / sidebars / restored scroll state | open / not run | `55 §5`, `56 §5`, `57 §5`, `58 §5`, `59 §5` |
+| product AppKit view hierarchy integration | open / not run | `50 §5`, `53 §5`, `54 §5`, `55 §5`, `56 §5`, `57 §5`, `58 §5`, `59 §5` |
+| product undo grouping / inverse-op dispatch | open / not run | `54 §5`, `55 §5`, `56 §5`, `57 §5`, `58 §5`, `59 §5` |
+| product menu command system | open / not run | `53 §5`, `54 §5`, `55 §5`, `56 §5`, `57 §5`, `58 §5`, `59 §5` |
+| real `anchor-core::dispatch` integration for keyboard/menu/undo/focus intents and patches | open / not run | `49 §5`, `50 §5`, `51 §5`, `52 §5`, `53 §5`, `54 §5`, `55 §5`, `56 §5`, `57 §5`, `58 §5`, `59 §5` |
+| product accessibility mapping | open / not run | `52 §5`, `53 §5`, `54 §5`, `55 §5`, `56 §5`, `57 §5`, `58 §5`, `59 §5` |
+| polished cross-block continuous native text selection | open / not run | `52 §5`, `53 §5`, `54 §5`, `55 §5`, `56 §5`, `57 §5`, `58 §5`, `59 §5` |
+| external volume | open / not run | `46 §6` |
+| security-scoped bookmark restoration | open / not run | `46 §6` |
+| Finder move UI surface | open / not run | `46 §6` |
+| `.icloud` placeholder classification | open / not run | `46 §6` |
+| signed-out/unavailable account path classification | open / not run | `46 §6` |
+| true remote `.icloud` placeholder delivery | open / not proved | `33 §4` |
+| signed-out / over-quota account states | open / not run | unchanged |
+| steady-state segment budget / million-op iCloud context | open / not run | unchanged |
+| Developer ID signing availability | open / no Developer ID Application identity observed locally | `44 §3.5` |
+| signed app-bundle/device runtime integration | open / app launch blocked by locked physical device | `60 §3.5`-`§3.6` |
+| physical-device generated async runtime | open / not run | `43 §5`, `60 §4` |
+| product conflict-resolution UX / core integration | open / not implemented | `39 §4`-`§5` |
+
+### Ledger entry — 2026-06-10 — iteration 40 — doc 61-android-emulator-ci-wiring-report.md
+
+- **Checkpoint / cursor:** CP-1 cross-target execution CI gate.
+- **Action selected:** add Android emulator execution wiring to the existing deterministic vector runner and GitHub Actions workflow.
+- **Owner classification:** core / deterministic CI wiring → executed here; no product app, package boundary, root workspace, or lockfile changes.
+- **Scope-fence check:** passed — no root workspace / lockfile / repo product app shell / public CLI schema changes; no `suites/anchor/core/src/**` production source changes; no Android client introduced.
+- **Evidence (Observed = command + output):**
+  - `bash -n suites/anchor/core/tests/run-cross-target-vectors.sh` → exit 0.
+  - `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/anchor-cross-target-vectors.yml"); puts "workflow_yaml=ok"'` → `workflow_yaml=ok`.
+  - `ANCHOR_SKIP_IOS=1 bash suites/anchor/core/tests/run-cross-target-vectors.sh` → native 6/0, `anchor_wasm_vector_status=0`, `anchor_ios_vector_status=skipped`.
+  - `ANCHOR_SKIP_IOS=1 ANCHOR_RUN_ANDROID=1 bash suites/anchor/core/tests/run-cross-target-vectors.sh` → native 6/0, `anchor_wasm_vector_status=0`, `anchor_android_vector_status=not_run_no_ndk`.
+  - local Android tool screening → `ANDROID_HOME=/Users/plimeor/Library/Android/sdk`, path missing, no local Android SDK/NDK/adb runtime.
+  - `git diff --check` → clean.
+  - core cloud-symbol audit → 0 matches, exit 1.
+  - Apple deterministic-semantics audit for `diff3|order-key|fractional|merge.*semantic|canonical` → 0 matches, exit 1.
+  - Apple `Cargo.lock` audit → 0 paths.
+- **Gates closed this iteration:** Android runner branch and hosted Android emulator workflow configuration are wired.
+- **Gates still open:** hosted Android emulator execution, physical iPhone app launch / iCloud runtime, iOS/non-macOS CloudDocuments delivery, true remote placeholder, signed-out/over-quota, steady-state segment budget/million-op iCloud context, product conflict-resolution UX/core integration, signed-device generated async runtime, Developer ID distribution, and product-level TextKit/UI runtime integration gates.
+- **Backfill to 04/05/06:** updated cross-target execution wording to distinguish Android workflow wiring from hosted Android execution.
+- **Axis matrix delta:** cross-target execution CI moves from `hosted native/wasm/iOS-sim closed; Android execution open` to `hosted native/wasm/iOS-sim closed; Android emulator job wired / hosted execution pending`.
+- **Gate evaluation:** CONTINUE — next action is push/observe the hosted `android-emulator` job; only a hosted run with `anchor_android_vector_status=0` closes Android execution.
+- **New doc:** `docs/workbench/20260606-anchor-v1/61-android-emulator-ci-wiring-report.md`
