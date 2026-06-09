@@ -161,6 +161,15 @@ struct AnchorTextKitSmoke {
         precondition(uiMenuRouting.blockATextAfterAction == "AB")
         precondition(uiMenuRouting.blockBTextAfterAction == "CD")
         print("textkit:ui_menu_commands=blk_a:split@1,code_1:merge_backward")
+
+        let uiResponderUndo = UIKitTextViewRuntimeProbe().responderUndoSuppressionProbe()
+        precondition(uiResponderUndo.undoTargetResolved)
+        precondition(uiResponderUndo.semanticUndoEvents == ["semantic-inverse-intent"])
+        precondition(uiResponderUndo.textAfterUndoAction == "edited text")
+        precondition(uiResponderUndo.canUndoBeforeAction)
+        precondition(!uiResponderUndo.canUndoAfterAction)
+        precondition(uiResponderUndo.undoActionName == "Anchor semantic inverse")
+        print("textkit:ui_responder_undo=semantic-inverse-intent buffer_unchanged=true")
         #else
         print("textkit:runtime=not-run-on-this-platform")
         #endif

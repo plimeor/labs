@@ -164,6 +164,15 @@ public struct UIKitMenuCommandRoutingResult: Equatable {
     public let blockATextAfterAction: String
     public let blockBTextAfterAction: String
 }
+
+public struct UIKitResponderUndoSuppressionResult: Equatable {
+    public let undoTargetResolved: Bool
+    public let semanticUndoEvents: [String]
+    public let textAfterUndoAction: String
+    public let canUndoBeforeAction: Bool
+    public let canUndoAfterAction: Bool
+    public let undoActionName: String
+}
 #endif
 
 public final class NativeEditorAdapterProbe {
@@ -831,6 +840,48 @@ private final class UIKitIntentCapturingTextView: UITextView {
 }
 
 @MainActor
+private final class UIKitUndoEventRecorder: NSObject {
+    var events: [String] = []
+
+    func recordSemanticInverseIntent() {
+        events.append("semantic-inverse-intent")
+    }
+}
+
+@MainActor
+private final class UIKitResponderUndoTextView: UITextView {
+    private let semanticUndoManager = UndoManager()
+    private(set) var undoActionName = ""
+
+    override var undoManager: UndoManager? {
+        semanticUndoManager
+    }
+
+    override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
+        if action == #selector(undo(_:)) {
+            return true
+        }
+
+        return super.canPerformAction(action, withSender: sender)
+    }
+
+    func registerSemanticInverseUndo(on recorder: UIKitUndoEventRecorder) {
+        semanticUndoManager.groupsByEvent = false
+        semanticUndoManager.beginUndoGrouping()
+        semanticUndoManager.registerUndo(withTarget: recorder) { target in
+            target.recordSemanticInverseIntent()
+        }
+        semanticUndoManager.setActionName("Anchor semantic inverse")
+        undoActionName = semanticUndoManager.undoActionName
+        semanticUndoManager.endUndoGrouping()
+    }
+
+    @objc func undo(_ sender: Any?) {
+        semanticUndoManager.undo()
+    }
+}
+
+@MainActor
 private final class UIKitTextSurfaceHost {
     private let scrollView = UIScrollView(frame: CGRect(x: 0, y: 0, width: 600, height: 400))
     private var surfaces: [(blockID: String, textView: UITextView)] = []
@@ -1051,6 +1102,30 @@ public final class UIKitTextViewRuntimeProbe {
             blockBIntents: viewB.capturedIntents,
             blockATextAfterAction: viewA.text,
             blockBTextAfterAction: viewB.text
+        )
+    }
+
+    public func responderUndoSuppressionProbe() -> UIKitResponderUndoSuppressionResult {
+        let textView = UIKitResponderUndoTextView(frame: CGRect(x: 0, y: 0, width: 400, height: 160))
+        textView.text = "edited text"
+
+        let recorder = UIKitUndoEventRecorder()
+        textView.registerSemanticInverseUndo(on: recorder)
+
+        let undoAction = #selector(UIKitResponderUndoTextView.undo(_:))
+        let undoCommand = UIKeyCommand(input: "z", modifierFlags: [.command], action: undoAction)
+        let undoTarget = textView.target(forAction: undoAction, withSender: undoCommand)
+        let undoTextView = undoTarget as? UIKitResponderUndoTextView
+        let canUndoBeforeAction = textView.undoManager?.canUndo ?? false
+        undoTextView?.undo(undoCommand)
+
+        return UIKitResponderUndoSuppressionResult(
+            undoTargetResolved: undoTextView === textView,
+            semanticUndoEvents: recorder.events,
+            textAfterUndoAction: textView.text,
+            canUndoBeforeAction: canUndoBeforeAction,
+            canUndoAfterAction: textView.undoManager?.canUndo ?? true,
+            undoActionName: textView.undoActionName
         )
     }
 
