@@ -3027,3 +3027,71 @@ B4 binding approval and B14 default transport approval are recorded in the curre
 - **Axis matrix delta:** iCloud remains `approved default transport WITH compromise constraints`; layout/retention remains `compromise`; steady-state budget moves from fully open to file-count mechanism floor closed.
 - **Gate evaluation:** CONTINUE — remaining gates require product integration, real remote/account/device states, or physical-device runtime.
 - **New doc:** `docs/workbench/20260606-anchor-v1/65-icloud-segment-budget-floor-report.md`
+
+## 56. Progress ledger update — 2026-06-10 — TextKit structural dispatch deferral
+
+本节追加 `66-textkit-structural-dispatch-deferral-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 56.1 Axis matrix after doc 66
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go** — unchanged after doc 66 |
+| multi-target compile | **go** — macOS / iOS Simulator / iPhoneOS binding compile surfaces remain green after new FFI entrypoints |
+| zero-cloud-symbol boundary | **go** — unchanged after doc 66; core audit remains 0-match |
+| binding（B4） | **approved boundary / partially release-gated** — structural dispatch entrypoints compile and smoke through Apple FFI / Swift wrapper; signed app-bundle/device/runtime distribution gates remain open |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — insert bridge plus structural split / merge-backward typed-deferral bridge observed; real split/merge semantics and product app integration remain open |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — unchanged after doc 66 |
+| layout / retention | **compromise** — unchanged after doc 66 |
+| cross-target execution CI | **closed as hosted machine gate** — unchanged after doc 66 |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 56.2 Open-gate checklist after doc 66
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| probe-level TextKit insert intent → real core dispatch bridge | closed / observed | `63 §3.2`-`§3.4` |
+| probe-level TextKit structural split / merge-backward intent → real core dispatch typed deferral | **closed / observed** | `66 §3.2`-`§3.5` |
+| actual split / merge macro-op semantics and conflict materialization | open / not implemented | `66 §4` |
+| product app-hosted core dispatch integration for keyboard/menu/undo/focus flows | open / not implemented | `66 §4` |
+| product undo grouping / inverse-op dispatch | open / not implemented | `66 §4` |
+| core-sourced `EditorPatch` application over product AppKit/UIKit views | open / not implemented | `66 §4` |
+| product accessibility mapping / VoiceOver/UI runtime / cross-window focus | open / not implemented | `66 §4` |
+| default 1M-op steady-state segment file-count floor | closed / 124 iCloud package-internal files observed | `65 §3.1`, `65 §3.4` |
+| product compaction integration from real op-log to sealed/compacted segment files | open / not implemented | `65 §4` |
+| million-op replay / merge / compaction inside real iCloud product context | open / not run | `65 §4` |
+| actual signed-out account runtime | open / not run | `64 §4` |
+| actual over-quota account runtime | open / not run | `64 §4` |
+| physical iPhone app launch | open / blocked by locked device | `60 §3.5`-`§3.6` |
+| physical iPhone iCloud runtime | open / not observed | `60 §4` |
+| iOS/non-macOS CloudDocuments delivery | open / not observed | `60 §4`, `45 §4` |
+| true remote `.icloud` placeholder delivery | open / not proved | `33 §4` |
+| product conflict-resolution UX / core integration | open / not implemented | `39 §4`-`§5` |
+| signed app-bundle/device runtime integration | open / app launch blocked by locked physical device | `60 §3.5`-`§3.6` |
+| physical-device generated async runtime | open / not run | `43 §5`, `60 §4` |
+| Developer ID signing availability | open / no Developer ID Application identity observed locally | `44 §3.5` |
+
+### Ledger entry — 2026-06-10 — iteration 45 — doc 66-textkit-structural-dispatch-deferral-report.md
+
+- **Checkpoint / cursor:** CP-1 Apple half, TextKit/core dispatch integration gate.
+- **Action selected:** extend the probe-level TextKit/core dispatch bridge from insert-only to structural split / merge-backward intents, while preserving core-owned structural deferral.
+- **Owner classification:** Apple/TextKit + binding verifier → implemented in repo-local spike FFI/wrapper/smoke; no product app shell or core production source touched.
+- **Scope-fence check:** passed — no root workspace / package / generated lockfile retained; no public CLI schema; no product app shell; no Swift-side merge/diff3/order-key/normalization/tree-invariant/op-creation implementation; core cloud-symbol audit remains 0-match.
+- **Evidence (Observed = command + output):**
+  - `cargo fmt --manifest-path suites/anchor/apple/ffi/Cargo.toml` → exit `0`.
+  - `cargo build --manifest-path suites/anchor/apple/ffi/Cargo.toml --release --target aarch64-apple-darwin` → `Finished 'release' profile`.
+  - `swift run --package-path suites/anchor/apple/AnchorAppleSpike --scratch-path /tmp/anchor-apple-stage1/swift-build-textkit-structural-dispatch-20260610 AnchorAppleSmoke` → `textkit:core_dispatch_bridge=structural split=structural_dispatch_deferred merge=structural_dispatch_deferred`.
+  - `xcodebuild -scheme AnchorAppleSmoke ... OTHER_SWIFT_FLAGS='-strict-concurrency=complete -warnings-as-errors' build` → `** BUILD SUCCEEDED **`.
+  - Release executable run → `textkit:core_dispatch_bridge=structural split=structural_dispatch_deferred merge=structural_dispatch_deferred`.
+  - `cargo build --target aarch64-apple-ios-sim` + `xcodebuild -scheme AnchorCoreBindings -destination 'generic/platform=iOS Simulator' ... build` → `** BUILD SUCCEEDED **`.
+  - `cargo build --target aarch64-apple-ios` + `xcodebuild -scheme AnchorCoreBindings -destination 'generic/platform=iOS' ... build` → `** BUILD SUCCEEDED **`.
+  - core cloud-symbol audit → no output, exit `1`.
+  - Apple deterministic-semantics audit → no output, exit `1`.
+  - `find suites/anchor/apple -name Cargo.lock -print` → no output.
+  - `git diff --check` → no output, exit `0`.
+- **Gates closed this iteration:** probe-level TextKit structural split / merge-backward intents → real `anchor-core` dispatch typed deferral bridge.
+- **Gates still open:** product app-hosted dispatch integration for keyboard/menu/undo/focus flows, real split/merge semantics, inverse-op undo grouping, core-sourced patch application, product AppKit/UIKit accessibility/VoiceOver/UI runtime, physical iPhone / iCloud runtime, true remote placeholder, account-state runtimes, product iCloud compaction/context, product conflict resolver UX/core integration, signed-device generated async runtime, Developer ID distribution.
+- **Backfill to 04/06/21:** TextKit baseline, fixture evidence, and integration ledger updated to distinguish structural deferral bridge from product/core split-merge semantics.
+- **Axis matrix delta:** TextKit remains `partial mechanism floor closed`; non-insert structural intent bridge moves from open/not run to closed for typed deferral only.
+- **Gate evaluation:** CONTINUE — remaining gates require product integration, real structural edit implementation, real remote/account/device states, or physical-device runtime.
+- **New doc:** `docs/workbench/20260606-anchor-v1/66-textkit-structural-dispatch-deferral-report.md`

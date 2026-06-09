@@ -35,6 +35,17 @@ AnchorByteBuffer anchor_session_dispatch_direct_delete_json(
     const uint8_t *target_ptr,
     uintptr_t target_len
 );
+AnchorByteBuffer anchor_session_dispatch_split_block_json(
+    AnchorSession *session,
+    const uint8_t *target_ptr,
+    uintptr_t target_len,
+    uint32_t at
+);
+AnchorByteBuffer anchor_session_dispatch_merge_backward_json(
+    AnchorSession *session,
+    const uint8_t *target_ptr,
+    uintptr_t target_len
+);
 AnchorByteBuffer anchor_session_read_segment(AnchorSession *session);
 AnchorByteBuffer anchor_fixture_blob(uintptr_t size);
 AnchorByteBuffer anchor_blob_id_json(const uint8_t *bytes_ptr, uintptr_t bytes_len);

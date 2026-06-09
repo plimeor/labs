@@ -339,6 +339,59 @@ pub extern "C" fn anchor_session_dispatch_direct_delete_json(
 }
 
 #[no_mangle]
+pub extern "C" fn anchor_session_dispatch_split_block_json(
+    session: *mut AnchorSession,
+    target_ptr: *const u8,
+    target_len: usize,
+    at: u32,
+) -> AnchorByteBuffer {
+    if session.is_null() {
+        return string_buffer(transaction_error_json(
+            "adapter_null_session",
+            "null session",
+        ));
+    }
+    let target_id = match unsafe { read_utf8(target_ptr, target_len) } {
+        Ok(value) => value,
+        Err(error) => {
+            return string_buffer(transaction_error_json("adapter_parse_error", &error));
+        }
+    };
+    let session = unsafe { &mut *session };
+    let stamp = next_stamp(session, "split_block");
+    let result = session
+        .inner
+        .dispatch(EditorIntent::SplitBlock { target_id, at }, stamp);
+    string_buffer(transaction_result_json(result))
+}
+
+#[no_mangle]
+pub extern "C" fn anchor_session_dispatch_merge_backward_json(
+    session: *mut AnchorSession,
+    target_ptr: *const u8,
+    target_len: usize,
+) -> AnchorByteBuffer {
+    if session.is_null() {
+        return string_buffer(transaction_error_json(
+            "adapter_null_session",
+            "null session",
+        ));
+    }
+    let target_id = match unsafe { read_utf8(target_ptr, target_len) } {
+        Ok(value) => value,
+        Err(error) => {
+            return string_buffer(transaction_error_json("adapter_parse_error", &error));
+        }
+    };
+    let session = unsafe { &mut *session };
+    let stamp = next_stamp(session, "merge_backward");
+    let result = session
+        .inner
+        .dispatch(EditorIntent::MergeBackward { target_id }, stamp);
+    string_buffer(transaction_result_json(result))
+}
+
+#[no_mangle]
 pub extern "C" fn anchor_session_read_segment(session: *mut AnchorSession) -> AnchorByteBuffer {
     if session.is_null() {
         return empty_buffer();

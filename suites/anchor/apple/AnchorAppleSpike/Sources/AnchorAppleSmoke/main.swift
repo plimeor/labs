@@ -83,6 +83,27 @@ print(
     "textkit:core_dispatch_bridge=insert changed=\(bridgedInsert.changedIDs.joined(separator: ",")) selection=\(bridgedSelectionStart):\(bridgedSelectionEnd) segment=\(bridgedSegment.count)"
 )
 
+let structuralSession = try AnchorSession()
+let splitIntent = EditorIntentProbe.splitBlock(blockID: "blk_a", atUTF16: 1)
+guard case let .splitBlock(splitBlockID, splitAtUTF16) = splitIntent else {
+    fatalError("Expected splitBlock structural intent")
+}
+let splitResult = try structuralSession.dispatchSplitBlock(
+    targetID: splitBlockID,
+    at: UInt32(splitAtUTF16)
+)
+precondition(splitResult.changedIDs.isEmpty)
+precondition(splitResult.validationError?.code == .structuralDispatchDeferred)
+
+let mergeIntent = EditorIntentProbe.mergeBackward(blockID: "blk_a")
+guard case let .mergeBackward(mergeBlockID) = mergeIntent else {
+    fatalError("Expected mergeBackward structural intent")
+}
+let mergeResult = try structuralSession.dispatchMergeBackward(targetID: mergeBlockID)
+precondition(mergeResult.changedIDs.isEmpty)
+precondition(mergeResult.validationError?.code == .structuralDispatchDeferred)
+print("textkit:core_dispatch_bridge=structural split=structural_dispatch_deferred merge=structural_dispatch_deferred")
+
 let unavailableAccountState = ICloudDriveAdapterProbe.classifyAccountState(
     explicitContainerURL: nil,
     implicitContainerURL: nil

@@ -182,6 +182,37 @@ public final class AnchorSession {
         }
     }
 
+    public func dispatchSplitBlock(targetID: String, at: UInt32) throws -> TransactionResult {
+        guard let handle else { throw AnchorBindingError.nullSession }
+        let targetBytes = Array(targetID.utf8)
+        return try targetBytes.withUnsafeBufferPointer { targetBuffer in
+            try decode(
+                TransactionResult.self,
+                from: anchor_session_dispatch_split_block_json(
+                    handle,
+                    targetBuffer.baseAddress,
+                    UInt(targetBuffer.count),
+                    at
+                )
+            )
+        }
+    }
+
+    public func dispatchMergeBackward(targetID: String) throws -> TransactionResult {
+        guard let handle else { throw AnchorBindingError.nullSession }
+        let targetBytes = Array(targetID.utf8)
+        return try targetBytes.withUnsafeBufferPointer { targetBuffer in
+            try decode(
+                TransactionResult.self,
+                from: anchor_session_dispatch_merge_backward_json(
+                    handle,
+                    targetBuffer.baseAddress,
+                    UInt(targetBuffer.count)
+                )
+            )
+        }
+    }
+
     public func readSegment() throws -> Data {
         guard let handle else { throw AnchorBindingError.nullSession }
         return data(from: anchor_session_read_segment(handle))
@@ -205,6 +236,14 @@ public actor AnchorCoreClient {
 
     public func dispatchDirectDelete(targetID: String) throws -> TransactionResult {
         try session.dispatchDirectDelete(targetID: targetID)
+    }
+
+    public func dispatchSplitBlock(targetID: String, at: UInt32) throws -> TransactionResult {
+        try session.dispatchSplitBlock(targetID: targetID, at: at)
+    }
+
+    public func dispatchMergeBackward(targetID: String) throws -> TransactionResult {
+        try session.dispatchMergeBackward(targetID: targetID)
     }
 
     public func readSegment() throws -> Data {
