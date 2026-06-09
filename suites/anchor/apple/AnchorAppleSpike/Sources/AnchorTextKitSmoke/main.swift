@@ -129,6 +129,19 @@ struct AnchorTextKitSmoke {
         precondition(focusLifecycle.selectionA.location == 1 && focusLifecycle.selectionA.length == 0)
         precondition(focusLifecycle.selectionB.location == 0 && focusLifecycle.selectionB.length == 0)
         print("textkit:appkit_focus_lifecycle=split_scroll blk_a->code_1 selections=1:0,0:0")
+        #elseif os(iOS)
+        let uiRuntime = UIKitTextViewRuntimeProbe().textViewRuntimeProbe()
+        precondition(uiRuntime.selectedRange.location == 1 && uiRuntime.selectedRange.length == 2)
+        precondition(uiRuntime.hadMarkedText)
+        precondition(uiRuntime.markedRange.location == 1 && uiRuntime.markedRange.length == 1)
+        precondition(uiRuntime.committedText == "A拼")
+        precondition(uiRuntime.capturedIntents == [
+            .splitBlock(blockID: "blk_a", atUTF16: 1),
+            .mergeBackward(blockID: "blk_a")
+        ])
+        precondition(uiRuntime.viewHierarchyIDs == ["blk_a", "code_1"])
+        precondition(uiRuntime.accessibilityLabels == ["Block blk_a", "Block code_1"])
+        print("textkit:ui_textview_runtime=selection=1:2 marked=1:1 commit=A拼 input=split@1,merge_backward hierarchy=blk_a,code_1 labels=2")
         #else
         print("textkit:runtime=not-run-on-this-platform")
         #endif

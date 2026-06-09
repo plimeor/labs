@@ -135,6 +135,18 @@ public struct AppKitFocusLifecycleResult: Equatable {
 }
 #endif
 
+#if os(iOS)
+public struct UIKitTextViewRuntimeResult: Equatable {
+    public let selectedRange: NSRange
+    public let hadMarkedText: Bool
+    public let markedRange: NSRange
+    public let committedText: String
+    public let capturedIntents: [EditorIntentProbe]
+    public let viewHierarchyIDs: [String]
+    public let accessibilityLabels: [String]
+}
+#endif
+
 public final class NativeEditorAdapterProbe {
     private(set) public var blocks: [TextSurfaceState]
 
@@ -736,6 +748,111 @@ public final class MacTextKitRuntimeProbe {
             fatalError("NSEvent.keyEvent returned nil")
         }
         return event
+    }
+}
+#endif
+
+#if os(iOS)
+@MainActor
+private final class UIKitIntentCapturingTextView: UITextView {
+    private let blockID: String
+    private(set) var capturedIntents: [EditorIntentProbe] = []
+
+    init(blockID: String) {
+        self.blockID = blockID
+        super.init(frame: CGRect(x: 0, y: 0, width: 400, height: 160), textContainer: nil)
+        self.accessibilityIdentifier = blockID
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) is unavailable for UIKitIntentCapturingTextView")
+    }
+
+    override func insertText(_ text: String) {
+        if text == "\n" {
+            capturedIntents.append(.splitBlock(blockID: blockID, atUTF16: selectedRange.location))
+            return
+        }
+
+        if !text.isEmpty {
+            capturedIntents.append(.insertText(blockID: blockID, atUTF16: selectedRange.location, text: text))
+            return
+        }
+
+        super.insertText(text)
+    }
+
+    override func deleteBackward() {
+        if selectedRange.location == 0 {
+            capturedIntents.append(.mergeBackward(blockID: blockID))
+            return
+        }
+
+        super.deleteBackward()
+    }
+}
+
+@MainActor
+public final class UIKitTextViewRuntimeProbe {
+    public init() {}
+
+    public func textViewRuntimeProbe() -> UIKitTextViewRuntimeResult {
+        let selectionView = UITextView(frame: CGRect(x: 0, y: 0, width: 400, height: 160))
+        selectionView.text = "A🍎B"
+        selectionView.selectedRange = NSRange(location: 1, length: 2)
+
+        let imeView = UITextView(frame: CGRect(x: 0, y: 0, width: 400, height: 160))
+        imeView.text = "A"
+        imeView.selectedRange = NSRange(location: 1, length: 0)
+        imeView.setMarkedText("拼", selectedRange: NSRange(location: 1, length: 0))
+        let hadMarkedText = imeView.markedTextRange != nil
+        let markedRange = Self.nsRange(in: imeView, for: imeView.markedTextRange)
+        imeView.unmarkText()
+
+        let intentView = UIKitIntentCapturingTextView(blockID: "blk_a")
+        intentView.text = "AB"
+        intentView.selectedRange = NSRange(location: 1, length: 0)
+        intentView.insertText("\n")
+        intentView.selectedRange = NSRange(location: 0, length: 0)
+        intentView.deleteBackward()
+
+        let scrollView = UIScrollView(frame: CGRect(x: 0, y: 0, width: 600, height: 320))
+        let viewA = UITextView(frame: CGRect(x: 0, y: 0, width: 600, height: 140))
+        let viewB = UITextView(frame: CGRect(x: 0, y: 150, width: 600, height: 140))
+
+        viewA.accessibilityIdentifier = "blk_a"
+        viewA.accessibilityLabel = "Block blk_a"
+        viewA.text = "A🍎B"
+        viewA.selectedRange = NSRange(location: 1, length: 2)
+
+        viewB.accessibilityIdentifier = "code_1"
+        viewB.accessibilityLabel = "Block code_1"
+        viewB.text = "let x = 1"
+        viewB.selectedRange = NSRange(location: 0, length: 3)
+
+        scrollView.addSubview(viewA)
+        scrollView.addSubview(viewB)
+
+        return UIKitTextViewRuntimeResult(
+            selectedRange: selectionView.selectedRange,
+            hadMarkedText: hadMarkedText,
+            markedRange: markedRange,
+            committedText: imeView.text,
+            capturedIntents: intentView.capturedIntents,
+            viewHierarchyIDs: scrollView.subviews.compactMap { ($0 as? UITextView)?.accessibilityIdentifier },
+            accessibilityLabels: scrollView.subviews.compactMap { ($0 as? UITextView)?.accessibilityLabel }
+        )
+    }
+
+    private static func nsRange(in textView: UITextView, for textRange: UITextRange?) -> NSRange {
+        guard let textRange else {
+            return NSRange(location: NSNotFound, length: 0)
+        }
+
+        let location = textView.offset(from: textView.beginningOfDocument, to: textRange.start)
+        let length = textView.offset(from: textRange.start, to: textRange.end)
+        return NSRange(location: location, length: length)
     }
 }
 #endif
