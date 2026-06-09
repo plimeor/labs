@@ -3095,3 +3095,63 @@ B4 binding approval and B14 default transport approval are recorded in the curre
 - **Axis matrix delta:** TextKit remains `partial mechanism floor closed`; non-insert structural intent bridge moves from open/not run to closed for typed deferral only.
 - **Gate evaluation:** CONTINUE — remaining gates require product integration, real structural edit implementation, real remote/account/device states, or physical-device runtime.
 - **New doc:** `docs/workbench/20260606-anchor-v1/66-textkit-structural-dispatch-deferral-report.md`
+
+## 57. Progress ledger update — 2026-06-10 — iOS Simulator iCloud support rerun
+
+本节追加 `67-ios-simulator-icloud-support-rerun-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 57.1 Axis matrix after doc 67
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go** — unchanged after doc 67 |
+| multi-target compile | **go** — unchanged after doc 67 |
+| zero-cloud-symbol boundary | **go** — unchanged after doc 67 |
+| binding（B4） | **approved boundary / partially release-gated** — unchanged after doc 67 |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — unchanged after doc 67 |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — iOS 26.5 Simulator rerun still returns nil ubiquity containers and `BRCloudDocsErrorDomain:153`; physical iOS runtime remains open |
+| layout / retention | **compromise** — unchanged after doc 67 |
+| cross-target execution CI | **closed as hosted machine gate** — unchanged after doc 67 |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 57.2 Open-gate checklist after doc 67
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| iOS Simulator project/scheme/defaults | closed / observed | `67 §3.1`-`§3.3` |
+| Xcode-managed iOS Simulator build/install/launch | closed / observed | `67 §3.3`-`§3.4` |
+| simulated CloudDocuments entitlement surface | observed | `67 §3.3` |
+| iOS Simulator CloudDocuments runtime support | **open / failed in current runtime** | `67 §3.4`-`§3.5`: `explicit_nil=true`, `implicit_nil=true`, `BRCloudDocsErrorDomain:153` |
+| iOS/non-macOS CloudDocuments delivery proof | open / needs physical device or future simulator runtime | `67 §4` |
+| physical iPhone app launch | open / blocked by locked device | `60 §3.5`-`§3.6` |
+| physical iPhone iCloud runtime | open / not observed | `60 §4` |
+| true remote `.icloud` placeholder delivery | open / not proved | `33 §4` |
+| actual signed-out account runtime | open / not run | `64 §4` |
+| actual over-quota account runtime | open / not run | `64 §4` |
+| product compaction integration from real op-log to sealed/compacted segment files | open / not implemented | `65 §4` |
+| million-op replay / merge / compaction inside real iCloud product context | open / not run | `65 §4` |
+| product conflict-resolution UX / core integration | open / not implemented | `39 §4`-`§5` |
+| product TextKit/UI runtime integration | open / not implemented | `66 §4` |
+| signed app-bundle/device runtime integration | open / app launch blocked by locked physical device | `60 §3.5`-`§3.6` |
+| Developer ID signing availability | open / no Developer ID Application identity observed locally | `44 §3.5` |
+
+### Ledger entry — 2026-06-10 — iteration 46 — doc 67-ios-simulator-icloud-support-rerun-report.md
+
+- **Checkpoint / cursor:** CP-1 Apple half, iOS/non-macOS CloudDocuments delivery gate.
+- **Action selected:** rerun the Xcode-managed iOS Simulator CloudDocuments verifier after the user explicitly stated that Simulator is logged into iCloud.
+- **Owner classification:** Apple/iCloud verifier → runtime probe; no repo code, Xcode project config, entitlement, bundle id, or iCloud account mutation.
+- **Scope-fence check:** passed — no root workspace / package / lockfile changes; no product app shell; no CloudKit/CKSyncEngine path; no core cloud-symbol exposure.
+- **Evidence (Observed = command + output):**
+  - XcodeBuildMCP defaults point to `AnchorProvisionProbe`, but `list_sims` / `build_run_sim` fail because MCP cannot locate `simctl`.
+  - Explicit `DEVELOPER_DIR` `xcrun simctl list devices booted` → iPhone 17 `A1D90DAB-1FAC-413A-BCB4-F92B9F798F75` booted on iOS 26.5.
+  - `xcodebuild -project /Users/plimeor/Documents/AnchorProvisionProbe/AnchorProvisionProbe.xcodeproj ... build` → `** BUILD SUCCEEDED **`.
+  - Build log simulated xcent contains CloudDocuments / ubiquity entitlement keys.
+  - `simctl install` → exit `0`.
+  - `simctl launch --console ... --icloud-runtime-probe` → `explicit_nil=true`, `implicit_nil=true`, `blocked=no_ubiquity_container`.
+  - `bird` log → `BRCloudDocsErrorDomain:153` and `Returning error because iCloud Drive not supported`.
+- **Gates closed this iteration:** none for CP-1 delivery; build/install/launch reproducibility only.
+- **Gates still open:** iOS/non-macOS CloudDocuments runtime delivery, physical iPhone runtime after unlock, true remote placeholder, signed-out/over-quota, product compaction/iCloud context, product conflict resolver integration, product TextKit/UI integration.
+- **Backfill to 04/05/06:** none; existing baseline already records the same simulator runtime limitation.
+- **Axis matrix delta:** none; iCloud remains `approved default transport WITH compromise constraints`; iOS Simulator remains not valid delivery proof for this runtime.
+- **Gate evaluation:** CONTINUE for non-simulator gates. Do not use this iOS 26.5 Simulator to close CloudDocuments delivery unless a future simulator/runtime returns non-nil ubiquitous container URLs and no `BRCloudDocsErrorDomain:153`.
+- **New doc:** `docs/workbench/20260606-anchor-v1/67-ios-simulator-icloud-support-rerun-report.md`
