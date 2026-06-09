@@ -94,6 +94,13 @@ public struct AppKitTextSurfaceLifecycleResult: Equatable {
     public let removedViewDetached: Bool
     public let remainingViewCount: Int
 }
+
+public struct AppKitFirstResponderKeyboardResult: Equatable {
+    public let firstResponderAcceptedA: Bool
+    public let firstResponderAcceptedB: Bool
+    public let blockAIntents: [EditorIntentProbe]
+    public let blockBIntents: [EditorIntentProbe]
+}
 #endif
 
 public final class NativeEditorAdapterProbe {
@@ -186,6 +193,7 @@ private final class IntentCapturingTextView: NSTextView {
         self.blockID = blockID
         self.backingStorage = stack.storage
         super.init(frame: NSRect(x: 0, y: 0, width: 400, height: 200), textContainer: stack.container)
+        self.identifier = NSUserInterfaceItemIdentifier(blockID)
     }
 
     override init(frame frameRect: NSRect, textContainer container: NSTextContainer?) {
@@ -451,13 +459,45 @@ public final class MacTextKitRuntimeProbe {
         )
     }
 
-    private func keyEvent(characters: String, keyCode: UInt16) -> NSEvent {
+    public func appKitFirstResponderKeyboardProbe() -> AppKitFirstResponderKeyboardResult {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 600, height: 300),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        let viewA = IntentCapturingTextView(blockID: "blk_a")
+        let viewB = IntentCapturingTextView(blockID: "code_1")
+        viewA.frame = NSRect(x: 0, y: 150, width: 600, height: 140)
+        viewB.frame = NSRect(x: 0, y: 0, width: 600, height: 140)
+        viewA.string = "AB"
+        viewB.string = "CD"
+        viewA.setSelectedRange(NSRange(location: 1, length: 0))
+        viewB.setSelectedRange(NSRange(location: 0, length: 0))
+        window.contentView?.addSubview(viewA)
+        window.contentView?.addSubview(viewB)
+
+        let acceptedA = window.makeFirstResponder(viewA)
+        window.sendEvent(keyEvent(characters: "\r", keyCode: 36, windowNumber: window.windowNumber))
+
+        let acceptedB = window.makeFirstResponder(viewB)
+        window.sendEvent(keyEvent(characters: "\u{7F}", keyCode: 51, windowNumber: window.windowNumber))
+
+        return AppKitFirstResponderKeyboardResult(
+            firstResponderAcceptedA: acceptedA,
+            firstResponderAcceptedB: acceptedB,
+            blockAIntents: viewA.capturedIntents,
+            blockBIntents: viewB.capturedIntents
+        )
+    }
+
+    private func keyEvent(characters: String, keyCode: UInt16, windowNumber: Int = 0) -> NSEvent {
         guard let event = NSEvent.keyEvent(
             with: .keyDown,
             location: .zero,
             modifierFlags: [],
             timestamp: 0,
-            windowNumber: 0,
+            windowNumber: windowNumber,
             context: nil,
             characters: characters,
             charactersIgnoringModifiers: characters,

@@ -90,6 +90,13 @@ struct AnchorTextKitSmoke {
         precondition(lifecycle.removedViewDetached)
         precondition(lifecycle.remainingViewCount == 2)
         print("textkit:appkit_view_lifecycle=insert_move_remove")
+
+        let routedKeyboard = runtime.appKitFirstResponderKeyboardProbe()
+        precondition(routedKeyboard.firstResponderAcceptedA)
+        precondition(routedKeyboard.firstResponderAcceptedB)
+        precondition(routedKeyboard.blockAIntents == [.splitBlock(blockID: "blk_a", atUTF16: 1)])
+        precondition(routedKeyboard.blockBIntents == [.mergeBackward(blockID: "code_1")])
+        print("textkit:appkit_first_responder_keyboard=blk_a:split@1,code_1:merge_backward")
         #else
         print("textkit:runtime=not-run-on-this-platform")
         #endif
