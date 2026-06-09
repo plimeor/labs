@@ -142,6 +142,16 @@ struct AnchorTextKitSmoke {
         precondition(uiRuntime.viewHierarchyIDs == ["blk_a", "code_1"])
         precondition(uiRuntime.accessibilityLabels == ["Block blk_a", "Block code_1"])
         print("textkit:ui_textview_runtime=selection=1:2 marked=1:1 commit=A拼 input=split@1,merge_backward hierarchy=blk_a,code_1 labels=2")
+
+        let uiLifecycle = UIKitTextViewRuntimeProbe().textViewLifecycleProbe()
+        precondition(uiLifecycle.initialBlockIDs == ["blk_a", "code_1"])
+        precondition(uiLifecycle.afterInsertBlockIDs == ["blk_a", "blk_b", "code_1"])
+        precondition(uiLifecycle.insertedSelection.location == 0 && uiLifecycle.insertedSelection.length == 5)
+        precondition(uiLifecycle.afterMoveBlockIDs == ["code_1", "blk_a", "blk_b"])
+        precondition(uiLifecycle.afterRemoveBlockIDs == ["code_1", "blk_a"])
+        precondition(uiLifecycle.removedViewDetached)
+        precondition(uiLifecycle.remainingViewCount == 2)
+        print("textkit:ui_view_lifecycle=insert_move_remove")
         #else
         print("textkit:runtime=not-run-on-this-platform")
         #endif

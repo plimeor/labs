@@ -2398,3 +2398,78 @@ B4 binding approval and B14 default transport approval are recorded in the curre
 - **Axis matrix delta:** TextKit remains `partial mechanism floor closed`; UIKit / `UITextView` runtime moved from compile-only toward partial iOS Simulator runtime evidence, while product app-hosted UIKit responder/focus/menu/undo, VoiceOver/UI runtime, and dispatch integration remain open.
 - **Gate evaluation:** CONTINUE — next action should target another remaining UIKit/product-runtime mechanism, another iCloud edge case, Android execution feasibility, signed app/device runtime integration, or physical-device generated async runtime.
 - **New doc:** `docs/workbench/20260606-anchor-v1/56-uikit-textview-runtime-report.md`
+
+---
+
+## 47. Progress ledger update — 2026-06-10 — UIKit view lifecycle
+
+本节追加 `57-uikit-view-lifecycle-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 47.1 Axis matrix after doc 57
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go**（unchanged） |
+| multi-target compile | **go**（unchanged） |
+| zero-cloud-symbol boundary | **go**（unchanged after doc 57 audit） |
+| binding（B4） | **approved boundary / partially release-gated** — unchanged after doc 56 |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — iOS Simulator `UIScrollView` / `UITextView` insert / move / remove lifecycle replay closed; product app-hosted UIKit lifecycle, VoiceOver/UI runtime, and dispatch integration remain open |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — unchanged after doc 56 |
+| layout / retention | **compromise** — unchanged after doc 56 |
+| cross-target execution CI | **hosted native/wasm/iOS-sim closed; Android execution open** — unchanged after doc 56 |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 47.2 Open-gate checklist after doc 57
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| iOS Simulator `UIScrollView` / `UITextView` insert / move / remove lifecycle replay | closed as mechanism floor | `57 §4.3` |
+| product app-hosted UIKit patch replay across real document windows / tabs / sheets / restored scroll state | open / not run | `57 §5` |
+| product app-hosted UIKit focus/window lifecycle | open / not run | `56 §5`, `57 §5` |
+| UIKit menu command system | open / not run | `56 §5`, `57 §5` |
+| UIKit responder-chain undo grouping / inverse-op dispatch | open / not run | `56 §5`, `57 §5` |
+| VoiceOver / Accessibility Inspector runtime | open / not run | `56 §5`, `57 §5` |
+| full product focus lifecycle across document windows / tabs / sheets / sidebars / restored scroll state | open / not run | `55 §5`, `56 §5`, `57 §5` |
+| product AppKit view hierarchy integration | open / not run | `50 §5`, `53 §5`, `54 §5`, `55 §5`, `56 §5`, `57 §5` |
+| product undo grouping / inverse-op dispatch | open / not run | `54 §5`, `55 §5`, `56 §5`, `57 §5` |
+| product menu command system | open / not run | `53 §5`, `54 §5`, `55 §5`, `56 §5`, `57 §5` |
+| real `anchor-core::dispatch` integration for keyboard/menu/undo/focus intents and patches | open / not run | `49 §5`, `50 §5`, `51 §5`, `52 §5`, `53 §5`, `54 §5`, `55 §5`, `56 §5`, `57 §5` |
+| product accessibility mapping | open / not run | `52 §5`, `53 §5`, `54 §5`, `55 §5`, `56 §5`, `57 §5` |
+| polished cross-block continuous native text selection | open / not run | `52 §5`, `53 §5`, `54 §5`, `55 §5`, `56 §5`, `57 §5` |
+| external volume | open / not run | `46 §6` |
+| security-scoped bookmark restoration | open / not run | `46 §6` |
+| Finder move UI surface | open / not run | `46 §6` |
+| `.icloud` placeholder classification | open / not run | `46 §6` |
+| signed-out/unavailable account path classification | open / not run | `46 §6` |
+| physical iPhone runtime after unlock | open / blocked by locked device across three attempts | `32 §3.5`, `37 §3`, `42 §3.2` |
+| iOS/non-macOS CloudDocuments delivery | open / not closed by Simulator | `45 §4` |
+| true remote `.icloud` placeholder delivery | open / not proved | `33 §4` |
+| signed-out / over-quota account states | open / not run | unchanged |
+| steady-state segment budget / million-op iCloud context | open / not run | unchanged |
+| Developer ID signing availability | open / no Developer ID Application identity observed locally | `44 §3.5` |
+| signed app-bundle/device runtime integration | open / not run | `40 §4`, `43 §5` |
+| physical-device generated async runtime | open / not run | `43 §5` |
+| Android execution | open / not run | `31 §3.1`, `41 §4` |
+| product conflict-resolution UX / core integration | open / not implemented | `39 §4`-`§5` |
+
+### Ledger entry — 2026-06-10 — iteration 36 — doc 57-uikit-view-lifecycle-report.md
+
+- **Checkpoint / cursor:** CP-1 Apple half, TextKit/UIKit product-runtime gate.
+- **Action selected:** add and execute an iOS Simulator `UIScrollView` + `UITextView` lifecycle harness for insert / move / remove text surface patch replay.
+- **Owner classification:** Apple/UIKit verifier → implemented in repo-local spike probe/smoke; no product app shell or core code touched.
+- **Scope-fence check:** passed — no root workspace / lockfile / repo product app shell / public CLI schema changes; no `suites/anchor/core/src/**` production source changes; no deterministic core semantics duplicated in Swift; no persistent writes.
+- **Evidence (Observed = command + output):**
+  - `swift run --package-path suites/anchor/apple/AnchorAppleSpike --scratch-path /tmp/anchor-apple-stage1/swift-build-textkit-ui-view-lifecycle-20260610 AnchorTextKitSmoke` → existing macOS AppKit / TextKit smoke outputs unchanged, including `textkit:appkit_focus_lifecycle=split_scroll blk_a->code_1 selections=1:0,0:0`.
+  - `xcodebuild -scheme AnchorTextKitSmoke -destination 'generic/platform=iOS Simulator' ... OTHER_SWIFT_FLAGS=-parse-as-library build` → `** BUILD SUCCEEDED **`.
+  - `xcrun simctl spawn A1D90DAB-1FAC-413A-BCB4-F92B9F798F75 .../AnchorTextKitSmoke` → `textkit:ui_view_lifecycle=insert_move_remove` with existing `textkit:ui_textview_runtime=selection=1:2 marked=1:1 commit=A拼 input=split@1,merge_backward hierarchy=blk_a,code_1 labels=2`.
+  - `xcodebuild -scheme AnchorTextKitProbe -destination 'generic/platform=iOS Simulator' ... build` → `** BUILD SUCCEEDED **`.
+  - `git diff --check` → clean, exit 0.
+  - core cloud-symbol audit → 0 matches, exit 1.
+  - Apple deterministic-semantics audit for `diff3|order-key|fractional|merge.*semantic|canonical` → 0 matches, exit 1.
+  - Apple `Cargo.lock` audit → 0 paths.
+- **Gates closed this iteration:** iOS Simulator UIKit `UIScrollView` / `UITextView` insert / move / remove lifecycle replay mechanism floor, including inserted-surface selection preservation and removed-view detachment.
+- **Gates still open:** product app-hosted UIKit focus/window lifecycle, product app-hosted UIKit patch replay across real document windows/tabs/sheets/restored scroll state, UIKit menu command system, UIKit responder-chain undo grouping / inverse-op dispatch, VoiceOver/UI runtime, product menu command system, full product focus lifecycle, product undo grouping / inverse-op dispatch, real `anchor-core::dispatch` integration, product accessibility mapping, polished cross-block continuous native selection, remaining local-only path edge cases, physical iPhone runtime after unlock, iOS/non-macOS CloudDocuments delivery, true remote placeholder, signed-out/over-quota, steady-state segment budget/million-op iCloud context, product conflict-resolution UX/core integration, Android execution, signed app-bundle/device runtime integration, physical-device generated async runtime, Developer ID signing availability.
+- **Backfill to 04/06:** `04-contract-baseline.md` TextKit baseline; `06-fixture-set.md` Apple TextKit fixture evidence.
+- **Axis matrix delta:** TextKit remains `partial mechanism floor closed`; UIKit view lifecycle moved from open mechanism evidence to closed, while product app-hosted UIKit lifecycle, VoiceOver/UI runtime, and dispatch integration remain open.
+- **Gate evaluation:** CONTINUE — next action should target another remaining UIKit/product-runtime mechanism, another iCloud edge case, Android execution feasibility, signed app/device runtime integration, or physical-device generated async runtime.
+- **New doc:** `docs/workbench/20260606-anchor-v1/57-uikit-view-lifecycle-report.md`
