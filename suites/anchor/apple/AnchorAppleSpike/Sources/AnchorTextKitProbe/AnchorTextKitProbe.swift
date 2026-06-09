@@ -72,6 +72,13 @@ public struct TextSurfaceState: Equatable {
     }
 }
 
+public struct MarkedTextCommitProbeResult: Equatable {
+    public let hadMarkedText: Bool
+    public let markedRange: NSRange
+    public let committedText: String
+    public let intent: EditorIntentProbe
+}
+
 public final class NativeEditorAdapterProbe {
     private(set) public var blocks: [TextSurfaceState]
 
@@ -158,6 +165,46 @@ public final class MacTextKitRuntimeProbe {
         }
         semanticUndoManager.undo()
         return recorder.events
+    }
+
+    public func performMarkedTextCommitProbe() -> MarkedTextCommitProbeResult {
+        textView.string = "A"
+        textView.setSelectedRange(NSRange(location: 1, length: 0))
+        textView.setMarkedText(
+            "拼",
+            selectedRange: NSRange(location: 1, length: 0),
+            replacementRange: NSRange(location: 1, length: 0)
+        )
+
+        let hadMarkedText = textView.hasMarkedText()
+        let markedRange = textView.markedRange()
+        textView.insertText("拼", replacementRange: markedRange)
+
+        return MarkedTextCommitProbeResult(
+            hadMarkedText: hadMarkedText,
+            markedRange: markedRange,
+            committedText: textView.string,
+            intent: EditorIntentProbe.insertText(blockID: "blk_a", atUTF16: markedRange.location, text: "拼")
+        )
+    }
+
+    public func hitTestInsertionIndexProbe() -> Int {
+        guard let layoutManager = textView.layoutManager,
+              let textContainer = textView.textContainer else {
+            return NSNotFound
+        }
+        layoutManager.ensureLayout(for: textContainer)
+        let glyphIndex = min(1, max(0, layoutManager.numberOfGlyphs - 1))
+        let glyphLocation = layoutManager.location(forGlyphAt: glyphIndex)
+        return textView.characterIndexForInsertion(at: glyphLocation)
+    }
+
+    public func directBufferUndoSuppressed() -> Bool {
+        textView.allowsUndo = false
+        textView.string = "undo probe"
+        textView.replaceCharacters(in: NSRange(location: 0, length: 0), with: "x")
+        textView.undoManager?.undo()
+        return textView.allowsUndo == false && textView.string == "xundo probe"
     }
 }
 #endif

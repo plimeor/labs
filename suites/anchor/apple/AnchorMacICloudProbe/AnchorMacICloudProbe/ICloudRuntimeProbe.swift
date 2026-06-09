@@ -4,10 +4,38 @@ import UniformTypeIdentifiers
 enum ICloudProbeCommand {
     case runtime(scaleSubset: Int)
     case scale(fileCount: Int)
+    case conflictPolicy(runID: String)
+    case conflictResolve(runID: String)
+    case placeholder
 
     init?(arguments: [String]) {
         if arguments.contains("--icloud-runtime-probe") {
             self = .runtime(scaleSubset: 1024)
+            return
+        }
+
+        if arguments.contains("--icloud-placeholder-probe") {
+            self = .placeholder
+            return
+        }
+
+        if let conflictIndex = arguments.firstIndex(of: "--icloud-conflict-policy-probe") {
+            let conflictValueIndex = arguments.index(after: conflictIndex)
+            guard arguments.indices.contains(conflictValueIndex) else {
+                self = .conflictPolicy(runID: "offline-conflict-20260607T113449Z")
+                return
+            }
+            self = .conflictPolicy(runID: arguments[conflictValueIndex])
+            return
+        }
+
+        if let resolveIndex = arguments.firstIndex(of: "--icloud-conflict-resolve-probe") {
+            let resolveValueIndex = arguments.index(after: resolveIndex)
+            guard arguments.indices.contains(resolveValueIndex) else {
+                self = .conflictResolve(runID: "offline-conflict-20260607T113449Z")
+                return
+            }
+            self = .conflictResolve(runID: arguments[resolveValueIndex])
             return
         }
 
@@ -37,6 +65,12 @@ enum ICloudRuntimeProbe {
             try runRuntimeProbe(scaleSubset: scaleSubset)
         case let .scale(fileCount):
             try runScaleProbe(fileCount: fileCount)
+        case let .conflictPolicy(runID):
+            try runConflictPolicyProbe(runID: runID)
+        case let .conflictResolve(runID):
+            try runConflictResolveProbe(runID: runID)
+        case .placeholder:
+            try runPlaceholderProbe()
         }
     }
 
@@ -109,6 +143,193 @@ enum ICloudRuntimeProbe {
         print("icloud_scale metadata_gathered=\(metadata.gathered)")
         print("icloud_scale metadata_count=\(metadata.count)")
         print("icloud_scale cleanup_ms=\(String(format: "%.2f", cleanupMs))")
+    }
+
+    private static func runConflictPolicyProbe(runID: String) throws {
+        let container = try resolvedContainer()
+        let manifest = container
+            .appendingPathComponent("Documents", isDirectory: true)
+            .appendingPathComponent("AnchorConflictProbe", isDirectory: true)
+            .appendingPathComponent(runID, isDirectory: true)
+            .appendingPathComponent("manifest.json")
+
+        print("icloud_conflict_policy run_id=\(runID)")
+        print("icloud_conflict_policy manifest_path=\(manifest.path)")
+        print("icloud_conflict_policy manifest_exists=\(FileManager.default.fileExists(atPath: manifest.path))")
+
+        let current = try coordinatedRead(from: manifest)
+        print("icloud_conflict_policy current_bytes=\(current.count)")
+        print("icloud_conflict_policy current_text=\(oneLineText(current))")
+
+        let versions = NSFileVersion.unresolvedConflictVersionsOfItem(at: manifest) ?? []
+        print("icloud_conflict_policy conflict_versions=\(versions.count)")
+
+        for (index, version) in versions.enumerated() {
+            let data = try Data(contentsOf: version.url)
+            let modified = version.modificationDate.map { String(format: "%.0f", $0.timeIntervalSince1970) } ?? "nil"
+            print("icloud_conflict_policy conflict_\(index)_is_conflict=\(version.isConflict)")
+            print("icloud_conflict_policy conflict_\(index)_modified_epoch=\(modified)")
+            print("icloud_conflict_policy conflict_\(index)_bytes=\(data.count)")
+            print("icloud_conflict_policy conflict_\(index)_text=\(oneLineText(data))")
+        }
+
+        let duplicateManifests = try duplicateManifestFiles(near: manifest)
+        print("icloud_conflict_policy duplicate_manifest_files=\(duplicateManifests.count)")
+        for (index, duplicate) in duplicateManifests.enumerated() {
+            let data = try Data(contentsOf: duplicate)
+            print("icloud_conflict_policy duplicate_\(index)_name=\(duplicate.lastPathComponent)")
+            print("icloud_conflict_policy duplicate_\(index)_bytes=\(data.count)")
+            print("icloud_conflict_policy duplicate_\(index)_text=\(oneLineText(data))")
+        }
+
+        if versions.isEmpty && duplicateManifests.isEmpty {
+            print("icloud_conflict_policy adapter_status=ok_no_conflict")
+        } else {
+            print("icloud_conflict_policy adapter_status=blocked_manifest_conflict")
+        }
+
+        print("icloud_conflict_policy policy_surface_conflicts=true")
+        print("icloud_conflict_policy policy_preserve_versions=true")
+        print("icloud_conflict_policy policy_auto_resolve=false")
+        print("icloud_conflict_policy resolution_executed=false")
+    }
+
+    private static func runConflictResolveProbe(runID: String) throws {
+        let container = try resolvedContainer()
+        let manifest = container
+            .appendingPathComponent("Documents", isDirectory: true)
+            .appendingPathComponent("AnchorConflictProbe", isDirectory: true)
+            .appendingPathComponent(runID, isDirectory: true)
+            .appendingPathComponent("manifest.json")
+        let directory = manifest.deletingLastPathComponent()
+        let archive = directory.appendingPathComponent(
+            "resolved-archive-\(Int(Date().timeIntervalSince1970))",
+            isDirectory: true
+        )
+
+        print("icloud_conflict_resolve run_id=\(runID)")
+        print("icloud_conflict_resolve manifest_path=\(manifest.path)")
+        print("icloud_conflict_resolve manifest_exists=\(FileManager.default.fileExists(atPath: manifest.path))")
+        print("icloud_conflict_resolve resolution_choice=current")
+
+        let current = try coordinatedRead(from: manifest)
+        try FileManager.default.createDirectory(at: archive, withIntermediateDirectories: true)
+        let currentArchive = archive.appendingPathComponent("current-manifest.json")
+        try current.write(to: currentArchive, options: .atomic)
+        print("icloud_conflict_resolve archive_path=\(archive.path)")
+        print("icloud_conflict_resolve archived_current_bytes=\(current.count)")
+        print("icloud_conflict_resolve archived_current_text=\(oneLineText(current))")
+
+        let versions = NSFileVersion.unresolvedConflictVersionsOfItem(at: manifest) ?? []
+        let duplicateManifests = try duplicateManifestFiles(near: manifest)
+        print("icloud_conflict_resolve before_conflict_versions=\(versions.count)")
+        print("icloud_conflict_resolve before_duplicate_manifest_files=\(duplicateManifests.count)")
+
+        for (index, version) in versions.enumerated() {
+            let data = try Data(contentsOf: version.url)
+            let versionArchive = archive.appendingPathComponent("conflict-version-\(index).json")
+            try data.write(to: versionArchive, options: .atomic)
+            print("icloud_conflict_resolve archived_conflict_\(index)_bytes=\(data.count)")
+            print("icloud_conflict_resolve archived_conflict_\(index)_text=\(oneLineText(data))")
+            version.isResolved = true
+        }
+
+        do {
+            try NSFileVersion.removeOtherVersionsOfItem(at: manifest)
+            print("icloud_conflict_resolve remove_other_versions_error=nil")
+        } catch {
+            let nsError = error as NSError
+            print("icloud_conflict_resolve remove_other_versions_error=\(nsError.domain):\(nsError.code)")
+        }
+
+        for (index, duplicate) in duplicateManifests.enumerated() {
+            let data = try Data(contentsOf: duplicate)
+            let duplicateArchive = archive.appendingPathComponent("duplicate-\(index)-\(duplicate.lastPathComponent)")
+            try FileManager.default.moveItem(at: duplicate, to: duplicateArchive)
+            print("icloud_conflict_resolve archived_duplicate_\(index)_name=\(duplicate.lastPathComponent)")
+            print("icloud_conflict_resolve archived_duplicate_\(index)_bytes=\(data.count)")
+            print("icloud_conflict_resolve archived_duplicate_\(index)_text=\(oneLineText(data))")
+        }
+
+        let afterVersions = NSFileVersion.unresolvedConflictVersionsOfItem(at: manifest) ?? []
+        let afterDuplicates = try duplicateManifestFiles(near: manifest)
+        let afterCurrent = try coordinatedRead(from: manifest)
+        print("icloud_conflict_resolve after_conflict_versions=\(afterVersions.count)")
+        print("icloud_conflict_resolve after_duplicate_manifest_files=\(afterDuplicates.count)")
+        print("icloud_conflict_resolve after_current_bytes=\(afterCurrent.count)")
+        print("icloud_conflict_resolve after_current_text=\(oneLineText(afterCurrent))")
+        print("icloud_conflict_resolve archive_preserved=true")
+        print("icloud_conflict_resolve resolution_executed=true")
+        if afterVersions.isEmpty && afterDuplicates.isEmpty {
+            print("icloud_conflict_resolve adapter_status=ok_resolved")
+        } else {
+            print("icloud_conflict_resolve adapter_status=blocked_manifest_conflict")
+        }
+    }
+
+    private static func runPlaceholderProbe() throws {
+        let container = try resolvedContainer()
+        let documents = container.appendingPathComponent("Documents", isDirectory: true)
+        try FileManager.default.createDirectory(at: documents, withIntermediateDirectories: true)
+
+        let root = documents.appendingPathComponent("AnchorPlaceholderProbe", isDirectory: true)
+        try resetDirectory(root)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+
+        let external = root.appendingPathComponent("external.anchorseg")
+        try coordinatedWrite(Data("external-placeholder-segment\n".utf8), to: external)
+        print("icloud_placeholder external_path=\(external.path)")
+        printDownloadState(label: "external_before", url: external)
+        runDownloadCycle(label: "external", url: external)
+
+        let vault = root.appendingPathComponent("Vault.anchorvault", isDirectory: true)
+        let packageSegments = vault.appendingPathComponent("segments", isDirectory: true)
+        try FileManager.default.createDirectory(at: packageSegments, withIntermediateDirectories: true)
+
+        let packageSegment = packageSegments.appendingPathComponent("000001.anchorseg")
+        try coordinatedWrite(Data("package-placeholder-segment\n".utf8), to: packageSegment)
+        print("icloud_placeholder package_segment_path=\(packageSegment.path)")
+        printDownloadState(label: "package_before", url: packageSegment)
+        runDownloadCycle(label: "package", url: packageSegment)
+
+        try FileManager.default.removeItem(at: root)
+        print("icloud_placeholder cleanup_removed=\(!FileManager.default.fileExists(atPath: root.path))")
+    }
+
+    private static func printDownloadState(label: String, url: URL) {
+        print("icloud_placeholder \(label)_exists=\(FileManager.default.fileExists(atPath: url.path))")
+        print("icloud_placeholder \(label)_is_ubiquitous=\(resourceBool(url, key: .isUbiquitousItemKey) ?? false)")
+        print("icloud_placeholder \(label)_download_status=\(resourceString(url, key: .ubiquitousItemDownloadingStatusKey) ?? "nil")")
+    }
+
+    private static func runDownloadCycle(label: String, url: URL) {
+        do {
+            try FileManager.default.evictUbiquitousItem(at: url)
+            print("icloud_placeholder \(label)_evict_error=nil")
+        } catch {
+            let nsError = error as NSError
+            print("icloud_placeholder \(label)_evict_error=\(nsError.domain):\(nsError.code)")
+        }
+
+        printDownloadState(label: "\(label)_after_evict", url: url)
+
+        do {
+            try FileManager.default.startDownloadingUbiquitousItem(at: url)
+            print("icloud_placeholder \(label)_start_download_error=nil")
+        } catch {
+            let nsError = error as NSError
+            print("icloud_placeholder \(label)_start_download_error=\(nsError.domain):\(nsError.code)")
+        }
+
+        printDownloadState(label: "\(label)_after_start", url: url)
+
+        do {
+            let data = try coordinatedRead(from: url)
+            print("icloud_placeholder \(label)_read_after_start_bytes=\(data.count)")
+        } catch {
+            let nsError = error as NSError
+            print("icloud_placeholder \(label)_read_after_start_error=\(nsError.domain):\(nsError.code)")
+        }
     }
 
     private static func resolvedContainer() throws -> URL {
@@ -259,5 +480,22 @@ enum ICloudRuntimeProbe {
     private static func elapsedMs(from start: DispatchTime) -> Double {
         let end = DispatchTime.now()
         return Double(end.uptimeNanoseconds - start.uptimeNanoseconds) / 1_000_000
+    }
+
+    private static func oneLineText(_ data: Data) -> String {
+        String(decoding: data, as: UTF8.self)
+            .replacingOccurrences(of: "\n", with: "\\n")
+            .replacingOccurrences(of: "\r", with: "\\r")
+    }
+
+    private static func duplicateManifestFiles(near manifest: URL) throws -> [URL] {
+        let directory = manifest.deletingLastPathComponent()
+        let contents = try FileManager.default.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: nil
+        )
+        return contents
+            .filter { $0.lastPathComponent.hasPrefix("manifest ") && $0.pathExtension == "json" }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
     }
 }

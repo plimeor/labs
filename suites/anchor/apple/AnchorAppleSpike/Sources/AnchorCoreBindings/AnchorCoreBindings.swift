@@ -1,7 +1,7 @@
 import AnchorCoreC
 import Foundation
 
-public struct FixtureSummary: Decodable, Equatable {
+public struct FixtureSummary: Decodable, Equatable, Sendable {
     public let vaultID: String
     public let noteCount: Int
     public let snapshotRevision: String
@@ -15,7 +15,7 @@ public struct FixtureSummary: Decodable, Equatable {
     }
 }
 
-public struct SelectionHint: Decodable, Equatable {
+public struct SelectionHint: Decodable, Equatable, Sendable {
     public let kind: String
     public let blockID: String?
     public let start: UInt32?
@@ -29,7 +29,7 @@ public struct SelectionHint: Decodable, Equatable {
     }
 }
 
-public struct ConflictRecord: Decodable, Equatable {
+public struct ConflictRecord: Decodable, Equatable, Sendable {
     public let targetID: String
     public let kind: String
     public let subFieldKey: String?
@@ -47,7 +47,7 @@ public struct ConflictRecord: Decodable, Equatable {
     }
 }
 
-public enum ValidationErrorCode: String, Decodable, Equatable {
+public enum ValidationErrorCode: String, Decodable, Equatable, Sendable {
     case invalidUTF16Offset = "invalid_utf16_offset"
     case directActiveToDeleted = "direct_active_to_deleted"
     case structuralDispatchDeferred = "structural_dispatch_deferred"
@@ -55,12 +55,12 @@ public enum ValidationErrorCode: String, Decodable, Equatable {
     case adapterParseError = "adapter_parse_error"
 }
 
-public struct ValidationError: Decodable, Equatable {
+public struct ValidationError: Decodable, Equatable, Sendable {
     public let code: ValidationErrorCode
     public let message: String
 }
 
-public struct TransactionResult: Decodable, Equatable {
+public struct TransactionResult: Decodable, Equatable, Sendable {
     public let changedIDs: [String]
     public let validationError: ValidationError?
     public let newRevisions: [String: String]
@@ -80,7 +80,7 @@ public struct TransactionResult: Decodable, Equatable {
     }
 }
 
-public enum AnchorBindingError: Error, Equatable {
+public enum AnchorBindingError: Error, Equatable, Sendable {
     case nullSession
     case decode(String)
 }
@@ -185,5 +185,29 @@ public final class AnchorSession {
     public func readSegment() throws -> Data {
         guard let handle else { throw AnchorBindingError.nullSession }
         return data(from: anchor_session_read_segment(handle))
+    }
+}
+
+public actor AnchorCoreClient {
+    private let session: AnchorSession
+
+    public init() throws {
+        self.session = try AnchorSession()
+    }
+
+    public func summary() throws -> FixtureSummary {
+        try session.summary()
+    }
+
+    public func dispatchInsertText(targetID: String, at: UInt32, text: String) throws -> TransactionResult {
+        try session.dispatchInsertText(targetID: targetID, at: at, text: text)
+    }
+
+    public func dispatchDirectDelete(targetID: String) throws -> TransactionResult {
+        try session.dispatchDirectDelete(targetID: targetID)
+    }
+
+    public func readSegment() throws -> Data {
+        try session.readSegment()
     }
 }

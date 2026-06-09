@@ -91,6 +91,47 @@ fn dispatch_rejects_direct_active_to_deleted() {
 }
 
 #[test]
+fn validation_error_vocabulary_is_frozen() {
+    let cases = [
+        (
+            ValidationError::InvalidUtf16Offset,
+            "invalid_utf16_offset",
+            "text edit produced invalid UTF-16; check Apple UTF-16 offset boundary",
+        ),
+        (
+            ValidationError::DirectActiveToDeleted,
+            "direct_active_to_deleted",
+            "direct active→deleted rejected; trash first (D10/D20)",
+        ),
+        (
+            ValidationError::StructuralDispatchDeferred,
+            "structural_dispatch_deferred",
+            "structural split/merge dispatch deferred to CP-2",
+        ),
+    ];
+
+    let codes = cases
+        .iter()
+        .map(|(error, _, _)| error.code())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        codes,
+        vec![
+            "invalid_utf16_offset",
+            "direct_active_to_deleted",
+            "structural_dispatch_deferred",
+        ]
+    );
+    assert!(!codes.contains(&"adapter_null_session"));
+    assert!(!codes.contains(&"adapter_parse_error"));
+
+    for (error, code, message) in cases {
+        assert_eq!(error.code(), code);
+        assert_eq!(error.message(), message);
+    }
+}
+
+#[test]
 fn segment_bytes_surface_is_stable() {
     let s1 = Session::open_fixture();
     let s2 = Session::open_fixture();

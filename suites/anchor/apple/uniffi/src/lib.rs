@@ -165,6 +165,10 @@ pub fn open_fixture_vault() -> FixtureSummary {
     fixture_summary(anchor_core::dto::open_fixture_vault())
 }
 
+pub async fn async_fixture_summary() -> FixtureSummary {
+    fixture_summary(anchor_core::dto::open_fixture_vault())
+}
+
 pub fn dispatch_editor_intent(intent: EditorIntentDto) -> TransactionResultSummary {
     let mut session = Session::open_fixture();
     let result = session.dispatch(to_core_intent(intent), next_stamp("dispatch", 1));

@@ -1,5 +1,6 @@
 namespace anchor_core_uniffi {
     FixtureSummary open_fixture_vault();
+    [Async] FixtureSummary async_fixture_summary();
     TransactionResultSummary dispatch_editor_intent(EditorIntentDto intent);
     RoundTripResult round_trip_insert(EditorIntentDto intent);
     bytes read_fixture_segment();

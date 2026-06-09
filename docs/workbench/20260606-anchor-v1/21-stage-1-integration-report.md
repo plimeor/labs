@@ -40,11 +40,11 @@ Stage 1 evidence is synchronized into the current decision files. The current re
 | Axis | Verdict | 依据 |
 |---|---|---|
 | **core deterministic（组 1）** | **go** | 74/0 测试、clippy 干净、`no_std`+`forbid(unsafe_code)`+零外部依赖、`BTreeMap`/`BTreeSet`（无迭代序不确定）、diff3/order-key/merge 为 core 内唯一 vendored 实现。Core side complete。 |
-| **core multi-target gate（D36）** | **go** | `wasm32-unknown-unknown` + `aarch64-linux-android` 编译 gate 通过；零依赖使 gate by construction 不可被 transitive crate 打破。仅**编译**门控；跨目标**执行**（wasmtime / android emulator）golden 接线留 CI（Not run）。 |
+| **core multi-target gate（D36）** | **go** | `wasm32-unknown-unknown` + `aarch64-linux-android` 编译 gate 通过；零依赖使 gate by construction 不可被 transitive crate 打破。native/wasm/iOS Simulator golden-vector execution 已有本地 runner 与 hosted GitHub Actions pass；Android execution 仍 open。 |
 | **mirror / search parity（组 5）** | **go** | `mirror_parity` 测试通过：structured search == ripgrep(md)、mirror 写失败隔离（op-log 不回滚）、body 冲突 git fence。 |
-| **Apple binding（组 2，A2/B4）** | **approved / release-gated** | 用户已于 2026-06-07 批准产品边界：`UniFFI DTO / ordinary dispatch + C ABI bytes fast path`。typed `ValidationError` enum 已落到 core DTO + C ABI Swift wrapper + UniFFI generated enum；synchronous release-surface smoke 已过 Swift 6 strict concurrency + warnings-as-errors。Release implementation gates 为 async `Sendable` surface、最终 DTO/error vocabulary、product wrapper import surface、CI/fresh-machine 复现（§5）。 |
+| **Apple binding（组 2，A2/B4）** | **approved / release-gated** | 用户已于 2026-06-07 批准产品边界：`UniFFI DTO / ordinary dispatch + C ABI bytes fast path`。typed `ValidationError` enum 已落到 core DTO + C ABI Swift wrapper + UniFFI generated enum；synchronous release-surface smoke 已过 Swift 6 strict concurrency + warnings-as-errors；core-owned final DTO/error vocabulary、wrapper binary package 机制下限、UniFFI generated async macOS/iOS-sim/iPhoneOS-arm64 mechanism floor、SwiftPM checksum mechanism 已关闭。Remaining release implementation gates 为 signed app-bundle/device runtime integration、CI/fresh-machine 复现与 artifact signing/notarization/provenance policy（§5）。 |
 | **TextKit adapter（组 3，D18）** | **compromise（mechanism-go）** | 机制面可行且边界干净（Swift 零确定性语义、buffer 非真理）；real-app responder-chain undo 抑制、IME marked-text commit、accessibility、hit-testing、patch replay over moving views、UTF-16 内部单位换算稳定性仍是**产品级 runtime gate**（Not run）。 |
-| **iCloud Drive（组 4，B14）** | **approved default transport / compromise constraints** | 用户已批准 iCloud Drive 作首期 default transport（2026-06-07）。signed macOS app + repo-local Xcode-created macOS verifier 通过 ubiquity/package/coordinator/direct-enumeration/build-signing gates；package-internal `.seg` 发现**不依赖** `NSMetadataQuery`。remote placeholder / account states / non-macOS runtime-scale / steady-state budget / conflict policy 仍是 delivery gates（§6）。 |
+| **iCloud Drive（组 4，B14）** | **approved default transport / compromise constraints** | 用户已批准 iCloud Drive 作首期 default transport（2026-06-07）。signed macOS app + repo-local Xcode-created macOS verifier 通过 ubiquity/package/coordinator/direct-enumeration/build-signing gates；package-internal `.seg` 发现**不依赖** `NSMetadataQuery`。Mutable manifest conflict floor 已关闭为 surface/preserve/block/no-auto-resolve，explicit current-winner resolution mechanism 已观察；remote placeholder / account states / non-macOS runtime-scale / steady-state budget / product resolver UX/core integration 仍是 delivery gates（§6）。 |
 | **layout / Bun（D02）** | **go for macOS-only verifier placement** | Option A 纪律 live 守住（`members=["core"]`、`suites/anchor/**` 无 `package.json`、root 配置未动）；`bun install --dry-run --frozen-lockfile --ignore-scripts` passed。 |
 | **retention（D14/D38）** | **compromise** | 四-horizon 模型内部一致、core `retention`(7) + `segment_budget`(3) 测试通过；steady-state segment budget、million-op compaction、stale-peer watermark advance、product conflict-resolution policy 是 scale-gate / Codex-Apple 工作（未测）。 |
 
@@ -69,16 +69,16 @@ Stage 1 evidence is synchronized into the current decision files. The current re
 
 ### 4.3 Compromise / delivery gates（机制通过或路线批准后的剩余门）
 
-- **iCloud Drive 作首期默认 transport（B14）= approved default transport with compromise constraints**。runtime/file-transport 机制已证，macOS direct enumeration scale gate 通过到 100K；remote placeholder、account-state、non-macOS large-scale delivery、steady-state segment budget 与 conflict-policy 是交付 gate；transport 路线选择状态保持 approved。
+- **iCloud Drive 作首期默认 transport（B14）= approved default transport with compromise constraints**。runtime/file-transport 机制已证，macOS direct enumeration scale gate 通过到 100K；conflict floor/resolution mechanism 已证到 adapter-visible clean state；remote placeholder、account-state、non-macOS large-scale delivery、steady-state segment budget 与 product resolver integration 是交付 gate；transport 路线选择状态保持 approved。
 - **TextKit = mechanism-go**，产品 editor runtime 未完成。
 - **layout/Bun = go for macOS-only verifier placement**：Option A 纪律守住，Bun glob dry-run passed。
 
 ### 4.4 Open gate（待证 / 交付，不得当已验证）
 
-- **Binding release gates（B4 approved）：** UniFFI async-`Sendable` surface；最终 DTO/error vocabulary；product wrapper import surface；release/CI/fresh-machine 复现。Synchronous generated Swift strict-concurrency release smoke and three-slice XCFramework packaging are observed；typed `ValidationError` enum 已由 core-owner 决策并落地，现有 validated code 包含 `invalid_utf16_offset`、`direct_active_to_deleted`、`structural_dispatch_deferred`。
-- **iCloud（§6 最小矩阵）：** remote `.icloud` placeholder download、signed-out / over-quota、product conflict-resolution policy、million-op replay/merge/compaction + steady-state segment budget、local-only path-in-ubiquity 边界、non-macOS large-scale delivery / package-level metadata gather、repo-local signed Anchor app target。
+- **Binding release gates（B4 approved）：** signed app-bundle/device runtime integration；release/CI/fresh-machine 复现；artifact signing/notarization/provenance policy。Synchronous generated Swift strict-concurrency release smoke and three-slice XCFramework packaging are observed；typed `ValidationError` enum 已由 core-owner 决策并落地并由 `34-dto-error-vocabulary-report.md` 冻结，wrapper binary package 机制下限由 `35-binding-wrapper-binary-package-report.md` 关闭，UniFFI generated async macOS runtime + iOS Simulator compile/link 由 `36-uniffi-generated-async-report.md` 关闭，iPhoneOS standalone arm64 compile/link 由 `40-uniffi-iphoneos-packaging-report.md` 关闭，SwiftPM checksum mechanism 由 `38-binding-artifact-checksum-report.md` 关闭，现有 validated code 包含 `invalid_utf16_offset`、`direct_active_to_deleted`、`structural_dispatch_deferred`。
+- **iCloud（§6 最小矩阵）：** remote `.icloud` placeholder download、signed-out / over-quota、product conflict-resolution UX/core integration、million-op replay/merge/compaction + steady-state segment budget、local-only path-in-ubiquity 边界、non-macOS large-scale delivery / package-level metadata gather、repo-local signed Anchor app target。
 - **TextKit（组 3）：** real-app responder-chain undo 抑制 / IME marked-text commit / accessibility / hit-testing / patch replay over moving views / keyboard→`EditorIntent` / UTF-16 内部单位换算（D18 fixture）。
-- **跨目标执行：** wasm（wasmtime）/ iOS slice 的 golden 向量**执行**接线（编译 gate 已过；执行 by construction，CI 接线 Not run）。
+- **跨目标执行：** native / wasm / iOS Simulator golden-vector execution 已有本地 runner 与 hosted GitHub Actions pass；Android execution 仍 open。
 
 ### 4.5 Stop condition（本轮无触发，作为前置守卫）
 
@@ -93,7 +93,7 @@ Stage 1 evidence is synchronized into the current decision files. The current re
 **Release implementation gates：**
 
 1. **UniFFI async-`Sendable` release surface** 仍是冻结 gate；synchronous generated Swift 已在 release artifact 上通过 `-swift-version 6 -strict-concurrency=complete -warnings-as-errors`。
-2. **最终生产 DTO/error vocabulary 冻结**（Stage 1 用 flat `EditorIntentDto`/`TransactionResultSummary` 以免把确定性逻辑搬进 Swift；typed `ValidationError` enum 已进入 current DTO）。
+2. **signed app-bundle/device runtime integration / fresh-machine release surface** 仍是冻结 gate；Swift wrapper actor async surface、UniFFI generated async macOS+iOS-sim surface、iPhoneOS standalone arm64 compile/link、core-owned DTO/error vocabulary 均已过。先前 iPhoneOS standalone failure 是 `arm64e` target 与 Rust `arm64` slice mismatch，不再作为 `arm64` mechanism blocker。
 3. **Product Swift wrapper import surface + release-build/CI/fresh-machine 复现**（含显式 Rust Apple-target 检查与 wasm32 一致性向量 gate）。
 
 ---
@@ -107,7 +107,7 @@ Stage 1 evidence is synchronized into the current decision files. The current re
 | 1 | **segment-file-count scale 10K / 50K / 100K**：write_ms + direct-enumeration_ms + synced-segment-file-count；断言 N 个 logical op 不产 ~N 个 synced segment | repo-local macOS verifier passed 10K / 50K / 100K direct enumeration (`22.53ms` / `124.70ms` / `269.50ms` enum); package-internal metadata stayed 0; non-macOS large-scale delivery not run |
 | 2 | **remote `.icloud` placeholder download**：驱逐 package-internal segment 成真 placeholder 再 `startDownloadingUbiquitousItem` 到 `Current`（区别于本地/current；刻画 macOS `NSCocoaErrorDomain:4` 路径） | macOS package-internal evict/download attempted; both returned `NSCocoaErrorDomain:4`; true remote placeholder not proved |
 | 3 | **signed-out / over-quota account states** | Blocked / not run |
-| 4 | **product conflict-resolution policy**：对 `NSFileVersion` 冲突的 surfacing / preservation / resolution（绝不静默解决或丢弃 conflict version） | 仅 observe，无 policy |
+| 4 | **product conflict-resolution policy**：对 `NSFileVersion` 冲突的 surfacing / preservation / resolution（绝不静默解决或丢弃 conflict version） | policy floor observed：surface / preserve / block / no-auto-resolve；explicit current-winner resolution mechanism observed with archive + post-read clean state；product UX/core integration and scale context remain open |
 | 5 | **million-op replay / merge / compaction + steady-state segment budget**（signed-app 语境 + release `--ignored` 基准） | report-Observed core 面线性，未在 iCloud 语境重跑 |
 | 6 | **local-only path-in-ubiquity 边界（D21/D21a）**：symlink / 外部卷 / security-scoped bookmark / signed-out | Blocked / not run |
 | 7 | **non-macOS package-level metadata gather**（本轮 macOS-only gate 不覆盖） | Not run in this macOS-only gate |
@@ -164,7 +164,7 @@ Stage 1 evidence is synchronized into the current decision files. The current re
   - conflict policy：扩展 offline-fork probe，跑一条 surfacing/preservation/resolution 路径（绝不静默解决 `NSFileVersion` 冲突）。
   - `cargo test --release --manifest-path suites/anchor/Cargo.toml -- --ignored scale_bench::replay_cost_curve`（million-op replay 线性，确认 1.25M+ ≈2.1µs/op + compaction 后稳态 segment budget）。
   - TextKit 产品 runtime：IME marked-text commit / accessibility range / hit-testing on rendered geometry / direct-buffer undo 抑制 / keyboard→`EditorIntent` / `EditorPatch` replay over splitting/moving views；UTF-16 内部单位换算稳定性（emoji/ZWJ/combining/CRLF/IME fixture，D18）。
-  - Binding release 输入：typed `ValidationError` enum 已落地；generated UniFFI Swift 的 synchronous strict-concurrency release smoke 与三 slice XCFramework packaging 已观察；剩余 gate 是 async-`Sendable` surface、final DTO/error vocabulary、product wrapper import surface、release/CI 复现（fresh CI/dev 机器）。
+  - Binding release 输入：typed `ValidationError` enum 已落地并冻结；generated UniFFI Swift 的 synchronous strict-concurrency release smoke 与三 slice XCFramework packaging 已观察；wrapper binary package 机制下限已观察；UniFFI generated async macOS+iOS-sim+iPhoneOS-arm64 机制下限已观察；SwiftPM checksum mechanism 已观察；剩余 gate 是 signed app-bundle/device runtime integration、release/CI 复现（fresh CI/dev 机器）与 artifact signing/notarization/provenance policy。
 - **Stop condition：** 出现以下任一即暂停重评——(a) 须改 root workspace/`package.json`/`bun.lock`/lockfile 或加 placeholder `package.json`；(b) 在 Swift/TextKit 复制 core 确定性语义；(c) iCloud transport 依赖 package-internal `NSMetadataQuery`、静默处理 unresolved `NSFileVersion` conflict，或绕过 placeholder/account-state gates；(d) iCloud-Drive 路径引入 CloudKit schema / CKSyncEngine；(e) 公开 CLI schema 变更；(f) 把 Apple probe 变产品 app shell；(g) `anchor-core` 获任何 Apple 云/文件协调/account/ubiquity 类型（重跑 0-match 云符号 + Apple 类型审计，要求 exit 1）。另：scale 出现 N op→~N segment 的 no-go，使 batching/compaction 设计失效（非 transport 选择失效），须停。
 
 ---
@@ -188,3 +188,1257 @@ B4 binding approval and B14 default transport approval are recorded in the curre
 | `anchor-core` 泄漏 Apple 云/文件协调类型 | 否（0 matches, exit 1） |
 
 **全部未触发。**
+
+---
+
+## 12. Progress ledger update — 2026-06-10
+
+本节追加 `22-apple-verifier-rerun-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 12.1 Axis matrix after doc 22
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go**（unchanged） |
+| multi-target compile | **go**（unchanged） |
+| zero-cloud-symbol boundary | **go**（live audit rerun: 0 matches, exit 1） |
+| binding（B4） | **approved boundary / release-gated**（unchanged） |
+| TextKit（group 3 runtime） | **compromise / mechanism-only**（unchanged） |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints**（macOS verifier rerun passed; iOS/non-macOS runtime still open） |
+| layout / retention | **compromise**（unchanged） |
+| cross-target execution CI | **not run**（unchanged） |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 12.2 Open-gate checklist after doc 22
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| repo-local signed macOS verifier reproducibility | closed / rerun passed | `22 §3.2`–`§3.4` |
+| macOS 10K direct package-internal enumeration | closed / rerun passed | `22 §3.4` |
+| remote `.icloud` placeholder download | open | `22 §3.3`: package-internal path still returns `NSCocoaErrorDomain Code=4`; true remote placeholder not proved |
+| non-macOS / iOS Simulator iCloud runtime | open | `22 §3.5`: executable lacks app entitlement; hand-built ad-hoc simulator app launch denied |
+| signed-out / over-quota account states | open / not run | unchanged |
+| product conflict-resolution policy | open / not run | unchanged |
+| binding async `Sendable`, wrapper surface, fresh-machine/CI repro | open / not run | unchanged |
+| TextKit product-runtime gates | open / not run | unchanged |
+| cross-target execution CI wiring | open / not run | unchanged |
+
+### Ledger entry — 2026-06-10 — iteration 1 — doc 22-apple-verifier-rerun-report.md
+
+- **Checkpoint / cursor:** CP-1 Apple half.
+- **Action selected:** rerun repo-local signed macOS iCloud verifier; test minimal iOS Simulator iCloud feasibility.
+- **Owner classification:** Apple-runtime → executed here with explicit `DEVELOPER_DIR`; iOS Simulator proof remains pending Xcode-managed app target.
+- **Scope-fence check:** passed — no root workspace / lockfile / core changes; no product app shell.
+- **Evidence (Observed = command + output):**
+  - `xcodebuild ... AnchorMacICloudProbe ... build` → `** BUILD SUCCEEDED **`, Xcode-managed profile `3f0476f1-ba42-404e-be20-945e7cec4a7f`.
+  - `codesign -d --entitlements :- ... AnchorMacICloudProbe.app` → CloudDocuments + `<ICLOUD_CONTAINER>`.
+  - `... AnchorMacICloudProbe --icloud-runtime-probe` → explicit/implicit non-nil, coordinated equality true, metadata segment count 0, placeholder Code=4.
+  - `... AnchorMacICloudProbe --icloud-scale-probe 10000` → direct count 10000, enum `24.46ms`, metadata count 0.
+  - `simctl spawn ... ios-sim-icloud-probe` → explicit/implicit nil because no app entitlement.
+  - `simctl launch ... dev.plimeor.AnchorIOSSimICloudProbe` → denied by SpringBoard; log reported launch failed / entitlement recognition not valid.
+  - core cloud-symbol audit → 0 matches, exit 1.
+- **Gates closed this iteration:** none new; macOS verifier reproducibility strengthened only.
+- **Gates still open:** iOS/non-macOS iCloud runtime, remote placeholder, signed-out/over-quota, product conflict policy, TextKit product runtime, binding release gates, cross-target execution CI.
+- **Backfill to 04/05/06:** none.
+- **Axis matrix delta:** unchanged.
+- **Gate evaluation:** CONTINUE — next action: use Xcode-managed iOS app target / project for simulator iCloud runtime, or wire cross-target execution CI if iOS project creation is deferred.
+- **New doc:** `docs/workbench/20260606-anchor-v1/22-apple-verifier-rerun-report.md`
+
+---
+
+## 13. Progress ledger update — 2026-06-10 — iOS Simulator CloudDocuments
+
+本节追加 `23-ios-simulator-icloud-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 13.1 Axis matrix after doc 23
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go**（unchanged） |
+| multi-target compile | **go**（unchanged） |
+| zero-cloud-symbol boundary | **go**（unchanged） |
+| binding（B4） | **approved boundary / release-gated**（unchanged） |
+| TextKit（group 3 runtime） | **compromise / mechanism-only**（unchanged） |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints**（macOS verifier remains active evidence; iOS Simulator CloudDocuments runtime failed with `BRCloudDocsErrorDomain:153` / `iCloud Drive not supported`） |
+| layout / retention | **compromise**（unchanged） |
+| cross-target execution CI | **not run**（unchanged） |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 13.2 Open-gate checklist after doc 23
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| repo-local signed macOS verifier reproducibility | closed / rerun passed | `22 §3.2`–`§3.4` |
+| macOS 10K direct package-internal enumeration | closed / rerun passed | `22 §3.4` |
+| Xcode-managed iOS Simulator build/install/launch | closed as launch-chain evidence | `23 §3.2`–`§3.4` |
+| iOS Simulator CloudDocuments runtime | **open / failed** | `23 §3.4`–`§3.5`: explicit/implicit ubiquity container nil; `bird` says iCloud Drive not supported |
+| remote `.icloud` placeholder download | open | unchanged |
+| signed-out / over-quota account states | open / not run | unchanged |
+| product conflict-resolution policy | open / not run | unchanged |
+| binding async `Sendable`, wrapper surface, fresh-machine/CI repro | open / not run | unchanged |
+| TextKit product-runtime gates | open / not run | unchanged |
+| cross-target execution CI wiring | open / not run | unchanged |
+
+### Ledger entry — 2026-06-10 — iteration 2 — doc 23-ios-simulator-icloud-report.md
+
+- **Checkpoint / cursor:** CP-1 Apple half.
+- **Action selected:** use Xcode-managed iOS app target / project for simulator iCloud runtime.
+- **Owner classification:** Apple-runtime → executed here with existing repo-external Xcode project and explicit `DEVELOPER_DIR`; XcodeBuildMCP defaults were configured but its tool environment could not resolve `simctl`.
+- **Scope-fence check:** passed — no root workspace / lockfile / core changes; no repo product app shell.
+- **Evidence (Observed = command + output):**
+  - `xcodebuild -list -project /Users/plimeor/Documents/AnchorProvisionProbe/AnchorProvisionProbe.xcodeproj` → target/scheme `AnchorProvisionProbe`.
+  - `xcodebuild -showdestinations ... -scheme AnchorProvisionProbe` → iOS Simulator destination `A1D90DAB-1FAC-413A-BCB4-F92B9F798F75`, iPhone 17, iOS 26.5.
+  - `xcrun simctl list devices available` → same simulator booted.
+  - `xcodebuild ... -destination 'platform=iOS Simulator,id=A1D90DAB-1FAC-413A-BCB4-F92B9F798F75' ... build` → `** BUILD SUCCEEDED **`.
+  - generated simulator xcent / Mach-O section → CloudDocuments + `<ICLOUD_CONTAINER>` entitlement keys observed.
+  - `simctl install ... AnchorProvisionProbe.app` → exit 0.
+  - `simctl launch --console ... dev.plimeor.AnchorProvisionProbe --icloud-runtime-probe` → `explicit_nil=true`, `implicit_nil=true`, `blocked=no_ubiquity_container`.
+  - simulator `log show` for `bird` → `BRCloudDocsErrorDomain:153`, `Returning error because iCloud Drive not supported`.
+- **Gates closed this iteration:** Xcode-managed iOS Simulator build/install/launch chain only.
+- **Gates still open:** iOS/non-macOS CloudDocuments runtime, remote placeholder, signed-out/over-quota, product conflict policy, TextKit product runtime, binding release gates, cross-target execution CI.
+- **Backfill to 04/05/06:** none.
+- **Axis matrix delta:** iOS Simulator account assumption narrowed; simulator launch-chain evidence improved, but iOS CloudDocuments gate remains open.
+- **Gate evaluation:** CONTINUE — next action should move to another CP-1 open gate, or use a real signed iOS device if iOS/non-macOS CloudDocuments evidence is required before exit.
+- **New doc:** `docs/workbench/20260606-anchor-v1/23-ios-simulator-icloud-report.md`
+
+---
+
+## 14. Progress ledger update — 2026-06-10 — cross-target execution vectors
+
+本节追加 `24-cross-target-execution-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 14.1 Axis matrix after doc 24
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go**（native vector test still passed） |
+| multi-target compile | **go**（unchanged） |
+| zero-cloud-symbol boundary | **go**（live audit rerun: 0 matches, exit 1） |
+| binding（B4） | **approved boundary / release-gated**（unchanged） |
+| TextKit（group 3 runtime） | **compromise / mechanism-only**（unchanged） |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints**（unchanged after doc 23） |
+| layout / retention | **compromise**（unchanged） |
+| cross-target execution CI | **partially closed** — native + wasm + iOS Simulator execution observed; persistent CI wiring and android execution remain open |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 14.2 Open-gate checklist after doc 24
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| native golden vector execution | closed / passed | `24 §3.1` |
+| wasm golden vector execution | closed / passed through Node WebAssembly runtime | `24 §3.3`–`§3.4` |
+| iOS Simulator slice golden vector execution | closed / passed through `simctl spawn` | `24 §3.5`–`§3.6` |
+| persistent cross-target CI wiring | open | `24 §4`: harness is still under `/tmp`, not repo-enforced |
+| android execution | open / not run | unchanged |
+| repo-local signed macOS verifier reproducibility | closed / rerun passed | `22 §3.2`–`§3.4` |
+| Xcode-managed iOS Simulator build/install/launch | closed as launch-chain evidence | `23 §3.2`–`§3.4` |
+| iOS Simulator CloudDocuments runtime | open / failed | `23 §3.4`–`§3.5` |
+| remote `.icloud` placeholder download | open | unchanged |
+| signed-out / over-quota account states | open / not run | unchanged |
+| product conflict-resolution policy | open / not run | unchanged |
+| binding async `Sendable`, wrapper surface, fresh-machine/CI repro | open / not run | unchanged |
+| TextKit product-runtime gates | open / not run | unchanged |
+
+### Ledger entry — 2026-06-10 — iteration 3 — doc 24-cross-target-execution-report.md
+
+- **Checkpoint / cursor:** CP-1 Apple half plus machine gate cross-target execution.
+- **Action selected:** execute deterministic golden vectors on native, wasm, and iOS Simulator slice.
+- **Owner classification:** core-deterministic machine gate → executed here; harness artifacts kept under `/tmp/anchor-apple-stage1/**`.
+- **Scope-fence check:** passed — no root workspace / lockfile / core source changes; no repo product app shell; no public CLI schema; no Swift/TextKit deterministic implementation.
+- **Evidence (Observed = command + output):**
+  - `cargo test -p anchor-core --test determinism_vectors` → 6 passed, 0 failed.
+  - `wasmtime --version` → command not found; Node WebAssembly runtime used for this iteration.
+  - `cargo build --release --target wasm32-unknown-unknown --manifest-path /tmp/anchor-apple-stage1/wasm-vector-harness/Cargo.toml` → `Finished`.
+  - Node instantiated `/tmp/.../anchor_wasm_vector_harness.wasm` and called `anchor_wasm_vector_status()` → `anchor_wasm_vector_status=0`.
+  - `cargo build --release --target aarch64-apple-ios-sim --manifest-path /tmp/anchor-apple-stage1/ios-vector-harness/Cargo.toml` → `Finished`.
+  - `xcrun simctl spawn A1D90DAB-1FAC-413A-BCB4-F92B9F798F75 /tmp/.../anchor-ios-vector-harness` → `anchor_ios_vector_status=0`.
+  - core cloud-symbol audit → 0 matches, exit 1.
+  - Apple deterministic-semantics audit → 0 matches, exit 1.
+- **Gates closed this iteration:** native/wasm/iOS Simulator execution evidence for golden vectors.
+- **Gates still open:** persistent cross-target CI wiring, android execution, iOS/non-macOS CloudDocuments runtime, remote placeholder, signed-out/over-quota, product conflict policy, TextKit product runtime, binding release gates.
+- **Backfill to 04/05/06:** none.
+- **Axis matrix delta:** cross-target execution CI: `not run` → `partially closed`.
+- **Gate evaluation:** CONTINUE — next machine gate can persist cross-target execution harness as repo-local CI wiring if that can be done without root workspace / lockfile / package-boundary changes; otherwise move to another Apple verifier gate.
+- **New doc:** `docs/workbench/20260606-anchor-v1/24-cross-target-execution-report.md`
+
+---
+
+## 15. Progress ledger update — 2026-06-10 — repo-local cross-target runner
+
+本节追加 `25-cross-target-runner-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 15.1 Axis matrix after doc 25
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go**（native vector runner passed） |
+| multi-target compile | **go**（unchanged） |
+| zero-cloud-symbol boundary | **go**（live audit rerun: 0 matches, exit 1） |
+| binding（B4） | **approved boundary / release-gated**（unchanged） |
+| TextKit（group 3 runtime） | **compromise / mechanism-only**（unchanged） |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints**（unchanged after doc 23） |
+| layout / retention | **compromise**（unchanged） |
+| cross-target execution CI | **mostly closed locally** — repo-local runner now executes native + wasm + iOS Simulator vectors; android execution and hosted CI integration remain open |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 15.2 Open-gate checklist after doc 25
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| native golden vector execution | closed / repo-local runner | `25 §3.1` |
+| wasm golden vector execution | closed / repo-local runner using Node WebAssembly | `25 §3.1` |
+| iOS Simulator slice golden vector execution | closed / repo-local runner using `simctl spawn` | `25 §3.1` |
+| repo-local cross-target runner persistence | closed | `25 §1`, `25 §3.1` |
+| android execution | open / not run | `25 §4` |
+| hosted CI workflow integration | open / not added | `25 §4` |
+| repo-local signed macOS verifier reproducibility | closed / rerun passed | `22 §3.2`–`§3.4` |
+| Xcode-managed iOS Simulator build/install/launch | closed as launch-chain evidence | `23 §3.2`–`§3.4` |
+| iOS Simulator CloudDocuments runtime | open / failed | `23 §3.4`–`§3.5` |
+| remote `.icloud` placeholder download | open | unchanged |
+| signed-out / over-quota account states | open / not run | unchanged |
+| product conflict-resolution policy | open / not run | unchanged |
+| binding async `Sendable`, wrapper surface, fresh-machine/CI repro | open / not run | unchanged |
+| TextKit product-runtime gates | open / not run | unchanged |
+
+### Ledger entry — 2026-06-10 — iteration 4 — doc 25-cross-target-runner-report.md
+
+- **Checkpoint / cursor:** CP-1 machine gate cross-target execution.
+- **Action selected:** persist cross-target golden-vector execution as a repo-local runner without root workspace / lockfile / package-boundary changes.
+- **Owner classification:** core-deterministic machine gate → executed here.
+- **Scope-fence check:** passed — no root workspace / lockfile / workspace member changes; no `suites/anchor/core/src/**` production source change; no repo product app shell; no public CLI schema.
+- **Evidence (Observed = command + output):**
+  - Added `suites/anchor/core/tests/cross_target_vector_harness.rs`.
+  - Added `suites/anchor/core/tests/run-cross-target-vectors.sh`.
+  - `ANCHOR_IOS_SIMULATOR_ID=A1D90DAB-1FAC-413A-BCB4-F92B9F798F75 bash suites/anchor/core/tests/run-cross-target-vectors.sh` → native 6 passed; `anchor_wasm_vector_status=0`; `anchor_ios_vector_status=0`.
+  - `bash -n suites/anchor/core/tests/run-cross-target-vectors.sh` → exit 0.
+  - core cloud-symbol audit → 0 matches, exit 1.
+  - Apple deterministic-semantics audit → 0 matches, exit 1.
+  - `git diff --check` → exit 0.
+- **Gates closed this iteration:** repo-local native/wasm/iOS Simulator cross-target runner.
+- **Gates still open:** android execution, hosted CI integration, iOS/non-macOS CloudDocuments runtime, remote placeholder, signed-out/over-quota, product conflict policy, TextKit product runtime, binding release gates.
+- **Backfill to 04/05/06:** none.
+- **Axis matrix delta:** cross-target execution CI: `partially closed` → `mostly closed locally`.
+- **Gate evaluation:** CONTINUE — next action should move to another open CP-1 gate unless an android execution path can be closed without root workspace / lockfile changes.
+- **New doc:** `docs/workbench/20260606-anchor-v1/25-cross-target-runner-report.md`
+
+---
+
+## 16. Progress ledger update — 2026-06-10 — iCloud conflict policy floor
+
+本节追加 `26-icloud-conflict-policy-floor-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 16.1 Axis matrix after doc 26
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go**（unchanged） |
+| multi-target compile | **go**（unchanged） |
+| zero-cloud-symbol boundary | **go**（unchanged） |
+| binding（B4） | **approved boundary / release-gated**（unchanged） |
+| TextKit（group 3 runtime） | **compromise / mechanism-only**（unchanged） |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — conflict policy floor closed; destructive/user-resolution execution remains open |
+| layout / retention | **compromise** — manifest conflict surfaces now block frontier / GC / cursor advancement |
+| cross-target execution CI | **mostly closed locally** — native + wasm + iOS Simulator runner observed; android execution and hosted CI integration remain open |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 16.2 Open-gate checklist after doc 26
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| native/wasm/iOS Simulator cross-target runner | closed locally | `25 §3.1` |
+| repo-local signed macOS verifier reproducibility | closed / rerun passed | `22 §3.2`–`§3.4` |
+| Xcode-managed iOS Simulator build/install/launch | closed as launch-chain evidence | `23 §3.2`–`§3.4` |
+| conflict surfacing / preservation / blocking floor | closed | `26 §3.3`–`§4` |
+| destructive/user-resolution execution for iCloud manifest conflict | open / not run | `26 §5` |
+| iOS Simulator CloudDocuments runtime | open / failed | `23 §3.4`–`§3.5` |
+| remote `.icloud` placeholder download | open | unchanged |
+| signed-out / over-quota account states | open / not run | unchanged |
+| iOS/non-macOS CloudDocuments delivery beyond simulator launch | open | unchanged |
+| android execution | open / not run | `25 §4` |
+| hosted CI workflow integration | open / not added | `25 §4` |
+| binding async `Sendable`, wrapper surface, fresh-machine/CI repro | open / not run | unchanged |
+| TextKit product-runtime gates | open / not run | unchanged |
+
+### Ledger entry — 2026-06-10 — iteration 5 — doc 26-icloud-conflict-policy-floor-report.md
+
+- **Checkpoint / cursor:** CP-1 Apple half, iCloud delivery gate.
+- **Action selected:** add and run a read-only macOS verifier command that surfaces manifest conflict branches and returns the minimum adapter policy floor.
+- **Owner classification:** Apple-runtime / verifier → executed here with repo-local signed macOS verifier and explicit `DEVELOPER_DIR`.
+- **Scope-fence check:** passed — no root workspace / lockfile / `suites/anchor/core/src/**` production source changes; no product app shell; no public conflict/resolve CLI schema.
+- **Evidence (Observed = command + output):**
+  - Added `--icloud-conflict-policy-probe <runID>` to `suites/anchor/apple/AnchorMacICloudProbe/AnchorMacICloudProbe/ICloudRuntimeProbe.swift`.
+  - `find "$HOME/Library/Mobile Documents/iCloud~dev~plimeor~AnchorProvisionProbe" -maxdepth 6 -path '*AnchorConflictProbe*'` → historical offline-conflict run contains `manifest.json` and `manifest 2.json`.
+  - Python read of `manifest*.json` → `manifest.json` writer `ios-offline`; `manifest 2.json` writer `ios-base`.
+  - `xcodebuild ... AnchorMacICloudProbe ... build` → `** BUILD SUCCEEDED **`.
+  - `AnchorMacICloudProbe --icloud-conflict-policy-probe offline-conflict-20260607T113449Z` → explicit/implicit ubiquity non-nil; current writer `ios-offline`; unresolved conflict version writer `mac-online`; duplicate manifest writer `ios-base`; `adapter_status=blocked_manifest_conflict`; `policy_surface_conflicts=true`; `policy_preserve_versions=true`; `policy_auto_resolve=false`; `resolution_executed=false`.
+- **Gates closed this iteration:** conflict surfacing / preservation / blocking floor; duplicate manifest detection.
+- **Gates still open:** destructive/user-resolution execution, remote placeholder, signed-out/over-quota, iOS/non-macOS CloudDocuments runtime/delivery, TextKit product runtime, binding release gates, android execution, hosted CI integration.
+- **Backfill to 04/05/06:** `04-contract-baseline.md` iCloud baseline; `05-key-decisions.md` D14 and D35.
+- **Axis matrix delta:** iCloud Drive conflict policy: `open` → `policy floor closed; destructive resolution open`.
+- **Gate evaluation:** CONTINUE — next action should target remote placeholder/account-state/iOS delivery/TextKit/binding gates, or stop if a destructive iCloud account operation would be required.
+- **New doc:** `docs/workbench/20260606-anchor-v1/26-icloud-conflict-policy-floor-report.md`
+
+---
+
+## 17. Progress ledger update — 2026-06-10 — TextKit runtime floor
+
+本节追加 `27-textkit-runtime-floor-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 17.1 Axis matrix after doc 27
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go**（unchanged） |
+| multi-target compile | **go**（unchanged） |
+| zero-cloud-symbol boundary | **go**（live audit rerun: 0 matches, exit 1） |
+| binding（B4） | **approved boundary / release-gated**（unchanged） |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — macOS IME marked-text / hit-testing / controlled direct-buffer undo suppression observed; full product runtime remains open |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — unchanged after doc 26 |
+| layout / retention | **compromise**（unchanged） |
+| cross-target execution CI | **mostly closed locally** — native + wasm + iOS Simulator runner observed; android execution and hosted CI integration remain open |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 17.2 Open-gate checklist after doc 27
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| native/wasm/iOS Simulator cross-target runner | closed locally | `25 §3.1` |
+| repo-local signed macOS verifier reproducibility | closed / rerun passed | `22 §3.2`–`§3.4` |
+| Xcode-managed iOS Simulator build/install/launch | closed as launch-chain evidence | `23 §3.2`–`§3.4` |
+| conflict surfacing / preservation / blocking floor | closed | `26 §3.3`–`§4` |
+| macOS IME marked-text commit mapping | closed as mechanism floor | `27 §3.1` |
+| macOS hit-testing insertion index | closed as mechanism floor | `27 §3.1` |
+| macOS controlled direct-buffer undo suppression | closed as controlled probe floor | `27 §3.1` |
+| iOS Simulator TextKit compile surface | closed | `27 §3.2` |
+| real app responder-chain undo suppression | open / not run | `27 §4` |
+| keyboard event capture → `EditorIntent` | open / not run | `27 §4` |
+| accessibility range mapping | open / not run | `27 §4` |
+| `EditorPatch` replay over splitting/moving views | open / not run | `27 §4` |
+| `UITextView` runtime IME/accessibility behavior | open / not run | `27 §4` |
+| destructive/user-resolution execution for iCloud manifest conflict | open / not run | `26 §5` |
+| iOS Simulator CloudDocuments runtime | open / failed | `23 §3.4`–`§3.5` |
+| remote `.icloud` placeholder download | open | unchanged |
+| signed-out / over-quota account states | open / not run | unchanged |
+| iOS/non-macOS CloudDocuments delivery beyond simulator launch | open | unchanged |
+| android execution | open / not run | `25 §4` |
+| hosted CI workflow integration | open / not added | `25 §4` |
+| binding async `Sendable`, wrapper surface, fresh-machine/CI repro | open / not run | unchanged |
+
+### Ledger entry — 2026-06-10 — iteration 6 — doc 27-textkit-runtime-floor-report.md
+
+- **Checkpoint / cursor:** CP-1 Apple half, TextKit product-runtime gate.
+- **Action selected:** add and run macOS `NSTextView` runtime probes for IME marked-text commit, hit-testing, and controlled direct-buffer undo suppression; verify iOS Simulator compile surface.
+- **Owner classification:** Apple-runtime / verifier → executed here through SwiftPM and Xcode build.
+- **Scope-fence check:** passed — no root workspace / lockfile / `suites/anchor/core/src/**` production source changes; no product app shell; no Swift/TextKit deterministic semantics.
+- **Evidence (Observed = command + output):**
+  - Added `MarkedTextCommitProbeResult` and macOS runtime probe methods in `AnchorTextKitProbe.swift`.
+  - `ANCHOR_CORE_FFI_LIB_DIR=/tmp/anchor-apple-stage1/ffi-target/aarch64-apple-darwin/release swift run --package-path suites/anchor/apple/AnchorAppleSpike --scratch-path /tmp/anchor-apple-stage1/swift-build-textkit-20260610 AnchorTextKitSmoke` → build complete; UTF-16 fixture counts observed; `textkit:ime_marked=true commit=A拼 intent_insert_at=1`; `textkit:hittest_index=1`; `textkit:direct_buffer_undo_suppressed=true`.
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer ANCHOR_CORE_FFI_LIB_DIR=/tmp/anchor-apple-stage1/ffi-target/aarch64-apple-ios-sim/release xcodebuild -scheme AnchorTextKitProbe -destination 'generic/platform=iOS Simulator' -configuration Debug -derivedDataPath /tmp/anchor-apple-stage1/DerivedData/AnchorTextKitProbe-iossim-20260610 build` → `** BUILD SUCCEEDED **`.
+  - core cloud-symbol audit → 0 matches, exit 1.
+  - Apple deterministic-semantics audit → 0 matches, exit 1.
+- **Gates closed this iteration:** macOS TextKit IME marked-text mechanism floor, hit-testing mechanism floor, controlled direct-buffer undo suppression floor, iOS Simulator TextKit compile surface.
+- **Gates still open:** real app responder-chain undo suppression, keyboard event capture, accessibility range mapping, patch replay over splitting/moving views, `UITextView` runtime behavior, destructive iCloud conflict resolution, remote placeholder, signed-out/over-quota, iOS/non-macOS CloudDocuments runtime/delivery, binding release gates, android execution, hosted CI integration.
+- **Backfill to 04/05/06:** `04-contract-baseline.md` TextKit baseline; `05-key-decisions.md` D18.
+- **Axis matrix delta:** TextKit: `compromise / mechanism-only` → `partial mechanism floor closed; full product runtime open`.
+- **Gate evaluation:** CONTINUE — next action should target binding release gates, account/placeholder iCloud gates, or a real product-runtime editor probe if it can remain verifier-only.
+- **New doc:** `docs/workbench/20260606-anchor-v1/27-textkit-runtime-floor-report.md`
+
+---
+
+## 18. Progress ledger update — 2026-06-10 — binding async wrapper
+
+本节追加 `28-binding-async-wrapper-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 18.1 Axis matrix after doc 28
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go**（unchanged） |
+| multi-target compile | **go**（unchanged） |
+| zero-cloud-symbol boundary | **go**（live audit rerun: 0 matches, exit 1） |
+| binding（B4） | **approved boundary / partially release-gated** — Swift wrapper actor async surface observed; UniFFI generated async, final DTO/error vocab, product import, fresh-machine/CI remain open |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — unchanged after doc 27 |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — unchanged after doc 26 |
+| layout / retention | **compromise**（unchanged） |
+| cross-target execution CI | **mostly closed locally** — native + wasm + iOS Simulator runner observed; android execution and hosted CI integration remain open |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 18.2 Open-gate checklist after doc 28
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| native/wasm/iOS Simulator cross-target runner | closed locally | `25 §3.1` |
+| Swift wrapper actor async surface | closed as mechanism floor | `28 §3.2`–`§3.5` |
+| Swift wrapper DTO/error `Sendable` conformance | closed as mechanism floor | `28 §3.3`–`§3.5` |
+| macOS release strict-concurrency runtime | closed | `28 §3.3`–`§3.4` |
+| iOS Simulator release strict-concurrency compile | closed | `28 §3.5` |
+| UniFFI generated async surface | open / not run | `28 §4` |
+| final production DTO/error vocabulary | open / not frozen | `28 §4` |
+| product binary-target/import surface | open / not run | `28 §4` |
+| fresh-machine/hosted CI reproduction | open / not run | unchanged |
+| macOS IME marked-text / hit-testing / controlled undo floor | closed | `27 §3.1` |
+| real app responder-chain undo / keyboard / accessibility / patch replay | open / not run | `27 §4` |
+| conflict surfacing / preservation / blocking floor | closed | `26 §3.3`–`§4` |
+| destructive/user-resolution execution for iCloud manifest conflict | open / not run | `26 §5` |
+| iOS Simulator CloudDocuments runtime | open / failed | `23 §3.4`–`§3.5` |
+| remote `.icloud` placeholder download | open | unchanged |
+| signed-out / over-quota account states | open / not run | unchanged |
+| iOS/non-macOS CloudDocuments delivery beyond simulator launch | open | unchanged |
+| android execution | open / not run | `25 §4` |
+| hosted CI workflow integration | open / not added | `25 §4` |
+
+### Ledger entry — 2026-06-10 — iteration 7 — doc 28-binding-async-wrapper-report.md
+
+- **Checkpoint / cursor:** CP-1 Apple half, binding release gate.
+- **Action selected:** add and run a SwiftPM wrapper-level async/Sendable actor surface for the existing C ABI binding path.
+- **Owner classification:** Apple binding / verifier → executed here through SwiftPM, Xcode build, and release runtime.
+- **Scope-fence check:** passed — no root workspace / lockfile / `suites/anchor/core/src/**` production source changes; no `anchor-core` crate-type change; no product app shell; no Swift deterministic semantics.
+- **Evidence (Observed = command + output):**
+  - Added `Sendable` conformance to wrapper DTO/error types and `AnchorCoreClient` actor in `AnchorCoreBindings.swift`.
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer CARGO_TARGET_DIR=/tmp/anchor-apple-stage1/ffi-target cargo build --manifest-path suites/anchor/apple/ffi/Cargo.toml --release --target aarch64-apple-darwin` → `Finished`.
+  - `ANCHOR_CORE_FFI_LIB_DIR=/tmp/anchor-apple-stage1/ffi-target/aarch64-apple-darwin/release swift run --package-path suites/anchor/apple/AnchorAppleSpike --scratch-path /tmp/anchor-apple-stage1/swift-build-binding-async-20260610b AnchorAppleSmoke` → `async:sendable summary=3ef88671... changed=blk_a segment=979`.
+  - `xcodebuild -scheme AnchorAppleSmoke ... OTHER_SWIFT_FLAGS='-strict-concurrency=complete -warnings-as-errors' build` → `** BUILD SUCCEEDED **`.
+  - `/tmp/anchor-apple-stage1/DerivedData/AnchorAppleSmoke-async-strict-20260610/Build/Products/Release/AnchorAppleSmoke` → async wrapper output plus 64MB bytes bench passed.
+  - `cargo build --manifest-path suites/anchor/apple/ffi/Cargo.toml --release --target aarch64-apple-ios-sim` → `Finished`.
+  - `xcodebuild -scheme AnchorCoreBindings -destination 'generic/platform=iOS Simulator' ... OTHER_SWIFT_FLAGS='-strict-concurrency=complete -warnings-as-errors' build` → `** BUILD SUCCEEDED **`.
+  - core cloud-symbol audit → 0 matches, exit 1.
+  - Apple deterministic-semantics audit → 0 matches, exit 1.
+- **Gates closed this iteration:** Swift wrapper actor async surface; Swift wrapper DTO/error `Sendable` mechanism floor; macOS release strict-concurrency runtime; iOS Simulator release strict-concurrency compile.
+- **Gates still open:** UniFFI generated async surface, final DTO/error vocabulary freeze, product binary-target/import surface, fresh-machine/hosted CI repro, real app TextKit runtime, destructive iCloud conflict resolution, remote placeholder, signed-out/over-quota, iOS/non-macOS CloudDocuments runtime/delivery, android execution, hosted CI integration.
+- **Backfill to 04/05/06:** `04-contract-baseline.md` Binding baseline; `05-key-decisions.md` D01.
+- **Axis matrix delta:** binding: `approved boundary / release-gated` → `approved boundary / partially release-gated`.
+- **Gate evaluation:** CONTINUE — next action should target final DTO/error vocabulary freeze, product import/fresh-machine evidence, android execution screening, or iCloud/account/placeholder gates.
+- **New doc:** `docs/workbench/20260606-anchor-v1/28-binding-async-wrapper-report.md`
+
+---
+
+## 19. Progress ledger update — 2026-06-10 — binding external consumer
+
+本节追加 `29-binding-external-consumer-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 19.1 Axis matrix after doc 29
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go**（unchanged） |
+| multi-target compile | **go**（unchanged） |
+| zero-cloud-symbol boundary | **go**（live audit rerun: 0 matches, exit 1） |
+| binding（B4） | **approved boundary / partially release-gated** — wrapper actor + repo-external SwiftPM path consumer observed; binary-target import, UniFFI generated async, final DTO/error vocab, fresh-machine/CI remain open |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — unchanged after doc 27 |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — unchanged after doc 26 |
+| layout / retention | **compromise**（unchanged） |
+| cross-target execution CI | **mostly closed locally** — native + wasm + iOS Simulator runner observed; android execution and hosted CI integration remain open |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 19.2 Open-gate checklist after doc 29
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| native/wasm/iOS Simulator cross-target runner | closed locally | `25 §3.1` |
+| Swift wrapper actor async surface | closed as mechanism floor | `28 §3.2`–`§3.5` |
+| repo-external SwiftPM path dependency consumer | closed as mechanism floor | `29 §3.1`–`§3.2` |
+| external consumer release strict-concurrency run | closed | `29 §3.2` |
+| binary-target import surface | open / not run | `29 §4` |
+| UniFFI generated async surface | open / not run | `28 §4` |
+| final production DTO/error vocabulary | open / not frozen | `28 §4` |
+| fresh-machine/hosted CI reproduction | open / not run | unchanged |
+| macOS IME marked-text / hit-testing / controlled undo floor | closed | `27 §3.1` |
+| real app responder-chain undo / keyboard / accessibility / patch replay | open / not run | `27 §4` |
+| conflict surfacing / preservation / blocking floor | closed | `26 §3.3`–`§4` |
+| destructive/user-resolution execution for iCloud manifest conflict | open / not run | `26 §5` |
+| iOS Simulator CloudDocuments runtime | open / failed | `23 §3.4`–`§3.5` |
+| remote `.icloud` placeholder download | open | unchanged |
+| signed-out / over-quota account states | open / not run | unchanged |
+| iOS/non-macOS CloudDocuments delivery beyond simulator launch | open | unchanged |
+| android execution | open / not run | `25 §4` |
+| hosted CI workflow integration | open / not added | `25 §4` |
+
+### Ledger entry — 2026-06-10 — iteration 8 — doc 29-binding-external-consumer-report.md
+
+- **Checkpoint / cursor:** CP-1 Apple half, binding product import gate.
+- **Action selected:** create a repo-external SwiftPM consumer under `/tmp/anchor-apple-stage1` and import `AnchorCoreBindings` through a path dependency.
+- **Owner classification:** Apple binding / verifier → executed here through SwiftPM release strict-concurrency run.
+- **Scope-fence check:** passed — no root workspace / lockfile / repo consumer package / `suites/anchor/core/src/**` production source changes; no `anchor-core` crate-type change; no product app shell.
+- **Evidence (Observed = command + output):**
+  - Added `/tmp/anchor-apple-stage1/binding-consumer/Package.swift` and `/tmp/anchor-apple-stage1/binding-consumer/Sources/BindingConsumer/main.swift` outside the repo.
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer ANCHOR_CORE_FFI_LIB_DIR=/tmp/anchor-apple-stage1/ffi-target/aarch64-apple-darwin/release swift run --package-path /tmp/anchor-apple-stage1/binding-consumer -c release -Xswiftc -strict-concurrency=complete -Xswiftc -warnings-as-errors BindingConsumer` → `Build of product 'BindingConsumer' complete!`; `consumer:async summary=3ef88671... changed=blk_a segment=979`.
+  - core cloud-symbol audit → 0 matches, exit 1.
+  - Apple deterministic-semantics audit → 0 matches, exit 1.
+- **Gates closed this iteration:** repo-external SwiftPM path dependency import; external consumer release strict-concurrency run.
+- **Gates still open:** binary-target import surface, UniFFI generated async surface, final DTO/error vocabulary freeze, fresh-machine/hosted CI repro, real app TextKit runtime, destructive iCloud conflict resolution, remote placeholder, signed-out/over-quota, iOS/non-macOS CloudDocuments runtime/delivery, android execution, hosted CI integration.
+- **Backfill to 04/05/06:** `04-contract-baseline.md` Binding baseline; `05-key-decisions.md` D01.
+- **Axis matrix delta:** binding remains `approved boundary / partially release-gated`; product import gate narrowed from not-run to path-consumer observed / binary-target open.
+- **Gate evaluation:** CONTINUE — next action should target binary-target packaging, final DTO/error vocabulary, android execution screening, or iCloud/account/placeholder gates.
+- **New doc:** `docs/workbench/20260606-anchor-v1/29-binding-external-consumer-report.md`
+
+---
+
+## 20. Progress ledger update — 2026-06-10 — binding binary target
+
+本节追加 `30-binding-binary-target-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 20.1 Axis matrix after doc 30
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go**（unchanged） |
+| multi-target compile | **go**（unchanged） |
+| zero-cloud-symbol boundary | **go**（live audit rerun: 0 matches, exit 1） |
+| binding（B4） | **approved boundary / partially release-gated** — wrapper actor, external path consumer, and raw C ABI binary-target import observed; complete product wrapper binary package, UniFFI generated async, final DTO/error vocab, fresh-machine/CI remain open |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — unchanged after doc 27 |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — unchanged after doc 26 |
+| layout / retention | **compromise**（unchanged） |
+| cross-target execution CI | **mostly closed locally** — native + wasm + iOS Simulator runner observed; android execution and hosted CI integration remain open |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 20.2 Open-gate checklist after doc 30
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| native/wasm/iOS Simulator cross-target runner | closed locally | `25 §3.1` |
+| Swift wrapper actor async surface | closed as mechanism floor | `28 §3.2`–`§3.5` |
+| repo-external SwiftPM path dependency consumer | closed as mechanism floor | `29 §3.1`–`§3.2` |
+| raw C ABI binary-target import | closed as mechanism floor | `30 §3.2`–`§3.4` |
+| complete product wrapper binary package | open / not run | `30 §4` |
+| UniFFI generated async surface | open / not run | `28 §4` |
+| final production DTO/error vocabulary | open / not frozen | `28 §4` |
+| fresh-machine/hosted CI reproduction | open / not run | unchanged |
+| macOS IME marked-text / hit-testing / controlled undo floor | closed | `27 §3.1` |
+| real app responder-chain undo / keyboard / accessibility / patch replay | open / not run | `27 §4` |
+| conflict surfacing / preservation / blocking floor | closed | `26 §3.3`–`§4` |
+| destructive/user-resolution execution for iCloud manifest conflict | open / not run | `26 §5` |
+| iOS Simulator CloudDocuments runtime | open / failed | `23 §3.4`–`§3.5` |
+| remote `.icloud` placeholder download | open | unchanged |
+| signed-out / over-quota account states | open / not run | unchanged |
+| iOS/non-macOS CloudDocuments delivery beyond simulator launch | open | unchanged |
+| android execution | open / not run | `25 §4` |
+| hosted CI workflow integration | open / not added | `25 §4` |
+
+### Ledger entry — 2026-06-10 — iteration 9 — doc 30-binding-binary-target-report.md
+
+- **Checkpoint / cursor:** CP-1 Apple half, binding binary-target import gate.
+- **Action selected:** package the C ABI staticlib slices into a repo-external XCFramework and consume it from a repo-external SwiftPM `.binaryTarget`.
+- **Owner classification:** Apple binding / verifier → executed here through cargo, `xcodebuild -create-xcframework`, and SwiftPM release strict-concurrency run.
+- **Scope-fence check:** passed — no root workspace / lockfile / repo consumer package / `suites/anchor/core/src/**` production source changes; no `anchor-core` crate-type change; generated `suites/anchor/apple/ffi/Cargo.lock` removed as build byproduct.
+- **Evidence (Observed = command + output):**
+  - `cargo build --manifest-path suites/anchor/apple/ffi/Cargo.toml --release --target aarch64-apple-darwin|aarch64-apple-ios|aarch64-apple-ios-sim` → `Finished`.
+  - `xcodebuild -create-xcframework ... -output /tmp/anchor-apple-stage1/AnchorCoreFFIBinary.xcframework` → `xcframework successfully written out`.
+  - Added `/tmp/anchor-apple-stage1/binary-consumer/Package.swift` and `/tmp/anchor-apple-stage1/binary-consumer/Sources/BinaryConsumer/main.swift` outside the repo.
+  - `swift run --package-path /tmp/anchor-apple-stage1/binary-consumer -c release -Xswiftc -strict-concurrency=complete -Xswiftc -warnings-as-errors BinaryConsumer` → `Build of product 'BinaryConsumer' complete!`; `binary:fixture bytes=216 module=AnchorCoreFFI`.
+  - core cloud-symbol audit → 0 matches, exit 1.
+  - Apple deterministic-semantics audit → 0 matches, exit 1.
+- **Gates closed this iteration:** raw C ABI binary-target import; external binary consumer release strict run.
+- **Gates still open:** complete product wrapper binary package, UniFFI generated async surface, final DTO/error vocabulary freeze, fresh-machine/hosted CI repro, real app TextKit runtime, destructive iCloud conflict resolution, remote placeholder, signed-out/over-quota, iOS/non-macOS CloudDocuments runtime/delivery, android execution, hosted CI integration.
+- **Backfill to 04/05/06:** `04-contract-baseline.md` Binding baseline; `05-key-decisions.md` D01.
+- **Axis matrix delta:** binding remains `approved boundary / partially release-gated`; binary-target gate narrowed from not-run to raw C ABI binary-target observed / full product wrapper binary package open.
+- **Gate evaluation:** CONTINUE — next action should target final DTO/error vocabulary, fresh-machine/CI, android execution screening, or iCloud/account/placeholder gates.
+- **New doc:** `docs/workbench/20260606-anchor-v1/30-binding-binary-target-report.md`
+
+---
+
+## 21. Progress ledger update — 2026-06-10 — cross-target CI wiring
+
+本节追加 `31-cross-target-ci-wiring-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 21.1 Axis matrix after doc 31
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go**（native vectors still pass） |
+| multi-target compile | **go**（unchanged） |
+| zero-cloud-symbol boundary | **go**（live audit rerun: 0 matches, exit 1） |
+| binding（B4） | **approved boundary / partially release-gated** — unchanged after doc 30 |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — unchanged after doc 27 |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — unchanged after doc 26 |
+| layout / retention | **compromise**（unchanged） |
+| cross-target execution CI | **workflow-wired / hosted-run-gated** — repo-local runner passes native + wasm + iOS Simulator; GitHub workflow added; hosted run and Android execution remain open |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 21.2 Open-gate checklist after doc 31
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| repo-local native/wasm/iOS Simulator cross-target runner | closed locally | `25 §3.1`, `31 §3.5` |
+| Linux native+wasm CI path | closed as workflow config + local skip-path run | `31 §3.2`–`§3.4` |
+| macOS iOS Simulator CI path | closed as workflow config + local full-path run | `31 §3.2`, `31 §3.5` |
+| hosted GitHub Actions run | open / not observed | `31 §4` |
+| Android execution | open / unavailable in current local environment | `31 §3.1` |
+| Swift wrapper actor async surface | closed as mechanism floor | `28 §3.2`–`§3.5` |
+| raw C ABI binary-target import | closed as mechanism floor | `30 §3.2`–`§3.4` |
+| complete product wrapper binary package | open / not run | `30 §4` |
+| UniFFI generated async surface | open / not run | `28 §4` |
+| final production DTO/error vocabulary | open / not frozen | `28 §4` |
+| fresh-machine reproduction | open / not run | unchanged |
+| real app responder-chain undo / keyboard / accessibility / patch replay | open / not run | `27 §4` |
+| conflict surfacing / preservation / blocking floor | closed | `26 §3.3`–`§4` |
+| destructive/user-resolution execution for iCloud manifest conflict | open / not run | `26 §5` |
+| iOS Simulator CloudDocuments runtime | open / failed | `23 §3.4`–`§3.5` |
+| remote `.icloud` placeholder download | open | unchanged |
+| signed-out / over-quota account states | open / not run | unchanged |
+| iOS/non-macOS CloudDocuments delivery beyond simulator launch | open | unchanged |
+
+### Ledger entry — 2026-06-10 — iteration 10 — doc 31-cross-target-ci-wiring-report.md
+
+- **Checkpoint / cursor:** CP-1 cross-target execution CI gate.
+- **Action selected:** add GitHub Actions workflow wiring for native/wasm and iOS Simulator vector execution; add Linux skip mode to the repo-local runner.
+- **Owner classification:** core-deterministic / CI config → executed here with local verification only.
+- **Scope-fence check:** passed — no root package / lockfile / workspace member changes; no `suites/anchor/core/src/**` production source changes; no product app shell.
+- **Evidence (Observed = command + output):**
+  - Added `.github/workflows/anchor-cross-target-vectors.yml`.
+  - Added `ANCHOR_SKIP_IOS=1` handling to `suites/anchor/core/tests/run-cross-target-vectors.sh`.
+  - `command -v adb emulator qemu-aarch64 qemu-aarch64-static wasmtime node rustup` → only node and rustup found.
+  - `ls -ld "$ANDROID_HOME"` → `/Users/plimeor/Library/Android/sdk` does not exist.
+  - `bash -n suites/anchor/core/tests/run-cross-target-vectors.sh` → exit 0.
+  - `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/anchor-cross-target-vectors.yml"); puts "workflow_yaml=ok"'` → `workflow_yaml=ok`.
+  - `ANCHOR_SKIP_IOS=1 bash suites/anchor/core/tests/run-cross-target-vectors.sh` → native 6 passed; `anchor_wasm_vector_status=0`; `anchor_ios_vector_status=skipped`.
+  - `ANCHOR_IOS_SIMULATOR_ID=A1D90DAB-1FAC-413A-BCB4-F92B9F798F75 bash suites/anchor/core/tests/run-cross-target-vectors.sh` → native 6 passed; `anchor_wasm_vector_status=0`; `anchor_ios_vector_status=0`.
+  - core cloud-symbol audit → 0 matches, exit 1.
+  - Apple deterministic-semantics audit → 0 matches, exit 1.
+- **Gates closed this iteration:** workflow config for Linux native+wasm and macOS iOS Simulator vector jobs; local skip/full runner validation.
+- **Gates still open:** hosted GitHub Actions run, Android execution, complete product wrapper binary package, UniFFI generated async surface, final DTO/error vocabulary freeze, fresh-machine repro, real app TextKit runtime, destructive iCloud conflict resolution, remote placeholder, signed-out/over-quota, iOS/non-macOS CloudDocuments runtime/delivery.
+- **Backfill to 04/05/06:** `04-contract-baseline.md` cross-platform baseline; `05-key-decisions.md` D19/D26/D36; `06-fixture-set.md` F23/F26 evidence note.
+- **Axis matrix delta:** cross-target execution CI: `mostly closed locally` → `workflow-wired / hosted-run-gated`.
+- **Gate evaluation:** CONTINUE — next action should target final DTO/error vocabulary, fresh-machine/hosted CI observation, iCloud/account/placeholder gates, or product-runtime TextKit gates.
+- **New doc:** `docs/workbench/20260606-anchor-v1/31-cross-target-ci-wiring-report.md`
+
+---
+
+## 22. Progress ledger update — 2026-06-10 — iOS device iCloud launch
+
+本节追加 `32-ios-device-icloud-launch-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 22.1 Axis matrix after doc 32
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go**（unchanged） |
+| multi-target compile | **go**（unchanged） |
+| zero-cloud-symbol boundary | **go**（live audit rerun: 0 matches, exit 1） |
+| binding（B4） | **approved boundary / partially release-gated** — unchanged after doc 30 |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — unchanged after doc 27 |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — current physical iPhone build/install/entitlement chain closed; current runtime launch blocked by locked device |
+| layout / retention | **compromise**（unchanged） |
+| cross-target execution CI | **workflow-wired / hosted-run-gated** — unchanged after doc 31 |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 22.2 Open-gate checklist after doc 32
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| physical iPhone availability | closed / observed | `32 §3.1` |
+| physical iPhone Xcode build | closed / observed | `32 §3.2` |
+| physical iPhone CloudDocuments entitlement | closed / observed | `32 §3.2`–`§3.3` |
+| physical iPhone install | closed / observed | `32 §3.4` |
+| physical iPhone iCloud runtime launch | open / blocked by locked device | `32 §3.5` |
+| iOS/non-macOS CloudDocuments delivery | open / runtime not observed | `32 §4` |
+| iOS Simulator CloudDocuments runtime | open / failed | `23 §3.4`–`§3.5` |
+| remote `.icloud` placeholder download | open | unchanged |
+| signed-out / over-quota account states | open / not run | unchanged |
+| destructive/user-resolution execution for iCloud manifest conflict | open / not run | `26 §5` |
+| hosted GitHub Actions run | open / not observed | `31 §4` |
+| Android execution | open / unavailable in current local environment | `31 §3.1` |
+| complete product wrapper binary package | open / not run | `30 §4` |
+| UniFFI generated async surface | open / not run | `28 §4` |
+| final production DTO/error vocabulary | open / not frozen | `28 §4` |
+| fresh-machine reproduction | open / not run | unchanged |
+| real app responder-chain undo / keyboard / accessibility / patch replay | open / not run | `27 §4` |
+
+### Ledger entry — 2026-06-10 — iteration 11 — doc 32-ios-device-icloud-launch-report.md
+
+- **Checkpoint / cursor:** CP-1 Apple half, iCloud non-macOS runtime gate.
+- **Action selected:** build, install, and launch the repo-external Xcode-managed iOS CloudDocuments probe on the paired physical iPhone.
+- **Owner classification:** Apple runtime / verifier → build/install executed here; runtime blocked by external device lock state.
+- **Scope-fence check:** passed — no root workspace / lockfile / repo product app shell / `suites/anchor/core/src/**` changes; no iCloud account mutation.
+- **Evidence (Observed = command + output):**
+  - `xcrun devicectl list devices` → `Plimeor's iPhone` `C51610FF-15B1-5989-A8A3-DE2EDFACEB5B`, `available (paired)`.
+  - `xcodebuild -project /Users/plimeor/Documents/AnchorProvisionProbe/AnchorProvisionProbe.xcodeproj -scheme AnchorProvisionProbe -destination 'platform=iOS,id=C51610FF-15B1-5989-A8A3-DE2EDFACEB5B' ... build` → `** BUILD SUCCEEDED **`; entitlements include CloudDocuments and `<ICLOUD_CONTAINER>`.
+  - `codesign -d --entitlements :- .../AnchorProvisionProbe.app` → CloudDocuments / ubiquity entitlements present.
+  - `xcrun devicectl device install app --device C51610FF-15B1-5989-A8A3-DE2EDFACEB5B .../AnchorProvisionProbe.app` → app installed, bundleID `dev.plimeor.AnchorProvisionProbe`.
+  - `xcrun devicectl device process launch --console --terminate-existing dev.plimeor.AnchorProvisionProbe --icloud-runtime-probe` → failed: `RequestDenied`, `BSErrorCodeDescription = Locked`, device not unlocked.
+  - core cloud-symbol audit → 0 matches, exit 1.
+  - Apple deterministic-semantics audit → 0 matches, exit 1.
+- **Gates closed this iteration:** physical iPhone build/install/entitlement chain.
+- **Gates still open:** physical iPhone runtime rerun after unlock, iOS/non-macOS CloudDocuments delivery, remote placeholder, signed-out/over-quota, destructive iCloud conflict resolution, hosted CI run, Android execution, complete product wrapper binary package, UniFFI generated async surface, final DTO/error vocabulary, fresh-machine repro, real app TextKit runtime.
+- **Backfill to 04/05/06:** `04-contract-baseline.md` iCloud baseline; `05-key-decisions.md` D35.
+- **Axis matrix delta:** iCloud Drive: current iOS physical build/install strengthened; runtime remains open due locked device.
+- **Gate evaluation:** CONTINUE for other gates; rerun physical device runtime after the iPhone is unlocked.
+- **New doc:** `docs/workbench/20260606-anchor-v1/32-ios-device-icloud-launch-report.md`
+
+---
+
+## 23. Progress ledger update — 2026-06-10 — iCloud placeholder download
+
+本节追加 `33-icloud-placeholder-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 23.1 Axis matrix after doc 33
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go**（unchanged） |
+| multi-target compile | **go**（unchanged） |
+| zero-cloud-symbol boundary | **go**（live audit rerun: 0 matches, exit 1） |
+| binding（B4） | **approved boundary / partially release-gated** — unchanged after doc 30 |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — unchanged after doc 27 |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — macOS placeholder failure shape observed; remote `.icloud` placeholder delivery remains open |
+| layout / retention | **compromise**（unchanged） |
+| cross-target execution CI | **workflow-wired / hosted-run-gated** — unchanged after doc 31 |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 23.2 Open-gate checklist after doc 33
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| macOS signed placeholder probe command | closed / observed | `33 §3.1`–`§3.3` |
+| loose iCloud file current-state behavior | observed, not a remote placeholder success | `33 §3.3`–`§3.4` |
+| package-internal segment placeholder/download behavior | observed failed with `NSCocoaErrorDomain:4` | `33 §3.3`–`§3.4` |
+| remote `.icloud` placeholder delivery | open / not proved | `33 §4` |
+| physical iPhone runtime rerun after unlock | open | `32 §3.5` |
+| iOS/non-macOS CloudDocuments delivery | open / runtime not observed | `32 §4` |
+| signed-out / over-quota account states | open / not run | unchanged |
+| destructive/user-resolution execution for iCloud manifest conflict | open / not run | `26 §5` |
+| hosted GitHub Actions run | open / not observed | `31 §4` |
+| Android execution | open / unavailable in current local environment | `31 §3.1` |
+| complete product wrapper binary package | open / not run | `30 §4` |
+| UniFFI generated async surface | open / not run | `28 §4` |
+| final production DTO/error vocabulary | open / not frozen | `28 §4` |
+| fresh-machine reproduction | open / not run | unchanged |
+| real app responder-chain undo / keyboard / accessibility / patch replay | open / not run | `27 §4` |
+
+### Ledger entry — 2026-06-10 — iteration 12 — doc 33-icloud-placeholder-report.md
+
+- **Checkpoint / cursor:** CP-1 Apple half, iCloud remote placeholder gate.
+- **Action selected:** add and run a signed macOS verifier command that attempts evict/start-download cycles for a loose iCloud file and a package-internal segment.
+- **Owner classification:** Apple runtime / verifier → executed here through Xcode-signed macOS app runtime.
+- **Scope-fence check:** passed — no root workspace / lockfile / repo product app shell / `suites/anchor/core/src/**` changes; no iCloud account mutation; probe path cleaned up.
+- **Evidence (Observed = command + output):**
+  - Added `--icloud-placeholder-probe` to `suites/anchor/apple/AnchorMacICloudProbe/AnchorMacICloudProbe/ICloudRuntimeProbe.swift`.
+  - `xcodebuild ... AnchorMacICloudProbe ... build` → `** BUILD SUCCEEDED **`; entitlements include CloudDocuments and `<ICLOUD_CONTAINER>`.
+  - `... AnchorMacICloudProbe --icloud-placeholder-probe` → explicit/implicit ubiquity lookup non-nil; loose `external.anchorseg` is ubiquitous/current, evict returns `NSCocoaErrorDomain:512`, start download nil, read 29 bytes; package-internal `000001.anchorseg` is not ubiquitous, evict/start download return `NSCocoaErrorDomain:4`, read 28 bytes; cleanup removed probe root.
+- **Gates closed this iteration:** macOS placeholder failure-shape evidence; package-internal start-download negative evidence.
+- **Gates still open:** true remote `.icloud` placeholder delivery, physical iPhone runtime rerun after unlock, iOS/non-macOS CloudDocuments delivery, signed-out/over-quota, destructive iCloud conflict resolution, hosted CI run, Android execution, complete product wrapper binary package, UniFFI generated async surface, final DTO/error vocabulary, fresh-machine repro, real app TextKit runtime.
+- **Backfill to 04/05/06:** `04-contract-baseline.md` iCloud baseline; `05-key-decisions.md` D06/D35.
+- **Axis matrix delta:** iCloud Drive remains approved default transport with compromise constraints; placeholder gate is now observed-negative on macOS local-current/package-internal paths, not closed.
+- **Gate evaluation:** CONTINUE — next action should target a true remote/non-current placeholder state, account-state probes, physical iPhone runtime after unlock, or remaining binding/product-runtime gates.
+- **New doc:** `docs/workbench/20260606-anchor-v1/33-icloud-placeholder-report.md`
+
+---
+
+## 24. Progress ledger update — 2026-06-10 — DTO/error vocabulary
+
+本节追加 `34-dto-error-vocabulary-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 24.1 Axis matrix after doc 34
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go**（DTO vocabulary regression passed） |
+| multi-target compile | **go**（unchanged） |
+| zero-cloud-symbol boundary | **go**（live audit rerun: 0 matches, exit 1） |
+| binding（B4） | **approved boundary / partially release-gated** — final DTO/error vocabulary closed; UniFFI generated async, complete product wrapper binary package, and fresh-machine/hosted CI remain open |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — unchanged after doc 27 |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — unchanged after doc 33 |
+| layout / retention | **compromise**（unchanged） |
+| cross-target execution CI | **workflow-wired / hosted-run-gated** — unchanged after doc 31 |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 24.2 Open-gate checklist after doc 34
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| final production DTO/error vocabulary | closed | `34 §3.1`–`§3.3` |
+| structured core validation envelope | closed | `34 §1`, `34 §3.1` |
+| core vs adapter-local error boundary | closed | `34 §3.2` |
+| Swift wrapper structured error decode | closed | `34 §3.3` |
+| UniFFI generated async surface | open / not run | `34 §4` |
+| complete product wrapper binary package | open / not run | `30 §4`, `34 §4` |
+| fresh-machine / hosted CI reproduction | open / not observed | unchanged |
+| physical iPhone runtime rerun after unlock | open | `32 §3.5` |
+| iOS/non-macOS CloudDocuments delivery | open / runtime not observed | `32 §4` |
+| true remote `.icloud` placeholder delivery | open / not proved | `33 §4` |
+| signed-out / over-quota account states | open / not run | unchanged |
+| destructive/user-resolution execution for iCloud manifest conflict | open / not run | `26 §5` |
+| hosted GitHub Actions run | open / not observed | `31 §4` |
+| Android execution | open / unavailable in current local environment | `31 §3.1` |
+| real app responder-chain undo / keyboard / accessibility / patch replay | open / not run | `27 §4` |
+
+### Ledger entry — 2026-06-10 — iteration 13 — doc 34-dto-error-vocabulary-report.md
+
+- **Checkpoint / cursor:** CP-1 Apple half, binding final DTO/error vocabulary gate.
+- **Action selected:** freeze core-owned `TransactionResult` / `ValidationError` vocabulary with a focused core regression test and source/runtime audit.
+- **Owner classification:** core DTO / Apple binding contract → executed here with cargo test, source audit, and Swift wrapper smoke.
+- **Scope-fence check:** passed — no root workspace / lockfile / repo product app shell / public CLI schema changes; no `suites/anchor/core/src/**` production source changes.
+- **Evidence (Observed = command + output):**
+  - Added `validation_error_vocabulary_is_frozen` in `suites/anchor/core/tests/dto_surface.rs`.
+  - `cargo test --manifest-path suites/anchor/Cargo.toml -p anchor-core --test dto_surface` → 7 passed.
+  - `rg ... ValidationError...adapter...` → core source/test contain only the three core validation variants; UniFFI maps only those variants plus `NoError`; `adapter_null_session` / `adapter_parse_error` appear only in C ABI / Swift adapter-local surfaces.
+  - `swift run ... AnchorAppleSmoke` → build succeeded; Swift wrapper decoded `dispatch:error validation=direct_active_to_deleted` and async wrapper still returned fixture truth.
+- **Gates closed this iteration:** final production DTO/error vocabulary; core vs adapter-local error boundary; Swift wrapper structured error decode.
+- **Gates still open:** UniFFI generated async surface, complete product wrapper binary package, fresh-machine/hosted CI repro, real app TextKit runtime, physical iPhone runtime rerun after unlock, iOS/non-macOS CloudDocuments delivery, true remote placeholder, signed-out/over-quota, destructive iCloud conflict resolution, hosted CI run, Android execution.
+- **Backfill to 04/05/06:** `04-contract-baseline.md` binding baseline; `05-key-decisions.md` D01.
+- **Axis matrix delta:** binding remains `approved boundary / partially release-gated`; final DTO/error vocabulary moved from open to closed.
+- **Gate evaluation:** CONTINUE — next action should target UniFFI generated async surface, complete product wrapper packaging, fresh-machine/hosted CI evidence, or remaining Apple runtime gates.
+- **New doc:** `docs/workbench/20260606-anchor-v1/34-dto-error-vocabulary-report.md`
+
+---
+
+## 25. Progress ledger update — 2026-06-10 — binding wrapper binary package
+
+本节追加 `35-binding-wrapper-binary-package-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 25.1 Axis matrix after doc 35
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go**（unchanged） |
+| multi-target compile | **go**（unchanged） |
+| zero-cloud-symbol boundary | **go**（live audit rerun: 0 matches, exit 1） |
+| binding（B4） | **approved boundary / partially release-gated** — wrapper binary package mechanism floor closed; UniFFI generated async, fresh-machine/hosted CI, and artifact policy remain open |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — unchanged after doc 27 |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — unchanged after doc 33 |
+| layout / retention | **compromise**（unchanged） |
+| cross-target execution CI | **workflow-wired / hosted-run-gated** — unchanged after doc 31 |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 25.2 Open-gate checklist after doc 35
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| final production DTO/error vocabulary | closed | `34 §3.1`–`§3.3` |
+| complete product wrapper binary package mechanism floor | closed | `35 §3.1`–`§3.4` |
+| Swift wrapper over binary target release strict run | closed | `35 §3.4` |
+| artifact signing/checksum/distribution policy | open / not productized | `35 §4` |
+| UniFFI generated async surface | open / not run | `34 §4`, `35 §4` |
+| fresh-machine / hosted CI reproduction | open / not observed | unchanged |
+| physical iPhone runtime rerun after unlock | open | `32 §3.5` |
+| iOS/non-macOS CloudDocuments delivery | open / runtime not observed | `32 §4` |
+| true remote `.icloud` placeholder delivery | open / not proved | `33 §4` |
+| signed-out / over-quota account states | open / not run | unchanged |
+| destructive/user-resolution execution for iCloud manifest conflict | open / not run | `26 §5` |
+| hosted GitHub Actions run | open / not observed | `31 §4` |
+| Android execution | open / unavailable in current local environment | `31 §3.1` |
+| real app responder-chain undo / keyboard / accessibility / patch replay | open / not run | `27 §4` |
+
+### Ledger entry — 2026-06-10 — iteration 14 — doc 35-binding-wrapper-binary-package-report.md
+
+- **Checkpoint / cursor:** CP-1 Apple half, binding complete product wrapper binary package gate.
+- **Action selected:** create a repo-external SwiftPM package that exposes `AnchorCoreBindings` over a binary XCFramework module named `AnchorCoreC`, then run a release strict-concurrency consumer.
+- **Owner classification:** Apple binding / packaging mechanism → executed here with cargo, `xcodebuild -create-xcframework`, and SwiftPM.
+- **Scope-fence check:** passed — no root workspace / lockfile / repo product app shell / public CLI schema changes; no `suites/anchor/core/src/**` production source changes; generated `suites/anchor/apple/ffi/Cargo.lock` removed.
+- **Evidence (Observed = command + output):**
+  - `cargo build --manifest-path suites/anchor/apple/ffi/Cargo.toml --release --target aarch64-apple-darwin|aarch64-apple-ios|aarch64-apple-ios-sim` → `Finished`.
+  - `xcodebuild -create-xcframework ... -output /tmp/anchor-apple-stage1/AnchorCoreCBinary.xcframework` → `xcframework successfully written out`.
+  - Created `/tmp/anchor-apple-stage1/wrapper-binary-consumer` outside the repo, with `.binaryTarget(name: "AnchorCoreC", path: "../AnchorCoreCBinary.xcframework")`, copied `AnchorCoreBindings.swift`, and an executable consumer.
+  - `swift run --package-path /tmp/anchor-apple-stage1/wrapper-binary-consumer -c release -Xswiftc -strict-concurrency=complete -Xswiftc -warnings-as-errors WrapperConsumer` → build succeeded; output `wrapper:fixture snapshot=3ef88671...`, `wrapper:insert changed=blk_a selection=3`, `wrapper:error validation=direct_active_to_deleted`, `wrapper:segment bytes=979`.
+- **Gates closed this iteration:** complete product wrapper binary package mechanism floor; Swift wrapper over binary target release strict run.
+- **Gates still open:** UniFFI generated async surface, fresh-machine/hosted CI repro, artifact signing/checksum/distribution policy, real app TextKit runtime, physical iPhone runtime rerun after unlock, iOS/non-macOS CloudDocuments delivery, true remote placeholder, signed-out/over-quota, destructive iCloud conflict resolution, hosted CI run, Android execution.
+- **Backfill to 04/05/06:** `04-contract-baseline.md` binding baseline; `05-key-decisions.md` D01.
+- **Axis matrix delta:** binding remains `approved boundary / partially release-gated`; complete wrapper binary package moved from open to closed as mechanism floor.
+- **Gate evaluation:** CONTINUE — next action should target UniFFI generated async surface, fresh-machine/hosted CI evidence, or remaining Apple runtime gates.
+- **New doc:** `docs/workbench/20260606-anchor-v1/35-binding-wrapper-binary-package-report.md`
+
+---
+
+## 26. Progress ledger update — 2026-06-10 — UniFFI generated async
+
+本节追加 `36-uniffi-generated-async-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 26.1 Axis matrix after doc 36
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go**（unchanged） |
+| multi-target compile | **go**（unchanged） |
+| zero-cloud-symbol boundary | **go**（live audit rerun: 0 matches, exit 1） |
+| binding（B4） | **approved boundary / partially release-gated** — UniFFI generated async macOS+iOS-sim mechanism floor closed; physical-device packaging, fresh-machine/hosted CI, and artifact policy remain open |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — unchanged after doc 27 |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — unchanged after doc 33 |
+| layout / retention | **compromise**（unchanged） |
+| cross-target execution CI | **workflow-wired / hosted-run-gated** — unchanged after doc 31 |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 26.2 Open-gate checklist after doc 36
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| UniFFI generated async UDL/source generation | closed | `36 §3.1`–`§3.3` |
+| UniFFI generated async macOS runtime | closed | `36 §3.4` |
+| UniFFI generated async iOS Simulator compile/link | closed with clang warning caveat | `36 §3.6` |
+| iPhoneOS / physical-device generated async packaging | open / arm64e vs arm64 standalone link mismatch | `36 §3.7` |
+| final production DTO/error vocabulary | closed | `34 §3.1`–`§3.3` |
+| complete product wrapper binary package mechanism floor | closed | `35 §3.1`–`§3.4` |
+| fresh-machine / hosted CI reproduction | open / not observed | unchanged |
+| artifact signing/checksum/distribution policy | open / not productized | `36 §4` |
+| physical iPhone runtime rerun after unlock | open | `32 §3.5` |
+| iOS/non-macOS CloudDocuments delivery | open / runtime not observed | `32 §4` |
+| true remote `.icloud` placeholder delivery | open / not proved | `33 §4` |
+| signed-out / over-quota account states | open / not run | unchanged |
+| destructive/user-resolution execution for iCloud manifest conflict | open / not run | `26 §5` |
+| hosted GitHub Actions run | open / not observed | `31 §4` |
+| Android execution | open / unavailable in current local environment | `31 §3.1` |
+| real app responder-chain undo / keyboard / accessibility / patch replay | open / not run | `27 §4` |
+
+### Ledger entry — 2026-06-10 — iteration 15 — doc 36-uniffi-generated-async-report.md
+
+- **Checkpoint / cursor:** CP-1 Apple half, UniFFI generated async release-surface gate.
+- **Action selected:** add a minimal `[Async]` UniFFI function, regenerate Swift, and run/compile generated async smoke under Swift 6 strict-concurrency.
+- **Owner classification:** Apple binding / UniFFI verifier → executed here with cargo, UniFFI bindgen, `swiftc`, and vtool.
+- **Scope-fence check:** passed — no root workspace / lockfile / repo product app shell / public CLI schema changes; no `suites/anchor/core/src/**` production source changes; generated lockfiles removed.
+- **Evidence (Observed = command + output):**
+  - Added `[Async] FixtureSummary async_fixture_summary();`, `pub async fn async_fixture_summary`, and Swift smoke `await asyncFixtureSummary()`.
+  - `cargo build ... --target aarch64-apple-darwin` → `Finished`.
+  - `uniffi-bindgen-swift ...` → exited 0; generated Swift contains `asyncFixtureSummary()` and `uniffiRustCallAsync`; generated header contains RustFuture callbacks.
+  - macOS `swiftc -swift-version 6 -strict-concurrency=complete -warnings-as-errors ... && /tmp/anchor-apple-stage1/uniffi-async-smoke` → output includes `uniffi:async fixture snapshot=3ef88671...`.
+  - iOS/iOS-sim Rust slices built; iOS Simulator `swiftc ... -target arm64-apple-ios26.0-simulator` exited 0 and `vtool` reports `platform IOSSIMULATOR`, minOS 26.0, SDK 26.5.
+  - iPhoneOS `swiftc ... -target arm64e-apple-ios26.0` failed because current Rust iOS slice is arm64 and the standalone Swift link expected arm64e symbols.
+- **Gates closed this iteration:** UniFFI generated async source generation; macOS strict-concurrency async runtime; iOS Simulator strict-concurrency compile/link.
+- **Gates still open:** physical-device/iPhoneOS async packaging, fresh-machine/hosted CI repro, artifact signing/checksum/distribution policy, real app TextKit runtime, physical iPhone runtime rerun after unlock, iOS/non-macOS CloudDocuments delivery, true remote placeholder, signed-out/over-quota, destructive iCloud conflict resolution, hosted CI run, Android execution.
+- **Backfill to 04/05/06:** `04-contract-baseline.md` binding baseline; `05-key-decisions.md` D01.
+- **Axis matrix delta:** binding remains `approved boundary / partially release-gated`; UniFFI generated async moved from open to macOS+iOS-sim mechanism-closed / physical-device packaging open.
+- **Gate evaluation:** CONTINUE — next action should target fresh-machine/hosted CI, physical-device packaging/runtime, or remaining iCloud/TextKit product-runtime gates.
+- **New doc:** `docs/workbench/20260606-anchor-v1/36-uniffi-generated-async-report.md`
+
+---
+
+## 27. Progress ledger update — 2026-06-10 — iOS device iCloud rerun
+
+本节追加 `37-ios-device-icloud-rerun-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 27.1 Axis matrix after doc 37
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go**（unchanged） |
+| multi-target compile | **go**（unchanged） |
+| zero-cloud-symbol boundary | **go**（unchanged） |
+| binding（B4） | **approved boundary / partially release-gated** — unchanged after doc 36 |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — unchanged after doc 27 |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — physical iPhone runtime still blocked by locked device |
+| layout / retention | **compromise**（unchanged） |
+| cross-target execution CI | **workflow-wired / hosted-run-gated** — unchanged after doc 31 |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 27.2 Open-gate checklist after doc 37
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| physical iPhone build/install/entitlement chain | closed | `32 §3.1`–`§3.4` |
+| physical iPhone runtime launch | open / still blocked by locked device | `32 §3.5`, `37 §3` |
+| iOS/non-macOS CloudDocuments delivery | open / runtime not observed | `37 §4` |
+| UniFFI generated async macOS/iOS-sim surface | closed | `36 §3.1`–`§3.6` |
+| iPhoneOS / physical-device generated async packaging | open / arm64e vs arm64 standalone link mismatch | `36 §3.7` |
+| fresh-machine / hosted CI reproduction | open / not observed | unchanged |
+| artifact signing/checksum/distribution policy | open / not productized | `36 §4` |
+| true remote `.icloud` placeholder delivery | open / not proved | `33 §4` |
+| signed-out / over-quota account states | open / not run | unchanged |
+| destructive/user-resolution execution for iCloud manifest conflict | open / not run | `26 §5` |
+| hosted GitHub Actions run | open / not observed | `31 §4` |
+| Android execution | open / unavailable in current local environment | `31 §3.1` |
+| real app responder-chain undo / keyboard / accessibility / patch replay | open / not run | `27 §4` |
+
+### Ledger entry — 2026-06-10 — iteration 16 — doc 37-ios-device-icloud-rerun-report.md
+
+- **Checkpoint / cursor:** CP-1 Apple half, physical iPhone iCloud runtime gate.
+- **Action selected:** rerun the installed Xcode-managed iOS CloudDocuments probe on the paired physical iPhone.
+- **Owner classification:** Apple runtime / physical device → executed here through `devicectl`.
+- **Scope-fence check:** passed — no root workspace / lockfile / repo product app shell / public CLI schema changes; no `suites/anchor/core/src/**` production source changes; no iCloud account mutation.
+- **Evidence (Observed = command + output):**
+  - `xcrun devicectl device process launch --device C51610FF-15B1-5989-A8A3-DE2EDFACEB5B --console --terminate-existing dev.plimeor.AnchorProvisionProbe --icloud-runtime-probe` → acquired tunnel/DDI/usage assertion, then failed with `FBSOpenApplicationServiceErrorDomain`, `BSErrorCodeDescription = Locked`, `Unable to launch ... because the device was not, or could not be, unlocked`.
+- **Gates closed this iteration:** none.
+- **Gates still open:** physical iPhone runtime rerun after unlock, iOS/non-macOS CloudDocuments delivery, physical-device generated async packaging, fresh-machine/hosted CI repro, artifact signing/checksum/distribution policy, real app TextKit runtime, true remote placeholder, signed-out/over-quota, destructive iCloud conflict resolution, hosted CI run, Android execution.
+- **Backfill to 04/05/06:** `04-contract-baseline.md` iCloud baseline; `05-key-decisions.md` D35.
+- **Axis matrix delta:** iCloud Drive unchanged; physical iPhone runtime remains externally blocked by locked device.
+- **Gate evaluation:** CONTINUE for non-device gates; rerun physical device runtime only after the iPhone is unlocked.
+- **New doc:** `docs/workbench/20260606-anchor-v1/37-ios-device-icloud-rerun-report.md`
+
+---
+
+## 28. Progress ledger update — 2026-06-10 — binding artifact checksum
+
+本节追加 `38-binding-artifact-checksum-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 28.1 Axis matrix after doc 38
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go**（unchanged） |
+| multi-target compile | **go**（unchanged） |
+| zero-cloud-symbol boundary | **go**（unchanged） |
+| binding（B4） | **approved boundary / partially release-gated** — SwiftPM binary checksum mechanism closed; physical-device packaging, fresh-machine/hosted CI, and signing/provenance policy remain open |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — unchanged after doc 27 |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — unchanged after doc 37 |
+| layout / retention | **compromise**（unchanged） |
+| cross-target execution CI | **workflow-wired / hosted-run-gated** — unchanged after doc 31 |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 28.2 Open-gate checklist after doc 38
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| SwiftPM binary artifact checksum mechanism | closed | `38 §3.1` |
+| wrapper-compatible XCFramework zip shape | closed | `38 §3.2`–`§3.3` |
+| artifact signing/notarization/provenance policy | open / not run | `38 §4` |
+| fresh-machine / hosted CI reproduction | open / not observed | unchanged |
+| iPhoneOS / physical-device generated async packaging | open / arm64e vs arm64 standalone link mismatch | `36 §3.7` |
+| physical iPhone runtime launch | open / still blocked by locked device | `37 §3` |
+| iOS/non-macOS CloudDocuments delivery | open / runtime not observed | `37 §4` |
+| true remote `.icloud` placeholder delivery | open / not proved | `33 §4` |
+| signed-out / over-quota account states | open / not run | unchanged |
+| destructive/user-resolution execution for iCloud manifest conflict | open / not run | `26 §5` |
+| hosted GitHub Actions run | open / not observed | `31 §4` |
+| Android execution | open / unavailable in current local environment | `31 §3.1` |
+| real app responder-chain undo / keyboard / accessibility / patch replay | open / not run | `27 §4` |
+
+### Ledger entry — 2026-06-10 — iteration 17 — doc 38-binding-artifact-checksum-report.md
+
+- **Checkpoint / cursor:** CP-1 Apple half, binding artifact checksum/distribution mechanism gate.
+- **Action selected:** zip the wrapper-compatible XCFramework and compute SwiftPM binary target checksum plus SHA-256.
+- **Owner classification:** Apple binding packaging mechanism → executed locally under `/tmp/anchor-apple-stage1`.
+- **Scope-fence check:** passed — no root workspace / lockfile / repo product app shell / public CLI schema changes; no `suites/anchor/core/src/**` production source changes; no publishing/signing/notarization.
+- **Evidence (Observed = command + output):**
+  - `ditto -c -k --sequesterRsrc --keepParent AnchorCoreCBinary.xcframework AnchorCoreCBinary.xcframework.zip`
+  - `swift package compute-checksum /tmp/anchor-apple-stage1/AnchorCoreCBinary.xcframework.zip` → `6dab5c671ae33737a19462fc5452dff390bc0a6afa7c80b91b505bb6e063c890`.
+  - `shasum -a 256 ...` → same hash; zip size 17M.
+  - artifact content includes macOS/iOS/iOS-sim slices, `Info.plist`, each `libanchor_core_ffi.a`, and headers/module maps.
+- **Gates closed this iteration:** SwiftPM binary artifact checksum mechanism; wrapper-compatible XCFramework zip shape.
+- **Gates still open:** artifact signing/notarization/provenance policy, fresh-machine/hosted CI repro, physical-device packaging, physical iPhone runtime after unlock, iOS/non-macOS CloudDocuments delivery, true remote placeholder, signed-out/over-quota, destructive iCloud conflict resolution, hosted CI run, Android execution, real app TextKit runtime.
+- **Backfill to 04/05/06:** `04-contract-baseline.md` binding baseline; `05-key-decisions.md` D01.
+- **Axis matrix delta:** binding remains `approved boundary / partially release-gated`; artifact checksum mechanism moved from open to closed.
+- **Gate evaluation:** CONTINUE — next action should target hosted/fresh-machine evidence, physical-device packaging/runtime, or remaining iCloud/TextKit gates.
+- **New doc:** `docs/workbench/20260606-anchor-v1/38-binding-artifact-checksum-report.md`
+
+---
+
+## 29. Progress ledger update — 2026-06-10 — iCloud conflict resolution
+
+本节追加 `39-icloud-conflict-resolution-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 29.1 Axis matrix after doc 39
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go**（unchanged） |
+| multi-target compile | **go**（unchanged） |
+| zero-cloud-symbol boundary | **go**（unchanged） |
+| binding（B4） | **approved boundary / partially release-gated** — unchanged after doc 38 |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — unchanged after doc 27 |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — explicit mutable-manifest resolution mechanism floor closed; remote placeholder, account states, physical/iOS runtime, scale, and product resolver integration remain open |
+| layout / retention | **compromise** — conflict policy/resolution floor improved, but steady-state segment budget, stale-peer/watermark, and scale context remain open |
+| cross-target execution CI | **workflow-wired / hosted-run-gated** — unchanged after doc 31 |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 29.2 Open-gate checklist after doc 39
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| conflict surfacing / preserve / block floor | closed | `26 §3`–`§5` |
+| explicit destructive/user-resolution execution mechanism | closed with metadata-refresh caveat | `39 §3.2`–`§3.4` |
+| product conflict-resolution UX / core integration | open / not implemented | `39 §4`–`§5` |
+| conflict resolution in scale / stale-peer / retention context | open / not run | `39 §5` |
+| physical iPhone runtime launch | open / still blocked by locked device | `37 §3` |
+| iOS/non-macOS CloudDocuments delivery | open / runtime not observed | `37 §4` |
+| true remote `.icloud` placeholder delivery | open / not proved | `33 §4` |
+| signed-out / over-quota account states | open / not run | unchanged |
+| steady-state segment budget / million-op iCloud context | open / not run | unchanged |
+| local-only path-in-ubiquity edge cases | open / not run | unchanged |
+| artifact signing/notarization/provenance policy | open / not run | `38 §4` |
+| fresh-machine / hosted CI reproduction | open / not observed | unchanged |
+| iPhoneOS / physical-device generated async packaging | open / arm64e vs arm64 standalone link mismatch | `36 §3.7` |
+| hosted GitHub Actions run | open / not observed | `31 §4` |
+| Android execution | open / unavailable in current local environment | `31 §3.1` |
+| real app responder-chain undo / keyboard / accessibility / patch replay | open / not run | `27 §4` |
+
+### Ledger entry — 2026-06-10 — iteration 18 — doc 39-icloud-conflict-resolution-report.md
+
+- **Checkpoint / cursor:** CP-1 Apple half, iCloud mutable-manifest conflict resolution mechanism gate.
+- **Action selected:** execute explicit current-winner resolution for the historical offline-fork manifest conflict, archive all branches, then re-check policy state.
+- **Owner classification:** Apple iCloud runtime verifier → executed locally through a signed macOS app with CloudDocuments entitlements.
+- **Scope-fence check:** passed — no root workspace / lockfile / repo product app shell / public CLI schema changes; no `suites/anchor/core/src/**` production source changes; no CloudKit; conflict operation stayed in the existing probe container.
+- **Evidence (Observed = command + output):**
+  - `xcodebuild ... -derivedDataPath /tmp/anchor-apple-stage1/DerivedData/AnchorMacICloudProbe-resolve-20260610 ... build` → signing identity/profile observed; `** BUILD SUCCEEDED **`.
+  - `AnchorMacICloudProbe --icloud-conflict-resolve-probe offline-conflict-20260607T113449Z` → archived current writer `ios-offline`, conflict version writer `mac-online`, duplicate writer `ios-base`; `remove_other_versions_error=nil`; same-run `after_conflict_versions=1`, `after_duplicate_manifest_files=0`, `archive_preserved=true`, `resolution_executed=true`.
+  - `AnchorMacICloudProbe --icloud-conflict-policy-probe offline-conflict-20260607T113449Z` → `conflict_versions=0`, `duplicate_manifest_files=0`, `adapter_status=ok_no_conflict`.
+  - `find .../AnchorConflictProbe/offline-conflict-20260607T113449Z -maxdepth 2 -type f` → archive contains `current-manifest.json`, `conflict-version-0.json`, and `duplicate-0-manifest 2.json`.
+- **Gates closed this iteration:** explicit destructive/user-resolution execution mechanism; branch archival before cleanup; duplicate-manifest live cleanup; post-refresh adapter-visible clean state.
+- **Gates still open:** product conflict-resolution UX/core integration, conflict resolution under scale/stale-peer context, physical iPhone runtime after unlock, iOS/non-macOS CloudDocuments delivery, true remote placeholder, signed-out/over-quota, steady-state segment budget/million-op iCloud context, local-only path edge cases, physical-device packaging, fresh-machine/hosted CI, hosted GitHub Actions run, Android execution, real app TextKit runtime.
+- **Backfill to 04/05/06:** `04-contract-baseline.md` iCloud baseline; `05-key-decisions.md` D14 and D35.
+- **Axis matrix delta:** iCloud Drive remains `approved default transport WITH compromise constraints`; destructive/user-resolution mechanism moved from open to mechanism-closed with metadata-refresh caveat.
+- **Gate evaluation:** CONTINUE — next action should target another remaining iCloud, binding, TextKit, hosted CI, or physical-device gate.
+- **New doc:** `docs/workbench/20260606-anchor-v1/39-icloud-conflict-resolution-report.md`
+
+---
+
+## 30. Progress ledger update — 2026-06-10 — UniFFI iPhoneOS packaging
+
+本节追加 `40-uniffi-iphoneos-packaging-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 30.1 Axis matrix after doc 40
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go**（unchanged） |
+| multi-target compile | **go**（unchanged） |
+| zero-cloud-symbol boundary | **go**（unchanged） |
+| binding（B4） | **approved boundary / partially release-gated** — iPhoneOS standalone arm64 generated async compile/link mechanism closed; signed app-bundle/device runtime, fresh-machine/hosted CI, and artifact policy remain open |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — unchanged after doc 27 |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — unchanged after doc 39 |
+| layout / retention | **compromise** — unchanged after doc 39 |
+| cross-target execution CI | **workflow-wired / hosted-run-gated** — unchanged after doc 31 |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 30.2 Open-gate checklist after doc 40
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| UniFFI generated async macOS runtime | closed | `36 §3.4` |
+| UniFFI generated async iOS Simulator compile/link | closed with clang warning caveat | `36 §3.6` |
+| UniFFI generated async iPhoneOS standalone arm64 compile/link | closed with clang warning caveat | `40 §3.1`–`§3.3` |
+| signed iOS app bundle with generated async binding | open / not run | `40 §4` |
+| physical device install/runtime for generated async binding | open / not run | `40 §4` |
+| fresh-machine / hosted CI reproduction | open / not observed | unchanged |
+| artifact signing/notarization/provenance policy | open / not run | `38 §4`, `40 §4` |
+| physical iPhone iCloud runtime launch | open / still blocked by locked device across three attempts | `37 §3`, `42 §3` |
+| iOS/non-macOS CloudDocuments delivery | open / runtime not observed | `37 §4` |
+| true remote `.icloud` placeholder delivery | open / not proved | `33 §4` |
+| signed-out / over-quota account states | open / not run | unchanged |
+| steady-state segment budget / million-op iCloud context | open / not run | unchanged |
+| local-only path-in-ubiquity edge cases | open / not run | unchanged |
+| product conflict-resolution UX / core integration | open / not implemented | `39 §4`–`§5` |
+| hosted GitHub Actions run | open / not observed | `31 §4` |
+| Android execution | open / unavailable in current local environment | `31 §3.1` |
+| real app responder-chain undo / keyboard / accessibility / patch replay | open / not run | `27 §4` |
+
+### Ledger entry — 2026-06-10 — iteration 19 — doc 40-uniffi-iphoneos-packaging-report.md
+
+- **Checkpoint / cursor:** CP-1 Apple half, binding iPhoneOS generated async packaging mechanism gate.
+- **Action selected:** rerun the UniFFI generated async standalone Swift compile/link for iPhoneOS using `arm64-apple-ios26.0`, matching the Rust `aarch64-apple-ios` slice.
+- **Owner classification:** Apple binding packaging mechanism → executed locally under `/tmp/anchor-apple-stage1`.
+- **Scope-fence check:** passed — no root workspace / lockfile / repo product app shell / public CLI schema changes; no Xcode project/bundle/entitlement changes; no `suites/anchor/core/src/**` production source changes.
+- **Evidence (Observed = command + output):**
+  - `swiftc -swift-version 6 -strict-concurrency=complete -warnings-as-errors -target arm64-apple-ios26.0 ...` → exit 0; emitted clang sysroot warning only.
+  - `file /tmp/anchor-apple-stage1/uniffi-async-smoke-ios-arm64` → `Mach-O 64-bit executable arm64`.
+  - `vtool -show-build ...` → `platform IOS`, `minos 26.0`, `sdk 26.5`.
+  - `lipo -archs` on Rust staticlib, Rust dylib, and Swift smoke executable → `arm64` for all three.
+- **Gates closed this iteration:** iPhoneOS generated async standalone arm64 compile/link; prior arm64e mismatch narrowed to wrong target selection for the current Rust slice.
+- **Gates still open:** signed app-bundle/device runtime integration, fresh-machine/hosted CI reproduction, artifact signing/notarization/provenance policy, physical iPhone runtime after unlock, iOS/non-macOS CloudDocuments delivery, true remote placeholder, signed-out/over-quota, steady-state segment budget/million-op iCloud context, local-only path edge cases, product conflict-resolution UX/core integration, hosted GitHub Actions run, Android execution, real app TextKit runtime.
+- **Backfill to 04/05/06:** `04-contract-baseline.md` binding baseline; `05-key-decisions.md` D01.
+- **Axis matrix delta:** binding remains `approved boundary / partially release-gated`; iPhoneOS generated async standalone compile/link moved from open/mismatch to mechanism-closed for `arm64`.
+- **Gate evaluation:** CONTINUE — next action should target hosted/fresh-machine evidence, signed app-bundle/device runtime integration, artifact provenance policy, or remaining iCloud/TextKit gates.
+- **New doc:** `docs/workbench/20260606-anchor-v1/40-uniffi-iphoneos-packaging-report.md`
+
+---
+
+## 31. Progress ledger update — 2026-06-10 — hosted cross-target CI
+
+本节追加 `41-hosted-cross-target-ci-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 31.1 Axis matrix after doc 41
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go**（unchanged） |
+| multi-target compile | **go**（unchanged） |
+| zero-cloud-symbol boundary | **go**（unchanged） |
+| binding（B4） | **approved boundary / partially release-gated** — hosted cross-target run closed; signed app-bundle/device runtime integration, fresh-machine release packaging, and artifact policy remain open |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — unchanged after doc 27 |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — unchanged after doc 39 |
+| layout / retention | **compromise** — unchanged after doc 39 |
+| cross-target execution CI | **hosted native/wasm/iOS-sim closed; Android execution open** |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 31.2 Open-gate checklist after doc 41
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| hosted Linux native vectors | closed | `41 §3.2`–`§3.3` |
+| hosted Linux wasm vectors | closed | `41 §3.2`–`§3.3` |
+| hosted macOS native vectors | closed | `41 §3.2`, `41 §3.4` |
+| hosted macOS wasm vectors | closed | `41 §3.2`, `41 §3.4` |
+| hosted macOS iOS Simulator vectors | closed | `41 §3.2`, `41 §3.4` |
+| Android execution | open / not run | `31 §3.1`, `41 §4` |
+| signed app-bundle/device runtime integration | open / not run | `40 §4` |
+| fresh-machine release packaging beyond hosted runner | open / not observed | unchanged |
+| artifact signing/notarization/provenance policy | open / not run | `38 §4`, `40 §4` |
+| physical iPhone iCloud runtime launch | open / still blocked by locked device | `37 §3` |
+| iOS/non-macOS CloudDocuments delivery | open / runtime not observed | `37 §4` |
+| true remote `.icloud` placeholder delivery | open / not proved | `33 §4` |
+| signed-out / over-quota account states | open / not run | unchanged |
+| steady-state segment budget / million-op iCloud context | open / not run | unchanged |
+| local-only path-in-ubiquity edge cases | open / not run | unchanged |
+| product conflict-resolution UX / core integration | open / not implemented | `39 §4`–`§5` |
+| real app responder-chain undo / keyboard / accessibility / patch replay | open / not run | `27 §4` |
+
+### Ledger entry — 2026-06-10 — iteration 20 — doc 41-hosted-cross-target-ci-report.md
+
+- **Checkpoint / cursor:** CP-1 cross-target execution CI gate.
+- **Action selected:** push `anchor-v1`, open draft PR `#9`, and observe hosted GitHub Actions `pull_request` workflow.
+- **Owner classification:** hosted CI / GitHub Actions → executed through GitHub after local commit+push.
+- **Scope-fence check:** passed — no root workspace / lockfile / repo product app shell / public CLI schema changes; external side effect limited to branch push, draft PR, and hosted workflow run.
+- **Evidence (Observed = command + output):**
+  - `git commit -m "Advance Anchor CP-1 verifier evidence"` followed by evidence-doc amend → final commit `5cbc5a1`.
+  - `git push --force-with-lease origin anchor-v1` → branch updated on `origin/anchor-v1`.
+  - `gh pr create --draft --base main --head anchor-v1 ...` → `https://github.com/plimeor/labs/pull/9`.
+  - `gh run view 27225972591 --json ...` → `workflowName=Anchor Cross-Target Vectors`, `event=pull_request`, `headSha=5cbc5a174bfad2da4243d70772e240d2eec6d885`, `conclusion=success`.
+  - `gh pr checks 9` → `native-wasm pass 26s`, `ios-simulator pass 7m27s`.
+  - Hosted `native-wasm` log → native deterministic vectors `6 passed`, `anchor_wasm_vector_status=0`, `anchor_ios_vector_status=skipped`.
+  - Hosted `ios-simulator` log → booted simulator, native deterministic vectors `6 passed`, `anchor_wasm_vector_status=0`, `anchor_ios_vector_status=0`.
+- **Gates closed this iteration:** hosted Linux native+wasm vector execution; hosted macOS native+wasm+iOS Simulator vector execution.
+- **Gates still open:** Android execution, signed app-bundle/device runtime integration, fresh-machine release packaging beyond hosted runner, artifact signing/notarization/provenance policy, physical iPhone runtime after unlock, iOS/non-macOS CloudDocuments delivery, true remote placeholder, signed-out/over-quota, steady-state segment budget/million-op iCloud context, local-only path edge cases, product conflict-resolution UX/core integration, real app TextKit runtime.
+- **Backfill to 04/05/06:** `04-contract-baseline.md` cross-target baseline; `05-key-decisions.md` D19, D26, D36.
+- **Axis matrix delta:** cross-target execution CI: `workflow-wired / hosted-run-gated` → `hosted native/wasm/iOS-sim closed; Android execution open`.
+- **Gate evaluation:** CONTINUE — next action should target Android execution feasibility, signed app-bundle/device runtime integration, artifact provenance policy, or remaining iCloud/TextKit gates.
+- **New doc:** `docs/workbench/20260606-anchor-v1/41-hosted-cross-target-ci-report.md`
+
+---
+
+## 32. Progress ledger update — 2026-06-10 — iOS device locked rerun
+
+本节追加 `42-ios-device-icloud-locked-rerun-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 32.1 Axis matrix after doc 42
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go**（unchanged） |
+| multi-target compile | **go**（unchanged） |
+| zero-cloud-symbol boundary | **go**（unchanged） |
+| binding（B4） | **approved boundary / partially release-gated** — unchanged after doc 41 |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — unchanged after doc 27 |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — physical iPhone runtime remains externally blocked by locked device state |
+| layout / retention | **compromise** — unchanged after doc 41 |
+| cross-target execution CI | **hosted native/wasm/iOS-sim closed; Android execution open** — unchanged after doc 41 |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 32.2 Open-gate checklist after doc 42
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| physical iPhone visibility / pairing | closed for this attempt | `42 §3.1` |
+| physical iPhone app launch | open / blocked by locked device across three attempts | `32 §3.5`, `37 §3`, `42 §3.2` |
+| physical iPhone iCloud runtime | open / not observed | `42 §4` |
+| iOS/non-macOS CloudDocuments delivery | open / not observed | `42 §4` |
+| true remote `.icloud` placeholder delivery | open / not proved | `33 §4` |
+| signed-out / over-quota account states | open / not run | unchanged |
+| steady-state segment budget / million-op iCloud context | open / not run | unchanged |
+| local-only path-in-ubiquity edge cases | open / not run | unchanged |
+| Android execution | open / not run | `31 §3.1`, `41 §4` |
+| signed app-bundle/device runtime integration | open / not run | `40 §4` |
+| fresh-machine release packaging beyond hosted runner | open / not observed | unchanged |
+| artifact signing/notarization/provenance policy | open / not run | `38 §4`, `40 §4` |
+| product conflict-resolution UX / core integration | open / not implemented | `39 §4`–`§5` |
+| real app responder-chain undo / keyboard / accessibility / patch replay | open / not run | `27 §4` |
+
+### Ledger entry — 2026-06-10 — iteration 21 — doc 42-ios-device-icloud-locked-rerun-report.md
+
+- **Checkpoint / cursor:** CP-1 Apple half, physical iPhone iCloud runtime gate.
+- **Action selected:** retry the installed signed iOS CloudDocuments verifier on the paired physical iPhone.
+- **Owner classification:** Apple runtime / physical device → executed through `devicectl`.
+- **Scope-fence check:** passed — no root workspace / lockfile / repo product app shell / public CLI schema changes; no Xcode project/bundle/entitlement changes; no `suites/anchor/core/src/**` production source changes; no iCloud account mutation.
+- **Evidence (Observed = command + output):**
+  - `devicectl list devices` → `Plimeor's iPhone ... available (paired) ... iPhone 15 Pro Max`.
+  - `devicectl device process launch --device C51610FF-15B1-5989-A8A3-DE2EDFACEB5B --console --terminate-existing dev.plimeor.AnchorProvisionProbe --icloud-runtime-probe` → acquired tunnel/DDI/usage assertion, then SpringBoard denied launch with `BSErrorCodeDescription = Locked`, `Unable to launch ... because the device was not, or could not be, unlocked`.
+- **Gates closed this iteration:** none beyond confirming device visibility/pairing for this attempt.
+- **Gates still open:** physical iPhone runtime after unlock, iOS/non-macOS CloudDocuments delivery, true remote placeholder, signed-out/over-quota, steady-state segment budget/million-op iCloud context, local-only path edge cases, Android execution, signed app-bundle/device runtime integration, fresh-machine release packaging beyond hosted runner, artifact signing/notarization/provenance policy, product conflict-resolution UX/core integration, real app TextKit runtime.
+- **Backfill to 04/05/06:** `04-contract-baseline.md` iCloud baseline; `05-key-decisions.md` D35.
+- **Axis matrix delta:** iCloud Drive remains `approved default transport WITH compromise constraints`; physical iPhone runtime remains externally blocked by locked device state.
+- **Gate evaluation:** CONTINUE for non-device gates; do not spend more iterations on this physical-device runtime gate until the iPhone is unlocked.
+- **New doc:** `docs/workbench/20260606-anchor-v1/42-ios-device-icloud-locked-rerun-report.md`

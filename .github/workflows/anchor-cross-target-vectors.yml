@@ -1,0 +1,71 @@
+name: Anchor Cross-Target Vectors
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/anchor-cross-target-vectors.yml'
+      - 'suites/anchor/**'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/anchor-cross-target-vectors.yml'
+      - 'suites/anchor/**'
+
+permissions:
+  contents: read
+
+jobs:
+  native-wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Setup Rust targets
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Run native and wasm vectors
+        run: bash suites/anchor/core/tests/run-cross-target-vectors.sh
+        env:
+          ANCHOR_SKIP_IOS: '1'
+
+  ios-simulator:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Setup Rust targets
+        run: rustup target add wasm32-unknown-unknown aarch64-apple-ios-sim
+
+      - name: Boot first available iOS Simulator
+        run: |
+          simulator_id="$(
+            xcrun simctl list devices available |
+              sed -n 's/.*(\([0-9A-F-]\{8\}-[0-9A-F-]\{4\}-[0-9A-F-]\{4\}-[0-9A-F-]\{4\}-[0-9A-F-]\{12\}\)) (Shutdown).*/\1/p' |
+              head -n 1
+          )"
+          if [[ -z "$simulator_id" ]]; then
+            echo "No available shutdown iOS simulator found" >&2
+            xcrun simctl list devices available >&2
+            exit 1
+          fi
+          xcrun simctl boot "$simulator_id"
+          xcrun simctl bootstatus "$simulator_id" -b
+          echo "ANCHOR_IOS_SIMULATOR_ID=$simulator_id" >> "$GITHUB_ENV"
+
+      - name: Run native, wasm, and iOS Simulator vectors
+        run: bash suites/anchor/core/tests/run-cross-target-vectors.sh
+        env:
+          DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer

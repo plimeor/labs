@@ -37,6 +37,20 @@ struct AnchorTextKitSmoke {
         precondition(runtime.hasLayoutSurface())
         precondition(runtime.performSemanticUndoProbe() == ["semantic-inverse-intent"])
         print("textkit:mac:selected=\(selected.location):\(selected.length) layout=true undo=semantic-inverse-intent")
+
+        let marked = runtime.performMarkedTextCommitProbe()
+        precondition(marked.hadMarkedText)
+        precondition(marked.markedRange.location == 1)
+        precondition(marked.committedText == "A拼")
+        precondition(marked.intent == .insertText(blockID: "blk_a", atUTF16: 1, text: "拼"))
+        print("textkit:ime_marked=true commit=\(marked.committedText) intent_insert_at=\(marked.markedRange.location)")
+
+        let hitIndex = runtime.hitTestInsertionIndexProbe()
+        precondition(hitIndex != NSNotFound)
+        print("textkit:hittest_index=\(hitIndex)")
+
+        precondition(runtime.directBufferUndoSuppressed())
+        print("textkit:direct_buffer_undo_suppressed=true")
         #else
         print("textkit:runtime=not-run-on-this-platform")
         #endif

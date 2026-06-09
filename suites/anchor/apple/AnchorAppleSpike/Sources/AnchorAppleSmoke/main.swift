@@ -51,6 +51,17 @@ let segment = try session.readSegment()
 precondition(!segment.isEmpty)
 print("segment:bytes=\(segment.count)")
 
+let asyncClient = try AnchorCoreClient()
+let asyncBefore = try await asyncClient.summary()
+precondition(asyncBefore.snapshotRevision == expectedSnapshot)
+let asyncInsert = try await asyncClient.dispatchInsertText(targetID: "blk_a", at: 0, text: "🍎 ")
+precondition(asyncInsert.validationError == nil)
+precondition(asyncInsert.changedIDs == ["blk_a"])
+precondition(asyncInsert.selectionHint?.start == 3)
+let asyncSegment = try await asyncClient.readSegment()
+precondition(!asyncSegment.isEmpty)
+print("async:sendable summary=\(asyncBefore.snapshotRevision) changed=\(asyncInsert.changedIDs.joined(separator: ",")) segment=\(asyncSegment.count)")
+
 for size in [1 << 20, 1 << 22, 1 << 24, 1 << 26] {
     let result = measureBlob(size: size)
     let milliseconds = String(format: "%.2f", result.milliseconds)

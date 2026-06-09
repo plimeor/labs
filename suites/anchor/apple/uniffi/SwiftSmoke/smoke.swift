@@ -15,7 +15,7 @@ func checksum(_ data: Data) -> UInt64 {
 
 @main
 struct SmokeMain {
-    static func main() {
+    static func main() async {
         let expectedSnapshot = "3ef88671e9a22cb9de21e22b0c4e635b6ecc569142197675700285dd2a877b63"
 
         let summary = openFixtureVault()
@@ -23,6 +23,10 @@ struct SmokeMain {
         precondition(summary.noteCount == 1)
         precondition(summary.snapshotRevision == expectedSnapshot)
         print("uniffi:fixture vault=\(summary.vaultId) notes=\(summary.noteCount) snapshot=\(summary.snapshotRevision)")
+
+        let asyncSummary = await asyncFixtureSummary()
+        precondition(asyncSummary.snapshotRevision == expectedSnapshot)
+        print("uniffi:async fixture snapshot=\(asyncSummary.snapshotRevision)")
 
         let insertIntent = EditorIntentDto(
             kind: "insert_text",
