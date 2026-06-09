@@ -42,7 +42,7 @@ Stage 1 evidence is synchronized into the current decision files. The current re
 | **core deterministic（组 1）** | **go** | 74/0 测试、clippy 干净、`no_std`+`forbid(unsafe_code)`+零外部依赖、`BTreeMap`/`BTreeSet`（无迭代序不确定）、diff3/order-key/merge 为 core 内唯一 vendored 实现。Core side complete。 |
 | **core multi-target gate（D36）** | **go** | `wasm32-unknown-unknown` + `aarch64-linux-android` 编译 gate 通过；零依赖使 gate by construction 不可被 transitive crate 打破。native/wasm/iOS Simulator golden-vector execution 已有本地 runner 与 hosted GitHub Actions pass；Android execution 仍 open。 |
 | **mirror / search parity（组 5）** | **go** | `mirror_parity` 测试通过：structured search == ripgrep(md)、mirror 写失败隔离（op-log 不回滚）、body 冲突 git fence。 |
-| **Apple binding（组 2，A2/B4）** | **approved / release-gated** | 用户已于 2026-06-07 批准产品边界：`UniFFI DTO / ordinary dispatch + C ABI bytes fast path`。typed `ValidationError` enum 已落到 core DTO + C ABI Swift wrapper + UniFFI generated enum；synchronous release-surface smoke 已过 Swift 6 strict concurrency + warnings-as-errors；core-owned final DTO/error vocabulary、wrapper binary package 机制下限、UniFFI generated async macOS/iOS-sim/iPhoneOS-arm64 mechanism floor、SwiftPM checksum mechanism 已关闭。Remaining release implementation gates 为 signed app-bundle/device runtime integration、CI/fresh-machine 复现与 artifact signing/notarization/provenance policy（§5）。 |
+| **Apple binding（组 2，A2/B4）** | **approved / release-gated** | 用户已于 2026-06-07 批准产品边界：`UniFFI DTO / ordinary dispatch + C ABI bytes fast path`。typed `ValidationError` enum 已落到 core DTO + C ABI Swift wrapper + UniFFI generated enum；synchronous release-surface smoke 已过 Swift 6 strict concurrency + warnings-as-errors；core-owned final DTO/error vocabulary、wrapper binary package 机制下限、UniFFI generated async macOS/iOS-sim/iPhoneOS-arm64 mechanism floor、SwiftPM checksum mechanism、hosted/fresh-runner verifier artifact reproduction 已关闭。Remaining release implementation gates 为 signed app-bundle/device runtime integration、artifact signing/notarization/provenance policy 与 real release upload/distribution channel（§5）。 |
 | **TextKit adapter（组 3，D18）** | **compromise（mechanism-go）** | 机制面可行且边界干净（Swift 零确定性语义、buffer 非真理）；real-app responder-chain undo 抑制、IME marked-text commit、accessibility、hit-testing、patch replay over moving views、UTF-16 内部单位换算稳定性仍是**产品级 runtime gate**（Not run）。 |
 | **iCloud Drive（组 4，B14）** | **approved default transport / compromise constraints** | 用户已批准 iCloud Drive 作首期 default transport（2026-06-07）。signed macOS app + repo-local Xcode-created macOS verifier 通过 ubiquity/package/coordinator/direct-enumeration/build-signing gates；package-internal `.seg` 发现**不依赖** `NSMetadataQuery`。Mutable manifest conflict floor 已关闭为 surface/preserve/block/no-auto-resolve，explicit current-winner resolution mechanism 已观察；remote placeholder / account states / non-macOS runtime-scale / steady-state budget / product resolver UX/core integration 仍是 delivery gates（§6）。 |
 | **layout / Bun（D02）** | **go for macOS-only verifier placement** | Option A 纪律 live 守住（`members=["core"]`、`suites/anchor/**` 无 `package.json`、root 配置未动）；`bun install --dry-run --frozen-lockfile --ignore-scripts` passed。 |
@@ -75,7 +75,7 @@ Stage 1 evidence is synchronized into the current decision files. The current re
 
 ### 4.4 Open gate（待证 / 交付，不得当已验证）
 
-- **Binding release gates（B4 approved）：** signed app-bundle/device runtime integration；release/CI/fresh-machine 复现；artifact signing/notarization/provenance policy。Synchronous generated Swift strict-concurrency release smoke and three-slice XCFramework packaging are observed；typed `ValidationError` enum 已由 core-owner 决策并落地并由 `34-dto-error-vocabulary-report.md` 冻结，wrapper binary package 机制下限由 `35-binding-wrapper-binary-package-report.md` 关闭，UniFFI generated async macOS runtime + iOS Simulator compile/link 由 `36-uniffi-generated-async-report.md` 关闭，iPhoneOS standalone arm64 compile/link 由 `40-uniffi-iphoneos-packaging-report.md` 关闭，SwiftPM checksum mechanism 由 `38-binding-artifact-checksum-report.md` 关闭，现有 validated code 包含 `invalid_utf16_offset`、`direct_active_to_deleted`、`structural_dispatch_deferred`。
+- **Binding release gates（B4 approved）：** signed app-bundle/device runtime integration；artifact signing/notarization/provenance policy；real release upload/distribution channel。Synchronous generated Swift strict-concurrency release smoke and three-slice XCFramework packaging are observed；typed `ValidationError` enum 已由 core-owner 决策并落地并由 `34-dto-error-vocabulary-report.md` 冻结，wrapper binary package 机制下限由 `35-binding-wrapper-binary-package-report.md` 关闭，UniFFI generated async macOS runtime + iOS Simulator compile/link 由 `36-uniffi-generated-async-report.md` 关闭，iPhoneOS standalone arm64 compile/link 由 `40-uniffi-iphoneos-packaging-report.md` 关闭，SwiftPM checksum mechanism 由 `38-binding-artifact-checksum-report.md` 关闭，hosted/fresh-runner verifier artifact reproduction 由 `43-hosted-binding-package-ci-report.md` 关闭，现有 validated code 包含 `invalid_utf16_offset`、`direct_active_to_deleted`、`structural_dispatch_deferred`。
 - **iCloud（§6 最小矩阵）：** remote `.icloud` placeholder download、signed-out / over-quota、product conflict-resolution UX/core integration、million-op replay/merge/compaction + steady-state segment budget、local-only path-in-ubiquity 边界、non-macOS large-scale delivery / package-level metadata gather、repo-local signed Anchor app target。
 - **TextKit（组 3）：** real-app responder-chain undo 抑制 / IME marked-text commit / accessibility / hit-testing / patch replay over moving views / keyboard→`EditorIntent` / UTF-16 内部单位换算（D18 fixture）。
 - **跨目标执行：** native / wasm / iOS Simulator golden-vector execution 已有本地 runner 与 hosted GitHub Actions pass；Android execution 仍 open。
@@ -93,8 +93,8 @@ Stage 1 evidence is synchronized into the current decision files. The current re
 **Release implementation gates：**
 
 1. **UniFFI async-`Sendable` release surface** 仍是冻结 gate；synchronous generated Swift 已在 release artifact 上通过 `-swift-version 6 -strict-concurrency=complete -warnings-as-errors`。
-2. **signed app-bundle/device runtime integration / fresh-machine release surface** 仍是冻结 gate；Swift wrapper actor async surface、UniFFI generated async macOS+iOS-sim surface、iPhoneOS standalone arm64 compile/link、core-owned DTO/error vocabulary 均已过。先前 iPhoneOS standalone failure 是 `arm64e` target 与 Rust `arm64` slice mismatch，不再作为 `arm64` mechanism blocker。
-3. **Product Swift wrapper import surface + release-build/CI/fresh-machine 复现**（含显式 Rust Apple-target 检查与 wasm32 一致性向量 gate）。
+2. **signed app-bundle/device runtime integration / release distribution surface** 仍是冻结 gate；Swift wrapper actor async surface、UniFFI generated async macOS+iOS-sim surface、iPhoneOS standalone arm64 compile/link、hosted/fresh-runner verifier artifact reproduction、core-owned DTO/error vocabulary 均已过。先前 iPhoneOS standalone failure 是 `arm64e` target 与 Rust `arm64` slice mismatch，不再作为 `arm64` mechanism blocker。
+3. **Product Swift wrapper import surface + hosted/fresh-runner verifier artifact reproduction** 已关闭；remaining release work 是 signed app-bundle/device runtime integration、artifact signing/notarization/provenance policy 与 real release upload/distribution channel。
 
 ---
 
@@ -164,7 +164,7 @@ Stage 1 evidence is synchronized into the current decision files. The current re
   - conflict policy：扩展 offline-fork probe，跑一条 surfacing/preservation/resolution 路径（绝不静默解决 `NSFileVersion` 冲突）。
   - `cargo test --release --manifest-path suites/anchor/Cargo.toml -- --ignored scale_bench::replay_cost_curve`（million-op replay 线性，确认 1.25M+ ≈2.1µs/op + compaction 后稳态 segment budget）。
   - TextKit 产品 runtime：IME marked-text commit / accessibility range / hit-testing on rendered geometry / direct-buffer undo 抑制 / keyboard→`EditorIntent` / `EditorPatch` replay over splitting/moving views；UTF-16 内部单位换算稳定性（emoji/ZWJ/combining/CRLF/IME fixture，D18）。
-  - Binding release 输入：typed `ValidationError` enum 已落地并冻结；generated UniFFI Swift 的 synchronous strict-concurrency release smoke 与三 slice XCFramework packaging 已观察；wrapper binary package 机制下限已观察；UniFFI generated async macOS+iOS-sim+iPhoneOS-arm64 机制下限已观察；SwiftPM checksum mechanism 已观察；剩余 gate 是 signed app-bundle/device runtime integration、release/CI 复现（fresh CI/dev 机器）与 artifact signing/notarization/provenance policy。
+  - Binding release 输入：typed `ValidationError` enum 已落地并冻结；generated UniFFI Swift 的 synchronous strict-concurrency release smoke 与三 slice XCFramework packaging 已观察；wrapper binary package 机制下限已观察；UniFFI generated async macOS+iOS-sim+iPhoneOS-arm64 机制下限已观察；SwiftPM checksum mechanism 已观察；hosted/fresh-runner verifier artifact reproduction 已观察；剩余 gate 是 signed app-bundle/device runtime integration、artifact signing/notarization/provenance policy 与 real release upload/distribution channel。
 - **Stop condition：** 出现以下任一即暂停重评——(a) 须改 root workspace/`package.json`/`bun.lock`/lockfile 或加 placeholder `package.json`；(b) 在 Swift/TextKit 复制 core 确定性语义；(c) iCloud transport 依赖 package-internal `NSMetadataQuery`、静默处理 unresolved `NSFileVersion` conflict，或绕过 placeholder/account-state gates；(d) iCloud-Drive 路径引入 CloudKit schema / CKSyncEngine；(e) 公开 CLI schema 变更；(f) 把 Apple probe 变产品 app shell；(g) `anchor-core` 获任何 Apple 云/文件协调/account/ubiquity 类型（重跑 0-match 云符号 + Apple 类型审计，要求 exit 1）。另：scale 出现 N op→~N segment 的 no-go，使 batching/compaction 设计失效（非 transport 选择失效），须停。
 
 ---
@@ -1442,3 +1442,69 @@ B4 binding approval and B14 default transport approval are recorded in the curre
 - **Axis matrix delta:** iCloud Drive remains `approved default transport WITH compromise constraints`; physical iPhone runtime remains externally blocked by locked device state.
 - **Gate evaluation:** CONTINUE for non-device gates; do not spend more iterations on this physical-device runtime gate until the iPhone is unlocked.
 - **New doc:** `docs/workbench/20260606-anchor-v1/42-ios-device-icloud-locked-rerun-report.md`
+
+---
+
+## 33. Progress ledger update — 2026-06-10 — hosted binding package CI
+
+本节追加 `43-hosted-binding-package-ci-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 33.1 Axis matrix after doc 43
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go**（unchanged） |
+| multi-target compile | **go**（unchanged） |
+| zero-cloud-symbol boundary | **go**（local audit rerun: 0 matches, exit 1） |
+| binding（B4） | **approved boundary / partially release-gated** — hosted/fresh-runner binding package reproduction closed for verifier artifacts; signed app-bundle/device runtime and artifact provenance policy remain open |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — unchanged after doc 27 |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — unchanged after doc 42 |
+| layout / retention | **compromise** — unchanged after doc 42 |
+| cross-target execution CI | **hosted native/wasm/iOS-sim closed; Android execution open** — latest run also passed after adding `apple-binding-package` |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 33.2 Open-gate checklist after doc 43
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| hosted/fresh-runner C ABI wrapper binary package | closed | `43 §4.2`–`§4.3` |
+| hosted/fresh-runner UniFFI generated async macOS runtime | closed | `43 §4.3` |
+| hosted/fresh-runner UniFFI generated async iOS Simulator compile/link | closed | `43 §4.3` |
+| hosted/fresh-runner UniFFI generated async iPhoneOS `arm64` compile/link | closed | `43 §4.3` |
+| hosted Linux native/wasm and macOS iOS Simulator vectors after workflow expansion | closed | `43 §4.2`, `43 §4.4` |
+| signed app-bundle/device runtime integration | open / not run | `40 §4`, `43 §5` |
+| physical-device generated async runtime | open / not run | `43 §5` |
+| artifact signing/notarization/provenance policy | open / not run | `38 §4`, `43 §5` |
+| real release upload/distribution channel | open / not run | `43 §5` |
+| physical iPhone runtime after unlock | open / blocked by locked device across three attempts | `32 §3.5`, `37 §3`, `42 §3.2` |
+| iOS/non-macOS CloudDocuments delivery | open / runtime not observed | `42 §4` |
+| true remote `.icloud` placeholder delivery | open / not proved | `33 §4` |
+| signed-out / over-quota account states | open / not run | unchanged |
+| steady-state segment budget / million-op iCloud context | open / not run | unchanged |
+| local-only path-in-ubiquity edge cases | open / not run | unchanged |
+| Android execution | open / not run | `31 §3.1`, `41 §4` |
+| product conflict-resolution UX / core integration | open / not implemented | `39 §4`–`§5` |
+| real app responder-chain undo / keyboard / accessibility / patch replay | open / not run | `27 §4` |
+
+### Ledger entry — 2026-06-10 — iteration 22 — doc 43-hosted-binding-package-ci-report.md
+
+- **Checkpoint / cursor:** CP-1 Apple half, binding release hosted/fresh-runner reproduction gate.
+- **Action selected:** add a hosted macOS GitHub Actions job that builds C ABI wrapper binary artifacts and UniFFI generated async smokes, then observe the PR run.
+- **Owner classification:** Apple binding packaging / hosted CI → implemented as verifier script + GitHub Actions job; observed on hosted runner.
+- **Scope-fence check:** passed — no root workspace / lockfile / repo product app shell / public CLI schema changes; no Apple project / bundle / entitlement changes; no `suites/anchor/core/src/**` production source changes.
+- **Evidence (Observed = command + output):**
+  - `bash suites/anchor/apple/build-binding-release-artifacts.sh` locally → wrapper consumer, checksum, UniFFI macOS runtime, iOS-sim compile/link, iPhoneOS compile/link all passed.
+  - `git diff --check` → exit 0.
+  - core cloud-symbol audit → 0 matches, exit 1.
+  - Apple deterministic-semantics audit → 0 matches, exit 1.
+  - `find suites/anchor/apple -name Cargo.lock -print` → 0 paths.
+  - `git commit -m "Add Anchor binding package CI"` hook → `bun test --changed --pass-with-no-tests`, 0 affected tests, 0 failures.
+  - `gh run view 27227167945 ...` → `conclusion=success`, head `a54aa1fc526e6125e3be97d649fededa8e97a2ca`.
+  - `gh pr checks 9` → `apple-binding-package pass 3m28s`, `ios-simulator pass 3m3s`, `native-wasm pass 31s`.
+  - Hosted `apple-binding-package` log → `xcframework successfully written out`, wrapper snapshot `3ef88671...a877b63`, checksum `ae44684eed3e29e68e471125f4999405c0f4e30db61b6ecb77e1ba38e6b3abfd`, UniFFI async macOS runtime output, iOS Simulator `platform IOSSIMULATOR minos 17.0 sdk 15.5`, iPhoneOS `Mach-O 64-bit executable arm64`.
+- **Gates closed this iteration:** hosted/fresh-runner binding package reproduction for C ABI wrapper binary package and UniFFI generated async smokes.
+- **Gates still open:** signed app-bundle/device runtime integration, physical-device generated async runtime, artifact signing/notarization/provenance policy, real release upload/distribution channel, physical iPhone runtime after unlock, iOS/non-macOS CloudDocuments delivery, true remote placeholder, signed-out/over-quota, steady-state segment budget/million-op iCloud context, local-only path edge cases, product conflict-resolution UX/core integration, Android execution, real app TextKit runtime.
+- **Backfill to 04/05/06:** `04-contract-baseline.md` binding baseline; `05-key-decisions.md` D01.
+- **Axis matrix delta:** binding remains `approved boundary / partially release-gated`; hosted/fresh-runner reproduction moved from open to closed for verifier artifacts.
+- **Gate evaluation:** CONTINUE — next action should target artifact provenance policy, signed app/device runtime after unlock, remaining iCloud gates, Android execution feasibility, or TextKit product-runtime gates.
+- **New doc:** `docs/workbench/20260606-anchor-v1/43-hosted-binding-package-ci-report.md`
