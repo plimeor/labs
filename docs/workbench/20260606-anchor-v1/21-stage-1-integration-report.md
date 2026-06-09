@@ -3155,3 +3155,60 @@ B4 binding approval and B14 default transport approval are recorded in the curre
 - **Axis matrix delta:** none; iCloud remains `approved default transport WITH compromise constraints`; iOS Simulator remains not valid delivery proof for this runtime.
 - **Gate evaluation:** CONTINUE for non-simulator gates. Do not use this iOS 26.5 Simulator to close CloudDocuments delivery unless a future simulator/runtime returns non-nil ubiquitous container URLs and no `BRCloudDocsErrorDomain:153`.
 - **New doc:** `docs/workbench/20260606-anchor-v1/67-ios-simulator-icloud-support-rerun-report.md`
+
+## 58. Progress ledger update — 2026-06-10 — Developer ID signing availability rerun
+
+本节追加 `68-developer-id-signing-availability-rerun-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 58.1 Axis matrix after doc 68
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go** — unchanged after doc 68 |
+| multi-target compile | **go** — unchanged after doc 68 |
+| zero-cloud-symbol boundary | **go** — unchanged after doc 68 |
+| binding（B4） | **approved boundary / partially release-gated** — development-signed verifier probes remain runnable; Developer ID / distribution signing remains unavailable locally |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — unchanged after doc 68 |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — unchanged after doc 68 |
+| layout / retention | **compromise** — unchanged after doc 68 |
+| cross-target execution CI | **closed as hosted machine gate** — unchanged after doc 68 |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 58.2 Open-gate checklist after doc 68
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| local Apple Development signing identity availability | closed / observed | `68 §3.1` |
+| Developer ID Application identity | **open / no match observed locally** | `68 §3.2` |
+| Developer ID Installer identity | **open / no match observed locally** | `68 §3.2` |
+| Apple Distribution identity | **open / no match observed locally** | `68 §3.2` |
+| macOS product app archive / notarization | open / no product archive and no Developer ID identity | `68 §4` |
+| App Store / TestFlight distribution path | open / no Apple Distribution identity or upload artifact | `68 §4` |
+| iOS Simulator CloudDocuments runtime support | open / failed in current runtime | `67 §3.4`-`§3.5` |
+| iOS/non-macOS CloudDocuments delivery proof | open / needs physical device or future simulator runtime | `67 §4` |
+| physical iPhone app launch | open / blocked by locked device | `60 §3.5`-`§3.6` |
+| physical iPhone iCloud runtime | open / not observed | `60 §4` |
+| true remote `.icloud` placeholder delivery | open / not proved | `33 §4` |
+| actual signed-out account runtime | open / not run | `64 §4` |
+| actual over-quota account runtime | open / not run | `64 §4` |
+| product compaction integration from real op-log to sealed/compacted segment files | open / not implemented | `65 §4` |
+| million-op replay / merge / compaction inside real iCloud product context | open / not run | `65 §4` |
+| product conflict-resolution UX / core integration | open / not implemented | `39 §4`-`§5` |
+| product TextKit/UI runtime integration | open / not implemented | `66 §4` |
+| signed app-bundle/device runtime integration | open / app launch blocked by locked physical device | `60 §3.5`-`§3.6` |
+
+### Ledger entry — 2026-06-10 — iteration 47 — doc 68-developer-id-signing-availability-rerun-report.md
+
+- **Checkpoint / cursor:** CP-1 Apple half, binding/distribution release gate.
+- **Action selected:** refresh local signing identity availability before treating Developer ID / distribution gates as runnable.
+- **Owner classification:** Apple distribution verifier → read-only keychain inspection; no signing, notarization, upload, project mutation, or product app creation.
+- **Scope-fence check:** passed — no root workspace / package / lockfile changes; no public CLI schema; no product app shell; no keychain mutation.
+- **Evidence (Observed = command + output):**
+  - `security find-identity -p codesigning -v` → two `Apple Development: <DEVELOPER_NAME> (<TEAM_ID_ALT>)` identities; 2 valid identities found.
+  - `rg "Developer ID Application|Developer ID Installer|Apple Distribution"` over the identity output → no matches, exit `1`.
+- **Gates closed this iteration:** none for release distribution; signing identity availability refreshed only.
+- **Gates still open:** Developer ID identity, macOS product app archive/notarization, App Store/TestFlight distribution path, signed app-bundle/device runtime integration beyond development-signed probes.
+- **Backfill to 04/05/06:** none; doc 44 policy already carries the same boundary.
+- **Axis matrix delta:** none; binding remains `approved boundary / partially release-gated`.
+- **Gate evaluation:** CONTINUE for non-distribution gates. Do not claim Developer ID notarization or App Store/TestFlight distribution without a distribution identity and a product archive/upload artifact.
+- **New doc:** `docs/workbench/20260606-anchor-v1/68-developer-id-signing-availability-rerun-report.md`
