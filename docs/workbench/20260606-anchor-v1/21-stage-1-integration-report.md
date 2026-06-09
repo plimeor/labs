@@ -40,7 +40,7 @@ Stage 1 evidence is synchronized into the current decision files. The current re
 | Axis | Verdict | 依据 |
 |---|---|---|
 | **core deterministic（组 1）** | **go** | 74/0 测试、clippy 干净、`no_std`+`forbid(unsafe_code)`+零外部依赖、`BTreeMap`/`BTreeSet`（无迭代序不确定）、diff3/order-key/merge 为 core 内唯一 vendored 实现。Core side complete。 |
-| **core multi-target gate（D36）** | **go** | `wasm32-unknown-unknown` + `aarch64-linux-android` 编译 gate 通过；零依赖使 gate by construction 不可被 transitive crate 打破。native/wasm/iOS Simulator golden-vector execution 已有本地 runner 与 hosted GitHub Actions pass；Android execution 仍 open。 |
+| **core multi-target gate（D36）** | **go** | `wasm32-unknown-unknown` + `aarch64-linux-android` 编译 gate 通过；零依赖使 gate by construction 不可被 transitive crate 打破。native / wasm / iOS Simulator / Android emulator golden-vector execution 均已有 runner 与 hosted GitHub Actions pass。 |
 | **mirror / search parity（组 5）** | **go** | `mirror_parity` 测试通过：structured search == ripgrep(md)、mirror 写失败隔离（op-log 不回滚）、body 冲突 git fence。 |
 | **Apple binding（组 2，A2/B4）** | **approved / release-gated** | 用户已于 2026-06-07 批准产品边界：`UniFFI DTO / ordinary dispatch + C ABI bytes fast path`。typed `ValidationError` enum 已落到 core DTO + C ABI Swift wrapper + UniFFI generated enum；synchronous release-surface smoke 已过 Swift 6 strict concurrency + warnings-as-errors；core-owned final DTO/error vocabulary、wrapper binary package 机制下限、UniFFI generated async macOS/iOS-sim/iPhoneOS-arm64 mechanism floor、SwiftPM checksum mechanism、hosted/fresh-runner verifier artifact reproduction、artifact provenance policy floor 已关闭。Remaining release implementation gates 为 signed app-bundle/device runtime integration、actual Developer ID notarization/App Store distribution 与 real release upload/distribution channel（§5）。 |
 | **TextKit adapter（组 3，D18）** | **compromise（mechanism-go）** | 机制面可行且边界干净（Swift 零确定性语义、buffer 非真理）；real-app responder-chain undo 抑制、IME marked-text commit、accessibility、hit-testing、patch replay over moving views、UTF-16 内部单位换算稳定性仍是**产品级 runtime gate**（Not run）。 |
@@ -78,7 +78,7 @@ Stage 1 evidence is synchronized into the current decision files. The current re
 - **Binding release gates（B4 approved）：** signed app-bundle/device runtime integration；actual Developer ID notarization/App Store distribution；real release upload/distribution channel。Synchronous generated Swift strict-concurrency release smoke and three-slice XCFramework packaging are observed；typed `ValidationError` enum 已由 core-owner 决策并落地并由 `34-dto-error-vocabulary-report.md` 冻结，wrapper binary package 机制下限由 `35-binding-wrapper-binary-package-report.md` 关闭，UniFFI generated async macOS runtime + iOS Simulator compile/link 由 `36-uniffi-generated-async-report.md` 关闭，iPhoneOS standalone arm64 compile/link 由 `40-uniffi-iphoneos-packaging-report.md` 关闭，SwiftPM checksum mechanism 由 `38-binding-artifact-checksum-report.md` 关闭，hosted/fresh-runner verifier artifact reproduction 由 `43-hosted-binding-package-ci-report.md` 关闭，artifact provenance policy floor 由 `44-binding-artifact-provenance-policy.md` 关闭，现有 validated code 包含 `invalid_utf16_offset`、`direct_active_to_deleted`、`structural_dispatch_deferred`。
 - **iCloud（§6 最小矩阵）：** remote `.icloud` placeholder download、signed-out / over-quota、product conflict-resolution UX/core integration、million-op replay/merge/compaction + steady-state segment budget、local-only path-in-ubiquity 边界、non-macOS large-scale delivery / package-level metadata gather、repo-local signed Anchor app target。
 - **TextKit（组 3）：** real-app responder-chain undo 抑制 / IME marked-text commit / accessibility / hit-testing / patch replay over moving views / keyboard→`EditorIntent` / UTF-16 内部单位换算（D18 fixture）。
-- **跨目标执行：** native / wasm / iOS Simulator golden-vector execution 已有本地 runner 与 hosted GitHub Actions pass；Android execution 仍 open。
+- **跨目标执行：** native / wasm / iOS Simulator / Android emulator golden-vector execution 已有 runner 与 hosted GitHub Actions pass；Android hosted job observed `anchor_android_vector_status=0` in PR run `27238297811`。
 
 ### 4.5 Stop condition（本轮无触发，作为前置守卫）
 
@@ -2792,3 +2792,64 @@ B4 binding approval and B14 default transport approval are recorded in the curre
 - **Axis matrix delta:** cross-target execution CI moves from `hosted native/wasm/iOS-sim closed; Android execution open` to `hosted native/wasm/iOS-sim closed; Android emulator job wired / hosted execution pending`.
 - **Gate evaluation:** CONTINUE — next action is push/observe the hosted `android-emulator` job; only a hosted run with `anchor_android_vector_status=0` closes Android execution.
 - **New doc:** `docs/workbench/20260606-anchor-v1/61-android-emulator-ci-wiring-report.md`
+
+---
+
+## 52. Progress ledger update — 2026-06-10 — hosted Android cross-target execution
+
+本节追加 `62-hosted-android-cross-target-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 52.1 Axis matrix after doc 62
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go**（unchanged） |
+| multi-target compile | **go**（unchanged） |
+| zero-cloud-symbol boundary | **go**（unchanged after doc 61 audit） |
+| binding（B4） | **approved boundary / partially release-gated** — unchanged after doc 62 |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — unchanged after doc 62 |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — unchanged after doc 62 |
+| layout / retention | **compromise** — unchanged after doc 62 |
+| cross-target execution CI | **closed as hosted machine gate** — native + wasm + iOS Simulator + Android emulator all observed pass |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 52.2 Open-gate checklist after doc 62
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| hosted native/wasm execution | closed / latest hosted run passed | `62 §3.4`, PR run `27238297811` |
+| hosted iOS Simulator execution | closed / `anchor_ios_vector_status=0` | `62 §3.3` |
+| hosted Android emulator execution | **closed / `anchor_android_vector_status=0`** | `62 §3.2` |
+| local Android execution | unavailable locally; not a remaining gate after hosted pass | `62 §4` |
+| physical iPhone app launch | open / blocked by locked device | `60 §3.5`-`§3.6` |
+| physical iPhone iCloud runtime | open / not observed | `60 §4` |
+| iOS/non-macOS CloudDocuments delivery | open / not observed | `60 §4`, `45 §4` |
+| true remote `.icloud` placeholder delivery | open / not proved | `33 §4` |
+| signed-out / over-quota account states | open / not run | unchanged |
+| steady-state segment budget / million-op iCloud context | open / not run | unchanged |
+| product conflict-resolution UX / core integration | open / not implemented | `39 §4`-`§5` |
+| signed app-bundle/device runtime integration | open / app launch blocked by locked physical device | `60 §3.5`-`§3.6` |
+| physical-device generated async runtime | open / not run | `43 §5`, `60 §4` |
+| Developer ID signing availability | open / no Developer ID Application identity observed locally | `44 §3.5` |
+| product-level TextKit/UI runtime integration gates | open / not run as product integration | `49 §5`-`59 §5` |
+
+### Ledger entry — 2026-06-10 — iteration 41 — doc 62-hosted-android-cross-target-report.md
+
+- **Checkpoint / cursor:** CP-1 cross-target execution CI gate.
+- **Action selected:** observe and fix hosted Android emulator vector execution after doc61 wiring.
+- **Owner classification:** core / deterministic CI machine gate → executed here; no product app, package boundary, root workspace, or lockfile changes.
+- **Scope-fence check:** passed — no root workspace / lockfile / repo product app shell / public CLI schema changes; no `suites/anchor/core/src/**` production source changes; no Android client introduced.
+- **Evidence (Observed = command + output):**
+  - `gh run view 27238022679 --job 80434850769 --log` → previous hosted Android job failed because `anchor-vector.ini` was not found under the step AVD search path.
+  - Workflow amend fixed `ANDROID_AVD_HOME=$RUNNER_TEMP/android-avd`.
+  - `gh run view 27238297811 --job 80435745783 --log` → AVD files exist; native 6/0; `anchor_wasm_vector_status=0`; `anchor_android_vector_status=0`.
+  - `gh run view 27238297811 --job 80435745914 --log` → iOS Simulator native 6/0; `anchor_wasm_vector_status=0`; `anchor_ios_vector_status=0`.
+  - `gh run view 27238297811 --json ...` → full workflow conclusion `success`.
+  - local YAML parse / shell syntax / `git diff --check` → clean.
+  - amend hook `bun test --changed --pass-with-no-tests` → 0 tests affected, 0 fail.
+- **Gates closed this iteration:** hosted Android emulator execution; cross-target execution CI machine gate.
+- **Gates still open:** physical iPhone app launch / iCloud runtime, iOS/non-macOS CloudDocuments delivery, true remote placeholder, signed-out/over-quota, steady-state segment budget/million-op iCloud context, product conflict-resolution UX/core integration, signed-device generated async runtime, Developer ID distribution, and product-level TextKit/UI runtime integration gates.
+- **Backfill to 04/05/06:** updated cross-target wording to mark hosted Android execution observed pass.
+- **Axis matrix delta:** cross-target execution CI moves from `hosted native/wasm/iOS-sim closed; Android emulator job wired / hosted execution pending` to `closed as hosted machine gate`.
+- **Gate evaluation:** CONTINUE — next action should target another remaining Apple delivery/product runtime gate.
+- **New doc:** `docs/workbench/20260606-anchor-v1/62-hosted-android-cross-target-report.md`
