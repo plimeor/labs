@@ -72,6 +72,14 @@ struct AnchorTextKitSmoke {
         let accessibilityRange = runtime.accessibilitySelectedTextRangeProbe()
         precondition(accessibilityRange.location == 1 && accessibilityRange.length == 2)
         print("textkit:accessibility_selected_range=\(accessibilityRange.location):\(accessibilityRange.length)")
+
+        let keyboardIntents = runtime.keyboardIntentCaptureProbe()
+        let expectedKeyboardIntents: [EditorIntentProbe] = [
+            .splitBlock(blockID: "blk_a", atUTF16: 1),
+            .mergeBackward(blockID: "blk_a")
+        ]
+        precondition(keyboardIntents == expectedKeyboardIntents)
+        print("textkit:keyboard_intents=split@1,merge_backward")
         #else
         print("textkit:runtime=not-run-on-this-platform")
         #endif

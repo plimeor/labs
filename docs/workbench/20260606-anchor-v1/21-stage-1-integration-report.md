@@ -1835,3 +1835,70 @@ B4 binding approval and B14 default transport approval are recorded in the curre
 - **Axis matrix delta:** TextKit remains `partial mechanism floor closed`; adapter projection patch replay moved from open mechanism evidence to closed, while real product view lifecycle and iOS runtime gates remain open.
 - **Gate evaluation:** CONTINUE — next action should target remaining TextKit product-runtime gates, another iCloud edge case, Android execution feasibility, signed app/device runtime integration, or physical-device generated async runtime.
 - **New doc:** `docs/workbench/20260606-anchor-v1/48-textkit-patch-replay-projection-report.md`
+
+---
+
+## 39. Progress ledger update — 2026-06-10 — TextKit keyboard intent capture
+
+本节追加 `49-textkit-keyboard-intent-capture-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 39.1 Axis matrix after doc 49
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go**（unchanged） |
+| multi-target compile | **go**（unchanged） |
+| zero-cloud-symbol boundary | **go**（unchanged after doc 49 audit） |
+| binding（B4） | **approved boundary / partially release-gated** — unchanged after doc 48 |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — macOS AppKit `keyDown` capture floor closed; product responder-chain/menu/focus routing remains open |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — unchanged after doc 48 |
+| layout / retention | **compromise** — unchanged after doc 48 |
+| cross-target execution CI | **hosted native/wasm/iOS-sim closed; Android execution open** — unchanged after doc 48 |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 39.2 Open-gate checklist after doc 49
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| macOS AppKit keyDown capture for Enter/Delete | closed as mechanism floor | `49 §4.1` |
+| product responder-chain routing | open / not run | `49 §5` |
+| menu command routing and keyboard shortcuts beyond probed events | open / not run | `49 §5` |
+| multi-view focus and keyboard routing | open / not run | `49 §5` |
+| `UITextView` keyboard/input runtime behavior | open / not run | `49 §4.2`, `49 §5` |
+| real `anchor-core::dispatch` integration for keyboard intents | open / not run | `49 §5` |
+| real AppKit/UIKit disappearing/splitting/moving views | open / not run | `48 §5` |
+| product accessibility mapping / VoiceOver runtime | open / not run | `47 §5`, `48 §5` |
+| cross-view / cross-block accessibility expression | open / not run | `47 §5` |
+| external volume | open / not run | `46 §6` |
+| security-scoped bookmark restoration | open / not run | `46 §6` |
+| Finder move UI surface | open / not run | `46 §6` |
+| `.icloud` placeholder classification | open / not run | `46 §6` |
+| signed-out/unavailable account path classification | open / not run | `46 §6` |
+| physical iPhone runtime after unlock | open / blocked by locked device across three attempts | `32 §3.5`, `37 §3`, `42 §3.2` |
+| iOS/non-macOS CloudDocuments delivery | open / not closed by Simulator | `45 §4` |
+| true remote `.icloud` placeholder delivery | open / not proved | `33 §4` |
+| signed-out / over-quota account states | open / not run | unchanged |
+| steady-state segment budget / million-op iCloud context | open / not run | unchanged |
+| Developer ID signing availability | open / no Developer ID Application identity observed locally | `44 §3.5` |
+| signed app-bundle/device runtime integration | open / not run | `40 §4`, `43 §5` |
+| physical-device generated async runtime | open / not run | `43 §5` |
+| Android execution | open / not run | `31 §3.1`, `41 §4` |
+| product conflict-resolution UX / core integration | open / not implemented | `39 §4`-`§5` |
+
+### Ledger entry — 2026-06-10 — iteration 28 — doc 49-textkit-keyboard-intent-capture-report.md
+
+- **Checkpoint / cursor:** CP-1 Apple half, TextKit product-runtime keyboard event capture gate.
+- **Action selected:** add a macOS `NSTextView` subclass harness that maps real `NSEvent.keyDown` Enter/Delete events to adapter-local split/merge-backward intents.
+- **Owner classification:** Apple/TextKit keyboard event capture verifier → implemented in repo-local spike probe/smoke; no product app shell or core code touched.
+- **Scope-fence check:** passed — no root workspace / lockfile / repo product app shell / public CLI schema changes; no `suites/anchor/core/src/**` production source changes; no deterministic core semantics duplicated in Swift; no persistent writes.
+- **Evidence (Observed = command + output):**
+  - `swift run --package-path suites/anchor/apple/AnchorAppleSpike --scratch-path /tmp/anchor-apple-stage1/swift-build-textkit-keyboard-20260610 AnchorTextKitSmoke` → `textkit:keyboard_intents=split@1,merge_backward` with existing UTF-16 / IME / hit-testing / direct-buffer undo / accessibility / projection-patch outputs.
+  - `xcodebuild -scheme AnchorTextKitProbe -destination 'generic/platform=iOS Simulator' ... build` → `** BUILD SUCCEEDED **`.
+  - core cloud-symbol audit → 0 matches, exit 1.
+  - Apple deterministic-semantics audit for `diff3|order-key|fractional|merge.*semantic|canonical` → 0 matches, exit 1.
+- **Gates closed this iteration:** macOS AppKit `keyDown` capture for Enter/Delete into split/merge-backward intents.
+- **Gates still open:** product responder-chain routing, menu command routing, keyboard shortcuts beyond probed events, multi-view focus and keyboard routing, `UITextView` keyboard/input runtime, real `anchor-core::dispatch` integration for keyboard intents, real AppKit/UIKit disappearing/splitting/moving views, product accessibility mapping, VoiceOver/UI runtime, cross-view accessibility expression, remaining local-only path edge cases, physical iPhone runtime after unlock, iOS/non-macOS CloudDocuments delivery, true remote placeholder, signed-out/over-quota, steady-state segment budget/million-op iCloud context, product conflict-resolution UX/core integration, Android execution, signed app-bundle/device runtime integration, physical-device generated async runtime, Developer ID signing availability.
+- **Backfill to 04/06:** `04-contract-baseline.md` TextKit baseline; `06-fixture-set.md` Apple TextKit fixture evidence.
+- **Axis matrix delta:** TextKit remains `partial mechanism floor closed`; macOS keyboard event capture moved from open mechanism evidence to closed, while product responder-chain/menu/focus and iOS input runtime gates remain open.
+- **Gate evaluation:** CONTINUE — next action should target remaining TextKit product-runtime gates, another iCloud edge case, Android execution feasibility, signed app/device runtime integration, or physical-device generated async runtime.
+- **New doc:** `docs/workbench/20260606-anchor-v1/49-textkit-keyboard-intent-capture-report.md`

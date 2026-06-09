@@ -10,6 +10,8 @@ import UIKit
 
 public enum EditorIntentProbe: Equatable {
     case insertText(blockID: String, atUTF16: Int, text: String)
+    case splitBlock(blockID: String, atUTF16: Int)
+    case mergeBackward(blockID: String)
     case selectBlock(blockID: String)
     case embeddedSelection(blockID: String, startUTF16: Int, endUTF16: Int)
 }
@@ -162,6 +164,62 @@ private final class UndoEventRecorder: NSObject {
 }
 
 @MainActor
+private final class IntentCapturingTextView: NSTextView {
+    private let blockID: String
+    private let backingStorage: NSTextStorage?
+    private(set) var capturedIntents: [EditorIntentProbe] = []
+
+    init(blockID: String) {
+        let stack = Self.makeTextKitStack()
+        self.blockID = blockID
+        self.backingStorage = stack.storage
+        super.init(frame: NSRect(x: 0, y: 0, width: 400, height: 200), textContainer: stack.container)
+    }
+
+    override init(frame frameRect: NSRect, textContainer container: NSTextContainer?) {
+        self.blockID = "blk_unknown"
+        self.backingStorage = nil
+        super.init(frame: frameRect, textContainer: container)
+    }
+
+    private static func makeTextKitStack() -> (storage: NSTextStorage, container: NSTextContainer) {
+        let storage = NSTextStorage()
+        let layoutManager = NSLayoutManager()
+        let container = NSTextContainer(containerSize: NSSize(width: 400, height: 200))
+        storage.addLayoutManager(layoutManager)
+        layoutManager.addTextContainer(container)
+        return (storage, container)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) is unavailable for IntentCapturingTextView")
+    }
+
+    override func keyDown(with event: NSEvent) {
+        let range = selectedRange()
+        let characters = event.charactersIgnoringModifiers ?? event.characters ?? ""
+
+        if characters == "\r" || characters == "\n" {
+            capturedIntents.append(.splitBlock(blockID: blockID, atUTF16: range.location))
+            return
+        }
+
+        if event.keyCode == 51 && range.location == 0 {
+            capturedIntents.append(.mergeBackward(blockID: blockID))
+            return
+        }
+
+        if let text = event.characters, !text.isEmpty, text != "\u{7F}" {
+            capturedIntents.append(.insertText(blockID: blockID, atUTF16: range.location, text: text))
+            return
+        }
+
+        super.keyDown(with: event)
+    }
+}
+
+@MainActor
 public final class MacTextKitRuntimeProbe {
     private let textView: NSTextView
     private let semanticUndoManager = UndoManager()
@@ -233,6 +291,36 @@ public final class MacTextKitRuntimeProbe {
         textView.string = "A🍎B"
         textView.setSelectedRange(NSRange(location: 1, length: 2))
         return textView.accessibilitySelectedTextRange()
+    }
+
+    public func keyboardIntentCaptureProbe() -> [EditorIntentProbe] {
+        let capturingView = IntentCapturingTextView(blockID: "blk_a")
+        capturingView.string = "AB"
+        capturingView.setSelectedRange(NSRange(location: 1, length: 0))
+        capturingView.keyDown(with: keyEvent(characters: "\r", keyCode: 36))
+
+        capturingView.setSelectedRange(NSRange(location: 0, length: 0))
+        capturingView.keyDown(with: keyEvent(characters: "\u{7F}", keyCode: 51))
+
+        return capturingView.capturedIntents
+    }
+
+    private func keyEvent(characters: String, keyCode: UInt16) -> NSEvent {
+        guard let event = NSEvent.keyEvent(
+            with: .keyDown,
+            location: .zero,
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: 0,
+            context: nil,
+            characters: characters,
+            charactersIgnoringModifiers: characters,
+            isARepeat: false,
+            keyCode: keyCode
+        ) else {
+            fatalError("NSEvent.keyEvent returned nil")
+        }
+        return event
     }
 }
 #endif
