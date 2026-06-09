@@ -106,6 +106,15 @@ public struct AppKitAccessibilityHierarchyResult: Equatable {
     public let childLabels: [String]
     public let selectedRanges: [NSRange]
 }
+
+public struct AppKitMenuCommandRoutingResult: Equatable {
+    public let splitActionHandled: Bool
+    public let mergeActionHandled: Bool
+    public let blockAIntents: [EditorIntentProbe]
+    public let blockBIntents: [EditorIntentProbe]
+    public let blockATextAfterAction: String
+    public let blockBTextAfterAction: String
+}
 #endif
 
 public final class NativeEditorAdapterProbe {
@@ -222,25 +231,50 @@ private final class IntentCapturingTextView: NSTextView {
     }
 
     override func keyDown(with event: NSEvent) {
-        let range = selectedRange()
         let characters = event.charactersIgnoringModifiers ?? event.characters ?? ""
 
         if characters == "\r" || characters == "\n" {
-            capturedIntents.append(.splitBlock(blockID: blockID, atUTF16: range.location))
+            captureSplitIntent()
             return
         }
 
-        if event.keyCode == 51 && range.location == 0 {
-            capturedIntents.append(.mergeBackward(blockID: blockID))
+        if event.keyCode == 51 && captureMergeBackwardIntentIfAtStart() {
             return
         }
 
+        let range = selectedRange()
         if let text = event.characters, !text.isEmpty, text != "\u{7F}" {
             capturedIntents.append(.insertText(blockID: blockID, atUTF16: range.location, text: text))
             return
         }
 
         super.keyDown(with: event)
+    }
+
+    override func insertNewline(_ sender: Any?) {
+        captureSplitIntent()
+    }
+
+    override func deleteBackward(_ sender: Any?) {
+        if captureMergeBackwardIntentIfAtStart() {
+            return
+        }
+
+        super.deleteBackward(sender)
+    }
+
+    private func captureSplitIntent() {
+        let range = selectedRange()
+        capturedIntents.append(.splitBlock(blockID: blockID, atUTF16: range.location))
+    }
+
+    private func captureMergeBackwardIntentIfAtStart() -> Bool {
+        let range = selectedRange()
+        guard range.location == 0 else {
+            return false
+        }
+        capturedIntents.append(.mergeBackward(blockID: blockID))
+        return true
     }
 }
 
@@ -519,6 +553,54 @@ public final class MacTextKitRuntimeProbe {
         return AppKitAccessibilityHierarchyResult(
             childLabels: children.compactMap { $0.accessibilityLabel() },
             selectedRanges: children.map { $0.accessibilitySelectedTextRange() }
+        )
+    }
+
+    public func appKitMenuCommandRoutingProbe() -> AppKitMenuCommandRoutingResult {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 600, height: 300),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        let viewA = IntentCapturingTextView(blockID: "blk_a")
+        let viewB = IntentCapturingTextView(blockID: "code_1")
+        viewA.frame = NSRect(x: 0, y: 150, width: 600, height: 140)
+        viewB.frame = NSRect(x: 0, y: 0, width: 600, height: 140)
+        viewA.string = "AB"
+        viewB.string = "CD"
+        viewA.setSelectedRange(NSRange(location: 1, length: 0))
+        viewB.setSelectedRange(NSRange(location: 0, length: 0))
+        window.contentView?.addSubview(viewA)
+        window.contentView?.addSubview(viewB)
+
+        let splitItem = NSMenuItem(
+            title: "Split Block",
+            action: #selector(NSText.insertNewline(_:)),
+            keyEquivalent: "\r"
+        )
+        let mergeItem = NSMenuItem(
+            title: "Merge Backward",
+            action: #selector(NSText.deleteBackward(_:)),
+            keyEquivalent: "\u{8}"
+        )
+
+        let splitAction = splitItem.action ?? #selector(NSText.insertNewline(_:))
+        let mergeAction = mergeItem.action ?? #selector(NSText.deleteBackward(_:))
+
+        window.makeFirstResponder(viewA)
+        let splitHandled = window.firstResponder?.tryToPerform(splitAction, with: splitItem) ?? false
+
+        window.makeFirstResponder(viewB)
+        let mergeHandled = window.firstResponder?.tryToPerform(mergeAction, with: mergeItem) ?? false
+
+        return AppKitMenuCommandRoutingResult(
+            splitActionHandled: splitHandled,
+            mergeActionHandled: mergeHandled,
+            blockAIntents: viewA.capturedIntents,
+            blockBIntents: viewB.capturedIntents,
+            blockATextAfterAction: viewA.string,
+            blockBTextAfterAction: viewB.string
         )
     }
 

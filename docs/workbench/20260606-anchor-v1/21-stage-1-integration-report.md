@@ -2112,3 +2112,73 @@ B4 binding approval and B14 default transport approval are recorded in the curre
 - **Axis matrix delta:** TextKit remains `partial mechanism floor closed`; macOS AppKit accessibility hierarchy moved from open mechanism evidence to closed, while product accessibility mapping, VoiceOver/UI runtime, cross-block native selection, and UIKit accessibility runtime remain open.
 - **Gate evaluation:** CONTINUE — next action should target remaining TextKit product-runtime gates, another iCloud edge case, Android execution feasibility, signed app/device runtime integration, or physical-device generated async runtime.
 - **New doc:** `docs/workbench/20260606-anchor-v1/52-textkit-accessibility-hierarchy-report.md`
+
+---
+
+## 43. Progress ledger update — 2026-06-10 — TextKit menu command routing
+
+本节追加 `53-textkit-menu-command-routing-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 43.1 Axis matrix after doc 53
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go**（unchanged） |
+| multi-target compile | **go**（unchanged） |
+| zero-cloud-symbol boundary | **go**（unchanged after doc 53 audit） |
+| binding（B4） | **approved boundary / partially release-gated** — unchanged after doc 52 |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — macOS AppKit selector / menu item sender routing for split / merge-backward intents closed; product menu system, product focus lifecycle, product responder-chain undo, UIKit runtime, and dispatch integration remain open |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — unchanged after doc 52 |
+| layout / retention | **compromise** — unchanged after doc 52 |
+| cross-target execution CI | **hosted native/wasm/iOS-sim closed; Android execution open** — unchanged after doc 52 |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 43.2 Open-gate checklist after doc 53
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| macOS AppKit selector / menu item sender routing for split / merge-backward intents | closed as mechanism floor | `53 §4.1` |
+| product menu command system | open / not run | `53 §5` |
+| product focus lifecycle across real windows / scroll views / split views | open / not run | `51 §5`, `53 §5` |
+| product responder-chain undo suppression | open / not run | `53 §5` |
+| UIKit / `UITextView` menu / keyboard / view lifecycle / IME / accessibility runtime | open / not run | `53 §4.2`, `53 §5` |
+| real `anchor-core::dispatch` integration for keyboard/menu intents and patches | open / not run | `49 §5`, `50 §5`, `51 §5`, `52 §5`, `53 §5` |
+| product accessibility mapping | open / not run | `52 §5`, `53 §5` |
+| VoiceOver / Accessibility Inspector runtime | open / not run | `52 §5`, `53 §5` |
+| polished cross-block continuous native text selection | open / not run | `52 §5`, `53 §5` |
+| product AppKit view hierarchy integration | open / not run | `50 §5`, `53 §5` |
+| external volume | open / not run | `46 §6` |
+| security-scoped bookmark restoration | open / not run | `46 §6` |
+| Finder move UI surface | open / not run | `46 §6` |
+| `.icloud` placeholder classification | open / not run | `46 §6` |
+| signed-out/unavailable account path classification | open / not run | `46 §6` |
+| physical iPhone runtime after unlock | open / blocked by locked device across three attempts | `32 §3.5`, `37 §3`, `42 §3.2` |
+| iOS/non-macOS CloudDocuments delivery | open / not closed by Simulator | `45 §4` |
+| true remote `.icloud` placeholder delivery | open / not proved | `33 §4` |
+| signed-out / over-quota account states | open / not run | unchanged |
+| steady-state segment budget / million-op iCloud context | open / not run | unchanged |
+| Developer ID signing availability | open / no Developer ID Application identity observed locally | `44 §3.5` |
+| signed app-bundle/device runtime integration | open / not run | `40 §4`, `43 §5` |
+| physical-device generated async runtime | open / not run | `43 §5` |
+| Android execution | open / not run | `31 §3.1`, `41 §4` |
+| product conflict-resolution UX / core integration | open / not implemented | `39 §4`-`§5` |
+
+### Ledger entry — 2026-06-10 — iteration 32 — doc 53-textkit-menu-command-routing-report.md
+
+- **Checkpoint / cursor:** CP-1 Apple half, TextKit product-runtime menu command routing gate.
+- **Action selected:** add a macOS AppKit selector / menu item sender harness that routes `insertNewline:` and `deleteBackward:` through first responder into adapter-local split / merge-backward intents.
+- **Owner classification:** Apple/TextKit menu-command verifier → implemented in repo-local spike probe/smoke; no product app shell or core code touched.
+- **Scope-fence check:** passed — no root workspace / lockfile / repo product app shell / public CLI schema changes; no `suites/anchor/core/src/**` production source changes; no deterministic core semantics duplicated in Swift; no persistent writes.
+- **Evidence (Observed = command + output):**
+  - `swift run --package-path suites/anchor/apple/AnchorAppleSpike --scratch-path /tmp/anchor-apple-stage1/swift-build-textkit-menu-command-20260610 AnchorTextKitSmoke` → `textkit:appkit_menu_commands=blk_a:split@1,code_1:merge_backward` with unchanged buffer preconditions and existing UTF-16 / IME / hit-testing / direct-buffer undo / direct key capture / AppKit view lifecycle / first-responder / accessibility outputs.
+  - `xcodebuild -scheme AnchorTextKitProbe -destination 'generic/platform=iOS Simulator' ... build` → `** BUILD SUCCEEDED **`.
+  - `git diff --check` → clean, exit 0.
+  - core cloud-symbol audit → 0 matches, exit 1.
+  - Apple deterministic-semantics audit for `diff3|order-key|fractional|merge.*semantic|canonical` → 0 matches, exit 1.
+  - Apple `Cargo.lock` audit → 0 paths.
+- **Gates closed this iteration:** macOS AppKit selector / menu item sender routing for split / merge-backward intents, as mechanism floor.
+- **Gates still open:** product menu command system, product focus lifecycle across real windows / scroll views / split views, product responder-chain undo suppression, UIKit keyboard/menu/view lifecycle/IME/accessibility runtime, real `anchor-core::dispatch` integration, product accessibility mapping, VoiceOver/UI runtime, polished cross-block continuous native selection, remaining local-only path edge cases, physical iPhone runtime after unlock, iOS/non-macOS CloudDocuments delivery, true remote placeholder, signed-out/over-quota, steady-state segment budget/million-op iCloud context, product conflict-resolution UX/core integration, Android execution, signed app-bundle/device runtime integration, physical-device generated async runtime, Developer ID signing availability.
+- **Backfill to 04/06:** `04-contract-baseline.md` TextKit baseline; `06-fixture-set.md` Apple TextKit fixture evidence.
+- **Axis matrix delta:** TextKit remains `partial mechanism floor closed`; macOS AppKit selector / menu item sender routing moved from open mechanism evidence to closed, while product menu system, product focus lifecycle, product responder-chain undo, UIKit runtime, and dispatch integration remain open.
+- **Gate evaluation:** CONTINUE — next action should target remaining TextKit product-runtime gates, another iCloud edge case, Android execution feasibility, signed app/device runtime integration, or physical-device generated async runtime.
+- **New doc:** `docs/workbench/20260606-anchor-v1/53-textkit-menu-command-routing-report.md`

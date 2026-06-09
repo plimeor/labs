@@ -102,6 +102,15 @@ struct AnchorTextKitSmoke {
         precondition(accessibilityHierarchy.childLabels == ["Block blk_a", "Block code_1"])
         precondition(accessibilityHierarchy.selectedRanges.map { "\($0.location):\($0.length)" } == ["1:2", "0:3"])
         print("textkit:appkit_accessibility_children=2 ranges=1:2,0:3")
+
+        let menuRouting = runtime.appKitMenuCommandRoutingProbe()
+        precondition(menuRouting.splitActionHandled)
+        precondition(menuRouting.mergeActionHandled)
+        precondition(menuRouting.blockAIntents == [.splitBlock(blockID: "blk_a", atUTF16: 1)])
+        precondition(menuRouting.blockBIntents == [.mergeBackward(blockID: "code_1")])
+        precondition(menuRouting.blockATextAfterAction == "AB")
+        precondition(menuRouting.blockBTextAfterAction == "CD")
+        print("textkit:appkit_menu_commands=blk_a:split@1,code_1:merge_backward")
         #else
         print("textkit:runtime=not-run-on-this-platform")
         #endif
