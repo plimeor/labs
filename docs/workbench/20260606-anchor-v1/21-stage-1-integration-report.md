@@ -1238,7 +1238,7 @@ B4 binding approval and B14 default transport approval are recorded in the curre
 | iOS/non-macOS CloudDocuments delivery | open / runtime not observed | `37 §4` |
 | true remote `.icloud` placeholder delivery | open / not proved | `33 §4` |
 | signed-out / over-quota account states | open / not run | unchanged |
-| steady-state segment budget / million-op iCloud context | open / not run | unchanged |
+| steady-state segment budget / million-op iCloud context | file-count mechanism floor closed; product/million-op iCloud context open | `65 §3`-`§4` |
 | local-only path-in-ubiquity edge cases | open / not run | unchanged |
 | artifact signing/notarization/provenance policy | open / not run | `38 §4` |
 | fresh-machine / hosted CI reproduction | open / not observed | unchanged |
@@ -2965,3 +2965,65 @@ B4 binding approval and B14 default transport approval are recorded in the curre
 - **Axis matrix delta:** iCloud remains `approved default transport WITH compromise constraints`; no-container classifier moves from open/not implemented to mechanism floor closed.
 - **Gate evaluation:** CONTINUE — remaining iCloud delivery gates require real account/device states or product integration.
 - **New doc:** `docs/workbench/20260606-anchor-v1/64-icloud-account-state-classifier-report.md`
+
+## 55. Progress ledger update — 2026-06-10 — iCloud segment budget floor
+
+本节追加 `65-icloud-segment-budget-floor-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 55.1 Axis matrix after doc 65
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go** — `segment_budget` and release `scale_bench` still pass |
+| multi-target compile | **go** — unchanged after doc 65 |
+| zero-cloud-symbol boundary | **go** — unchanged after doc 65 |
+| binding（B4） | **approved boundary / partially release-gated** — unchanged after doc 65 |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — unchanged after doc 65 |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — default 1M-op steady-state 124-file iCloud package-internal budget floor closed; full product/million-op iCloud context remains open |
+| layout / retention | **compromise** — file-count floor narrowed; product compaction integration remains open |
+| cross-target execution CI | **closed as hosted machine gate** — unchanged after doc 65 |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 55.2 Open-gate checklist after doc 65
+
+| Gate | Status | Evidence pointer |
+|---|---|
+| default 1M-op steady-state segment file-count floor | **closed / 124 iCloud package-internal files observed** | `65 §3.1`, `65 §3.4` |
+| core release million-op replay bench | closed in current local run | `65 §3.2` |
+| package-internal direct enumeration for budget count | closed / `direct_count=124` | `65 §3.4` |
+| package-internal metadata-query avoidance | closed / `metadata_count=0` | `65 §3.4` |
+| product compaction integration from real op-log to sealed/compacted segment files | open / not implemented | `65 §4` |
+| million-op replay / merge / compaction inside real iCloud product context | open / not run | `65 §4` |
+| actual signed-out account runtime | open / not run | `64 §4` |
+| actual over-quota account runtime | open / not run | `64 §4` |
+| hosted cross-target execution CI | closed as hosted machine gate | `62 §3` |
+| probe-level TextKit insert intent → real core dispatch bridge | closed / observed | `63 §3.2`-`§3.4` |
+| physical iPhone app launch | open / blocked by locked device | `60 §3.5`-`§3.6` |
+| physical iPhone iCloud runtime | open / not observed | `60 §4` |
+| iOS/non-macOS CloudDocuments delivery | open / not observed | `60 §4`, `45 §4` |
+| true remote `.icloud` placeholder delivery | open / not proved | `33 §4` |
+| product conflict-resolution UX / core integration | open / not implemented | `39 §4`-`§5` |
+| signed app-bundle/device runtime integration | open / app launch blocked by locked physical device | `60 §3.5`-`§3.6` |
+| physical-device generated async runtime | open / not run | `43 §5`, `60 §4` |
+| Developer ID signing availability | open / no Developer ID Application identity observed locally | `44 §3.5` |
+| product-level TextKit/UI runtime integration gates | open / probe-level insert bridge only | `49 §5`-`59 §5`, `63 §4` |
+
+### Ledger entry — 2026-06-10 — iteration 44 — doc 65-icloud-segment-budget-floor-report.md
+
+- **Checkpoint / cursor:** CP-1 Apple half, iCloud scale / segment-budget delivery gate.
+- **Action selected:** combine existing core segment-budget and million-op release bench with a signed macOS iCloud package-internal 124-file scale probe.
+- **Owner classification:** core deterministic budget + Apple/iCloud verifier → executed with existing tests and existing signed macOS verifier; no production app or core source change.
+- **Scope-fence check:** passed — no root workspace / package / generated lockfile retained; no public CLI schema; no product app shell; no iCloud account mutation; core cloud-symbol audit remains 0-match.
+- **Evidence (Observed = command + output):**
+  - `cargo test --manifest-path suites/anchor/Cargo.toml -p anchor-core --test segment_budget -- --nocapture` → 3 passed, 0 failed.
+  - `cargo test --release --manifest-path suites/anchor/Cargo.toml -p anchor-core --test scale_bench -- --ignored --nocapture` → 1 passed, 0 failed; 1,250,000 ops replay observed at `4486.1ms` in this local run.
+  - `xcodebuild ... AnchorMacICloudProbe ... build` → CloudDocuments-entitled signed app; `** BUILD SUCCEEDED **`.
+  - `AnchorMacICloudProbe --icloud-scale-probe 124` → explicit/implicit ubiquity containers non-nil; `direct_count=124`; `enum_ms=0.61`; `metadata_count=0`; `cleanup_ms=7.24`.
+  - core cloud-symbol audit → no output, exit `1`.
+  - Apple deterministic-semantics audit → no output, exit `1`.
+- **Gates closed this iteration:** steady-state segment-budget file-count mechanism floor for 1M logical ops under the default budget.
+- **Gates still open:** product compaction integration, million-op iCloud product context, true remote placeholder, account-state runtimes, physical iPhone/iOS delivery, product conflict UX/core integration, product TextKit/UI runtime integration.
+- **Backfill to 04/21:** Sync baseline and integration ledger updated to distinguish the closed file-count floor from full iCloud/product compaction gates.
+- **Axis matrix delta:** iCloud remains `approved default transport WITH compromise constraints`; layout/retention remains `compromise`; steady-state budget moves from fully open to file-count mechanism floor closed.
+- **Gate evaluation:** CONTINUE — remaining gates require product integration, real remote/account/device states, or physical-device runtime.
+- **New doc:** `docs/workbench/20260606-anchor-v1/65-icloud-segment-budget-floor-report.md`
