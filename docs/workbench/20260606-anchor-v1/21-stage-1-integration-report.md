@@ -3340,3 +3340,53 @@ B4 binding approval and B14 default transport approval are recorded in the curre
 - **Axis matrix delta:** binding moves from `approved boundary / partially release-gated` with physical-device runtime open to `approved boundary / release-distribution-gated`; release distribution remains open.
 - **Gate evaluation:** CONTINUE only for remaining distribution, product-integration, account-state, remote-delivery, or human sign-off gates. Do not claim Developer ID/App Store release, product app integration, or CP-1 exit from this verifier runtime proof.
 - **New doc:** `docs/workbench/20260606-anchor-v1/70-physical-iphone-uniffi-async-runtime-report.md`
+
+## 61. Progress ledger update — 2026-06-10 — GitHub workflow removal
+
+本节追加 `71-github-workflow-removal-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 61.1 Axis matrix after doc 71
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go / historical cross-target evidence retained** — unchanged in core source |
+| multi-target compile | **go / current hosted gate paused** — historical wasm/android evidence retained; workflow removed for current-period scope |
+| zero-cloud-symbol boundary | **go** — unchanged after doc 71 |
+| binding（B4） | **approved boundary / release-distribution-gated** — unchanged after doc 71 |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — unchanged after doc 71 |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — unchanged after doc 71 |
+| layout / retention | **compromise** — unchanged after doc 71 |
+| cross-target execution CI | **historical evidence retained / hosted workflow removed** — Android and WASM are not current-period support targets; iOS/macOS verification is local |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 61.2 Open-gate checklist after doc 71
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| `.github/workflows/anchor-cross-target-vectors.yml` | **removed at current head** | `71 §3` |
+| remaining repo workflows | `check-package-versions.yml`, `publish.yml` only | `71 §3.2` |
+| historical hosted native/wasm/iOS Simulator/Android evidence | retained as historical evidence | `62 §3` |
+| current hosted Android/WASM regression coverage | **paused / not present at current head** | `71 §4` |
+| current iOS/macOS build verification | local path | user scope 2026-06-10 |
+| product app binding integration | open / not implemented | `70 §4` |
+| Developer ID / App Store distribution | open / no distribution identity or upload artifact | `68 §4` |
+| iCloud remote/account/product-context gates | open | `69 §4`, `64 §4`, `65 §4` |
+| product TextKit/UI integration | open / not implemented | `66 §4` |
+| CP-1 whole-exit | open / human sign-off not reached | this section |
+
+### Ledger entry — 2026-06-10 — iteration 50 — doc 71-github-workflow-removal-report.md
+
+- **Checkpoint / cursor:** CP-1 current-period CI scope and hosted workflow cost.
+- **Action selected:** delete `.github/workflows/anchor-cross-target-vectors.yml` because Android and WASM are not current-period support targets and iOS/macOS can be verified locally.
+- **Owner classification:** repo CI configuration / workbench gate wording → no package, workspace, lockfile, product app, or production source mutation.
+- **Scope-fence check:** passed — only the Anchor cross-target workflow was deleted; `check-package-versions.yml` and `publish.yml` remain.
+- **Evidence (Observed = command + output):**
+  - Pre-change `find .github/workflows -maxdepth 1 -type f -print | sort` → `anchor-cross-target-vectors.yml`, `check-package-versions.yml`, `publish.yml`.
+  - Post-change same command → `check-package-versions.yml`, `publish.yml`.
+  - `git diff --name-status -- .github/workflows ...` immediately after workflow deletion → `D .github/workflows/anchor-cross-target-vectors.yml`.
+- **Gates closed this iteration:** none for CP-1 exit; current-period hosted Android/WASM workflow cost removed.
+- **Gates still open:** product app binding integration, Developer ID/App Store distribution, iCloud remote/account/product-context gates, product TextKit/UI integration, CP-1 whole-exit.
+- **Backfill to 04/05/06:** `04` and `05` updated to state historical cross-target evidence is retained while current hosted workflow coverage is paused.
+- **Axis matrix delta:** cross-target execution CI moves from `closed as hosted machine gate` to `historical evidence retained / hosted workflow removed` for the current head.
+- **Gate evaluation:** CONTINUE with Apple-first local iOS/macOS verification and remaining product/iCloud/distribution gates. Do not wait for a deleted workflow on this head.
+- **New doc:** `docs/workbench/20260606-anchor-v1/71-github-workflow-removal-report.md`
