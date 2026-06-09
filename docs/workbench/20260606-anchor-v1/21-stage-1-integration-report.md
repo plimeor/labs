@@ -1707,3 +1707,67 @@ B4 binding approval and B14 default transport approval are recorded in the curre
 - **Axis matrix delta:** iCloud Drive remains `approved default transport WITH compromise constraints`; local-only path-in-ubiquity moved from fully open to partially mechanism-closed.
 - **Gate evaluation:** CONTINUE — next action should target another remaining iCloud edge case, Android execution feasibility, TextKit product-runtime gates, or signed app/device runtime integration.
 - **New doc:** `docs/workbench/20260606-anchor-v1/46-local-only-path-classifier-report.md`
+
+---
+
+## 37. Progress ledger update — 2026-06-10 — TextKit accessibility range
+
+本节追加 `47-textkit-accessibility-range-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 37.1 Axis matrix after doc 47
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go**（unchanged） |
+| multi-target compile | **go**（unchanged） |
+| zero-cloud-symbol boundary | **go**（unchanged after doc 47 audit） |
+| binding（B4） | **approved boundary / partially release-gated** — unchanged after doc 46 |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — macOS accessibility selected range readback floor closed; product/iOS accessibility remains open |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — unchanged after doc 46 |
+| layout / retention | **compromise** — unchanged after doc 46 |
+| cross-target execution CI | **hosted native/wasm/iOS-sim closed; Android execution open** — unchanged after doc 46 |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 37.2 Open-gate checklist after doc 47
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| macOS accessibility selected range readback | closed as mechanism floor | `47 §4.1` |
+| product accessibility mapping | open / not run | `47 §5` |
+| VoiceOver / Accessibility Inspector runtime | open / not run | `47 §5` |
+| cross-view / cross-block accessibility expression | open / not run | `47 §5` |
+| `UITextView` runtime accessibility behavior | open / not run | `47 §4.2`, `47 §5` |
+| real app responder-chain undo / keyboard / patch replay | open / not run | `27 §4`, `47 §5` |
+| external volume | open / not run | `46 §6` |
+| security-scoped bookmark restoration | open / not run | `46 §6` |
+| Finder move UI surface | open / not run | `46 §6` |
+| `.icloud` placeholder classification | open / not run | `46 §6` |
+| signed-out/unavailable account path classification | open / not run | `46 §6` |
+| physical iPhone runtime after unlock | open / blocked by locked device across three attempts | `32 §3.5`, `37 §3`, `42 §3.2` |
+| iOS/non-macOS CloudDocuments delivery | open / not closed by Simulator | `45 §4` |
+| true remote `.icloud` placeholder delivery | open / not proved | `33 §4` |
+| signed-out / over-quota account states | open / not run | unchanged |
+| steady-state segment budget / million-op iCloud context | open / not run | unchanged |
+| Developer ID signing availability | open / no Developer ID Application identity observed locally | `44 §3.5` |
+| signed app-bundle/device runtime integration | open / not run | `40 §4`, `43 §5` |
+| physical-device generated async runtime | open / not run | `43 §5` |
+| Android execution | open / not run | `31 §3.1`, `41 §4` |
+| product conflict-resolution UX / core integration | open / not implemented | `39 §4`-`§5` |
+
+### Ledger entry — 2026-06-10 — iteration 26 — doc 47-textkit-accessibility-range-report.md
+
+- **Checkpoint / cursor:** CP-1 Apple half, TextKit product-runtime accessibility range gate.
+- **Action selected:** add a macOS `NSTextView` probe that sets a UTF-16 selected range over `"A🍎B"` and reads it back through `accessibilitySelectedTextRange()`.
+- **Owner classification:** Apple TextKit runtime verifier → implemented in repo-local spike probe/smoke; no product app shell or core code touched.
+- **Scope-fence check:** passed — no root workspace / lockfile / repo product app shell / public CLI schema changes; no `suites/anchor/core/src/**` production source changes; no deterministic core semantics duplicated in Swift.
+- **Evidence (Observed = command + output):**
+  - `swift run --package-path suites/anchor/apple/AnchorAppleSpike --scratch-path /tmp/anchor-apple-stage1/swift-build-textkit-accessibility-20260610 AnchorTextKitSmoke` → `textkit:accessibility_selected_range=1:2` with existing UTF-16 / IME / hit-testing / direct-buffer undo outputs.
+  - `xcodebuild -scheme AnchorTextKitProbe -destination 'generic/platform=iOS Simulator' ... build` → `** BUILD SUCCEEDED **`.
+  - core cloud-symbol audit → 0 matches, exit 1.
+  - Apple deterministic-semantics audit for `diff3|order-key|fractional|merge.*semantic|canonical` → 0 matches, exit 1.
+- **Gates closed this iteration:** macOS accessibility selected range readback mechanism floor.
+- **Gates still open:** product accessibility mapping, VoiceOver/UI runtime, cross-view accessibility expression, `UITextView` runtime accessibility behavior, real app responder-chain undo, keyboard event capture, `EditorPatch` replay over splitting/moving views, remaining local-only path edge cases, physical iPhone runtime after unlock, iOS/non-macOS CloudDocuments delivery, true remote placeholder, signed-out/over-quota, steady-state segment budget/million-op iCloud context, product conflict-resolution UX/core integration, Android execution, signed app-bundle/device runtime integration, physical-device generated async runtime, Developer ID signing availability.
+- **Backfill to 04/05/06:** `04-contract-baseline.md` TextKit baseline; `05-key-decisions.md` D18; `06-fixture-set.md` Apple TextKit fixture evidence.
+- **Axis matrix delta:** TextKit remains `partial mechanism floor closed`; accessibility selected range readback moved from open mechanism evidence to closed, while product/iOS accessibility gates remain open.
+- **Gate evaluation:** CONTINUE — next action should target remaining TextKit product-runtime gates, another iCloud edge case, Android execution feasibility, signed app/device runtime integration, or physical-device generated async runtime.
+- **New doc:** `docs/workbench/20260606-anchor-v1/47-textkit-accessibility-range-report.md`

@@ -206,6 +206,12 @@ public final class MacTextKitRuntimeProbe {
         textView.undoManager?.undo()
         return textView.allowsUndo == false && textView.string == "xundo probe"
     }
+
+    public func accessibilitySelectedTextRangeProbe() -> NSRange {
+        textView.string = "A🍎B"
+        textView.setSelectedRange(NSRange(location: 1, length: 2))
+        return textView.accessibilitySelectedTextRange()
+    }
 }
 #endif
 

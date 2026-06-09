@@ -51,6 +51,10 @@ struct AnchorTextKitSmoke {
 
         precondition(runtime.directBufferUndoSuppressed())
         print("textkit:direct_buffer_undo_suppressed=true")
+
+        let accessibilityRange = runtime.accessibilitySelectedTextRangeProbe()
+        precondition(accessibilityRange.location == 1 && accessibilityRange.length == 2)
+        print("textkit:accessibility_selected_range=\(accessibilityRange.location):\(accessibilityRange.length)")
         #else
         print("textkit:runtime=not-run-on-this-platform")
         #endif
