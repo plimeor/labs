@@ -43,7 +43,7 @@ Stage 1 evidence is synchronized into the current decision files. The current re
 | **core multi-target gate（D36）** | **go** | `wasm32-unknown-unknown` + `aarch64-linux-android` 编译 gate 通过；零依赖使 gate by construction 不可被 transitive crate 打破。native / wasm / iOS Simulator / Android emulator golden-vector execution 均已有 runner 与 hosted GitHub Actions pass。 |
 | **mirror / search parity（组 5）** | **go** | `mirror_parity` 测试通过：structured search == ripgrep(md)、mirror 写失败隔离（op-log 不回滚）、body 冲突 git fence。 |
 | **Apple binding（组 2，A2/B4）** | **approved / release-gated** | 用户已于 2026-06-07 批准产品边界：`UniFFI DTO / ordinary dispatch + C ABI bytes fast path`。typed `ValidationError` enum 已落到 core DTO + C ABI Swift wrapper + UniFFI generated enum；synchronous release-surface smoke 已过 Swift 6 strict concurrency + warnings-as-errors；core-owned final DTO/error vocabulary、wrapper binary package 机制下限、UniFFI generated async macOS/iOS-sim/iPhoneOS-arm64 mechanism floor、SwiftPM checksum mechanism、hosted/fresh-runner verifier artifact reproduction、artifact provenance policy floor 已关闭。Remaining release implementation gates 为 signed app-bundle/device runtime integration、actual Developer ID notarization/App Store distribution 与 real release upload/distribution channel（§5）。 |
-| **TextKit adapter（组 3，D18）** | **compromise（mechanism-go）** | 机制面可行且边界干净（Swift 零确定性语义、buffer 非真理）；real-app responder-chain undo 抑制、IME marked-text commit、accessibility、hit-testing、patch replay over moving views、UTF-16 内部单位换算稳定性仍是**产品级 runtime gate**（Not run）。 |
+| **TextKit adapter（组 3，D18）** | **compromise（mechanism-go）** | 机制面可行且边界干净（Swift 零确定性语义、buffer 非真理）；probe-level adapter insert intent → real `anchor-core` dispatch bridge 已观察。Real-app keyboard/menu/undo/focus dispatch integration、product undo grouping、accessibility/VoiceOver/UI runtime、patch replay over moving views、UTF-16 内部单位换算稳定性仍是**产品级 runtime gate**。 |
 | **iCloud Drive（组 4，B14）** | **approved default transport / compromise constraints** | 用户已批准 iCloud Drive 作首期 default transport（2026-06-07）。signed macOS app + repo-local Xcode-created macOS verifier 通过 ubiquity/package/coordinator/direct-enumeration/build-signing gates；package-internal `.seg` 发现**不依赖** `NSMetadataQuery`。Mutable manifest conflict floor 已关闭为 surface/preserve/block/no-auto-resolve，explicit current-winner resolution mechanism 已观察；remote placeholder / account states / non-macOS runtime-scale / steady-state budget / product resolver UX/core integration 仍是 delivery gates（§6）。 |
 | **layout / Bun（D02）** | **go for macOS-only verifier placement** | Option A 纪律 live 守住（`members=["core"]`、`suites/anchor/**` 无 `package.json`、root 配置未动）；`bun install --dry-run --frozen-lockfile --ignore-scripts` passed。 |
 | **retention（D14/D38）** | **compromise** | 四-horizon 模型内部一致、core `retention`(7) + `segment_budget`(3) 测试通过；steady-state segment budget、million-op compaction、stale-peer watermark advance、product conflict-resolution policy 是 scale-gate / Codex-Apple 工作（未测）。 |
@@ -77,7 +77,7 @@ Stage 1 evidence is synchronized into the current decision files. The current re
 
 - **Binding release gates（B4 approved）：** signed app-bundle/device runtime integration；actual Developer ID notarization/App Store distribution；real release upload/distribution channel。Synchronous generated Swift strict-concurrency release smoke and three-slice XCFramework packaging are observed；typed `ValidationError` enum 已由 core-owner 决策并落地并由 `34-dto-error-vocabulary-report.md` 冻结，wrapper binary package 机制下限由 `35-binding-wrapper-binary-package-report.md` 关闭，UniFFI generated async macOS runtime + iOS Simulator compile/link 由 `36-uniffi-generated-async-report.md` 关闭，iPhoneOS standalone arm64 compile/link 由 `40-uniffi-iphoneos-packaging-report.md` 关闭，SwiftPM checksum mechanism 由 `38-binding-artifact-checksum-report.md` 关闭，hosted/fresh-runner verifier artifact reproduction 由 `43-hosted-binding-package-ci-report.md` 关闭，artifact provenance policy floor 由 `44-binding-artifact-provenance-policy.md` 关闭，现有 validated code 包含 `invalid_utf16_offset`、`direct_active_to_deleted`、`structural_dispatch_deferred`。
 - **iCloud（§6 最小矩阵）：** remote `.icloud` placeholder download、signed-out / over-quota、product conflict-resolution UX/core integration、million-op replay/merge/compaction + steady-state segment budget、local-only path-in-ubiquity 边界、non-macOS large-scale delivery / package-level metadata gather、repo-local signed Anchor app target。
-- **TextKit（组 3）：** real-app responder-chain undo 抑制 / IME marked-text commit / accessibility / hit-testing / patch replay over moving views / keyboard→`EditorIntent` / UTF-16 内部单位换算（D18 fixture）。
+- **TextKit（组 3）：** probe-level insert intent → real core dispatch bridge 已观察；real-app keyboard/menu/undo/focus dispatch integration / product undo grouping / accessibility / VoiceOver/UI runtime / hit-testing / patch replay over moving views / UTF-16 内部单位换算（D18 fixture）仍待产品级验证。
 - **跨目标执行：** native / wasm / iOS Simulator / Android emulator golden-vector execution 已有 runner 与 hosted GitHub Actions pass；Android hosted job observed `anchor_android_vector_status=0` in PR run `27238297811`。
 
 ### 4.5 Stop condition（本轮无触发，作为前置守卫）
@@ -2853,3 +2853,58 @@ B4 binding approval and B14 default transport approval are recorded in the curre
 - **Axis matrix delta:** cross-target execution CI moves from `hosted native/wasm/iOS-sim closed; Android emulator job wired / hosted execution pending` to `closed as hosted machine gate`.
 - **Gate evaluation:** CONTINUE — next action should target another remaining Apple delivery/product runtime gate.
 - **New doc:** `docs/workbench/20260606-anchor-v1/62-hosted-android-cross-target-report.md`
+
+## 53. Progress ledger update — 2026-06-10 — TextKit core dispatch bridge
+
+本节追加 `63-textkit-core-dispatch-bridge-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 53.1 Axis matrix after doc 63
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go** — unchanged after doc 63 |
+| multi-target compile | **go** — unchanged after doc 63 |
+| zero-cloud-symbol boundary | **go** — unchanged after doc 63 |
+| binding（B4） | **approved boundary / partially release-gated** — unchanged after doc 63 |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — probe-level adapter insert intent now reaches real `anchor-core` dispatch; product app dispatch integration and non-insert/editor-patch flows remain open |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — unchanged after doc 63 |
+| layout / retention | **compromise** — unchanged after doc 63 |
+| cross-target execution CI | **closed as hosted machine gate** — unchanged after doc 63 |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 53.2 Open-gate checklist after doc 63
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| probe-level TextKit insert intent → real core dispatch bridge | **closed / observed** | `63 §3.2`-`§3.4` |
+| hosted cross-target execution CI | closed as hosted machine gate | `62 §3` |
+| physical iPhone app launch | open / blocked by locked device | `60 §3.5`-`§3.6` |
+| physical iPhone iCloud runtime | open / not observed | `60 §4` |
+| iOS/non-macOS CloudDocuments delivery | open / not observed | `60 §4`, `45 §4` |
+| true remote `.icloud` placeholder delivery | open / not proved | `33 §4` |
+| signed-out / over-quota account states | open / not run | unchanged |
+| steady-state segment budget / million-op iCloud context | open / not run | unchanged |
+| product conflict-resolution UX / core integration | open / not implemented | `39 §4`-`§5` |
+| signed app-bundle/device runtime integration | open / app launch blocked by locked physical device | `60 §3.5`-`§3.6` |
+| physical-device generated async runtime | open / not run | `43 §5`, `60 §4` |
+| Developer ID signing availability | open / no Developer ID Application identity observed locally | `44 §3.5` |
+| product-level TextKit/UI runtime integration gates | open / probe-level insert bridge only | `49 §5`-`59 §5`, `63 §4` |
+
+### Ledger entry — 2026-06-10 — iteration 42 — doc 63-textkit-core-dispatch-bridge-report.md
+
+- **Checkpoint / cursor:** CP-1 Apple half, TextKit/core dispatch integration gate.
+- **Action selected:** connect existing TextKit adapter insert intent to real `AnchorSession.dispatchInsertText` inside the repo-local Apple spike smoke.
+- **Owner classification:** Apple/TextKit + binding verifier → implemented in repo-local spike probe/smoke; no product app shell or core production source touched.
+- **Scope-fence check:** passed — no root workspace / package / generated lockfile retained; no public CLI schema; no product app shell; no Swift-side merge/diff3/order-key/normalization/tree-invariant/op-creation implementation; core cloud-symbol audit remains 0-match.
+- **Evidence (Observed = command + output):**
+  - `cargo build --release --target aarch64-apple-darwin --manifest-path suites/anchor/apple/ffi/Cargo.toml --target-dir /tmp/anchor-apple-stage1/ffi-target` → `Finished 'release' profile [optimized] target(s) in 0.03s`.
+  - `swift run --package-path suites/anchor/apple/AnchorAppleSpike --scratch-path /tmp/anchor-apple-stage1/swift-build-textkit-core-dispatch-20260610 AnchorAppleSmoke` → `textkit:core_dispatch_bridge=insert changed=blk_a selection=2:2 segment=979`.
+  - `xcodebuild -scheme AnchorAppleSmoke ... OTHER_SWIFT_FLAGS='-strict-concurrency=complete -warnings-as-errors' build` → target dependency graph includes `AnchorCoreBindings` + `AnchorTextKitProbe`; `** BUILD SUCCEEDED **`.
+  - Release executable run → `textkit:core_dispatch_bridge=insert changed=blk_a selection=2:2 segment=979`.
+  - core cloud-symbol audit → `exit=1`.
+- **Gates closed this iteration:** probe-level TextKit adapter insert intent → real `anchor-core` dispatch bridge.
+- **Gates still open:** product app-hosted core dispatch integration for keyboard/menu/undo/focus flows, inverse-op undo grouping, non-insert editor operations, product AppKit/UIKit accessibility/VoiceOver/UI runtime, physical iPhone app launch / iCloud runtime, iOS/non-macOS CloudDocuments delivery, true remote placeholder, account-state gates, iCloud scale/budget gates, product conflict-resolution UX/core integration, signed-device generated async runtime, Developer ID distribution.
+- **Backfill to 04/06:** TextKit baseline and fixture evidence updated to distinguish probe-level insert bridge from product-level integration.
+- **Axis matrix delta:** TextKit remains `partial mechanism floor closed`; probe-level core dispatch bridge moves from open/not run to closed for insert intent only.
+- **Gate evaluation:** CONTINUE — next action should target a remaining product integration, iCloud delivery, signed-device, account-state, or distribution gate.
+- **New doc:** `docs/workbench/20260606-anchor-v1/63-textkit-core-dispatch-bridge-report.md`

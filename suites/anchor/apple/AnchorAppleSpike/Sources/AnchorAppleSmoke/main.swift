@@ -1,4 +1,5 @@
 import AnchorCoreBindings
+import AnchorTextKitProbe
 import Darwin
 import Foundation
 
@@ -50,6 +51,36 @@ print("dispatch:error validation=\(validationError)")
 let segment = try session.readSegment()
 precondition(!segment.isEmpty)
 print("segment:bytes=\(segment.count)")
+
+let textKitSession = try AnchorSession()
+let adapter = NativeEditorAdapterProbe(blocks: [
+    TextSurfaceState(blockID: "blk_a", text: "Morning note.")
+])
+let intent = adapter.intentForInsert(
+    blockID: "blk_a",
+    selectedRange: NSRange(location: 1, length: 0),
+    replacement: "x"
+)
+guard case let .insertText(blockID, atUTF16, text) = intent else {
+    fatalError("Expected insertText intent from TextKit adapter probe")
+}
+let bridgedInsert = try textKitSession.dispatchInsertText(
+    targetID: blockID,
+    at: UInt32(atUTF16),
+    text: text
+)
+precondition(bridgedInsert.validationError == nil)
+precondition(bridgedInsert.changedIDs == ["blk_a"])
+precondition(bridgedInsert.selectionHint?.kind == "text")
+precondition(bridgedInsert.selectionHint?.start == UInt32(atUTF16 + (text as NSString).length))
+precondition(bridgedInsert.selectionHint?.end == UInt32(atUTF16 + (text as NSString).length))
+let bridgedSegment = try textKitSession.readSegment()
+precondition(!bridgedSegment.isEmpty)
+let bridgedSelectionStart = bridgedInsert.selectionHint?.start ?? 0
+let bridgedSelectionEnd = bridgedInsert.selectionHint?.end ?? 0
+print(
+    "textkit:core_dispatch_bridge=insert changed=\(bridgedInsert.changedIDs.joined(separator: ",")) selection=\(bridgedSelectionStart):\(bridgedSelectionEnd) segment=\(bridgedSegment.count)"
+)
 
 let asyncClient = try AnchorCoreClient()
 let asyncBefore = try await asyncClient.summary()
