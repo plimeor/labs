@@ -97,6 +97,11 @@ struct AnchorTextKitSmoke {
         precondition(routedKeyboard.blockAIntents == [.splitBlock(blockID: "blk_a", atUTF16: 1)])
         precondition(routedKeyboard.blockBIntents == [.mergeBackward(blockID: "code_1")])
         print("textkit:appkit_first_responder_keyboard=blk_a:split@1,code_1:merge_backward")
+
+        let accessibilityHierarchy = runtime.appKitAccessibilityHierarchyProbe()
+        precondition(accessibilityHierarchy.childLabels == ["Block blk_a", "Block code_1"])
+        precondition(accessibilityHierarchy.selectedRanges.map { "\($0.location):\($0.length)" } == ["1:2", "0:3"])
+        print("textkit:appkit_accessibility_children=2 ranges=1:2,0:3")
         #else
         print("textkit:runtime=not-run-on-this-platform")
         #endif

@@ -101,6 +101,11 @@ public struct AppKitFirstResponderKeyboardResult: Equatable {
     public let blockAIntents: [EditorIntentProbe]
     public let blockBIntents: [EditorIntentProbe]
 }
+
+public struct AppKitAccessibilityHierarchyResult: Equatable {
+    public let childLabels: [String]
+    public let selectedRanges: [NSRange]
+}
 #endif
 
 public final class NativeEditorAdapterProbe {
@@ -488,6 +493,32 @@ public final class MacTextKitRuntimeProbe {
             firstResponderAcceptedB: acceptedB,
             blockAIntents: viewA.capturedIntents,
             blockBIntents: viewB.capturedIntents
+        )
+    }
+
+    public func appKitAccessibilityHierarchyProbe() -> AppKitAccessibilityHierarchyResult {
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 600, height: 300))
+        let viewA = NSTextView(frame: NSRect(x: 0, y: 150, width: 600, height: 140))
+        let viewB = NSTextView(frame: NSRect(x: 0, y: 0, width: 600, height: 140))
+
+        viewA.identifier = NSUserInterfaceItemIdentifier("blk_a")
+        viewA.string = "A🍎B"
+        viewA.setSelectedRange(NSRange(location: 1, length: 2))
+        viewA.setAccessibilityLabel("Block blk_a")
+
+        viewB.identifier = NSUserInterfaceItemIdentifier("code_1")
+        viewB.string = "let x = 1"
+        viewB.setSelectedRange(NSRange(location: 0, length: 3))
+        viewB.setAccessibilityLabel("Block code_1")
+
+        container.addSubview(viewA)
+        container.addSubview(viewB)
+        container.setAccessibilityChildren([viewA, viewB])
+
+        let children = (container.accessibilityChildren() as? [NSTextView]) ?? []
+        return AppKitAccessibilityHierarchyResult(
+            childLabels: children.compactMap { $0.accessibilityLabel() },
+            selectedRanges: children.map { $0.accessibilitySelectedTextRange() }
         )
     }
 
