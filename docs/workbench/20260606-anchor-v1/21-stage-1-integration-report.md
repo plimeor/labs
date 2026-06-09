@@ -2627,3 +2627,85 @@ B4 binding approval and B14 default transport approval are recorded in the curre
 - **Axis matrix delta:** TextKit remains `partial mechanism floor closed`; UIKit responder undo moved from open mechanism evidence to closed, while product app-hosted UIKit responder chain, cross-window undo grouping, VoiceOver/UI runtime, and dispatch integration remain open.
 - **Gate evaluation:** CONTINUE — next action should target another remaining UIKit/product-runtime mechanism, another iCloud edge case, Android execution feasibility, signed app/device runtime integration, or physical-device generated async runtime.
 - **New doc:** `docs/workbench/20260606-anchor-v1/59-uikit-responder-undo-report.md`
+
+---
+
+## 50. Progress ledger update — 2026-06-10 — iOS device locked rerun
+
+本节追加 `60-ios-device-locked-rerun-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 50.1 Axis matrix after doc 60
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go**（unchanged） |
+| multi-target compile | **go**（unchanged） |
+| zero-cloud-symbol boundary | **go**（unchanged after doc 60 audit） |
+| binding（B4） | **approved boundary / partially release-gated** — physical-device app launch still blocked, so signed device runtime remains open |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — unchanged after doc 59 |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — physical iPhone build/sign/install observed again, but iCloud runtime still not observed because SpringBoard denied launch while device was locked |
+| layout / retention | **compromise** — unchanged after doc 59 |
+| cross-target execution CI | **hosted native/wasm/iOS-sim closed; Android execution open** — unchanged after doc 59 |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 50.2 Open-gate checklist after doc 60
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| physical iPhone Xcode destination visible | closed / observed | `60 §3.1` |
+| physical iPhone build / signing / CloudDocuments entitlement / install chain | closed / rerun passed | `60 §3.2`-`§3.4` |
+| physical iPhone app launch | open / blocked by locked device | `60 §3.5`-`§3.6` |
+| physical iPhone iCloud runtime | open / not observed | `60 §4` |
+| iOS/non-macOS CloudDocuments delivery | open / not observed | `60 §4`, `45 §4` |
+| product app-hosted UIKit responder chain | open / not run | `59 §5` |
+| cross-window / cross-document undo grouping | open / not run | `59 §5` |
+| product inverse-op dispatch through `anchor-core::dispatch` | open / not run | `59 §5` |
+| product app-hosted UIKit menu command system | open / not run | `58 §5`, `59 §5` |
+| `UIApplication` / scene / window command installation | open / not run | `58 §5`, `59 §5` |
+| product app-hosted UIKit patch replay across real document windows / tabs / sheets / restored scroll state | open / not run | `57 §5`, `58 §5`, `59 §5` |
+| product app-hosted UIKit focus/window lifecycle | open / not run | `56 §5`, `57 §5`, `58 §5`, `59 §5` |
+| VoiceOver / Accessibility Inspector runtime | open / not run | `56 §5`, `57 §5`, `58 §5`, `59 §5` |
+| full product focus lifecycle across document windows / tabs / sheets / sidebars / restored scroll state | open / not run | `55 §5`, `56 §5`, `57 §5`, `58 §5`, `59 §5` |
+| product AppKit view hierarchy integration | open / not run | `50 §5`, `53 §5`, `54 §5`, `55 §5`, `56 §5`, `57 §5`, `58 §5`, `59 §5` |
+| product undo grouping / inverse-op dispatch | open / not run | `54 §5`, `55 §5`, `56 §5`, `57 §5`, `58 §5`, `59 §5` |
+| product menu command system | open / not run | `53 §5`, `54 §5`, `55 §5`, `56 §5`, `57 §5`, `58 §5`, `59 §5` |
+| real `anchor-core::dispatch` integration for keyboard/menu/undo/focus intents and patches | open / not run | `49 §5`, `50 §5`, `51 §5`, `52 §5`, `53 §5`, `54 §5`, `55 §5`, `56 §5`, `57 §5`, `58 §5`, `59 §5` |
+| product accessibility mapping | open / not run | `52 §5`, `53 §5`, `54 §5`, `55 §5`, `56 §5`, `57 §5`, `58 §5`, `59 §5` |
+| polished cross-block continuous native text selection | open / not run | `52 §5`, `53 §5`, `54 §5`, `55 §5`, `56 §5`, `57 §5`, `58 §5`, `59 §5` |
+| external volume | open / not run | `46 §6` |
+| security-scoped bookmark restoration | open / not run | `46 §6` |
+| Finder move UI surface | open / not run | `46 §6` |
+| `.icloud` placeholder classification | open / not run | `46 §6` |
+| signed-out/unavailable account path classification | open / not run | `46 §6` |
+| true remote `.icloud` placeholder delivery | open / not proved | `33 §4` |
+| signed-out / over-quota account states | open / not run | unchanged |
+| steady-state segment budget / million-op iCloud context | open / not run | unchanged |
+| Developer ID signing availability | open / no Developer ID Application identity observed locally | `44 §3.5` |
+| signed app-bundle/device runtime integration | open / app launch blocked by locked physical device | `60 §3.5`-`§3.6` |
+| physical-device generated async runtime | open / not run | `43 §5`, `60 §4` |
+| Android execution | open / not run | `31 §3.1`, `41 §4` |
+| product conflict-resolution UX / core integration | open / not implemented | `39 §4`-`§5` |
+
+### Ledger entry — 2026-06-10 — iteration 39 — doc 60-ios-device-locked-rerun-report.md
+
+- **Checkpoint / cursor:** CP-1 Apple half, physical iPhone CloudDocuments / signed-device runtime gate.
+- **Action selected:** rerun the existing repo-external Xcode-created `AnchorProvisionProbe` on physical iPhone after `devicectl` reported the device as `available (paired)`.
+- **Owner classification:** Apple/runtime verifier → Xcode-managed repo-external probe build/install/launch; no repo product app shell, core code, package, workspace, or lockfile changes.
+- **Scope-fence check:** passed — no root workspace / lockfile / repo product app shell / public CLI schema changes; no `suites/anchor/core/src/**` production source changes; no Xcode project / entitlement / bundle id changes; no iCloud account mutation.
+- **Evidence (Observed = command + output):**
+  - `xcodebuild -showdestinations ... AnchorProvisionProbe` → physical iPhone destination `{ platform:iOS, arch:arm64, id:00008130-0002093A01D3803A, name:Plimeor's iPhone }`.
+  - `devicectl list devices` → `Plimeor's iPhone ... C51610FF-15B1-5989-A8A3-DE2EDFACEB5B ... available (paired) ... iPhone 15 Pro Max`.
+  - `xcodebuild ... -destination 'platform=iOS,id=00008130-0002093A01D3803A' ... build` → CloudDocuments entitlements, `Signing Identity: "Apple Development: <DEVELOPER_NAME> (<TEAM_ID_ALT>)"`, provisioning profile `3b6e4dcd-0537-4357-8589-662074237ad7`, `** BUILD SUCCEEDED **`.
+  - `codesign -d --entitlements :- ... AnchorProvisionProbe.app` → `CloudDocuments` and `<ICLOUD_CONTAINER>` read back from the signed app bundle.
+  - `devicectl device install app --device C51610FF-15B1-5989-A8A3-DE2EDFACEB5B ... AnchorProvisionProbe.app` → app installed with bundle id `dev.plimeor.AnchorProvisionProbe`.
+  - `devicectl device process launch ... dev.plimeor.AnchorProvisionProbe --icloud-runtime-probe` → SpringBoard denied launch: `BSErrorCodeDescription = Locked`.
+  - `devicectl device process launch --no-activate ...` → same locked-state denial.
+  - core cloud-symbol audit → 0 matches, exit 1.
+  - Apple deterministic-semantics audit for `diff3|order-key|fractional|merge.*semantic|canonical` → 0 matches, exit 1.
+  - Apple `Cargo.lock` audit → 0 paths.
+- **Gates closed this iteration:** none new; physical iPhone build/sign/install chain was refreshed and remains green.
+- **Gates still open:** physical iPhone app launch, physical iPhone iCloud runtime, iOS/non-macOS CloudDocuments delivery, true remote placeholder, signed-out/over-quota, steady-state segment budget/million-op iCloud context, product conflict-resolution UX/core integration, Android execution, signed-device generated async runtime, Developer ID distribution, and product-level TextKit/UI runtime integration gates.
+- **Backfill to 04/05/06:** none; no model adjustment.
+- **Axis matrix delta:** unchanged except the physical-device blocker is clarified: `available (paired)` is not proof of unlocked SpringBoard launchability.
+- **Gate evaluation:** CONTINUE — next action should not repeat physical-device runtime until the iPhone is actually unlocked at launch time; choose Android execution feasibility, another iCloud edge, product/UI runtime mechanism, or signed-device generated async runtime only when device launchability is confirmed.
+- **New doc:** `docs/workbench/20260606-anchor-v1/60-ios-device-locked-rerun-report.md`
