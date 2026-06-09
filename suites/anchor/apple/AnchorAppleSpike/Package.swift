@@ -33,7 +33,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "AnchorAppleSmoke",
-            dependencies: ["AnchorCoreBindings", "AnchorTextKitProbe"]
+            dependencies: ["AnchorCoreBindings", "AnchorICloudDriveProbe", "AnchorTextKitProbe"]
         ),
         .target(name: "AnchorTextKitProbe"),
         .executableTarget(

@@ -106,7 +106,7 @@ Stage 1 evidence is synchronized into the current decision files. The current re
 |---|---|---|
 | 1 | **segment-file-count scale 10K / 50K / 100K**：write_ms + direct-enumeration_ms + synced-segment-file-count；断言 N 个 logical op 不产 ~N 个 synced segment | repo-local macOS verifier passed 10K / 50K / 100K direct enumeration (`22.53ms` / `124.70ms` / `269.50ms` enum); package-internal metadata stayed 0; non-macOS large-scale delivery not run |
 | 2 | **remote `.icloud` placeholder download**：驱逐 package-internal segment 成真 placeholder 再 `startDownloadingUbiquitousItem` 到 `Current`（区别于本地/current；刻画 macOS `NSCocoaErrorDomain:4` 路径） | macOS package-internal evict/download attempted; both returned `NSCocoaErrorDomain:4`; true remote placeholder not proved |
-| 3 | **signed-out / over-quota account states** | Blocked / not run |
+| 3 | **signed-out / over-quota account states** | no-container classifier floor observed (`blocked_no_ubiquity_container`); actual signed-out and over-quota runtimes not run |
 | 4 | **product conflict-resolution policy**：对 `NSFileVersion` 冲突的 surfacing / preservation / resolution（绝不静默解决或丢弃 conflict version） | policy floor observed：surface / preserve / block / no-auto-resolve；explicit current-winner resolution mechanism observed with archive + post-read clean state；product UX/core integration and scale context remain open |
 | 5 | **million-op replay / merge / compaction + steady-state segment budget**（signed-app 语境 + release `--ignored` 基准） | report-Observed core 面线性，未在 iCloud 语境重跑 |
 | 6 | **local-only path-in-ubiquity 边界（D21/D21a）**：symlink / 外部卷 / security-scoped bookmark / signed-out | Blocked / not run |
@@ -2908,3 +2908,60 @@ B4 binding approval and B14 default transport approval are recorded in the curre
 - **Axis matrix delta:** TextKit remains `partial mechanism floor closed`; probe-level core dispatch bridge moves from open/not run to closed for insert intent only.
 - **Gate evaluation:** CONTINUE — next action should target a remaining product integration, iCloud delivery, signed-device, account-state, or distribution gate.
 - **New doc:** `docs/workbench/20260606-anchor-v1/63-textkit-core-dispatch-bridge-report.md`
+
+## 54. Progress ledger update — 2026-06-10 — iCloud account-state classifier
+
+本节追加 `64-icloud-account-state-classifier-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 54.1 Axis matrix after doc 64
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go** — unchanged after doc 64 |
+| multi-target compile | **go** — unchanged after doc 64 |
+| zero-cloud-symbol boundary | **go** — unchanged after doc 64 |
+| binding（B4） | **approved boundary / partially release-gated** — unchanged after doc 64 |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — unchanged after doc 64 |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — no-container account-state classifier floor closed; actual signed-out/over-quota runtime remains open |
+| layout / retention | **compromise** — unchanged after doc 64 |
+| cross-target execution CI | **closed as hosted machine gate** — unchanged after doc 64 |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 54.2 Open-gate checklist after doc 64
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| no-container account-state classifier | **closed / `blocked_no_ubiquity_container` observed** | `64 §3.1`-`§3.4` |
+| actual signed-out account runtime | open / not run | `64 §4` |
+| actual over-quota account runtime | open / not run | `64 §4` |
+| hosted cross-target execution CI | closed as hosted machine gate | `62 §3` |
+| probe-level TextKit insert intent → real core dispatch bridge | closed / observed | `63 §3.2`-`§3.4` |
+| physical iPhone app launch | open / blocked by locked device | `60 §3.5`-`§3.6` |
+| physical iPhone iCloud runtime | open / not observed | `60 §4` |
+| iOS/non-macOS CloudDocuments delivery | open / not observed | `60 §4`, `45 §4` |
+| true remote `.icloud` placeholder delivery | open / not proved | `33 §4` |
+| steady-state segment budget / million-op iCloud context | open / not run | unchanged |
+| product conflict-resolution UX / core integration | open / not implemented | `39 §4`-`§5` |
+| signed app-bundle/device runtime integration | open / app launch blocked by locked physical device | `60 §3.5`-`§3.6` |
+| physical-device generated async runtime | open / not run | `43 §5`, `60 §4` |
+| Developer ID signing availability | open / no Developer ID Application identity observed locally | `44 §3.5` |
+| product-level TextKit/UI runtime integration gates | open / probe-level insert bridge only | `49 §5`-`59 §5`, `63 §4` |
+
+### Ledger entry — 2026-06-10 — iteration 43 — doc 64-icloud-account-state-classifier-report.md
+
+- **Checkpoint / cursor:** CP-1 Apple half, iCloud account-state delivery gate.
+- **Action selected:** add and run a pure no-container account-state classifier in the repo-local Apple spike.
+- **Owner classification:** Apple/iCloud adapter verifier → implemented in repo-local spike probe/smoke; no product app shell, Xcode project mutation, account mutation, or core production source touched.
+- **Scope-fence check:** passed — no root workspace / package / generated lockfile retained; no public CLI schema; no product app shell; no Swift-side deterministic core semantics; core cloud-symbol audit remains 0-match.
+- **Evidence (Observed = command + output):**
+  - `swift run --package-path suites/anchor/apple/AnchorAppleSpike --scratch-path /tmp/anchor-apple-stage1/swift-build-icloud-account-classifier-20260610 AnchorAppleSmoke` → `icloud:account_state_classifier=blocked_no_ubiquity_container explicit=false implicit=false`.
+  - `xcodebuild -scheme AnchorAppleSmoke ... OTHER_SWIFT_FLAGS='-strict-concurrency=complete -warnings-as-errors' build` → target dependency graph includes `AnchorICloudDriveProbe`; `** BUILD SUCCEEDED **`.
+  - Release executable run → `icloud:account_state_classifier=blocked_no_ubiquity_container explicit=false implicit=false`.
+  - `xcodebuild -scheme AnchorICloudDriveProbe -destination 'generic/platform=iOS Simulator' ... build` → `** BUILD SUCCEEDED **`.
+  - core cloud-symbol audit → `exit=1`.
+- **Gates closed this iteration:** no-container account-state classifier mechanism floor.
+- **Gates still open:** actual signed-out runtime, over-quota runtime/write-failure handling, product UI recovery, physical iPhone launch/iCloud runtime, iOS/non-macOS CloudDocuments delivery, true remote placeholder, iCloud scale/budget gates, product conflict-resolution UX/core integration.
+- **Backfill to 04/21:** Sync/iCloud baseline and integration ledger updated to distinguish classifier mechanism floor from real account-state runtime gates.
+- **Axis matrix delta:** iCloud remains `approved default transport WITH compromise constraints`; no-container classifier moves from open/not implemented to mechanism floor closed.
+- **Gate evaluation:** CONTINUE — remaining iCloud delivery gates require real account/device states or product integration.
+- **New doc:** `docs/workbench/20260606-anchor-v1/64-icloud-account-state-classifier-report.md`

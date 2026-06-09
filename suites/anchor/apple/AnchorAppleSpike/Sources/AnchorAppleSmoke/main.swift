@@ -1,4 +1,5 @@
 import AnchorCoreBindings
+import AnchorICloudDriveProbe
 import AnchorTextKitProbe
 import Darwin
 import Foundation
@@ -80,6 +81,17 @@ let bridgedSelectionStart = bridgedInsert.selectionHint?.start ?? 0
 let bridgedSelectionEnd = bridgedInsert.selectionHint?.end ?? 0
 print(
     "textkit:core_dispatch_bridge=insert changed=\(bridgedInsert.changedIDs.joined(separator: ",")) selection=\(bridgedSelectionStart):\(bridgedSelectionEnd) segment=\(bridgedSegment.count)"
+)
+
+let unavailableAccountState = ICloudDriveAdapterProbe.classifyAccountState(
+    explicitContainerURL: nil,
+    implicitContainerURL: nil
+)
+precondition(unavailableAccountState.explicitContainerAvailable == false)
+precondition(unavailableAccountState.implicitContainerAvailable == false)
+precondition(unavailableAccountState.adapterStatus == .blockedNoUbiquityContainer)
+print(
+    "icloud:account_state_classifier=\(unavailableAccountState.adapterStatus.rawValue) explicit=\(unavailableAccountState.explicitContainerAvailable) implicit=\(unavailableAccountState.implicitContainerAvailable)"
 )
 
 let asyncClient = try AnchorCoreClient()

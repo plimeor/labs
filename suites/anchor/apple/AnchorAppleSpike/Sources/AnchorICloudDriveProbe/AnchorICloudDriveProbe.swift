@@ -18,6 +18,17 @@ public struct ICloudDriveRuntimeState: Equatable {
     public let conflictVersionCount: Int
 }
 
+public enum ICloudDriveAccountAdapterStatus: String, Equatable {
+    case okAvailable = "ok_available"
+    case blockedNoUbiquityContainer = "blocked_no_ubiquity_container"
+}
+
+public struct ICloudDriveAccountState: Equatable {
+    public let explicitContainerAvailable: Bool
+    public let implicitContainerAvailable: Bool
+    public let adapterStatus: ICloudDriveAccountAdapterStatus
+}
+
 public final class ICloudDriveAdapterProbe {
     private let fileManager: FileManager
 
@@ -27,6 +38,29 @@ public final class ICloudDriveAdapterProbe {
 
     public func ubiquityContainerURL(identifier: String? = nil) -> URL? {
         fileManager.url(forUbiquityContainerIdentifier: identifier)
+    }
+
+    public static func classifyAccountState(
+        explicitContainerURL: URL?,
+        implicitContainerURL: URL?
+    ) -> ICloudDriveAccountState {
+        let explicitAvailable = explicitContainerURL != nil
+        let implicitAvailable = implicitContainerURL != nil
+        let status: ICloudDriveAccountAdapterStatus =
+            explicitAvailable || implicitAvailable ? .okAvailable : .blockedNoUbiquityContainer
+
+        return ICloudDriveAccountState(
+            explicitContainerAvailable: explicitAvailable,
+            implicitContainerAvailable: implicitAvailable,
+            adapterStatus: status
+        )
+    }
+
+    public func accountState(explicitContainerIdentifier: String) -> ICloudDriveAccountState {
+        Self.classifyAccountState(
+            explicitContainerURL: ubiquityContainerURL(identifier: explicitContainerIdentifier),
+            implicitContainerURL: ubiquityContainerURL(identifier: nil)
+        )
     }
 
     public func makeMetadataQuery(containerURL: URL?) -> NSMetadataQuery {
