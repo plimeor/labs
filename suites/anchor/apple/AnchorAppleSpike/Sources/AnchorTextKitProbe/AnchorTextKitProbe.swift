@@ -155,6 +155,15 @@ public struct UIKitTextSurfaceLifecycleResult: Equatable {
     public let removedViewDetached: Bool
     public let remainingViewCount: Int
 }
+
+public struct UIKitMenuCommandRoutingResult: Equatable {
+    public let splitTargetResolved: Bool
+    public let mergeTargetResolved: Bool
+    public let blockAIntents: [EditorIntentProbe]
+    public let blockBIntents: [EditorIntentProbe]
+    public let blockATextAfterAction: String
+    public let blockBTextAfterAction: String
+}
 #endif
 
 public final class NativeEditorAdapterProbe {
@@ -801,6 +810,24 @@ private final class UIKitIntentCapturingTextView: UITextView {
 
         super.deleteBackward()
     }
+
+    override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
+        if action == #selector(splitBlockCommand(_:)) || action == #selector(mergeBackwardCommand(_:)) {
+            return true
+        }
+
+        return super.canPerformAction(action, withSender: sender)
+    }
+
+    @objc func splitBlockCommand(_ sender: Any?) {
+        capturedIntents.append(.splitBlock(blockID: blockID, atUTF16: selectedRange.location))
+    }
+
+    @objc func mergeBackwardCommand(_ sender: Any?) {
+        if selectedRange.location == 0 {
+            capturedIntents.append(.mergeBackward(blockID: blockID))
+        }
+    }
 }
 
 @MainActor
@@ -986,6 +1013,44 @@ public final class UIKitTextViewRuntimeProbe {
             afterRemoveBlockIDs: host.blockIDsFromSubviews,
             removedViewDetached: host.removedViewDetached,
             remainingViewCount: host.remainingViewCount
+        )
+    }
+
+    public func menuCommandRoutingProbe() -> UIKitMenuCommandRoutingResult {
+        let viewA = UIKitIntentCapturingTextView(blockID: "blk_a")
+        let viewB = UIKitIntentCapturingTextView(blockID: "code_1")
+        viewA.text = "AB"
+        viewB.text = "CD"
+        viewA.selectedRange = NSRange(location: 1, length: 0)
+        viewB.selectedRange = NSRange(location: 0, length: 0)
+
+        let splitAction = #selector(UIKitIntentCapturingTextView.splitBlockCommand(_:))
+        let mergeAction = #selector(UIKitIntentCapturingTextView.mergeBackwardCommand(_:))
+        let splitCommand = UIKeyCommand(
+            input: "\r",
+            modifierFlags: [],
+            action: splitAction
+        )
+        let mergeCommand = UIKeyCommand(
+            input: UIKeyCommand.inputDelete,
+            modifierFlags: [],
+            action: mergeAction
+        )
+
+        let splitTarget = viewA.target(forAction: splitAction, withSender: splitCommand)
+        let mergeTarget = viewB.target(forAction: mergeAction, withSender: mergeCommand)
+        let splitTextView = splitTarget as? UIKitIntentCapturingTextView
+        let mergeTextView = mergeTarget as? UIKitIntentCapturingTextView
+        splitTextView?.splitBlockCommand(splitCommand)
+        mergeTextView?.mergeBackwardCommand(mergeCommand)
+
+        return UIKitMenuCommandRoutingResult(
+            splitTargetResolved: splitTextView === viewA,
+            mergeTargetResolved: mergeTextView === viewB,
+            blockAIntents: viewA.capturedIntents,
+            blockBIntents: viewB.capturedIntents,
+            blockATextAfterAction: viewA.text,
+            blockBTextAfterAction: viewB.text
         )
     }
 

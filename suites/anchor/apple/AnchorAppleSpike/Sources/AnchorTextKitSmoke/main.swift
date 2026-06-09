@@ -152,6 +152,15 @@ struct AnchorTextKitSmoke {
         precondition(uiLifecycle.removedViewDetached)
         precondition(uiLifecycle.remainingViewCount == 2)
         print("textkit:ui_view_lifecycle=insert_move_remove")
+
+        let uiMenuRouting = UIKitTextViewRuntimeProbe().menuCommandRoutingProbe()
+        precondition(uiMenuRouting.splitTargetResolved)
+        precondition(uiMenuRouting.mergeTargetResolved)
+        precondition(uiMenuRouting.blockAIntents == [.splitBlock(blockID: "blk_a", atUTF16: 1)])
+        precondition(uiMenuRouting.blockBIntents == [.mergeBackward(blockID: "code_1")])
+        precondition(uiMenuRouting.blockATextAfterAction == "AB")
+        precondition(uiMenuRouting.blockBTextAfterAction == "CD")
+        print("textkit:ui_menu_commands=blk_a:split@1,code_1:merge_backward")
         #else
         print("textkit:runtime=not-run-on-this-platform")
         #endif
