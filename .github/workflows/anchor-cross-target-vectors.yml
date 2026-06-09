@@ -69,3 +69,18 @@ jobs:
         run: bash suites/anchor/core/tests/run-cross-target-vectors.sh
         env:
           DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+
+  apple-binding-package:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Rust targets
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin aarch64-apple-ios aarch64-apple-ios-sim
+
+      - name: Build Apple binding release artifacts
+        run: bash suites/anchor/apple/build-binding-release-artifacts.sh
+        env:
+          DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+          ANCHOR_APPLE_ARTIFACT_DIR: /tmp/anchor-apple-stage1/hosted-binding-artifacts
