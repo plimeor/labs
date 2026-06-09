@@ -20,8 +20,25 @@ struct AnchorTextKitSmoke {
         adapter.apply(.replaceBlockText(blockID: "blk_a", text: "Mxorning note.", selectionStartUTF16: 2, selectionEndUTF16: 2))
         precondition(adapter.blocks[0].selection.location == 2)
 
+        adapter.apply(.insertTextSurface(
+            afterBlockID: "blk_a",
+            blockID: "blk_b",
+            text: "Split tail.",
+            selectionStartUTF16: 0,
+            selectionEndUTF16: 5
+        ))
+        precondition(adapter.blocks.map(\.blockID) == ["blk_a", "blk_b", "code_1"])
+        precondition(adapter.blocks[1].selection.location == 0 && adapter.blocks[1].selection.length == 5)
+
+        adapter.apply(.moveTextSurface(blockID: "code_1", toIndex: 0))
+        precondition(adapter.blocks.map(\.blockID) == ["code_1", "blk_a", "blk_b"])
+
+        adapter.apply(.removeTextSurface(blockID: "blk_b"))
+        precondition(adapter.blocks.map(\.blockID) == ["code_1", "blk_a"])
+        print("textkit:patch_replay_split_move_remove=true")
+
         adapter.apply(.selectBlocks(["blk_a"]))
-        precondition(adapter.blocks[0].selection.length == ("Mxorning note." as NSString).length)
+        precondition(adapter.blocks[1].selection.length == ("Mxorning note." as NSString).length)
 
         let embedded = adapter.intentForEmbeddedSelection(blockID: "code_1", selectedRange: NSRange(location: 4, length: 5))
         precondition(embedded == .embeddedSelection(blockID: "code_1", startUTF16: 4, endUTF16: 9))

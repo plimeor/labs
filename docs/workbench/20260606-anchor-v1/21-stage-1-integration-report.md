@@ -1771,3 +1771,67 @@ B4 binding approval and B14 default transport approval are recorded in the curre
 - **Axis matrix delta:** TextKit remains `partial mechanism floor closed`; accessibility selected range readback moved from open mechanism evidence to closed, while product/iOS accessibility gates remain open.
 - **Gate evaluation:** CONTINUE — next action should target remaining TextKit product-runtime gates, another iCloud edge case, Android execution feasibility, signed app/device runtime integration, or physical-device generated async runtime.
 - **New doc:** `docs/workbench/20260606-anchor-v1/47-textkit-accessibility-range-report.md`
+
+---
+
+## 38. Progress ledger update — 2026-06-10 — TextKit patch replay projection
+
+本节追加 `48-textkit-patch-replay-projection-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 38.1 Axis matrix after doc 48
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go**（unchanged） |
+| multi-target compile | **go**（unchanged） |
+| zero-cloud-symbol boundary | **go**（unchanged after doc 48 audit） |
+| binding（B4） | **approved boundary / partially release-gated** — unchanged after doc 47 |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — adapter projection patch replay floor closed; real AppKit/UIKit view lifecycle remains open |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — unchanged after doc 47 |
+| layout / retention | **compromise** — unchanged after doc 47 |
+| cross-target execution CI | **hosted native/wasm/iOS-sim closed; Android execution open** — unchanged after doc 47 |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 38.2 Open-gate checklist after doc 48
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| adapter projection patch replay for insert/move/remove text surfaces | closed as mechanism floor | `48 §4.1` |
+| real AppKit/UIKit disappearing/splitting/moving views | open / not run | `48 §5` |
+| product responder-chain undo / keyboard | open / not run | `27 §4`, `48 §5` |
+| product accessibility mapping / VoiceOver runtime | open / not run | `47 §5`, `48 §5` |
+| `UITextView` runtime patch replay / accessibility / IME | open / not run | `47 §4.2`, `48 §4.2`, `48 §5` |
+| cross-view / cross-block accessibility expression | open / not run | `47 §5` |
+| external volume | open / not run | `46 §6` |
+| security-scoped bookmark restoration | open / not run | `46 §6` |
+| Finder move UI surface | open / not run | `46 §6` |
+| `.icloud` placeholder classification | open / not run | `46 §6` |
+| signed-out/unavailable account path classification | open / not run | `46 §6` |
+| physical iPhone runtime after unlock | open / blocked by locked device across three attempts | `32 §3.5`, `37 §3`, `42 §3.2` |
+| iOS/non-macOS CloudDocuments delivery | open / not closed by Simulator | `45 §4` |
+| true remote `.icloud` placeholder delivery | open / not proved | `33 §4` |
+| signed-out / over-quota account states | open / not run | unchanged |
+| steady-state segment budget / million-op iCloud context | open / not run | unchanged |
+| Developer ID signing availability | open / no Developer ID Application identity observed locally | `44 §3.5` |
+| signed app-bundle/device runtime integration | open / not run | `40 §4`, `43 §5` |
+| physical-device generated async runtime | open / not run | `43 §5` |
+| Android execution | open / not run | `31 §3.1`, `41 §4` |
+| product conflict-resolution UX / core integration | open / not implemented | `39 §4`-`§5` |
+
+### Ledger entry — 2026-06-10 — iteration 27 — doc 48-textkit-patch-replay-projection-report.md
+
+- **Checkpoint / cursor:** CP-1 Apple half, TextKit product-runtime patch replay gate.
+- **Action selected:** extend `NativeEditorAdapterProbe` with adapter-local insert/move/remove text-surface patch replay and validate it in `AnchorTextKitSmoke`.
+- **Owner classification:** Apple/TextKit adapter projection verifier → implemented in repo-local spike probe/smoke; no product app shell or core code touched.
+- **Scope-fence check:** passed — no root workspace / lockfile / repo product app shell / public CLI schema changes; no `suites/anchor/core/src/**` production source changes; no deterministic core semantics duplicated in Swift; no persistent writes.
+- **Evidence (Observed = command + output):**
+  - `swift run --package-path suites/anchor/apple/AnchorAppleSpike --scratch-path /tmp/anchor-apple-stage1/swift-build-textkit-patch-replay-20260610 AnchorTextKitSmoke` → `textkit:patch_replay_split_move_remove=true` with existing UTF-16 / IME / hit-testing / direct-buffer undo / accessibility outputs.
+  - `xcodebuild -scheme AnchorTextKitProbe -destination 'generic/platform=iOS Simulator' ... build` → `** BUILD SUCCEEDED **`.
+  - core cloud-symbol audit → 0 matches, exit 1.
+  - Apple deterministic-semantics audit for `diff3|order-key|fractional|merge.*semantic|canonical` → 0 matches, exit 1.
+- **Gates closed this iteration:** adapter view-model projection patch replay for insert/move/remove text surfaces.
+- **Gates still open:** real AppKit/UIKit disappearing/splitting/moving views, product responder-chain undo, keyboard event capture, product accessibility mapping, VoiceOver/UI runtime, cross-view accessibility expression, `UITextView` runtime patch replay/accessibility/IME, remaining local-only path edge cases, physical iPhone runtime after unlock, iOS/non-macOS CloudDocuments delivery, true remote placeholder, signed-out/over-quota, steady-state segment budget/million-op iCloud context, product conflict-resolution UX/core integration, Android execution, signed app-bundle/device runtime integration, physical-device generated async runtime, Developer ID signing availability.
+- **Backfill to 04/06:** `04-contract-baseline.md` TextKit baseline; `06-fixture-set.md` Apple TextKit fixture evidence.
+- **Axis matrix delta:** TextKit remains `partial mechanism floor closed`; adapter projection patch replay moved from open mechanism evidence to closed, while real product view lifecycle and iOS runtime gates remain open.
+- **Gate evaluation:** CONTINUE — next action should target remaining TextKit product-runtime gates, another iCloud edge case, Android execution feasibility, signed app/device runtime integration, or physical-device generated async runtime.
+- **New doc:** `docs/workbench/20260606-anchor-v1/48-textkit-patch-replay-projection-report.md`

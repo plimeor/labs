@@ -16,6 +16,9 @@ public enum EditorIntentProbe: Equatable {
 
 public enum EditorPatchProbe: Equatable {
     case replaceBlockText(blockID: String, text: String, selectionStartUTF16: Int, selectionEndUTF16: Int)
+    case insertTextSurface(afterBlockID: String, blockID: String, text: String, selectionStartUTF16: Int, selectionEndUTF16: Int)
+    case moveTextSurface(blockID: String, toIndex: Int)
+    case removeTextSurface(blockID: String)
     case selectBlocks([String])
     case focusEmbedded(blockID: String, startUTF16: Int, endUTF16: Int)
 }
@@ -113,6 +116,25 @@ public final class NativeEditorAdapterProbe {
                 location: selectionStartUTF16,
                 length: selectionEndUTF16 - selectionStartUTF16
             )
+        case let .insertTextSurface(afterBlockID, blockID, text, selectionStartUTF16, selectionEndUTF16):
+            guard let afterIndex = blocks.firstIndex(where: { $0.blockID == afterBlockID }) else {
+                return
+            }
+            let surface = TextSurfaceState(
+                blockID: blockID,
+                text: text,
+                selection: NSRange(location: selectionStartUTF16, length: selectionEndUTF16 - selectionStartUTF16)
+            )
+            blocks.insert(surface, at: afterIndex + 1)
+        case let .moveTextSurface(blockID, toIndex):
+            guard let fromIndex = blocks.firstIndex(where: { $0.blockID == blockID }) else {
+                return
+            }
+            let surface = blocks.remove(at: fromIndex)
+            let boundedIndex = min(max(toIndex, 0), blocks.count)
+            blocks.insert(surface, at: boundedIndex)
+        case let .removeTextSurface(blockID):
+            blocks.removeAll { $0.blockID == blockID }
         case let .selectBlocks(blockIDs):
             blocks = blocks.map { block in
                 guard blockIDs.contains(block.blockID) else { return block }
