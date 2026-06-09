@@ -4,7 +4,7 @@
 # CP-0 approved Option A layout also reserves `cli` (Rust bin) and `apple`
 # (Xcode workspace); those are NOT created in this Stage 1 spike (Apple work is
 # owned by Codex, CLI public schema is gated). See
-# docs/workbench/anchor/2026-06-07-stage-1/core-spike-report.md.
+# docs/workbench/20260606-anchor-v1/14-core-spike-report.md.
 #
 # This file does not touch the Bun workspace: there is intentionally no
 # `package.json` under suites/anchor/** (D02 — never add a placeholder

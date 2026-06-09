@@ -2,7 +2,7 @@
 
 日期：2026-06-06
 状态：workbench DRAFT（STEP 1 of 3：Claude 起草 → Codex 验证 Apple/Xcode/Swift-Rust/TextKit 现实 → Claude 整合为可批准 CP-0）
-归属：`docs/workbench/anchor/2026-06-06-phase-0/research-notes.md`
+归属：`03-research-notes.md`
 
 > 本文件是 workbench 调研记录，**不是公开接口契约**。按 AGENTS.md：创建 workbench 目录**不授权**任何 package / workspace / app / 生成 lockfile 改动。本文只记录事实分桶，不实现 anchor-core、editor 或 app shell，不写 Rust/Swift，不跑 Apple spike。
 >
@@ -22,18 +22,18 @@
 - **现有 apps（`ls apps`）：** 空。
 - **不存在的目录：** `suites/anchor`、`apps/anchor-*`、`packages/anchor-*` 均无（glob 匹配返回 no matches）。
 - **无 Rust/Swift：** `find` 全仓未发现 `Cargo.toml`、`*.xcodeproj`、`*.swift`（排除 node_modules）。仓库今天没有任何 Rust/Cargo 或 Swift/Xcode 工程。
-- **workbench 目录：** `docs/workbench/anchor/2026-06-06-phase-0/` 在本任务前不存在，由本任务创建。
+- **workbench 目录：** `docs/workbench/20260606-anchor-v1/` 在本任务前不存在，由本任务创建。
 
 ### A2. Anchor 当前状态（零代码；仅两份 plan 文档）
 
 - Anchor 当前**零实现代码**。仓库内只有两份 plan 文档：
-  - `docs/plans/2026-06-06-anchor-apple-native-note-workbench.md`（Apple 原生 Note 工作台主计划）。
-  - `docs/plans/2026-06-06-anchor-conflict-resolution-model.md`（冲突处置模型 v1，§8.3–8.5 增强版）。
+  - `01-apple-native-note-workbench.md`（Apple 原生 Note 工作台主计划）。
+  - `02-conflict-resolution-model.md`（冲突处置模型 v1，§8.3–8.5 增强版）。
 - 主计划自我定位为「新项目方案……实现待单独授权」（主计划 line 4、line 518「授权后的第一个实现单元是阶段0」、line 757「实现仍待单独授权」）。无既有实现可沿用（主计划 line 518）。
 
 ### A3. AGENTS.md / CLAUDE.md workbench 与 workspace 规则
 
-- **workbench 路径约定（AGENTS line 19–26）：** `docs/workbench/<project>/<YYYY-MM-DD>-<task>/` 存放当前项目 workbench 工件（agent 协作基线、验证报告、批准草案、决策包）；用一次性的 dated task 目录；文件用语义化命名，如 `contract-baseline.md`、`apple-verification.md`、`cp-0-approval.md`。
+- **workbench 路径约定（AGENTS line 19–26）：** `docs/workbench/<project>/<YYYY-MM-DD>-<task>/` 存放当前项目 workbench 工件（agent 协作基线、验证报告、批准草案、决策包）；用一次性的 dated task 目录；文件用语义化命名，如 `04-contract-baseline.md`、`09-apple-verification.md`、`10-cp-0-approval.md`。
 - **workbench 不是契约（AGENTS line 24–26）：** workbench 工件不是公开接口契约；**创建 workbench 目录不授权 package / workspace / app / 生成 lockfile 改动**。
 - **三 tier 含义（AGENTS line 30–32）：** `packages/*` = 跨 suite 通用包；`suites/<suite>/*` = 主题域相关包组；`apps/*` = 无 suite 归属的独立 app。
 - **tsconfig 深度规则（AGENTS line 33–36）：** 每个 workspace package extends root `tsconfig.json`、定义 `prepack`、package-local override 保持窄。`packages/*` 与 `apps/*` extend `../../tsconfig.json`；`suites/<suite>/*` extend `../../../tsconfig.json`。

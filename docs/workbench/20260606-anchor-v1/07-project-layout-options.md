@@ -1,10 +1,10 @@
 # Anchor Phase 0 — Project Layout Options（项目落地位置候选）
 
 日期：2026-06-06
-状态：阶段0 workbench 候选分析。Codex 现实核验已完成（见 `apple-verification.md`）；**用户已于 2026-06-07 批准 Primary = Option A（`suites/anchor/`）**，Option C 降为实现期退路（仅当实测 Bun glob 容忍度或 Xcode 嵌套成本过高时启用）。
-范围：本文件只回答「Anchor 的 Rust core / Apple app / CLI / fixtures / 契约 README / Xcode 工程落在仓库何处」这一个布局问题；本文下方各 Option 的 `Needs user approval` / `Needs Codex verification` 标注描述各候选的**固有门控**，最终采纳状态以本状态行与 `cp-0-approval.md` / `key-decisions.md` D02 为准。
+状态：阶段0 workbench 候选分析。Codex 现实核验已完成（见 `09-apple-verification.md`）；**用户已于 2026-06-07 批准 Primary = Option A（`suites/anchor/`）**，Option C 降为实现期退路（仅当实测 Bun glob 容忍度或 Xcode 嵌套成本过高时启用）。
+范围：本文件只回答「Anchor 的 Rust core / Apple app / CLI / fixtures / 契约 README / Xcode 工程落在仓库何处」这一个布局问题；本文下方各 Option 的 `Needs user approval` / `Needs Codex verification` 标注描述各候选的**固有门控**，最终采纳状态以本状态行与 `10-cp-0-approval.md` / `05-key-decisions.md` D02 为准。
 
-> 本文件是 `docs/workbench/anchor/2026-06-06-phase-0/` 下的 workbench 工件，**不是**公开接口契约。按 AGENTS / CLAUDE，创建 workbench 目录**不授权**任何 package / workspace / app / 生成 lockfile 改动。本文不创建任何目录、不改 `package.json` / `bun.lock` / 任何 `tsconfig` / workspace 配置，也不写 Rust / Swift 代码。所有结构建议一律带 **Needs user approval**；所有涉及 Apple / Xcode 工程现实的判断一律带 **Needs Codex verification**。
+> 本文件是 `docs/workbench/20260606-anchor-v1/` 下的 workbench 工件，**不是**公开接口契约。按 AGENTS / CLAUDE，创建 workbench 目录**不授权**任何 package / workspace / app / 生成 lockfile 改动。本文不创建任何目录、不改 `package.json` / `bun.lock` / 任何 `tsconfig` / workspace 配置，也不写 Rust / Swift 代码。所有结构建议一律带 **Needs user approval**；所有涉及 Apple / Xcode 工程现实的判断一律带 **Needs Codex verification**。
 
 ---
 

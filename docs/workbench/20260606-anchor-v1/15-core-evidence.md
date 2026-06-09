@@ -1,7 +1,7 @@
 # Anchor Stage 1 — Core Evidence（验证命令与输出）
 
 日期：2026-06-07
-状态：**workbench artifact** —— 非公开接口契约。本文件记录 CP-1 Claude / core side 的可重复验证命令与其实跑输出（Observed），供 CP-1 gate 审阅。命令骨架与 owner 模型见同目录 `core-spike-report.md`；给 Codex 的被调 surface 见 `codex-apple-input.md`。
+状态：**workbench artifact** —— 非公开接口契约。本文件记录 CP-1 Claude / core side 的可重复验证命令与其实跑输出（Observed），供 CP-1 gate 审阅。命令骨架与 owner 模型见同目录 `14-core-spike-report.md`；给 Codex 的被调 surface 见 `16-codex-apple-input.md`。
 
 > 标注：**Observed** = 本机实跑输出；**Recommended** = 目标态命令骨架（未实跑）。本机环境：macOS（Darwin 25.5.0，aarch64），`cargo 1.95.0`、`rustc 1.95.0`。Rust targets：`aarch64-apple-darwin`（host，预装）+ 本轮 `rustup target add` 安装的 `wasm32-unknown-unknown`、`aarch64-linux-android`。
 
@@ -109,7 +109,7 @@ rg -n "OpSyncPort|push_segment|pull_segment|SegmentId|BlobId" suites/anchor/core
 
 ## 5. 跨目标一致性向量集（CI gate golden，Observed）
 
-`tests/determinism_vectors.rs` 固化以下 golden（在 `aarch64-apple-darwin` 捕获）。同源编到 `wasm32` / android 须复现逐字节相同——因 diff3 / order-key / canonical / snapshot_revision 全为整数、无浮点、无平台分支，相同 by construction；本向量集是强制门控（跨目标**执行**的 CI 接线见 `core-spike-report.md` §限制）。
+`tests/determinism_vectors.rs` 固化以下 golden（在 `aarch64-apple-darwin` 捕获）。同源编到 `wasm32` / android 须复现逐字节相同——因 diff3 / order-key / canonical / snapshot_revision 全为整数、无浮点、无平台分支，相同 by construction；本向量集是强制门控（跨目标**执行**的 CI 接线见 `14-core-spike-report.md` §限制）。
 
 | 向量 | golden |
 |---|---|
@@ -140,7 +140,7 @@ cargo test -p anchor-core --release --test scale_bench -- --ignored --nocapture
 | 1,250,000 | 250,000 | 2,614.6 ms |
 
 线性（≈ 2.1 µs/op），无超线性退化——core-side **million-op replay** 证据。`snapshot_revision` 每档稳定输出。
-（说明：本曲线证 **core 面** replay 成本 = O(ops)；**synced-segment-file-count** 规模（1K/10K/50K/100K iCloud 真机枚举）是 Codex/Apple 的 scale gate，no-go 转 CloudKit/object-store——见 `codex-apple-input.md` 与 cp-0 B14。）
+（说明：本曲线证 **core 面** replay 成本 = O(ops)；**synced-segment-file-count** 规模（1K/10K/50K/100K iCloud 真机枚举）是 Codex/Apple 的 scale gate，no-go 转 CloudKit/object-store——见 `16-codex-apple-input.md` 与 cp-0 B14。）
 
 ---
 

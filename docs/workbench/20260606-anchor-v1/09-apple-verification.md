@@ -818,7 +818,7 @@ rg -n "OpSyncPort|push_segment|pull_segment|SegmentId|BlobId" suites/anchor/core
 
 ### 7.5 Scale / 性能：documented mechanics vs undocumented scale
 
-**iCloud adapter 的机制面有官方文档支持，但 Apple 对任何规模 / 性能数字一律不文档化——故「API 编译面可行」不等于「iCloud 同步在 Anchor 规模下可行」，规模必须实测（Stage 1，stage-1-spike-plan.md §4）。** 下列为 Source-supported（developer.apple.com），与本节上文 Codex 本机 Observed 区分。
+**iCloud adapter 的机制面有官方文档支持，但 Apple 对任何规模 / 性能数字一律不文档化——故「API 编译面可行」不等于「iCloud 同步在 Anchor 规模下可行」，规模必须实测（Stage 1，12-stage-1-spike-plan.md §4）。** 下列为 Source-supported（developer.apple.com），与本节上文 Codex 本机 Observed 区分。
 
 - **NSMetadataQuery**（segment 发现）：两相（initial gathering → live-update），`DidUpdate.userInfo` 拆 added/changed/removed（iOS 8/macOS 10.9+）；`notificationBatchingInterval` 默认 1.0s（仅合并窗口，非延迟保证）；`results` proxy 整份 copy 有「performance and memory issues」，应用 `result(at:)`。**未文档化**：任何文件数下的 gathering / live-update 延迟、内存上限、是否 duplicate / re-deliver、主线程阻塞。(https://developer.apple.com/documentation/foundation/nsmetadataquery)
 - **Placeholder / dataless / eviction**：`URLUbiquitousItemDownloadingStatus`（.notDownloaded/.downloaded/.current）、`startDownloadingUbiquitousItem`、`evictUbiquitousItem`（只删本地）；读 dataless 内容触发同步 materialize，「can take a long time」可致 watchdog crash；OS 按 LRU 自动驱逐、不通知 app。**未文档化**：批量 materialize 成本、冷设备是否必须全下才能 replay、N 文件延迟；无 batch / 预取 API。(https://developer.apple.com/documentation/technotes/tn3150-getting-ready-for-data-less-files)
@@ -875,7 +875,7 @@ rg -n "OpSyncPort|push_segment|pull_segment|SegmentId|BlobId" suites/anchor/core
 - D18：要求 offset fixtures 覆盖 composed characters、emoji、ZWJ、CRLF/newline、IME marked text。
 - D21：path-in-ubiquity detection 必须由 adapter 拥有；如果 local-only guarantee 成为 product claim，要用 symlink / external volume cases 测试。
 
-### 8.3 `project-layout-options.md`
+### 8.3 `07-project-layout-options.md`
 
 **Keep：**
 

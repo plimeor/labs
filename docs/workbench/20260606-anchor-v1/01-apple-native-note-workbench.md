@@ -7,7 +7,7 @@
 >
 > 本方案把 Anchor 定义为新项目：产品对象、交互行为、平台路线、编辑器、存储真理层、同步边界和 CLI 契约一起设计。首期产品形态、UI 行为、数据契约和实现都以本方案为准。
 >
-> **CP-0 已批准（2026-06-07）。** 阶段0 平台 / 产品 / 契约基线、关键技术决策（D01–D38）、fixture set（F01–F43）与 Stage 1 验证计划经用户逐条批准。最终批准稿见 `docs/workbench/anchor/2026-06-06-phase-0/cp-0-approval.md`，CP-0 索引与冻结结论见同目录 `cp-0-final.md`，下一轮执行入口见同目录 `stage-1-entry-brief.md`。完整 decision table、fixture 矩阵、Apple 验证证据与命令清单归该 workbench packet，不回灌本方案；本方案保持产品 / 架构方向摘要。CP-0 冻结结论与两项 Stage-1-gated 待定项（Apple binding 机制冻结、iCloud Drive 作首期默认 transport 的规模门）见 §11 阶段0 / CP-0。
+> **CP-0 已批准（2026-06-07）。** 阶段0 平台 / 产品 / 契约基线、关键技术决策（D01–D38）、fixture set（F01–F43）与 Stage 1 验证计划经用户逐条批准。最终批准稿见 `10-cp-0-approval.md`，CP-0 索引与冻结结论见同目录 `11-cp-0-final.md`，下一轮执行入口见同目录 `13-stage-1-entry-brief.md`。完整 decision table、fixture 矩阵、Apple 验证证据与命令清单归该 workbench packet，不回灌本方案；本方案保持产品 / 架构方向摘要。CP-0 冻结结论与两项 Stage-1-gated 待定项（Apple binding 机制冻结、iCloud Drive 作首期默认 transport 的规模门）见 §11 阶段0 / CP-0。
 
 ---
 
@@ -434,7 +434,7 @@ Block 内容类型：
 
 真理层是 append-only op-log。物化本地 state、`.json` mirror 和 `.md` mirror 都是 replay 输出。
 
-> 冲突处置的权威定义见配套方案 [2026-06-06-anchor-conflict-resolution-model.md](2026-06-06-anchor-conflict-resolution-model.md)：它在三 register 与 op-log 真理层之上给出确定、可 replay、无静默丢失的合并模型，并定义 journal 内容寻址身份。本节给出 merge register 与基础合并规则，冲突处置细节以配套方案为准。
+> 冲突处置的权威定义见配套方案 [02-conflict-resolution-model.md](02-conflict-resolution-model.md)：它在三 register 与 op-log 真理层之上给出确定、可 replay、无静默丢失的合并模型，并定义 journal 内容寻址身份。本节给出 merge register 与基础合并规则，冲突处置细节以配套方案为准。
 
 每个 Note / block 有三个 merge registers：
 
@@ -548,14 +548,14 @@ CLI 公开词汇使用 Note / block op。其中 show / search / tag / prop / dia
 
 检查点 CP-0：平台路线、Apple binding 方案、`anchor-editor-core` 合约、交互契约、信息架构、DTO 草图、关键技术决策和 fixture set 已批准。
 
-**CP-0 批准结论（2026-06-07，权威记录见 `docs/workbench/anchor/2026-06-06-phase-0/cp-0-approval.md`，索引见 `cp-0-final.md`）：**
+**CP-0 批准结论（2026-06-07，权威记录见 `10-cp-0-approval.md`，索引见 `11-cp-0-final.md`）：**
 
 - 项目布局冻结为 Primary = Option A `suites/anchor/*`（`core` / `cli` / `apple` / `fixtures` + 嵌套 Cargo workspace 与 Xcode workspace）；实现期 Bun glob 容忍度或 Xcode 嵌套成本过高时退路 = glob 外顶层 `anchor-apple/`、core 仍留 `suites/anchor/core`。绝不为适配 glob 添加 placeholder `package.json`。目录 / 工程的实际创建随实现授权执行。
 - Apple binding 推荐路径 = UniFFI + XCFramework + SwiftPM wrapper（C ABI bytes fast-path 退路）；binding 方向（A2）与机制冻结（B4）均 Stage-1-gated（见 §8.1）。
 - 受保护不变量：`anchor-core`（含 `anchor-editor-core`）的 `wasm32` + android 可编译性作为 CP-1 gate，client 零真理逻辑 CI 红线；web / android client 仍延后（见 §8.1、§9）。
-- 公开 `ConflictRecord` / `resolve` CLI schema 延后二期；Phase 0 仅在 op 信封预留所需字段。其余 Apple 工程 / iCloud container / 字体来源 / mirror 组织等契约级决策的权威记录归 workbench packet（cp-0-approval.md、key-decisions.md）。
+- 公开 `ConflictRecord` / `resolve` CLI schema 延后二期；Phase 0 仅在 op 信封预留所需字段。其余 Apple 工程 / iCloud container / 字体来源 / mirror 组织等契约级决策的权威记录归 workbench packet（10-cp-0-approval.md、05-key-decisions.md）。
 - 两项 Stage-1-gated 待定项：Apple binding 机制冻结；iCloud Drive 作首期默认 transport 的批准（gated on Stage 1 规模门——million-op replay/merge/compaction + steady-state segment budget + iCloud Drive 真机 go/compromise；no-go 转 CloudKit / 中立 object-store）。
-- 通过 CP-0 后按 `stage-1-entry-brief.md` 进入 Stage 1；通过 CP-1 前不实现持久应用写入。
+- 通过 CP-0 后按 `13-stage-1-entry-brief.md` 进入 Stage 1；通过 CP-1 前不实现持久应用写入。
 
 ### 阶段 1：确定性 core 探索验证
 
@@ -708,7 +708,7 @@ CLI 公开词汇使用 Note / block op。其中 show / search / tag / prop / dia
 
 - 在 `suites/anchor` 运行 `cargo test -p anchor-core`。
 - 在 `suites/anchor` 运行 `cargo clippy -p anchor-core --all-targets`。
-- macOS 和 iOS 的实际 `xcodebuild` 命令在 Apple 工程创建后确定；CP-0 已给出命令骨架（见 workbench `stage-1-spike-plan.md` / `apple-verification.md`）。
+- macOS 和 iOS 的实际 `xcodebuild` 命令在 Apple 工程创建后确定；CP-0 已给出命令骨架（见 workbench `12-stage-1-spike-plan.md` / `09-apple-verification.md`）。
 
 手动 / artifact 证据：
 

@@ -1,11 +1,11 @@
 # Anchor Stage 1 — Integration / CP-1 Readiness Report
 
 日期：2026-06-07
-状态：**workbench artifact** —— 非公开接口契约。本文件把 Codex / Apple verifier 的 Stage 1 实测报告（binding / TextKit / iCloud Drive）与 Claude / core owner 的 core spike 证据（`core-spike-report.md` / `core-evidence.md`）整合为**当前决策状态**与 **CP-1 下一步 gate** 的收口结论。
+状态：**workbench artifact** —— 非公开接口契约。本文件把 Codex / Apple verifier 的 Stage 1 实测报告（binding / TextKit / iCloud Drive）与 Claude / core owner 的 core spike 证据（`14-core-spike-report.md` / `15-core-evidence.md`）整合为**当前决策状态**与 **CP-1 下一步 gate** 的收口结论。
 
 > **边界声明（AGENTS 工作台规则，强制）：** 创建本文件**不授权**任何 package / workspace / 产品 app / 生成 lockfile 改动；**不**改 root `package.json` / `bun.lock` / `tsconfig` / workspace 配置，**不**创建产品 app shell / entitlement / bundle id / iCloud container。`suites/anchor/apple/AnchorMacICloudProbe` 是 verifier-only macOS Xcode project，不是产品工程。权威接口契约在实现后归 `anchor-core` 包 README。
 >
-> 引用：core 报告 = `core-spike-report.md` / `core-evidence.md`；Apple 报告 = `apple-binding-report.md` / `textkit-adapter-report.md` / `icloud-drive-report.md`；交接 = `codex-apple-input.md`（core→Codex 被调 surface）/ `apple-patch-list-for-claude.md`（Codex→integration evidence）；决策 = `../2026-06-06-phase-0/`（`cp-0-final.md` / `cp-0-approval.md` / `key-decisions.md` D01–D38 / `contract-baseline.md` / `fixture-set.md` F01–F43 / `stage-1-spike-plan.md` / `stage-1-entry-brief.md`）。
+> 引用：core 报告 = `14-core-spike-report.md` / `15-core-evidence.md`；Apple 报告 = `17-apple-binding-report.md` / `18-textkit-adapter-report.md` / `19-icloud-drive-report.md`；交接 = `16-codex-apple-input.md`（core→Codex 被调 surface）/ `20-apple-integration-state-for-claude.md`（Codex→integration evidence）；决策 = `./`（`11-cp-0-final.md` / `10-cp-0-approval.md` / `05-key-decisions.md` D01–D38 / `04-contract-baseline.md` / `06-fixture-set.md` F01–F43 / `12-stage-1-spike-plan.md` / `13-stage-1-entry-brief.md`）。
 
 ---
 
@@ -56,10 +56,10 @@ Stage 1 evidence is synchronized into the current decision files. The current re
 
 ### 4.1 Observed evidence（已实测，不含 Not run 当事实）
 
-- **Core（`core-evidence.md`）：** 74 测试、clippy 干净、wasm32+android 编译、零云符号、跨目标一致性 golden（8 向量，`aarch64-apple-darwin` 捕获）、million-op replay 线性（release `--ignored`，report-Observed ≈2.1µs/op、1.25M ops≈2.6s）。
-- **Binding（`apple-binding-report.md`）：** Rust macOS/iOS/iOS-sim 三 slice 构建；UniFFI generated Swift **full round-trip**（`EditorIntentDto` insert→`changedIds=[blk_a]`、UTF-16 caret `3:3`、`set_life=deleted` 返回 typed `ValidationErrorCode.directActiveToDeleted`、post-dispatch snapshot revision + 非空 segment bytes + `seg_` id）；C ABI/UniFFI 三 slice XCFramework + SwiftPM wrapper import；release-surface rerun 下 C ABI/UniFFI 三 slice XCFramework 均创建成功，generated Swift 通过 `-swift-version 6 -strict-concurrency=complete -warnings-as-errors` synchronous smoke；1/4/16/64MB bytes benchmark（C ABI 64MB ≈38.22ms/96MB，UniFFI 64MB ≈145.22ms/267MB，3.8×慢/2.8×RSS）。跨 FFI 真值一致：fixture `snapshot_revision 3ef88671…a877b63` 在两侧 Swift smoke 与 core `determinism_vectors` 逐字节一致。
-- **TextKit（`textkit-adapter-report.md`）：** macOS `NSTextView` runtime 设 UTF-16 selection、layout、adapter-owned `UndoManager` semantic-inverse-intent；iOS sim 编译；UTF-16 fixture 计数（emoji/ZWJ/combining/CRLF/mixed）；intent-shaped 映射 + patch replay 到 view-model projection（buffer 非真理）。
-- **iCloud（`icloud-drive-report.md`）：** signed macOS `.app` + repo-local Xcode-created macOS verifier 通过 ubiquity container lookup、`.anchorvault` package UTType（conform `com.apple.package`、`vault_is_ubiquitous=true`）、`NSFileCoordinator` 读写（equal）、package-level `NSMetadataQuery` 发现（macOS `count=1`）、package-internal **direct enumeration**（macOS 1024 hidden + 128 visible）、macOS 10K/50K/100K package-internal direct enumeration（≈27.70ms / 142.63ms / 299.51ms）、repo-local macOS 10K/50K/100K direct enumeration（≈22.53ms / 124.70ms / 269.50ms）、1024-file subset 写（macOS≈3247ms / repo-local macOS≈378ms）、online 跨设备收敛（0 conflict）、offline fork 后 `NSFileVersion` 冲突 materialization（1 retained，未解决）。**确认：** package-internal `.seg` 发现**返回 0**（每变体与 10K/50K/100K），package-external `.seg` 被枚举（125/128）；macOS package-internal segment evict/download both return `NSCocoaErrorDomain:4`。
+- **Core（`15-core-evidence.md`）：** 74 测试、clippy 干净、wasm32+android 编译、零云符号、跨目标一致性 golden（8 向量，`aarch64-apple-darwin` 捕获）、million-op replay 线性（release `--ignored`，report-Observed ≈2.1µs/op、1.25M ops≈2.6s）。
+- **Binding（`17-apple-binding-report.md`）：** Rust macOS/iOS/iOS-sim 三 slice 构建；UniFFI generated Swift **full round-trip**（`EditorIntentDto` insert→`changedIds=[blk_a]`、UTF-16 caret `3:3`、`set_life=deleted` 返回 typed `ValidationErrorCode.directActiveToDeleted`、post-dispatch snapshot revision + 非空 segment bytes + `seg_` id）；C ABI/UniFFI 三 slice XCFramework + SwiftPM wrapper import；release-surface rerun 下 C ABI/UniFFI 三 slice XCFramework 均创建成功，generated Swift 通过 `-swift-version 6 -strict-concurrency=complete -warnings-as-errors` synchronous smoke；1/4/16/64MB bytes benchmark（C ABI 64MB ≈38.22ms/96MB，UniFFI 64MB ≈145.22ms/267MB，3.8×慢/2.8×RSS）。跨 FFI 真值一致：fixture `snapshot_revision 3ef88671…a877b63` 在两侧 Swift smoke 与 core `determinism_vectors` 逐字节一致。
+- **TextKit（`18-textkit-adapter-report.md`）：** macOS `NSTextView` runtime 设 UTF-16 selection、layout、adapter-owned `UndoManager` semantic-inverse-intent；iOS sim 编译；UTF-16 fixture 计数（emoji/ZWJ/combining/CRLF/mixed）；intent-shaped 映射 + patch replay 到 view-model projection（buffer 非真理）。
+- **iCloud（`19-icloud-drive-report.md`）：** signed macOS `.app` + repo-local Xcode-created macOS verifier 通过 ubiquity container lookup、`.anchorvault` package UTType（conform `com.apple.package`、`vault_is_ubiquitous=true`）、`NSFileCoordinator` 读写（equal）、package-level `NSMetadataQuery` 发现（macOS `count=1`）、package-internal **direct enumeration**（macOS 1024 hidden + 128 visible）、macOS 10K/50K/100K package-internal direct enumeration（≈27.70ms / 142.63ms / 299.51ms）、repo-local macOS 10K/50K/100K direct enumeration（≈22.53ms / 124.70ms / 269.50ms）、1024-file subset 写（macOS≈3247ms / repo-local macOS≈378ms）、online 跨设备收敛（0 conflict）、offline fork 后 `NSFileVersion` 冲突 materialization（1 retained，未解决）。**确认：** package-internal `.seg` 发现**返回 0**（每变体与 10K/50K/100K），package-external `.seg` 被枚举（125/128）；macOS package-internal segment evict/download both return `NSCocoaErrorDomain:4`。
 
 ### 4.2 Approved / recommended decision（当前基线）
 
@@ -126,7 +126,7 @@ Stage 1 evidence is synchronized into the current decision files. The current re
 - **Apple 类型零泄漏：** core 内唯一 Apple 相关命中是 `src/lib.rs` 描述性边界注释，无任何 Apple/Swift 类型 import/使用。
 - **Swift 侧零确定性语义：** `rg`（diff3/order-key/merge/normaliz/op-creation/tree-invariant/canonical_serialize/blake3）over `suites/anchor/apple` = 0 matches。merge/normalization/op-creation/diff3/order-key/tree-invariant 仅在 core。
 - **sync 边界单向 id+字节：** `OpSyncPort` 仅 `SegmentId`/`BlobId` + `&[u8]`，`associated type Error` 让 adapter 用自有 typed error 而不向 core 泄漏类型。
-- **单向交接：** core 经 `codex-apple-input.md` 提供 DTO/dispatch/`SegmentId` 真值约定，Codex/Apple adapter 消费；时钟/熵（`op_id` / HLC）由 Swift 传入 core，core 永不自取（D36）。
+- **单向交接：** core 经 `16-codex-apple-input.md` 提供 DTO/dispatch/`SegmentId` 真值约定，Codex/Apple adapter 消费；时钟/熵（`op_id` / HLC）由 Swift 传入 core，core 永不自取（D36）。
 - **workspace 边界：** `members=["core"]`；`apple/ffi`（staticlib）与 `apple/uniffi`（staticlib+cdylib）是 **非 member** wrapper crate（显式 `--manifest-path` 构建），故 `apple/` 内合法 Apple 类型不破坏 core 红线，wasm32+android gate 不被污染。
 
 ---
@@ -135,18 +135,18 @@ Stage 1 evidence is synchronized into the current decision files. The current re
 
 | 文件 | 角色 | 状态 | 本轮动作 |
 |---|---|---|---|
-| `cp-0-final.md` | decision-contract（CP-0 索引） | **已同步** | §4 / §6 作为 Stage 1 后当前入口：B4 approved binding product boundary、TextKit mechanism、B14 default transport approval、core gate 与剩余 open gates 对齐 |
-| `cp-0-approval.md` | approval-surface | **已同步** | 保留 CP-0 批准事实；A2/B4 更新为 approved binding product boundary；B14 更新为 approved default transport with compromise constraints |
-| `key-decisions.md` | decision-contract | **已同步** | D01 B4 approved binding product boundary + typed `ValidationError` + release-surface evidence；D06/D35 macOS 10K/50K/100K direct enumeration evidence；保留 placeholder/account/conflict/steady-state budget gates |
-| `contract-baseline.md` | decision-contract | **已同步** | Binding / sync baseline 吸收 typed error、C ABI bytes fast path、iCloud direct-enumeration compromise |
-| `stage-1-spike-plan.md` | brief/plan | **已同步** | Stage 1 observed items 与 remaining product gates 分离；不把 product runtime / CI / default transport 当已批准 |
-| `stage-1-entry-brief.md` | brief | **已同步** | 已反映 Stage 1 binding/iCloud/TextKit 当前状态 |
-| `fixture-set.md` | decision-contract | synced | F23/F26/F42/F43 Stage 1 回填一致，无改 |
-| `apple-verification.md` | **evidence-record**（cp-0-final 索引：现实核验证据） | leave-as-is | clause-correction 发现叙述属于验证内容，不作为当前决策契约改写 |
-| `research-notes.md` | **evidence-record**（早期调研原始记录，非批准面） | leave-as-is | 其 gate-resolution / 时序推理叙述是研究记录 → 不改 |
-| `codex-verification-packet.md` | **evidence-record**（Codex 验证原始记录，非批准面） | leave-as-is | 其 clause-correction 指令叙述是原始记录 → 不改 |
+| `11-cp-0-final.md` | decision-contract（CP-0 索引） | **已同步** | §4 / §6 作为 Stage 1 后当前入口：B4 approved binding product boundary、TextKit mechanism、B14 default transport approval、core gate 与剩余 open gates 对齐 |
+| `10-cp-0-approval.md` | approval-surface | **已同步** | 保留 CP-0 批准事实；A2/B4 更新为 approved binding product boundary；B14 更新为 approved default transport with compromise constraints |
+| `05-key-decisions.md` | decision-contract | **已同步** | D01 B4 approved binding product boundary + typed `ValidationError` + release-surface evidence；D06/D35 macOS 10K/50K/100K direct enumeration evidence；保留 placeholder/account/conflict/steady-state budget gates |
+| `04-contract-baseline.md` | decision-contract | **已同步** | Binding / sync baseline 吸收 typed error、C ABI bytes fast path、iCloud direct-enumeration compromise |
+| `12-stage-1-spike-plan.md` | brief/plan | **已同步** | Stage 1 observed items 与 remaining product gates 分离；不把 product runtime / CI / default transport 当已批准 |
+| `13-stage-1-entry-brief.md` | brief | **已同步** | 已反映 Stage 1 binding/iCloud/TextKit 当前状态 |
+| `06-fixture-set.md` | decision-contract | synced | F23/F26/F42/F43 Stage 1 回填一致，无改 |
+| `09-apple-verification.md` | **evidence-record**（cp-0-final 索引：现实核验证据） | leave-as-is | clause-correction 发现叙述属于验证内容，不作为当前决策契约改写 |
+| `03-research-notes.md` | **evidence-record**（早期调研原始记录，非批准面） | leave-as-is | 其 gate-resolution / 时序推理叙述是研究记录 → 不改 |
+| `08-codex-verification-packet.md` | **evidence-record**（Codex 验证原始记录，非批准面） | leave-as-is | 其 clause-correction 指令叙述是原始记录 → 不改 |
 
-> **分类规则（决定性）：** 长期决策文档 / 批准面只写当前目标态与责任边界；evidence-record / 原始记录 / research-notes 合法地记录跨时间的发现与推理，其过程叙述是**内容**、不得抹除。`cp-0-final.md` 索引对「证据 vs 决策」的归类为权威。
+> **分类规则（决定性）：** 长期决策文档 / 批准面只写当前目标态与责任边界；evidence-record / 原始记录 / research-notes 合法地记录跨时间的发现与推理，其过程叙述是**内容**、不得抹除。`11-cp-0-final.md` 索引对「证据 vs 决策」的归类为权威。
 
 ---
 

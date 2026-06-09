@@ -5,7 +5,7 @@
 角色：collaboration step 2 输入 — 交给 Codex 做 Apple / Xcode / Swift-Rust / TextKit 现实性核验
 读者：Codex（执行者）；step-3 Claude（把 Codex 证据回填进可批准的 CP-0）
 
-> 这是 `docs/workbench/anchor/2026-06-06-phase-0/` 下的 workbench 草稿。按 AGENTS / CLAUDE，创建 workbench
+> 这是 `docs/workbench/20260606-anchor-v1/` 下的 workbench 草稿。按 AGENTS / CLAUDE，创建 workbench
 > 目录**不授权**任何 package / workspace / app / lockfile 改动。本 packet 也**不**授权实现。
 
 ---
@@ -35,17 +35,17 @@
 
 ## 1. 输入材料（自含，Codex 必读）
 
-1. **主方案：** `docs/plans/2026-06-06-anchor-apple-native-note-workbench.md`
+1. **主方案：** `01-apple-native-note-workbench.md`
    （Apple 原生优先的 Note 知识工作台；§3 平台路线、§8 架构、§11 阶段0产物、§12 验收命令、§13 风险）。
-2. **冲突方案：** `docs/plans/2026-06-06-anchor-conflict-resolution-model.md`
+2. **冲突方案：** `02-conflict-resolution-model.md`
    （v1 冲突处置模型，增强主方案 §8.3–8.5；§3 register 模型、§5 各 register 合并、§7 op 信封、§9 ConflictRecord）。
 3. **本仓规则：** `AGENTS.md` / `CLAUDE.md`（workspace 三层、tsconfig 深度规则、prepack、publishable 字段、workbench 规则）。
 4. **同目录配套草稿（与本 packet 同属 6 文件 Phase-0 packet，文件名以本目录实际为准）：**
-   - `project-layout-options.md` —— 推荐布局 `suites/anchor/*` 与张力分析；**V1/V4 的布局核验以此为锚点。**
+   - `07-project-layout-options.md` —— 推荐布局 `suites/anchor/*` 与张力分析；**V1/V4 的布局核验以此为锚点。**
    - `contract-baseline-draft.md` —— Phase-0 责任基线；其 `Editor baseline`（含 `anchor-editor-core` 模块边界、`EditorIntent`/`EditorPatch`、UTF-16 offset 对外单位）支撑 V5/V6，其 `Sync baseline`（`OpSyncPort`、iCloud Drive 适配器、core 纯文件 I/O）支撑 V7。
    - `key-decisions-draft.md` —— 待冻结决策表（即 CP-0 决策包草案，含 binding 机制 D01、布局 D02、blob cap D17、UTF-16 边界 D18、selection 相关条款等）；V8 的 clause-impact 须回指此表的对应 Dnn。
    - `fixture-set-draft.md` —— Phase-0 fixture 设计（id / name / 锻炼什么 / 支撑哪条验收断言，不写测试代码），供你判断验证手段是否有 fixture 锚点。
-   - `research-notes.md` —— Observed / Inferred / Unknown 调研分桶；你新增的 Observed/Inferred/Unknown 应与此对齐。
+   - `03-research-notes.md` —— Observed / Inferred / Unknown 调研分桶；你新增的 Observed/Inferred/Unknown 应与此对齐。
 
 **已核验的 ground-truth（你可视为 Observed，无需重验，但欢迎反证）：**
 
@@ -101,7 +101,7 @@
 
 ### V1 — 推荐目录结构在 bun/TS workspace 下的现实性
 
-**Context：** spine 推荐 `suites/anchor/{core, cli, apple, fixtures, Cargo.toml}`（见 `project-layout-options.md`）。但
+**Context：** spine 推荐 `suites/anchor/{core, cli, apple, fixtures, Cargo.toml}`（见 `07-project-layout-options.md`）。但
 `package.json` 的 `workspaces` 含 `suites/*/*`，根 `tsconfig.json` 的 `include` 只匹配 `suites/*/*/src/**/*.ts(x)`。
 `suites/anchor` 下将出现 Rust crate（`core`、`cli`）、Xcode 工程目录（`apple`）、`Cargo.toml`、`fixtures/`——**全是非 TS/非 bun-package 目录**。
 

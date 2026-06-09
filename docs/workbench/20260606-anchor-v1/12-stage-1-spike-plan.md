@@ -1,22 +1,22 @@
 # Anchor Phase 0 — Stage 1 探索验证（spike）计划
 
 日期：2026-06-07
-状态：CP-0 整合稿（Step 3，Claude 整合 Codex Apple 验证证据）。本文件**只规划 Stage 1 spike，不实现**。CP-0 已批准（见 `cp-0-approval.md` §0）；本文件是 CP-1 / Stage 1 的执行计划，启动 briefing 见 `stage-1-entry-brief.md`，CP-0 冻结结论与进入 Stage 1 禁止的顺手扩展见 `cp-0-final.md`。
+状态：CP-0 整合稿（Step 3，Claude 整合 Codex Apple 验证证据）。本文件**只规划 Stage 1 spike，不实现**。CP-0 已批准（见 `10-cp-0-approval.md` §0）；本文件是 CP-1 / Stage 1 的执行计划，启动 briefing 见 `13-stage-1-entry-brief.md`，CP-0 冻结结论与进入 Stage 1 禁止的顺手扩展见 `11-cp-0-final.md`。
 
 > 边界声明（强制）：本文件是 workbench 工件，**不是公开接口契约**。创建 workbench 目录**不授权**任何 package / workspace / app / lockfile 改动，也不授权创建 `suites/anchor` / `apps/anchor-*` / `packages/anchor-*` / 顶层 `anchor-apple/` / Xcode project / Swift Package / Rust crate / entitlements / bundle id / iCloud container，更不授权改动 `package.json` / `bun.lock` / 任何 `tsconfig` / workspace 配置或写任何 Rust / Swift / TS 代码。本文件**不创建任何工程**，所有命令均为**目标态命令骨架**，标注其执行态（Observed / Recommended / Not run）。
 >
-> CP-1 对齐：所有 spike 须落成正式验证（`cargo test -p anchor-core` 把 core spike case 固化为测试，Apple spike 留可重复命令或 Xcode scheme + spike 报告）；**通过前不实现持久应用写入**（plan §11 CP-1、§12 验收）。Spike 通过即把任何「必须调整的模型点」回填 contract-baseline.md / key-decisions.md。
+> CP-1 对齐：所有 spike 须落成正式验证（`cargo test -p anchor-core` 把 core spike case 固化为测试，Apple spike 留可重复命令或 Xcode scheme + spike 报告）；**通过前不实现持久应用写入**（plan §11 CP-1、§12 验收）。Spike 通过即把任何「必须调整的模型点」回填 04-contract-baseline.md / 05-key-decisions.md。
 
 标注语义：
 
-- **Observed**：Codex 本机实跑或官方文档直接支持（证据见 apple-verification.md）。
+- **Observed**：Codex 本机实跑或官方文档直接支持（证据见 09-apple-verification.md）。
 - **Recommended**：建议的目标态命令骨架 / spike 设计。
 - **Needs Stage 1 spike**：机制可行性已验证，但 Anchor 专属构建/运行未证，留待本 Stage 1。
 - **Needs user approval**：触 workspace/package/Apple project 边界、新公开 CLI schema、加密所有权、付费 Apple Developer Program、entitlement/容器、plan §13 暂停条件。
 - **Blocked**：当前环境无法验证，被硬门控。
 - **Not run**：未执行项，不得当已验证事实。
 
-引用：plan = `docs/plans/2026-06-06-anchor-apple-native-note-workbench.md`；conflict = `docs/plans/2026-06-06-anchor-conflict-resolution-model.md`；Phase 0 Codex 验证 = `docs/workbench/anchor/2026-06-06-phase-0/apple-verification.md`；Stage 1 reports = `docs/workbench/anchor/2026-06-07-stage-1/`。同目录姐妹文件以相对名引用（key-decisions.md、fixture-set.md、contract-baseline.md、project-layout-options.md）。
+引用：plan = `01-apple-native-note-workbench.md`；conflict = `02-conflict-resolution-model.md`；Phase 0 Codex 验证 = `09-apple-verification.md`；Stage 1 reports = `docs/workbench/20260606-anchor-v1/`。同目录姐妹文件以相对名引用（05-key-decisions.md、06-fixture-set.md、04-contract-baseline.md、07-project-layout-options.md）。
 
 ---
 
@@ -36,18 +36,18 @@ set -x DEVELOPER_DIR /Applications/Xcode.app/Contents/Developer
 rustup target add aarch64-apple-ios aarch64-apple-ios-sim
 ```
 
-- **Observed**：Xcode 26.5 (Build 17F42)、macOS SDK 26.5、iOS SDK 26.5、iOS Simulator SDK 26.5、iOS 26.2/26.4/26.5 模拟器设备可用（经一次性 `DEVELOPER_DIR` 前缀；默认 `xcode-select` 指向 CommandLineTools）。详见 apple-verification.md §2.2、§4.1。
-- **Observed**：Stage 1 本机已安装 `aarch64-apple-ios` / `aarch64-apple-ios-sim`，并完成 macOS / iOS / iOS-sim Rust builds 与 C ABI / UniFFI three-slice XCFramework creation（见 `../2026-06-07-stage-1/apple-binding-report.md`）。
+- **Observed**：Xcode 26.5 (Build 17F42)、macOS SDK 26.5、iOS SDK 26.5、iOS Simulator SDK 26.5、iOS 26.2/26.4/26.5 模拟器设备可用（经一次性 `DEVELOPER_DIR` 前缀；默认 `xcode-select` 指向 CommandLineTools）。详见 09-apple-verification.md §2.2、§4.1。
+- **Observed**：Stage 1 本机已安装 `aarch64-apple-ios` / `aarch64-apple-ios-sim`，并完成 macOS / iOS / iOS-sim Rust builds 与 C ABI / UniFFI three-slice XCFramework creation（见 `./17-apple-binding-report.md`）。
 - **Observed / scoped**：`suites/anchor/core` 与 `suites/anchor/apple` 为 Stage 1 最小验证工程；repo-local product app target build 仍不在 scope。任何产品 app shell、持久应用写入、workspace/root lockfile 改动仍需单独授权。
-- **Needs user approval / 实现授权**：layout 已由用户批准 = Option A `suites/anchor`（2026-06-07，见 project-layout-options.md、key-decisions.md D02）；spike 实跑前仍须**目录 / 工程的实际创建动作**获实现授权。Apple 命令统一用 `-derivedDataPath` 避免 DerivedData 落进 repo；直接验证 Swift package 须在 package cwd 跑 `xcodebuild -list`（Codex Observed：本机 Xcode 26.5 不支持 `xcodebuild -list -packagePath`）。
+- **Needs user approval / 实现授权**：layout 已由用户批准 = Option A `suites/anchor`（2026-06-07，见 07-project-layout-options.md、05-key-decisions.md D02）；spike 实跑前仍须**目录 / 工程的实际创建动作**获实现授权。Apple 命令统一用 `-derivedDataPath` 避免 DerivedData 落进 repo；直接验证 Swift package 须在 package cwd 跑 `xcodebuild -list`（Codex Observed：本机 Xcode 26.5 不支持 `xcodebuild -list -packagePath`）。
 
 ---
 
 ## 1. Core deterministic spikes
 
-**Owner：Claude / core。** 目标：把 plan §11 阶段1 确定性 core 产物与 conflict §13.2 全部冲突 fixture 落成跨运行/跨设备确定性可 replay 的正式测试。覆盖 fixture-set.md F01–F43 中的 core 项与 conflict fixture（F23–F35）。Codex 验证此组**无 Apple 依赖**：算法纯在 Rust core，跨平台一致由「同一编译产物」保证（apple-verification.md §5.3、§8.4 关于 diff3/order-key 的结论）。
+**Owner：Claude / core。** 目标：把 plan §11 阶段1 确定性 core 产物与 conflict §13.2 全部冲突 fixture 落成跨运行/跨设备确定性可 replay 的正式测试。覆盖 06-fixture-set.md F01–F43 中的 core 项与 conflict fixture（F23–F35）。Codex 验证此组**无 Apple 依赖**：算法纯在 Rust core，跨平台一致由「同一编译产物」保证（09-apple-verification.md §5.3、§8.4 关于 diff3/order-key 的结论）。
 
-**Commands（core owner observed; see `../2026-06-07-stage-1/core-evidence.md`）：**
+**Commands（core owner observed; see `./15-core-evidence.md`）：**
 
 ```fish
 cd suites/anchor
@@ -95,9 +95,9 @@ cargo build -p anchor-core --target aarch64-linux-android
 
 ## 2. Apple binding spike
 
-**Owner：Codex / Apple**（被调用的 Anchor DTO / fixture / `TransactionResult` 真值由 Claude / core 提供）。Binding 决策面采用 **UniFFI DTO / ordinary dispatch + C ABI bytes fast path**（key-decisions.md D01）。
+**Owner：Codex / Apple**（被调用的 Anchor DTO / fixture / `TransactionResult` 真值由 Claude / core 提供）。Binding 决策面采用 **UniFFI DTO / ordinary dispatch + C ABI bytes fast path**（05-key-decisions.md D01）。
 
-**Codex status（apple-verification.md §4、§5；Stage 1 apple-binding-report.md）：**
+**Codex status（09-apple-verification.md §4、§5；Stage 1 17-apple-binding-report.md）：**
 
 - **Observed**：scratch host 路径已实跑——Rust staticlib + C ABI + SwiftPM executable link/run 成功；UniFFI 0.31.1 经 project-local `cargo run` 生成并运行 minimal record/bytes Swift binding（`Data` mapping 可运行）；one-slice macOS XCFramework creation 成功。
 - **Observed**：Stage 1 installed Rust iOS targets; `anchor-core` builds for macOS / iOS / iOS-sim; C ABI and UniFFI wrappers build three staticlib slices; both XCFrameworks are created; SwiftPM wrapper imports; generated Swift smoke calls fixture summary, `EditorIntentDto`, `TransactionResultSummary`, typed `ValidationError`, post-dispatch snapshot revision, `SegmentId`, segment bytes, and blob bytes.
@@ -146,15 +146,15 @@ xcodebuild -scheme AnchorCoreBindings -destination 'generic/platform=iOS Simulat
 - Generated Swift synchronous smoke passes Swift 6 strict concurrency + warnings-as-errors against release artifacts.
 - 1/4/16/64MB benchmark gives the primary/fast-path decision: UniFFI for DTO / ordinary dispatch, C ABI for bulk bytes.
 
-**Failure conditions（apple-verification.md §5.2/§5.3）：** DTO shape 不被 UniFFI 干净支持；generated Swift 无法过 Swift 6 strict concurrency；structured errors 退化成 strings；C ABI bytes fast path 无法保留；async boundary 要求 Anchor 不能接受的 Rust runtime 假设；modulemap/header mismatch 或缺 slice 导致 XCFramework 不可 import。
+**Failure conditions（09-apple-verification.md §5.2/§5.3）：** DTO shape 不被 UniFFI 干净支持；generated Swift 无法过 Swift 6 strict concurrency；structured errors 退化成 strings；C ABI bytes fast path 无法保留；async boundary 要求 Anchor 不能接受的 Rust runtime 假设；modulemap/header mismatch 或缺 slice 导致 XCFramework 不可 import。
 
 ---
 
 ## 3. Text surface adapter spike
 
-**Owner：Codex / Apple + Claude `anchor-editor-core` 合约。** 目标：证明 NSTextView/UITextView/TextKit 事件可转 `EditorIntent`、`EditorPatch` 可回放到 native view model，且 TextKit buffer 始终是 projection 不是真理。覆盖 fixture-set.md F19–F22。`anchor-editor-core` 只拥有 portable selection / intent shaping / 提升降级 / paste-fragment shaping / 跨 block 拆分**建议** / platform patch 生成 / undo-intent 映射；tree invariant / normalization / op creation / 最终非法结构拒绝归 `anchor-core::dispatch`。
+**Owner：Codex / Apple + Claude `anchor-editor-core` 合约。** 目标：证明 NSTextView/UITextView/TextKit 事件可转 `EditorIntent`、`EditorPatch` 可回放到 native view model，且 TextKit buffer 始终是 projection 不是真理。覆盖 06-fixture-set.md F19–F22。`anchor-editor-core` 只拥有 portable selection / intent shaping / 提升降级 / paste-fragment shaping / 跨 block 拆分**建议** / platform patch 生成 / undo-intent 映射；tree invariant / normalization / op creation / 最终非法结构拒绝归 `anchor-core::dispatch`。
 
-**Codex 现状（apple-verification.md §6）：**
+**Codex 现状（09-apple-verification.md §6）：**
 
 - **Observed**：NSTextView/UITextView adapter 编译面 macOS + iOS sim 通过；macOS NSTextView runtime 可设 UTF-16 selection、layout manager/text container 可用、`UndoManager` semantic undo closure 可执行（`textkit:utf16=16`、`textkit:selected=1:8`、`textkit:undo_events=semantic-inverse-intent`）。
 - **Not run**：real input event capture、hit-testing、IME marked text、direct buffer undo interception、undo grouping、accessibility range、patch replay、跨 view selection。
@@ -166,22 +166,22 @@ xcodebuild -scheme AnchorCoreBindings -destination 'generic/platform=iOS Simulat
 | single-block text selection | `EditorSelection::Text { block_id, range_utf16, affinity }`；selection 经受 patch replay | F19 |
 | block selection | hit-tested block ids → `EditorSelection::Block`；支持 move/wrap/delete/duplicate/tag/type/prop/copy-link/transclude | F20 |
 | embedded editor selection | code payload 局部选择 → `EditorSelection::Embedded`；`Esc` 退到 block selection、重复 `Cmd+A` 从 code promote 到 block/workspace（promote/demote 归 editor-core） | F21 |
-| undo via NSUndoManager semantic inverse intent | `NSUndoManager` 注册 semantic undo 调 `anchor-core::dispatch` 传 inverse intent/op；**suppress / isolate direct buffer undo**；buffer direct undo 仅限 commit 前 transient composition | F19；contract-baseline.md「Editor baseline」（anchor-editor-core undo-intent 映射，归 editor 合约面，不绑编号决策） |
+| undo via NSUndoManager semantic inverse intent | `NSUndoManager` 注册 semantic undo 调 `anchor-core::dispatch` 传 inverse intent/op；**suppress / isolate direct buffer undo**；buffer direct undo 仅限 commit 前 transient composition | F19；04-contract-baseline.md「Editor baseline」（anchor-editor-core undo-intent 映射，归 editor 合约面，不绑编号决策） |
 | IME marked text / accessibility / hit-testing | composition 为 transient，commit point 成 `EditorIntent`；accessibility range 与 hit-testing 基础行为 | F19 |
 | **跨 block 连续选择（spike-only，非首期承诺）** | editor-core 可对 cross-block edit intent 做 shape/split **建议**；**不**承诺 polished continuous native selection；难点：多 text view 连续选择、accessibility range、IME、跨 buffer undo grouping、跨 disappearing/splitting block 的 patch replay | F22 |
 | UTF-16 offset 换算正确性 | emoji / ZWJ / combining mark / CRLF/newline / IME marked text fixture 下，对外 UTF-16 code unit 与 core 内部单位的换算逐字节正确（一次确定性换算于 binding 边界） | F19；D18 |
 
 **Evidence：** spike 报告列出 single-block / block / embedded / 跨 block 选择各自的通过/失败证据（plan §11、§12）；UTF-16 fixture（emoji/ZWJ/combining/CRLF/IME）换算逐字节正确；undo 经 dispatch 产生 core op 且 buffer direct undo 被 suppress。
 
-**Failure conditions：** undo 能在不产生 core op 的情况下修改 TextKit buffer（buffer 成隐藏真理，editor boundary 失效，apple-verification.md §6.4）；`NSAttributedString` attributes 被用来存 ref/tag/link 语义；platform range 跨 patch replay/IME/block movement 漂移未在 adapter 边界转换；UTF-16 换算在 composed character 下偏移。
+**Failure conditions：** undo 能在不产生 core op 的情况下修改 TextKit buffer（buffer 成隐藏真理，editor boundary 失效，09-apple-verification.md §6.4）；`NSAttributedString` attributes 被用来存 ref/tag/link 语义；platform range 跨 patch replay/IME/block movement 漂移未在 adapter 边界转换；UTF-16 换算在 composed character 下偏移。
 
 ---
 
 ## 4. iCloud Drive adapter spike
 
-**Owner：Codex / Apple。** **前置：付费 Apple Developer Program team + signed app + iCloud container +真实 account。** Stage 1 结论为 **approved default transport with compromise constraints**：iCloud Drive 已获用户批准作为首期 default transport（2026-06-07），但交付仍受 scale、placeholder、account-state 与 conflict-resolution policy gate 约束；core 永不出现云类型。覆盖 fixture-set.md F34（iCloud Drive re-delivery / duplicate segment 面）。
+**Owner：Codex / Apple。** **前置：付费 Apple Developer Program team + signed app + iCloud container +真实 account。** Stage 1 结论为 **approved default transport with compromise constraints**：iCloud Drive 已获用户批准作为首期 default transport（2026-06-07），但交付仍受 scale、placeholder、account-state 与 conflict-resolution policy gate 约束；core 永不出现云类型。覆盖 06-fixture-set.md F34（iCloud Drive re-delivery / duplicate segment 面）。
 
-**Codex status（apple-verification.md §2.6、§7；Stage 1 icloud-drive-report.md）：**
+**Codex status（09-apple-verification.md §2.6、§7；Stage 1 19-icloud-drive-report.md）：**
 
 - **Observed（编译面 + 付费 team iCloud entitlement）**：iCloud adapter Foundation API（`url(forUbiquityContainerIdentifier:)`、`NSMetadataQuery`、`NSFileCoordinator`）编译面 macOS/iOS sim 可行（`ICloudAdapterProbe` 编译通过）；**用户已开通付费 ADP（Individual）team（`isFreeProvisioningTeam=0`）**，demo project 经 automatic signing 生成含 iCloud Documents entitlement 的 profile + signed device artifact，并在真机返回 **non-nil ubiquity container URL**（§2.6）。
 - **Observed（signed runtime）**：physical iPhone probe passed explicit/implicit ubiquity container lookup, `.anchorvault` package type id, `NSFileCoordinator` read/write, current-item download call, 1024-file write subset, and online convergence. Real signed macOS app passed automatic signing/provisioning/build/runtime, package-level metadata discovery, direct package-internal enumeration, 10K/50K/100K package-internal scale direct enumeration, and offline `NSFileVersion` conflict materialization.
@@ -201,7 +201,7 @@ xcodebuild -scheme AnchorCoreBindings -destination 'generic/platform=iOS Simulat
 | signed-out / over-quota | 真实 account/device 上观测 signed-out 与 over-quota 状态（simulator 无法证明时） | Needs Stage 1 spike（付费 team 已开通） |
 | **local-only 路径判定边界（D21 / D21a）** | resolved path 是否解析进 ubiquity 的判定：正常 iCloud Drive 路径、app ubiquity `Documents/`、指向 iCloud 的 symlink、iCloud 内指向外部的 symlink、外部卷、挪动后恢复的 security-scoped bookmark、Finder 挪动的 package 目录、`.icloud` placeholder、signed-out；判定可靠时 `sync="none"` 误放→ typed `local_only_vault_in_ubiquity`、拒开、不挂 adapter | Needs Stage 1 spike（判定不可靠则按 D21a 减弱 product claim） |
 | **segment-file-count scale（1K/10K/50K/100K）** | 逐档真机测 direct enumeration + metadata discovery latency、duplicate re-delivery、CPU/RSS、UI 阻塞；记录每档 go/compromise/no-go（Apple **不文档化任何规模数字**，全须实测，apple-verification §7.5） | macOS direct enumeration passed 1K/10K/50K/100K; package-internal metadata returned 0; iOS large-scale delivery not run |
-| **placeholder / cold-start replay** | 冷/新设备多少 segment 为 `.notDownloaded`、批量 materialize 成本、是否必须全下才能 replay、深度 time-travel 重建需 force-download archived/evicted segment 的成本（apple-verification §7.5；key-decisions.md D38） | Needs Stage 1 spike |
+| **placeholder / cold-start replay** | 冷/新设备多少 segment 为 `.notDownloaded`、批量 materialize 成本、是否必须全下才能 replay、深度 time-travel 重建需 force-download archived/evicted segment 的成本（apple-verification §7.5；05-key-decisions.md D38） | Needs Stage 1 spike |
 | **coordinated read/write at scale** | per-segment `coordinate()` vs 一次 `prepare()` 批量的延迟/阻塞；segment 读全程 off-main + 先 gate 下载状态；presenter 进后台 `removeFilePresenter` 防死锁（apple-verification §7.5） | Needs Stage 1 spike |
 | **manifest 方案对比** | per-device immutable cursor（默认）vs shared mutable manifest（winner 不确定、requires explicit resolution policy）vs epoch manifest vs directory-listing 推导：conflict/文件数/GC 正确性/frontier 维护（apple-verification §7.5；本节 manifest 对比表） | runtime conflict materialization passed; product policy open |
 | **blob in package at 50MB** | 50MB blob 在 file package 内 placeholder/materialize/上传/驱逐 + UI 阻塞；blob 与 op-segment 分目录/节奏/GC（cap=50MB，D17） | Needs Stage 1 spike |
@@ -230,7 +230,7 @@ rg -n "OpSyncPort|push_segment|pull_segment|SegmentId|BlobId" suites/anchor/core
 
 **Evidence：** 付费 team 下生成含 iCloud entitlement 的 profiles；真实账户返回 container；vault package type id 可读；package-level metadata discovery works；package-internal direct enumeration works through 100K files on signed macOS app；package-internal metadata query does not discover `.seg` files; coordinated read/write succeeds；current local download call succeeds on iOS；online concurrent writes converge；offline fork exposes unresolved `NSFileVersion` conflict；core 审计第一条命令零命中（无云符号），第二条命中 `OpSyncPort` / `SegmentId` / `BlobId`。
 
-**Failure conditions（apple-verification.md §7.4）：** core 需要 cloud/account/file-coordination types 才能 merge 或 read bytes（`OpSyncPort` boundary 失效）；package-internal segment discovery depends on `NSMetadataQuery`; unresolved file versions are silently ignored; transport delivery produces roughly one synced segment per logical op; vault package lacks `com.apple.package` declaration.
+**Failure conditions（09-apple-verification.md §7.4）：** core 需要 cloud/account/file-coordination types 才能 merge 或 read bytes（`OpSyncPort` boundary 失效）；package-internal segment discovery depends on `NSMetadataQuery`; unresolved file versions are silently ignored; transport delivery produces roughly one synced segment per logical op; vault package lacks `com.apple.package` declaration.
 
 **二期前瞻（不进首期；路线已获用户批准 B8，2026-06-07）：** 单附件 cap = **50MB**（D17，对齐 archived CloudKit `CKAsset` 50MB 上限）。CloudKit 始终作为同一 `OpSyncPort` 后的 Swift adapter，record schema 永不进 core；op 形状须在任何 CloudKit 记录落地前冻结。
 
@@ -238,7 +238,7 @@ rg -n "OpSyncPort|push_segment|pull_segment|SegmentId|BlobId" suites/anchor/core
 
 ## 5. Mirror / search parity spike
 
-**Owner：Claude / core。** 目标：证明 post-commit mirror 是有损派生导出、其失败只影响 freshness/diagnostics 而 op-log 不回滚；structured search/backlinks 与对 mirror 跑 ripgrep 的 parity。覆盖 fixture-set.md F36（及 F16/F17 backlink 面）。
+**Owner：Claude / core。** 目标：证明 post-commit mirror 是有损派生导出、其失败只影响 freshness/diagnostics 而 op-log 不回滚；structured search/backlinks 与对 mirror 跑 ripgrep 的 parity。覆盖 06-fixture-set.md F36（及 F16/F17 backlink 面）。
 
 **Commands（Recommended / Not run）：** 随 spike 组 1 同在 `cargo test -p anchor-core`；parity 报告对比 structured search 与 exported `.md` 上的 ripgrep（plan §12 手动/artifact 证据）。
 
@@ -261,6 +261,6 @@ rg -n "OpSyncPort|push_segment|pull_segment|SegmentId|BlobId" suites/anchor/core
 - **World A 受保护不变量：** core 多目标编译 gate 通过（`anchor-core` 编到 `wasm32-unknown-unknown` + `aarch64-linux-android`，D36）；client 零真理逻辑 grep 红线通过（D37）。
 - spike 组 2、3（Codex/Apple + editor 合约）有可重复命令或 Xcode scheme + spike 报告；Stage 1 reports 已覆盖 binding round-trip、bytes benchmark、synchronous Swift 6 strict-concurrency release smoke、TextKit macOS smoke 和 iOS compile。Binding 产品边界已批准（B4，2026-06-07）；release gates 是 final DTO/error vocabulary、UniFFI async `Sendable` surface、product wrapper/CI 复现、real app responder-chain undo/IME/accessibility proof。
 - spike 组 4（iCloud）保留 runtime evidence matrix；Stage 1 report 已覆盖 signed container、package UTType、file coordination、package metadata, package-internal direct enumeration, online convergence, offline conflict materialization, and core cloud-symbol audit。未跑项必须标明，不当已验证事实。
-- **iCloud Drive 作首期默认 transport 已批准（cp-0-approval.md B14，2026-06-07）：** 批准形状为 compromise constraints；CP-1 仍需 (a) million-scale operation history 的 replay / merge / compaction / snapshot-fallback / time-travel 证据，(b) batching + compaction 后明确的 steady-state segment-file budget（N 个 op 不产约 N 个 segment），(c) remote placeholder / account-state behavior，(d) product conflict-resolution policy，(e) 四-horizon retention 正确性测试通过；delivery no-go-like result triggers batching/transport design reset and user review.
-- 任何「必须调整的模型点」回填 contract-baseline.md / key-decisions.md / fixture-set.md，决策编号沿用 D01–D38（含 D18a、D21a、D38 time travel）、fixture 编号沿用 F01–F43（含 F42 segment budget、F43 retention）。
+- **iCloud Drive 作首期默认 transport 已批准（10-cp-0-approval.md B14，2026-06-07）：** 批准形状为 compromise constraints；CP-1 仍需 (a) million-scale operation history 的 replay / merge / compaction / snapshot-fallback / time-travel 证据，(b) batching + compaction 后明确的 steady-state segment-file budget（N 个 op 不产约 N 个 segment），(c) remote placeholder / account-state behavior，(d) product conflict-resolution policy，(e) 四-horizon retention 正确性测试通过；delivery no-go-like result triggers batching/transport design reset and user review.
+- 任何「必须调整的模型点」回填 04-contract-baseline.md / 05-key-decisions.md / 06-fixture-set.md，决策编号沿用 D01–D38（含 D18a、D21a、D38 time travel）、fixture 编号沿用 F01–F43（含 F42 segment budget、F43 retention）。
 - **通过前不实现持久应用写入**（plan §11 CP-1）。

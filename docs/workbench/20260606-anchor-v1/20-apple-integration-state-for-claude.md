@@ -37,10 +37,10 @@ Apple spike implementation files:
 
 Workbench reports:
 
-- `docs/workbench/anchor/2026-06-07-stage-1/apple-binding-report.md`
-- `docs/workbench/anchor/2026-06-07-stage-1/textkit-adapter-report.md`
-- `docs/workbench/anchor/2026-06-07-stage-1/icloud-drive-report.md`
-- `docs/workbench/anchor/2026-06-07-stage-1/apple-patch-list-for-claude.md`
+- `17-apple-binding-report.md`
+- `18-textkit-adapter-report.md`
+- `19-icloud-drive-report.md`
+- `20-apple-integration-state-for-claude.md`
 
 Generated artifacts kept out of repo:
 
