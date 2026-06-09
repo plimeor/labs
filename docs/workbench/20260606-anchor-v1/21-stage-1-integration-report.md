@@ -3212,3 +3212,69 @@ B4 binding approval and B14 default transport approval are recorded in the curre
 - **Axis matrix delta:** none; binding remains `approved boundary / partially release-gated`.
 - **Gate evaluation:** CONTINUE for non-distribution gates. Do not claim Developer ID notarization or App Store/TestFlight distribution without a distribution identity and a product archive/upload artifact.
 - **New doc:** `docs/workbench/20260606-anchor-v1/68-developer-id-signing-availability-rerun-report.md`
+
+## 59. Progress ledger update — 2026-06-10 — physical iPhone iCloud runtime rerun
+
+本节追加 `69-physical-iphone-icloud-runtime-rerun-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 core side complete；Apple half 仍 release / delivery gated；CP-1 whole-exit 未退出。
+
+### 59.1 Axis matrix after doc 69
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go** — unchanged after doc 69 |
+| multi-target compile | **go** — unchanged after doc 69 |
+| zero-cloud-symbol boundary | **go** — unchanged after doc 69 |
+| binding（B4） | **approved boundary / partially release-gated** — development-signed physical-device build/install/launch observed; Developer ID / App Store distribution remains open |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — unchanged after doc 69 |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — physical iPhone ubiquity container and file-coordinated segment write/read mechanism floor closed; true remote `.icloud` placeholder, metadata propagation, and product sync remain open |
+| layout / retention | **compromise** — unchanged after doc 69 |
+| cross-target execution CI | **closed as hosted machine gate** — unchanged after doc 69 |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 59.2 Open-gate checklist after doc 69
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| physical iPhone CoreDevice availability | closed / observed | `69 §3.1` |
+| physical iPhone lock-state precondition | **closed / `unlockedSinceBoot=true` observed** | `69 §3.1` |
+| Xcode-managed development-signed iPhoneOS build | closed / observed | `69 §3.2` |
+| physical iPhone entitlement readback | closed / observed | `69 §3.3` |
+| physical iPhone app install | closed / observed | `69 §3.3` |
+| physical iPhone app launch | **closed / observed** | `69 §3.4` |
+| physical iPhone explicit / implicit ubiquity container URL | **closed / non-nil observed** | `69 §3.4` |
+| physical iPhone file-coordinated segment write/read | **closed / bytes `28`, equal `true`** | `69 §3.4` |
+| physical iPhone 1024-file subset write | observed / not remote-delivery proof | `69 §3.4` |
+| iOS package-internal metadata propagation | **open / metadata gathered `false`, count `0`** | `69 §3.4` |
+| iOS true remote `.icloud` placeholder/download | **open / `segment_is_ubiquitous=false`, `start_download_error=NSCocoaErrorDomain:4`** | `69 §3.4` |
+| iOS/non-macOS end-to-end CloudDocuments delivery | open / local container mechanism only | `69 §4` |
+| actual signed-out account runtime | open / not run | `64 §4` |
+| actual over-quota account runtime | open / not run | `64 §4` |
+| product compaction integration from real op-log to sealed/compacted segment files | open / not implemented | `65 §4` |
+| million-op replay / merge / compaction inside real iCloud product context | open / not run | `65 §4` |
+| product conflict-resolution UX / core integration | open / not implemented | `39 §4`-`§5` |
+| product TextKit/UI runtime integration | open / not implemented | `66 §4` |
+| Developer ID Application identity | open / no match observed locally | `68 §3.2` |
+| Developer ID Installer identity | open / no match observed locally | `68 §3.2` |
+| Apple Distribution identity | open / no match observed locally | `68 §3.2` |
+| CP-1 whole-exit | open / human sign-off not reached | this section |
+
+### Ledger entry — 2026-06-10 — iteration 48 — doc 69-physical-iphone-icloud-runtime-rerun-report.md
+
+- **Checkpoint / cursor:** CP-1 Apple half, physical iPhone iCloud delivery / signed-device runtime gate.
+- **Action selected:** rerun the Xcode-managed development-signed physical iPhone CloudDocuments verifier after `devicectl` reported the device available and `lockState` reported unlocked since boot.
+- **Owner classification:** Apple/iCloud verifier → executed with repo-external Xcode-created probe project; no repo Apple project, product app, root workspace, public CLI schema, or core production source mutation.
+- **Scope-fence check:** passed — no root workspace / package / lockfile changes; no public CLI schema; no repo product app shell; no CloudKit/CKSyncEngine path; no core cloud-symbol exposure.
+- **Evidence (Observed = command + output):**
+  - `devicectl device info lockState` → `passcodeRequired=false`, `unlockedSinceBoot=true`.
+  - `xcodebuild -showdestinations ... AnchorProvisionProbe` → physical iPhone destination `00008130-0002093A01D3803A` visible.
+  - `xcodebuild ... -destination 'platform=iOS,id=00008130-0002093A01D3803A' ... build` → CloudDocuments / ubiquity entitlements and `** BUILD SUCCEEDED **`.
+  - `codesign -d --entitlements :- AnchorProvisionProbe.app` → `<ICLOUD_CONTAINER>` and `CloudDocuments` entitlement readback.
+  - `devicectl device install app ... AnchorProvisionProbe.app` → app installed with bundle id `dev.plimeor.AnchorProvisionProbe`.
+  - `devicectl device process launch ... --icloud-runtime-probe` → app launched; explicit/implicit ubiquity containers non-nil; vault package observed ubiquitous; coordinated segment bytes `28`; segment equality `true`; `segment_is_ubiquitous=false`; `start_download_error=NSCocoaErrorDomain:4`; metadata gathered `false`; scale subset 1024 files wrote in `3786.20ms`; `cleanup_removed=true`.
+  - Manual termination after output → `App terminated due to signal 15`; not counted as an iCloud probe failure.
+- **Gates closed this iteration:** physical iPhone verifier app launch; physical iPhone CloudDocuments container availability; physical iPhone file-coordinated segment write/read mechanism floor.
+- **Gates still open:** true remote placeholder/download, iOS metadata propagation, end-to-end iOS CloudDocuments delivery, account-state runtimes, product compaction/iCloud context, product conflict resolver integration, product TextKit/UI integration, Developer ID/App Store distribution, CP-1 whole-exit.
+- **Backfill to 04/05/06:** none; this is runtime evidence against existing B14 / CP-1 delivery gates.
+- **Axis matrix delta:** iCloud remains `approved default transport WITH compromise constraints`; physical iPhone launch and local iCloud container mechanism move from blocked/open to closed/observed; remote delivery remains open.
+- **Gate evaluation:** CONTINUE for remaining non-device-local delivery gates. Do not claim true remote `.icloud` placeholder, package metadata delivery, product sync, or CP-1 exit from this local physical-device runtime floor.
+- **New doc:** `docs/workbench/20260606-anchor-v1/69-physical-iphone-icloud-runtime-rerun-report.md`
