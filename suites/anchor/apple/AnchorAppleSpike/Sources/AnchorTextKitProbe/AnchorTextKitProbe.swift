@@ -115,6 +115,13 @@ public struct AppKitMenuCommandRoutingResult: Equatable {
     public let blockATextAfterAction: String
     public let blockBTextAfterAction: String
 }
+
+public struct AppKitResponderUndoSuppressionResult: Equatable {
+    public let undoActionHandled: Bool
+    public let semanticUndoEvents: [String]
+    public let textAfterUndoAction: String
+    public let textViewAllowsUndo: Bool
+}
 #endif
 
 public final class NativeEditorAdapterProbe {
@@ -200,6 +207,7 @@ private final class UndoEventRecorder: NSObject {
 private final class IntentCapturingTextView: NSTextView {
     private let blockID: String
     private let backingStorage: NSTextStorage?
+    private var semanticUndoHandler: (() -> Void)?
     private(set) var capturedIntents: [EditorIntentProbe] = []
 
     init(blockID: String) {
@@ -261,6 +269,14 @@ private final class IntentCapturingTextView: NSTextView {
         }
 
         super.deleteBackward(sender)
+    }
+
+    func routeUndoToSemanticHandler(_ handler: @escaping () -> Void) {
+        semanticUndoHandler = handler
+    }
+
+    @objc func undo(_ sender: Any?) {
+        semanticUndoHandler?()
     }
 
     private func captureSplitIntent() {
@@ -601,6 +617,45 @@ public final class MacTextKitRuntimeProbe {
             blockBIntents: viewB.capturedIntents,
             blockATextAfterAction: viewA.string,
             blockBTextAfterAction: viewB.string
+        )
+    }
+
+    public func appKitResponderUndoSuppressionProbe() -> AppKitResponderUndoSuppressionResult {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 600, height: 200),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        let textView = IntentCapturingTextView(blockID: "blk_a")
+        textView.string = "edited text"
+        textView.allowsUndo = false
+        window.contentView?.addSubview(textView)
+
+        let recorder = UndoEventRecorder()
+        semanticUndoManager.registerUndo(withTarget: recorder) { target in
+            target.recordSemanticInverseIntent()
+        }
+        textView.routeUndoToSemanticHandler { [semanticUndoManager] in
+            semanticUndoManager.undo()
+        }
+
+        let undoItem = NSMenuItem(
+            title: "Undo",
+            action: #selector(IntentCapturingTextView.undo(_:)),
+            keyEquivalent: "z"
+        )
+        undoItem.keyEquivalentModifierMask = [.command]
+
+        window.makeFirstResponder(textView)
+        let undoAction = undoItem.action ?? #selector(IntentCapturingTextView.undo(_:))
+        let handled = window.firstResponder?.tryToPerform(undoAction, with: undoItem) ?? false
+
+        return AppKitResponderUndoSuppressionResult(
+            undoActionHandled: handled,
+            semanticUndoEvents: recorder.events,
+            textAfterUndoAction: textView.string,
+            textViewAllowsUndo: textView.allowsUndo
         )
     }
 

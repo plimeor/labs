@@ -111,6 +111,13 @@ struct AnchorTextKitSmoke {
         precondition(menuRouting.blockATextAfterAction == "AB")
         precondition(menuRouting.blockBTextAfterAction == "CD")
         print("textkit:appkit_menu_commands=blk_a:split@1,code_1:merge_backward")
+
+        let responderUndo = runtime.appKitResponderUndoSuppressionProbe()
+        precondition(responderUndo.undoActionHandled)
+        precondition(responderUndo.semanticUndoEvents == ["semantic-inverse-intent"])
+        precondition(responderUndo.textAfterUndoAction == "edited text")
+        precondition(!responderUndo.textViewAllowsUndo)
+        print("textkit:appkit_responder_undo=semantic-inverse-intent buffer_unchanged=true")
         #else
         print("textkit:runtime=not-run-on-this-platform")
         #endif
