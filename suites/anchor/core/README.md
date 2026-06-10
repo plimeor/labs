@@ -70,11 +70,20 @@ Resolution (`replay::replay`):
 
 - **`location`** — `{parent, order}` atomic LWW by `T`, with an apply-time cycle
   guard; fractional-index order keys live only in `order` (any precision, never
-  floats).
+  floats). `Renormalize` (order-key maintenance, produced by
+  `Session::dispatch_renormalize_children`) applies **compare-and-swap** (F26c):
+  each op carries the location rev it was computed against, and the whole atomic
+  rebalance macro collapses if any base went stale — a concurrent move always
+  wins over maintenance, and a partial rebalance can never reorder siblings.
 - **`content.body`** — deterministic 3-way **diff3** merge; disjoint hunks
   auto-merge, overlap or unrecoverable base ⇒ **keep-both** (`BodyState::MultiValue`,
   winner = higher `T`, losers pinned) — **never a silent LWW**. UTF-16 mark
-  offsets are re-clamped over merged text.
+  offsets are re-clamped over merged text. A plain edit concurrent with a
+  structural split/merge macro is first run through the deterministic
+  **intent-rebase** (replay-time, log never mutated): hunks entirely on one side
+  of the split point are re-applied onto that side (a tail edit follows its text
+  into the split-created block; an edit on a merged-away block folds into the
+  absorbing block); straddling/unrecoverable cases keep the surface+pin floor.
 - **`content.props[k]` / `type_id`** — causality-aware per-cell LWW (`base_sub_rev`
   guards staleness).
 - **`content.tags[t]`** — OR-Set, add-wins, `op_id` as add-identity.
@@ -103,11 +112,17 @@ let result = session.dispatch(
 assert!(result.validation_error.is_none());
 ```
 
-- `dto::EditorIntent` — `InsertText`, `SetType`, `SetProp`, `AddTag`, `RemoveTag`,
-  `ApplyMark`, `Move`, `SetLife`, and the structural macros `SplitBlock` /
-  `MergeBackward`. Structural macros emit ops sharing a `macro_op_id` and replay
-  **all-or-nothing** (`macro_size`); a partially delivered macro never
-  materializes a half-applied edit.
+- `dto::EditorIntent` — text edits `InsertText` / `DeleteText` / `ReplaceText`
+  (UTF-16 range edits; insert and delete are special cases of replace), content
+  cells `SetType` / `SetProp` / `AddTag` / `RemoveTag`, inline formatting
+  `ApplyMark` / `RemoveMark` (remove trims an overlapping mark to its parts
+  outside the range), tree `Move` / `SetLife`, and the structural macros
+  `SplitBlock` / `MergeBackward` / `CreateBlock`. Structural macros emit ops
+  sharing a `macro_op_id` and replay **all-or-nothing** (`macro_size`); a
+  partially delivered macro never materializes a half-applied edit.
+- Maintenance/bulk producers (not editor intents, same chokepoint):
+  `Session::dispatch_import_markdown` (markdown → one atomic note import) and
+  `Session::dispatch_renormalize_children` (F26 order-key rebalance).
 - `dto::TransactionResult` — `{ changed_ids, validation_error, new_revisions,
   selection_hint, editor_patches, undo_group, conflicts, projection_fresh,
   mirror_fresh }`. (`projection_fresh` / `mirror_fresh` are Stage-1 always-true
@@ -138,6 +153,19 @@ Derived ids: `snapshot_revision` (whole-vault / per-node), `sub_rev` (per cell),
 content-addressed journal id `blake3("journal:" ‖ vault_id ‖ calendar_date)` —
 same vault + same day is always the same Note, by construction.
 
+## Op-segment codec [stable]
+
+`codec::encode_segment(&[Op])` / `codec::decode_segment(&[u8])` are the
+round-trippable **op-log file format**: one canonical JSON array of full D24
+envelopes. Decoding is strict — segments are content-addressed, so the only
+admissible byte form is the canonical one; after decoding, the segment is
+re-encoded and compared byte-for-byte (whitespace, key order, duplicate or
+unknown fields, and non-shortest numbers are all rejected as `NonCanonical`).
+The parser is in-crate (`no_std` + `alloc`, zero deps), admits integers only,
+bounds nesting depth, and refuses an `op_envelope_version` it does not
+understand. `encode → decode → re-encode` is byte-identical, so `SegmentId`
+is stable through the codec.
+
 ## Sync boundary [stable trait, reference adapter]
 
 `sync_port::OpSyncPort` is the transport-agnostic boundary: `list/pull/push`
@@ -149,12 +177,22 @@ re-delivery, content-addressed. `ingest::IngestState` accepts remote ops with
 `op_id` dedup + per-actor monotonic high-water-marks (re-delivery is a no-op;
 ingestion converges).
 
-## Mirrors & search [stable]
+## Mirrors, import & search [stable]
 
 `mirror::export_md` / `export_json` are lossy, post-commit, derived exports — never
 synced; a write failure only affects freshness. `mirror::structured_search` over
 materialized state matches `mirror::ripgrep_md` over the exported `.md`
 (parity-tested). Open body conflicts render as git-style fences in `.md`.
+
+`importer::plan_import` is the markdown **importer** plan: paragraph-granular,
+content-preserving (raw markdown text; blank lines split blocks, single
+newlines stay soft newlines, a fenced code block — CommonMark ``` / ~~~,
+closing fence at least as long as the opener — is one block even across blank
+lines). `Session::dispatch_import_markdown` commits a plan as one atomic
+macro. Parity proof: import → export → re-plan is identity on the block plan,
+and a second cycle is a byte-identical fixed point (`tests/import_export.rs`;
+`tests/import_corpus.rs` soaks the same invariants over an operator-local
+corpus — last run: 330 files / 10,100 blocks, zero loss).
 
 ## Cross-platform guarantee
 
@@ -175,12 +213,10 @@ cargo build  --manifest-path suites/anchor/Cargo.toml --target aarch64-linux-and
 
 ## Not yet ground-floor [planned]
 
-- A round-trippable op-segment **codec** (today `segment_bytes` is a one-way
-  canonical encoding; deserialization back to `Op` is not implemented).
-- A Markdown **importer** (only lossy export exists today).
-- The full `anchor-editor-core` intent surface (the dispatch subset above is a
-  lower bound) and deterministic split/merge **intent-rebase** against concurrent
-  edits (the conflict is currently surfaced, not auto-rebased).
-- The `Renormalize` op producer + stale-base collapse (F26c — the envelope field
-  is reserved; no producer yet).
+- The remainder of the `anchor-editor-core` intent surface beyond the dispatch
+  set above (embedded editors, rich inline structures, multi-block selection
+  edits).
+- Intent-rebase beyond the conservative rules: hunks straddling the split
+  point, chained concurrent edits, and mark-only concurrent edits still take
+  the surface+pin floor by design.
 - The public CLI schema (`cli` crate) — gated to Phase 2 (D31).

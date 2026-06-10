@@ -7,7 +7,6 @@
 //! to prove `open_fixture_vault → dispatch(EditorIntent) → TransactionResult`
 //! round-trips and to feed a `read_segment(SegmentId) -> bytes` benchmark.
 
-use crate::canonical::{canonical_bytes, CanonicalValue};
 use crate::hash;
 use crate::hlc::Hlc;
 use crate::id::journal_note_id;
@@ -86,13 +85,37 @@ pub struct UndoGroup {
     pub inverse_patches: Vec<EditorPatch>,
 }
 
-/// Editor intent (the Stage-1 subset of the `anchor-editor-core` surface).
+/// Editor intent (the core text-editing surface; additive over the Stage-1
+/// subset, so existing bindings keep constructing the original variants).
 #[derive(Clone, Debug)]
 pub enum EditorIntent {
     InsertText {
         target_id: String,
         at: u32,
         text: String,
+    },
+    /// Delete the UTF-16 range `[at, at+len)`.
+    DeleteText {
+        target_id: String,
+        at: u32,
+        len: u32,
+    },
+    /// Replace the UTF-16 range `[at, at+len)` with `text` (the general edit;
+    /// insert and delete are its special cases).
+    ReplaceText {
+        target_id: String,
+        at: u32,
+        len: u32,
+        text: String,
+    },
+    /// Remove `kind` formatting from `[start, end)`: an overlapping mark of
+    /// that kind is trimmed to its parts outside the range (an exact cover
+    /// removes it entirely).
+    RemoveMark {
+        target_id: String,
+        start: u32,
+        end: u32,
+        kind: String,
     },
     SetType {
         target_id: String,
@@ -128,14 +151,21 @@ pub enum EditorIntent {
         life: Life,
     },
     /// Structural editor intents, dispatched via dedicated macro builders: split
-    /// a block at a UTF-16 offset, or merge a block into its previous living
-    /// sibling. Their ops share a `macro_op_id` and replay all-or-nothing (D29).
+    /// a block at a UTF-16 offset, merge a block into its previous living
+    /// sibling, or create a new block under `parent_id` (after
+    /// `after_block_id`, or appended at the end). Their ops share a
+    /// `macro_op_id` and replay all-or-nothing (D29).
     SplitBlock {
         target_id: String,
         at: u32,
     },
     MergeBackward {
         target_id: String,
+    },
+    CreateBlock {
+        parent_id: String,
+        after_block_id: Option<String>,
+        text: String,
     },
 }
 
@@ -309,6 +339,16 @@ impl Session {
         }
     }
 
+    /// An empty session (no fixture content): the entry point for imports and
+    /// for replicas that materialize purely from ingested segments.
+    pub fn open_empty() -> Session {
+        Session {
+            log: Vec::new(),
+            vault: Vault::default(),
+            vault_id: "vault_demo_0001".to_string(),
+        }
+    }
+
     pub fn summary(&self) -> FixtureSummary {
         let note_ids: Vec<String> = self
             .vault
@@ -354,6 +394,14 @@ impl Session {
         if let EditorIntent::MergeBackward { target_id } = &intent {
             return self.dispatch_merge_backward(target_id, stamp);
         }
+        if let EditorIntent::CreateBlock {
+            parent_id,
+            after_block_id,
+            text,
+        } = &intent
+        {
+            return self.dispatch_create_block(parent_id, after_block_id.as_deref(), text, stamp);
+        }
 
         let selection_hint = self.selection_hint(&intent);
         let op = match self.build_op(&intent, &stamp) {
@@ -384,6 +432,150 @@ impl Session {
         };
         let changed_ids = changed_ids_for_patches(&editor_patches);
         self.commit(ops, changed_ids, selection_hint, editor_patches, None)
+    }
+
+    /// Import external markdown as one new Note whose blocks follow the
+    /// paragraph plan (`importer::plan_import`). The whole import is a single
+    /// macro group: it commits through the validated chokepoint and replays
+    /// all-or-nothing, so a partially delivered import never materializes.
+    /// Ids/orders derive from the caller's stamp (D36) and from `crate::order`.
+    pub fn dispatch_import_markdown(&mut self, md: &str, stamp: OpStamp) -> TransactionResult {
+        let blocks = crate::importer::plan_import(md);
+        let note_id = format!("note_{}", stamp.op_id);
+        let macro_id = format!("macro_import_{}", stamp.op_id);
+
+        let last_root_order = self
+            .vault
+            .nodes
+            .values()
+            .filter(|node| node.location.parent.is_none())
+            .map(|node| node.location.order.clone())
+            .max();
+        let Ok(note_order) = crate::order::key_between(last_root_order.as_deref(), None) else {
+            return self.error_result(ValidationError::StructuralDispatchDeferred);
+        };
+        let Ok(block_orders) = crate::order::keys_after(None, blocks.len()) else {
+            return self.error_result(ValidationError::StructuralDispatchDeferred);
+        };
+
+        let mut ops = alloc::vec![OpBuilder::new(
+            format!("{}_note_create", stamp.op_id),
+            stamp.hlc.clone(),
+            stamp.actor.clone(),
+            note_id.clone(),
+            TargetKind::Note,
+            Register::Location,
+            OpKind::Create,
+            OpPayload::Create {
+                kind: TargetKind::Note,
+                location: Location::new(None, note_order),
+            },
+        )
+        .seq(stamp.seq)
+        .macro_op_id(macro_id.clone())
+        .build()];
+        let mut changed_ids = alloc::vec![note_id.clone()];
+        for (index, text) in blocks.iter().enumerate() {
+            // Zero-padded so block id order matches paragraph order in mirrors.
+            let block_id = format!("blk_{}_{index:04}", stamp.op_id);
+            let body = crate::model::Body::plain(text.clone());
+            ops.push(
+                OpBuilder::new(
+                    format!("{}_blk_{index:04}_create", stamp.op_id),
+                    stamp.hlc.clone(),
+                    stamp.actor.clone(),
+                    block_id.clone(),
+                    TargetKind::Block,
+                    Register::Location,
+                    OpKind::Create,
+                    OpPayload::Create {
+                        kind: TargetKind::Block,
+                        location: Location::new(Some(note_id.clone()), block_orders[index].clone()),
+                    },
+                )
+                .seq(stamp.seq)
+                .macro_op_id(macro_id.clone())
+                .build(),
+            );
+            ops.push(
+                OpBuilder::new(
+                    format!("{}_blk_{index:04}_body", stamp.op_id),
+                    stamp.hlc.clone(),
+                    stamp.actor.clone(),
+                    block_id.clone(),
+                    TargetKind::Block,
+                    Register::Content,
+                    OpKind::Set,
+                    OpPayload::SetBody {
+                        text: body.text.clone(),
+                        marks: Vec::new(),
+                    },
+                )
+                .seq(stamp.seq)
+                .sub_field(SubFieldKey::Body)
+                .new_sub_rev(body_sub_rev(&body))
+                .macro_op_id(macro_id.clone())
+                .build(),
+            );
+            changed_ids.push(block_id);
+        }
+        self.commit(ops, changed_ids, None, Vec::new(), None)
+    }
+
+    /// Rebalance the order keys of `parent_id`'s living children (F26): the
+    /// `Renormalize` op producer. Emits one op per child whose key changes, as a
+    /// single atomic macro; each op carries the location rev it was computed
+    /// against (`base_snapshot_revision`), and replay collapses the whole macro
+    /// if any base went stale (F26c) — a concurrent move always wins over
+    /// maintenance, never the reverse.
+    pub fn dispatch_renormalize_children(
+        &mut self,
+        parent_id: Option<&str>,
+        stamp: OpStamp,
+    ) -> TransactionResult {
+        let mut children: Vec<(String, crate::model::Location)> = self
+            .vault
+            .nodes
+            .values()
+            .filter(|node| node.location.parent.as_deref() == parent_id && node.life.is_living())
+            .map(|node| (node.id.clone(), node.location.clone()))
+            .collect();
+        // Current sibling sequence; same-key ties break deterministically by id.
+        children.sort_by(|a, b| a.1.order.cmp(&b.1.order).then(a.0.cmp(&b.0)));
+        if children.len() < 2 {
+            return self.commit(Vec::new(), Vec::new(), None, Vec::new(), None);
+        }
+        let Ok(orders) = crate::order::keys_after(None, children.len()) else {
+            return self.error_result(ValidationError::StructuralDispatchDeferred);
+        };
+        let macro_id = format!("macro_renorm_{}", stamp.op_id);
+        let mut ops = Vec::new();
+        let mut changed_ids = Vec::new();
+        for (index, (child_id, location)) in children.iter().enumerate() {
+            if location.order == orders[index] {
+                continue;
+            }
+            ops.push(
+                OpBuilder::new(
+                    format!("{}_renorm_{index:04}", stamp.op_id),
+                    stamp.hlc.clone(),
+                    stamp.actor.clone(),
+                    child_id.clone(),
+                    self.kind_of(child_id),
+                    Register::Location,
+                    OpKind::Renormalize,
+                    OpPayload::Renormalize {
+                        order: orders[index].clone(),
+                        base_snapshot_revision: Some(crate::model::location_rev(location)),
+                    },
+                )
+                .seq(stamp.seq)
+                .macro_op_id(macro_id.clone())
+                .build(),
+            );
+            changed_ids.push(child_id.clone());
+        }
+        self.commit(ops, changed_ids, None, Vec::new(), None)
     }
 
     /// The single validated-dispatch chokepoint (CP-2 invariant): the **only**
@@ -493,7 +685,11 @@ impl Session {
         let previous = self.current_body(&op.target_id)?;
         let selection = match intent {
             EditorIntent::InsertText { at, .. } => (*at, *at),
-            EditorIntent::ApplyMark { start, end, .. } => (*start, *end),
+            // Undo re-selects the restored range.
+            EditorIntent::DeleteText { at, len, .. }
+            | EditorIntent::ReplaceText { at, len, .. } => (*at, *at + *len),
+            EditorIntent::ApplyMark { start, end, .. }
+            | EditorIntent::RemoveMark { start, end, .. } => (*start, *end),
             _ => {
                 let len = previous.text.encode_utf16().count() as u32;
                 (len, len)
@@ -683,7 +879,31 @@ impl Session {
                     end: caret,
                 })
             }
+            EditorIntent::DeleteText { target_id, at, .. } => Some(Selection::Text {
+                block_id: target_id.clone(),
+                start: *at,
+                end: *at,
+            }),
+            EditorIntent::ReplaceText {
+                target_id,
+                at,
+                text,
+                ..
+            } => {
+                let caret = at + text.encode_utf16().count() as u32;
+                Some(Selection::Text {
+                    block_id: target_id.clone(),
+                    start: caret,
+                    end: caret,
+                })
+            }
             EditorIntent::ApplyMark {
+                target_id,
+                start,
+                end,
+                ..
+            }
+            | EditorIntent::RemoveMark {
                 target_id,
                 start,
                 end,
@@ -894,6 +1114,124 @@ impl Session {
         )
     }
 
+    /// Create a new block under `parent_id`: after `after_block_id` when given,
+    /// appended after the last child otherwise. One atomic macro (create +
+    /// optional body), like the other structural intents.
+    fn dispatch_create_block(
+        &mut self,
+        parent_id: &str,
+        after_block_id: Option<&str>,
+        text: &str,
+        stamp: OpStamp,
+    ) -> TransactionResult {
+        if !self.vault.nodes.contains_key(parent_id) {
+            return self.error_result(ValidationError::StructuralDispatchDeferred);
+        }
+        // The anchor sibling (patch + ordering) and the order bounds.
+        let (anchor, lower, upper) = match after_block_id {
+            Some(after) => {
+                let Some(after_node) = self.vault.nodes.get(after) else {
+                    return self.error_result(ValidationError::StructuralDispatchDeferred);
+                };
+                if after_node.location.parent.as_deref() != Some(parent_id) {
+                    return self.error_result(ValidationError::StructuralDispatchDeferred);
+                }
+                (
+                    Some(after.to_string()),
+                    Some(after_node.location.order.clone()),
+                    self.next_sibling_order(after),
+                )
+            }
+            None => {
+                let last = self
+                    .vault
+                    .nodes
+                    .values()
+                    .filter(|n| n.location.parent.as_deref() == Some(parent_id))
+                    .max_by(|a, b| a.location.order.cmp(&b.location.order));
+                (
+                    last.map(|n| n.id.clone()),
+                    last.map(|n| n.location.order.clone()),
+                    None,
+                )
+            }
+        };
+        let Ok(order) = crate::order::key_between(lower.as_deref(), upper.as_deref()) else {
+            return self.error_result(ValidationError::StructuralDispatchDeferred);
+        };
+
+        let new_block_id = format!("blk_{}", stamp.op_id);
+        let macro_id = format!("macro_{}", stamp.op_id);
+        let mut ops = alloc::vec![OpBuilder::new(
+            format!("{}_a_create", stamp.op_id),
+            stamp.hlc.clone(),
+            stamp.actor.clone(),
+            new_block_id.clone(),
+            TargetKind::Block,
+            Register::Location,
+            OpKind::Create,
+            OpPayload::Create {
+                kind: TargetKind::Block,
+                location: Location::new(Some(parent_id.to_string()), order),
+            },
+        )
+        .seq(stamp.seq)
+        .macro_op_id(macro_id.clone())
+        .build()];
+        if !text.is_empty() {
+            let body = crate::model::Body::plain(text);
+            ops.push(
+                OpBuilder::new(
+                    format!("{}_b_body", stamp.op_id),
+                    stamp.hlc.clone(),
+                    stamp.actor.clone(),
+                    new_block_id.clone(),
+                    TargetKind::Block,
+                    Register::Content,
+                    OpKind::Set,
+                    OpPayload::SetBody {
+                        text: body.text.clone(),
+                        marks: body.marks.clone(),
+                    },
+                )
+                .seq(stamp.seq)
+                .sub_field(SubFieldKey::Body)
+                .new_sub_rev(body_sub_rev(&body))
+                .macro_op_id(macro_id)
+                .build(),
+            );
+        }
+        // The surface patch needs a sibling anchor; a first child has none, so
+        // adapters refresh from `changed_ids` in that case.
+        let editor_patches = match &anchor {
+            Some(anchor_id) => alloc::vec![EditorPatch::InsertTextSurface {
+                after_block_id: anchor_id.clone(),
+                block_id: new_block_id.clone(),
+                text: text.to_string(),
+                selection_start: 0,
+                selection_end: 0,
+            }],
+            None => Vec::new(),
+        };
+        self.commit(
+            ops,
+            alloc::vec![new_block_id.clone()],
+            Some(Selection::Text {
+                block_id: new_block_id.clone(),
+                start: 0,
+                end: 0,
+            }),
+            editor_patches,
+            Some(UndoGroup {
+                group_id: format!("undo_{}", stamp.op_id),
+                label: "create_block".to_string(),
+                inverse_patches: alloc::vec![EditorPatch::RemoveTextSurface {
+                    block_id: new_block_id,
+                }],
+            }),
+        )
+    }
+
     fn dispatch_merge_backward(&mut self, target_id: &str, stamp: OpStamp) -> TransactionResult {
         let Some(previous_id) = self.previous_sibling_id(target_id) else {
             return self.error_result(ValidationError::StructuralDispatchDeferred);
@@ -1019,28 +1357,95 @@ impl Session {
             .unwrap_or_else(|| crate::model::Body::plain(""))
     }
 
+    /// The general text edit: replace the UTF-16 range `[at, at+len)` with
+    /// `text` (insert and delete are its special cases). Offsets clamp to the
+    /// current body; an edit that lands inside a surrogate pair is rejected.
+    fn replace_body_op(
+        &self,
+        target_id: &str,
+        at: u32,
+        len: u32,
+        text: &str,
+        stamp: &OpStamp,
+    ) -> Result<Op, ValidationError> {
+        let current = self.current_body_or_empty(target_id);
+        let mut units: Vec<u16> = current.text.encode_utf16().collect();
+        let at = (at as usize).min(units.len());
+        let old_len = (len as usize).min(units.len() - at);
+        let ins: Vec<u16> = text.encode_utf16().collect();
+        units.splice(at..at + old_len, ins.iter().cloned());
+        let new_text =
+            String::from_utf16(&units).map_err(|_| ValidationError::InvalidUtf16Offset)?;
+        let splice = crate::marks::Splice {
+            at: at as u32,
+            old_len: old_len as u32,
+            new_len: ins.len() as u32,
+        };
+        let new_marks = crate::marks::reclamp(&current.marks, &[splice]);
+        let new_body = crate::model::Body {
+            text: new_text,
+            marks: new_marks,
+        };
+        Ok(OpBuilder::new(
+            stamp.op_id.clone(),
+            stamp.hlc.clone(),
+            stamp.actor.clone(),
+            target_id.to_string(),
+            self.kind_of(target_id),
+            Register::Content,
+            OpKind::Set,
+            OpPayload::SetBody {
+                text: new_body.text.clone(),
+                marks: new_body.marks.clone(),
+            },
+        )
+        .seq(stamp.seq)
+        .sub_field(SubFieldKey::Body)
+        .base_sub_rev(body_sub_rev(&current))
+        .new_sub_rev(body_sub_rev(&new_body))
+        .build())
+    }
+
     fn build_op(&self, intent: &EditorIntent, stamp: &OpStamp) -> Result<Op, ValidationError> {
         match intent {
             EditorIntent::InsertText {
                 target_id,
                 at,
                 text,
+            } => self.replace_body_op(target_id, *at, 0, text, stamp),
+            EditorIntent::DeleteText { target_id, at, len } => {
+                self.replace_body_op(target_id, *at, *len, "", stamp)
+            }
+            EditorIntent::ReplaceText {
+                target_id,
+                at,
+                len,
+                text,
+            } => self.replace_body_op(target_id, *at, *len, text, stamp),
+            EditorIntent::RemoveMark {
+                target_id,
+                start,
+                end,
+                kind,
             } => {
                 let current = self.current_body_or_empty(target_id);
-                let mut units: Vec<u16> = current.text.encode_utf16().collect();
-                let at = (*at as usize).min(units.len());
-                let ins: Vec<u16> = text.encode_utf16().collect();
-                units.splice(at..at, ins.iter().cloned());
-                let new_text =
-                    String::from_utf16(&units).map_err(|_| ValidationError::InvalidUtf16Offset)?;
-                let splice = crate::marks::Splice {
-                    at: at as u32,
-                    old_len: 0,
-                    new_len: ins.len() as u32,
-                };
-                let new_marks = crate::marks::reclamp(&current.marks, &[splice]);
+                let base = body_sub_rev(&current);
+                let mut new_marks = Vec::new();
+                for mark in &current.marks {
+                    if mark.kind != *kind || mark.end <= *start || mark.start >= *end {
+                        new_marks.push(mark.clone());
+                        continue;
+                    }
+                    // Trim the overlapping mark to its parts outside the range.
+                    if mark.start < *start {
+                        new_marks.push(Mark::new(mark.kind.clone(), mark.start, *start, mark.expand));
+                    }
+                    if mark.end > *end {
+                        new_marks.push(Mark::new(mark.kind.clone(), *end, mark.end, mark.expand));
+                    }
+                }
                 let new_body = crate::model::Body {
-                    text: new_text,
+                    text: current.text.clone(),
                     marks: new_marks,
                 };
                 Ok(OpBuilder::new(
@@ -1058,7 +1463,7 @@ impl Session {
                 )
                 .seq(stamp.seq)
                 .sub_field(SubFieldKey::Body)
-                .base_sub_rev(body_sub_rev(&current))
+                .base_sub_rev(base)
                 .new_sub_rev(body_sub_rev(&new_body))
                 .build())
             }
@@ -1227,9 +1632,9 @@ impl Session {
                 .seq(stamp.seq)
                 .build())
             }
-            EditorIntent::SplitBlock { .. } | EditorIntent::MergeBackward { .. } => {
-                Err(ValidationError::StructuralDispatchDeferred)
-            }
+            EditorIntent::SplitBlock { .. }
+            | EditorIntent::MergeBackward { .. }
+            | EditorIntent::CreateBlock { .. } => Err(ValidationError::StructuralDispatchDeferred),
         }
     }
 }
@@ -1240,14 +1645,11 @@ pub fn open_fixture_vault() -> FixtureSummary {
 }
 
 /// Canonical bytes of an op segment: the full D24 op envelope per op (the byte
-/// transfer surface the binding reads via `read_segment`). Encoding the complete
-/// frozen envelope keeps the segment surface honest about the on-disk op shape.
+/// transfer surface the binding reads via `read_segment`). The inverse lives in
+/// `codec::decode_segment`; together they are the round-trippable op-log file
+/// format.
 pub fn segment_bytes(ops: &[Op]) -> Vec<u8> {
-    let items = ops
-        .iter()
-        .map(crate::op::op_envelope_canonical)
-        .collect::<Vec<_>>();
-    canonical_bytes(&CanonicalValue::array(items))
+    crate::codec::encode_segment(ops)
 }
 
 /// Deterministic fixture blob of `size` bytes for the 1/4/16/64MB binding

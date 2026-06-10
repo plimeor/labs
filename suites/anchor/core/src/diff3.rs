@@ -133,36 +133,75 @@ pub fn to_utf16(s: &str) -> Vec<u16> {
     s.encode_utf16().collect()
 }
 
-/// Derive ascending, non-overlapping splices that turn `from` into `to`, in
-/// `from`'s UTF-16 coordinates. Used to re-clamp marks living on the `from` side.
-pub fn text_splices(from: &str, to: &str) -> Vec<Splice> {
+/// One replace hunk turning `from` into `to`: replace the UTF-16 range
+/// `from[at .. at+old_len)` with `insert` (UTF-16 units taken from `to`).
+/// Unlike [`Splice`] this carries the inserted content, so a hunk can be
+/// re-applied onto a *different* base (the intent-rebase path in replay).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TextEdit {
+    pub at: u32,
+    pub old_len: u32,
+    pub insert: Vec<u16>,
+}
+
+impl TextEdit {
+    pub fn splice(&self) -> Splice {
+        Splice {
+            at: self.at,
+            old_len: self.old_len,
+            new_len: self.insert.len() as u32,
+        }
+    }
+}
+
+/// Derive ascending, non-overlapping content-carrying hunks that turn `from`
+/// into `to`, in `from`'s UTF-16 coordinates (deterministic LCS).
+pub fn text_edits(from: &str, to: &str) -> Vec<TextEdit> {
     let fu = to_utf16(from);
     let tu = to_utf16(to);
     let pairs = lcs_pairs(&fu, &tu);
 
-    let mut splices = Vec::new();
+    let mut edits = Vec::new();
     let (mut fi, mut ti) = (0usize, 0usize);
     for (mf, mt) in pairs {
-        let old_len = (mf - fi) as u32;
-        let new_len = (mt - ti) as u32;
-        if old_len != 0 || new_len != 0 {
-            splices.push(Splice {
+        if mf != fi || mt != ti {
+            edits.push(TextEdit {
                 at: fi as u32,
-                old_len,
-                new_len,
+                old_len: (mf - fi) as u32,
+                insert: tu[ti..mt].to_vec(),
             });
         }
         fi = mf + 1;
         ti = mt + 1;
     }
-    let old_len = (fu.len() - fi) as u32;
-    let new_len = (tu.len() - ti) as u32;
-    if old_len != 0 || new_len != 0 {
-        splices.push(Splice {
+    if fi != fu.len() || ti != tu.len() {
+        edits.push(TextEdit {
             at: fi as u32,
-            old_len,
-            new_len,
+            old_len: (fu.len() - fi) as u32,
+            insert: tu[ti..].to_vec(),
         });
     }
-    splices
+    edits
+}
+
+/// Apply edits (ascending, non-overlapping, in `base`'s UTF-16 coordinates) to
+/// `base`. `None` when a hunk falls outside `base` or a boundary lands inside a
+/// surrogate pair — callers treat that as "cannot rebase", never a panic.
+pub fn apply_text_edits(base: &str, edits: &[TextEdit]) -> Option<String> {
+    let mut units = to_utf16(base);
+    for e in edits.iter().rev() {
+        let at = e.at as usize;
+        let end = at.checked_add(e.old_len as usize)?;
+        if end > units.len() {
+            return None;
+        }
+        units.splice(at..end, e.insert.iter().copied());
+    }
+    String::from_utf16(&units).ok()
+}
+
+/// Derive ascending, non-overlapping splices that turn `from` into `to`, in
+/// `from`'s UTF-16 coordinates. Used to re-clamp marks living on the `from` side.
+pub fn text_splices(from: &str, to: &str) -> Vec<Splice> {
+    text_edits(from, to).iter().map(TextEdit::splice).collect()
 }

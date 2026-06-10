@@ -22,7 +22,8 @@ use alloc::vec::Vec;
 
 /// Replay an op set into a materialized vault.
 pub fn replay(ops: &[Op]) -> Vault {
-    let sorted = drop_incomplete_macros(dedup_and_sort(ops));
+    let (sorted, rebased, observed) =
+        rebase_structural_edits(drop_incomplete_macros(dedup_and_sort(ops)));
 
     // Bucket ops per node.
     let mut buckets: BTreeMap<String, NodeOps> = BTreeMap::new();
@@ -90,7 +91,7 @@ pub fn replay(ops: &[Op]) -> Vault {
     derive_ancestor_life_conflicts(&buckets, &nodes, &mut conflicts);
     derive_life_tie(&buckets, &mut conflicts);
     derive_reorder_blend(&buckets, &mut conflicts);
-    derive_split_merge_structural(&buckets, &mut conflicts);
+    derive_split_merge_structural(&buckets, &rebased, &observed, &mut conflicts);
 
     // Deterministic conflict ordering.
     conflicts.sort_by(|a, b| {
@@ -131,6 +132,313 @@ fn drop_incomplete_macros(ops: Vec<Op>) -> Vec<Op> {
             _ => true,
         })
         .collect()
+}
+
+/// Deterministic split/merge **intent-rebase** (conflict §6.1, the follow-up to
+/// the surface+pin floor). A plain body edit that ran concurrently with a
+/// structural split or merge-backward macro on the same block is re-applied —
+/// at replay time, never in the log — onto the side of the structure its hunks
+/// belong to:
+///
+/// - split: every hunk entirely in the left part ⇒ re-applied to the kept
+///   block's truncated body (a boundary insert counts as left); every hunk
+///   entirely in the right part ⇒ redirected to the split-created block with
+///   offsets shifted by the split point;
+/// - merge-backward: an edit on the merged-away (trashed) block is folded into
+///   the absorbing block's merged body at the absorbed offset.
+///
+/// The rewritten edit bases on the structural result's body rev, so the body
+/// frontier collapses cleanly instead of keeping-both. The rebase is a pure
+/// function of the deduped op set (the log itself is never mutated), so every
+/// replica derives the identical view in any arrival order.
+///
+/// Conservative by design — any of these falls back to the surface+pin floor:
+/// hunks straddling the split point, an unrecoverable base body, a macro group
+/// that does not byte-validate as a split (`pre == left + right`) or merge
+/// (`merged == previous + absorbed`), an edit another op already chains on, a
+/// mark-only edit (no text hunks), an ambiguous multi-candidate match, or a
+/// hunk landing inside a surrogate pair.
+/// Returns `(ops, rebased, observed)`: the (possibly rewritten) op set, the ids
+/// of edits that were integrated, and the ids of body ops a validated macro
+/// causally consumed (its pre-image) — both are excluded from the structural
+/// conflict surface, since neither is *concurrent unresolved* work.
+fn rebase_structural_edits(ops: Vec<Op>) -> (Vec<Op>, BTreeSet<String>, BTreeSet<String>) {
+    // Content-addressed body index (computed revs, as resolve_body uses) and
+    // the set of all revs some op bases on (the chain guard).
+    let mut body_by_rev: BTreeMap<String, Body> = BTreeMap::new();
+    let mut bases: BTreeSet<String> = BTreeSet::new();
+    let mut groups: BTreeMap<String, Vec<usize>> = BTreeMap::new();
+    for (i, op) in ops.iter().enumerate() {
+        if let OpPayload::SetBody { text, marks } = &op.payload {
+            let body = Body {
+                text: text.clone(),
+                marks: marks.clone(),
+            };
+            body_by_rev.insert(body_sub_rev(&body), body);
+        }
+        if let Some(b) = &op.base_sub_rev {
+            bases.insert(b.clone());
+        }
+        if let Some(m) = &op.macro_op_id {
+            groups.entry(m.clone()).or_default().push(i);
+        }
+    }
+
+    let mut splits: Vec<SplitShape> = Vec::new();
+    let mut merges: Vec<MergeShape> = Vec::new();
+    for indices in groups.values() {
+        if let Some(split) = recognize_split(&ops, indices, &body_by_rev) {
+            splits.push(split);
+        } else if let Some(merge) = recognize_merge(&ops, indices, &body_by_rev) {
+            merges.push(merge);
+        }
+    }
+
+    let mut rebased: BTreeSet<String> = BTreeSet::new();
+    let mut observed: BTreeSet<String> = BTreeSet::new();
+    if splits.is_empty() && merges.is_empty() {
+        return (ops, rebased, observed);
+    }
+
+    // Ops whose body a validated macro consumed (the macro's pre-image).
+    for op in &ops {
+        let Some(body) = payload_body(op) else {
+            continue;
+        };
+        let rev = body_sub_rev(&body);
+        let split_pre = splits
+            .iter()
+            .any(|s| s.original == op.target_id && s.pre_rev == rev);
+        let merge_pre = merges.iter().any(|m| {
+            (m.previous == op.target_id && m.prev_rev == rev)
+                || (m.trashed == op.target_id && m.absorbed_text == body.text)
+        });
+        if split_pre || merge_pre {
+            observed.insert(op.op_id.clone());
+        }
+    }
+
+    let mut ops = ops;
+    for op in &mut ops {
+        let Some(new_op) = rebase_one(op, &splits, &merges, &body_by_rev, &bases) else {
+            continue;
+        };
+        rebased.insert(new_op.op_id.clone());
+        *op = new_op;
+    }
+    (ops, rebased, observed)
+}
+
+/// A byte-validated split macro: `pre == left + right`, split at `at`.
+struct SplitShape {
+    original: String,
+    new_block: String,
+    at: u32,
+    pre_rev: String,
+    left: Body,
+    right: Body,
+}
+
+/// A byte-validated merge-backward macro: `merged == previous + absorbed`.
+struct MergeShape {
+    previous: String,
+    trashed: String,
+    merged: Body,
+    /// The absorbing block's pre-merge body rev (the macro's base).
+    prev_rev: String,
+    /// UTF-16 offset where the absorbed body begins inside `merged`.
+    offset: u32,
+    /// The absorbed (trashed-side) body text, for matching an edit's base.
+    absorbed_text: String,
+}
+
+fn recognize_split(
+    ops: &[Op],
+    indices: &[usize],
+    body_by_rev: &BTreeMap<String, Body>,
+) -> Option<SplitShape> {
+    if indices.len() != 3 {
+        return None;
+    }
+    let mut create: Option<&Op> = None;
+    let mut body_ops: Vec<&Op> = Vec::new();
+    for &i in indices {
+        match &ops[i].payload {
+            OpPayload::Create { .. } => create = Some(&ops[i]),
+            OpPayload::SetBody { .. } => body_ops.push(&ops[i]),
+            _ => return None,
+        }
+    }
+    let create = create?;
+    if body_ops.len() != 2 {
+        return None;
+    }
+    let new_block = create.target_id.clone();
+    let right_op = body_ops.iter().find(|o| o.target_id == new_block)?;
+    let left_op = body_ops.iter().find(|o| o.target_id != new_block)?;
+    let pre_rev = left_op.base_sub_rev.clone()?;
+    let pre = body_by_rev.get(&pre_rev)?;
+    let left = payload_body(left_op)?;
+    let right = payload_body(right_op)?;
+    let mut joined = left.text.clone();
+    joined.push_str(&right.text);
+    if pre.text != joined {
+        return None;
+    }
+    Some(SplitShape {
+        original: left_op.target_id.clone(),
+        new_block,
+        at: left.text.encode_utf16().count() as u32,
+        pre_rev,
+        left,
+        right,
+    })
+}
+
+fn recognize_merge(
+    ops: &[Op],
+    indices: &[usize],
+    body_by_rev: &BTreeMap<String, Body>,
+) -> Option<MergeShape> {
+    if indices.len() != 2 {
+        return None;
+    }
+    let mut body_op: Option<&Op> = None;
+    let mut trash_op: Option<&Op> = None;
+    for &i in indices {
+        match &ops[i].payload {
+            OpPayload::SetBody { .. } => body_op = Some(&ops[i]),
+            OpPayload::LifeSet {
+                life: Life::Trashed,
+            } => trash_op = Some(&ops[i]),
+            _ => return None,
+        }
+    }
+    let body_op = body_op?;
+    let trash_op = trash_op?;
+    if body_op.target_id == trash_op.target_id {
+        return None;
+    }
+    let prev_rev = body_op.base_sub_rev.as_ref()?;
+    let previous_body = body_by_rev.get(prev_rev)?;
+    let merged = payload_body(body_op)?;
+    let absorbed_text = merged.text.strip_prefix(previous_body.text.as_str())?;
+    Some(MergeShape {
+        previous: body_op.target_id.clone(),
+        trashed: trash_op.target_id.clone(),
+        prev_rev: prev_rev.clone(),
+        offset: previous_body.text.encode_utf16().count() as u32,
+        absorbed_text: String::from(absorbed_text),
+        merged,
+    })
+}
+
+fn payload_body(op: &Op) -> Option<Body> {
+    match &op.payload {
+        OpPayload::SetBody { text, marks } => Some(Body {
+            text: text.clone(),
+            marks: marks.clone(),
+        }),
+        _ => None,
+    }
+}
+
+/// The rebased replacement for one plain concurrent edit, or `None` to keep the
+/// op as-is (and let the conflict floor handle it).
+fn rebase_one(
+    op: &Op,
+    splits: &[SplitShape],
+    merges: &[MergeShape],
+    body_by_rev: &BTreeMap<String, Body>,
+    bases: &BTreeSet<String>,
+) -> Option<Op> {
+    if op.macro_op_id.is_some() {
+        return None;
+    }
+    let edited = payload_body(op)?;
+    let base_rev = op.base_sub_rev.as_ref()?;
+    // Chain guard: another op bases on this edit — leave the chain intact.
+    if bases.contains(&body_sub_rev(&edited)) {
+        return None;
+    }
+
+    let split_candidates: Vec<&SplitShape> = splits
+        .iter()
+        .filter(|s| s.original == op.target_id && s.pre_rev == *base_rev)
+        .collect();
+    if let [split] = split_candidates.as_slice() {
+        let pre = body_by_rev.get(&split.pre_rev)?;
+        let edits = diff3::text_edits(&pre.text, &edited.text);
+        if edits.is_empty() {
+            return None;
+        }
+        if edits.iter().all(|e| e.at + e.old_len <= split.at) {
+            return rebuilt(op, &op.target_id, &split.left, &edits);
+        }
+        if edits.iter().all(|e| e.at >= split.at) {
+            let shifted: Vec<diff3::TextEdit> = edits
+                .iter()
+                .map(|e| diff3::TextEdit {
+                    at: e.at - split.at,
+                    old_len: e.old_len,
+                    insert: e.insert.clone(),
+                })
+                .collect();
+            return rebuilt(op, &split.new_block, &split.right, &shifted);
+        }
+        return None; // straddles the split point → floor
+    }
+    if !split_candidates.is_empty() {
+        return None; // ambiguous → floor
+    }
+
+    let merge_candidates: Vec<&MergeShape> = merges
+        .iter()
+        .filter(|m| {
+            m.trashed == op.target_id
+                && body_by_rev
+                    .get(base_rev)
+                    .is_some_and(|b| b.text == m.absorbed_text)
+        })
+        .collect();
+    if let [merge] = merge_candidates.as_slice() {
+        let absorbed = body_by_rev.get(base_rev)?;
+        let edits = diff3::text_edits(&absorbed.text, &edited.text);
+        if edits.is_empty() {
+            return None;
+        }
+        let shifted: Vec<diff3::TextEdit> = edits
+            .iter()
+            .map(|e| diff3::TextEdit {
+                at: e.at + merge.offset,
+                old_len: e.old_len,
+                insert: e.insert.clone(),
+            })
+            .collect();
+        return rebuilt(op, &merge.previous, &merge.merged, &shifted);
+    }
+    None
+}
+
+/// Rebuild `op` as the same edit re-applied onto `onto` (the structural side's
+/// body), retargeted to `target` and based on the structural result so the body
+/// frontier collapses cleanly.
+fn rebuilt(op: &Op, target: &str, onto: &Body, edits: &[diff3::TextEdit]) -> Option<Op> {
+    let new_text = diff3::apply_text_edits(&onto.text, edits)?;
+    let splices: Vec<marks::Splice> = edits.iter().map(diff3::TextEdit::splice).collect();
+    let new_body = Body {
+        text: new_text,
+        marks: marks::reclamp(&onto.marks, &splices),
+    };
+    let mut out = op.clone();
+    out.target_id = String::from(target);
+    out.base_sub_rev = Some(body_sub_rev(onto));
+    out.new_sub_rev = Some(body_sub_rev(&new_body));
+    out.payload = OpPayload::SetBody {
+        text: new_body.text,
+        marks: new_body.marks,
+    };
+    Some(out)
 }
 
 #[derive(Default)]
@@ -180,29 +488,111 @@ impl NodeOps {
 
 /// Global location fold with apply-time cycle guard. Returns winning locations
 /// and the set of targets whose move was cycle-skipped.
+///
+/// `Renormalize` ops are maintenance, not user intent, and apply
+/// compare-and-swap (F26c): an op carrying a `base_snapshot_revision` is
+/// honored only while its target's location is still exactly the one it was
+/// computed against. A macro'd renormalize group (one stamp ⇒ contiguous in
+/// `T`) is all-or-nothing — if ANY member's base is stale, the whole group
+/// collapses silently, so a concurrent move always wins over rebalancing and a
+/// partial rebalance can never reorder siblings.
 fn resolve_locations(sorted: &[Op]) -> (BTreeMap<String, Location>, BTreeSet<String>) {
     let mut parents: BTreeMap<String, Location> = BTreeMap::new();
     let mut skipped: BTreeSet<String> = BTreeSet::new();
-    for op in sorted {
+    let mut i = 0;
+    while i < sorted.len() {
+        let op = &sorted[i];
         if op.register != Register::Location {
+            i += 1;
+            continue;
+        }
+        if is_renormalize(op) && op.macro_op_id.is_some() {
+            let group_end = renormalize_group_end(sorted, i);
+            let group = &sorted[i..group_end];
+            if group.iter().all(|g| renormalize_base_is_fresh(g, &parents)) {
+                for g in group {
+                    apply_renormalize(g, &mut parents);
+                }
+            }
+            i = group_end;
             continue;
         }
         let (parent, order) = match &op.payload {
             OpPayload::Create { location, .. } => (location.parent.clone(), location.order.clone()),
             OpPayload::SetLocation { parent, order } => (parent.clone(), order.clone()),
             OpPayload::Renormalize { order, .. } => {
+                if !renormalize_base_is_fresh(op, &parents) {
+                    i += 1;
+                    continue;
+                }
                 let cur_parent = parents.get(&op.target_id).and_then(|l| l.parent.clone());
                 (cur_parent, order.clone())
             }
-            _ => continue,
+            _ => {
+                i += 1;
+                continue;
+            }
         };
         if would_cycle(&parents, &op.target_id, parent.as_deref()) {
             skipped.insert(op.target_id.clone());
+            i += 1;
             continue;
         }
         parents.insert(op.target_id.clone(), Location { parent, order });
+        i += 1;
     }
     (parents, skipped)
+}
+
+fn is_renormalize(op: &Op) -> bool {
+    op.register == Register::Location && matches!(op.payload, OpPayload::Renormalize { .. })
+}
+
+/// End (exclusive) of the contiguous renormalize run sharing `sorted[start]`'s
+/// macro id. Macro ops share one stamp, so they are adjacent under `T`.
+fn renormalize_group_end(sorted: &[Op], start: usize) -> usize {
+    let macro_id = &sorted[start].macro_op_id;
+    let mut end = start;
+    while end < sorted.len() && is_renormalize(&sorted[end]) && &sorted[end].macro_op_id == macro_id
+    {
+        end += 1;
+    }
+    end
+}
+
+/// F26c freshness: no base ⇒ unconditional (legacy shape); with a base, the
+/// target's current location rev must equal it.
+fn renormalize_base_is_fresh(op: &Op, parents: &BTreeMap<String, Location>) -> bool {
+    let OpPayload::Renormalize {
+        base_snapshot_revision,
+        ..
+    } = &op.payload
+    else {
+        return false;
+    };
+    let Some(base) = base_snapshot_revision else {
+        return true;
+    };
+    parents
+        .get(&op.target_id)
+        .map(|loc| crate::model::location_rev(loc) == *base)
+        .unwrap_or(false)
+}
+
+/// Apply one fresh renormalize: the order is rebalanced, the parent kept (so no
+/// cycle can be introduced).
+fn apply_renormalize(op: &Op, parents: &mut BTreeMap<String, Location>) {
+    let OpPayload::Renormalize { order, .. } = &op.payload else {
+        return;
+    };
+    let parent = parents.get(&op.target_id).and_then(|l| l.parent.clone());
+    parents.insert(
+        op.target_id.clone(),
+        Location {
+            parent,
+            order: order.clone(),
+        },
+    );
 }
 
 /// Would setting `target`'s parent to `new_parent` create a cycle in the current
@@ -635,12 +1025,14 @@ fn derive_life_tie(buckets: &BTreeMap<String, NodeOps>, conflicts: &mut Vec<Conf
 
 /// Surface a structural macro (split / merge, marked by `macro_op_id`) that ran
 /// concurrently with another actor's plain edit on the same node (D29, conflict
-/// §6.1). Stage-1/CP-2 does not yet auto-rebase the structural intent against the
-/// concurrent edit; the safety floor is to surface the collision and pin every
-/// involved op so compaction never drops a side (no silent loss). The eventual
-/// deterministic intent-rebase is a documented follow-up.
+/// §6.1). Edits whose hunks fall cleanly on one side were already folded in by
+/// `rebase_structural_edits`; what remains here is the safety floor for the
+/// rest (straddling/ambiguous/unrecoverable cases): surface the collision and
+/// pin every involved op so compaction never drops a side (no silent loss).
 fn derive_split_merge_structural(
     buckets: &BTreeMap<String, NodeOps>,
+    rebased: &BTreeSet<String>,
+    observed: &BTreeSet<String>,
     conflicts: &mut Vec<ConflictRecord>,
 ) {
     for (id, b) in buckets {
@@ -654,12 +1046,27 @@ fn derive_split_merge_structural(
         if macro_actors.is_empty() {
             continue;
         }
+        // Body revs some other op on this node bases on: a superseded op is
+        // causal history, not a concurrent edit.
+        let node_bases: BTreeSet<&str> = b
+            .body_ops
+            .iter()
+            .filter_map(|o| o.base_sub_rev.as_deref())
+            .collect();
         // A plain (non-macro) body edit by a different actor is concurrent with
-        // the structural macro on this node.
+        // the structural macro — unless the rebase pass integrated it, the
+        // macro causally consumed it (its pre-image), or it is superseded.
         let concurrent_edits: Vec<&Op> = b
             .body_ops
             .iter()
-            .filter(|o| o.macro_op_id.is_none() && !macro_actors.contains(o.actor.as_str()))
+            .filter(|o| {
+                o.macro_op_id.is_none()
+                    && !macro_actors.contains(o.actor.as_str())
+                    && !rebased.contains(&o.op_id)
+                    && !observed.contains(&o.op_id)
+                    && !payload_body(o)
+                        .is_some_and(|body| node_bases.contains(body_sub_rev(&body).as_str()))
+            })
             .collect();
         if concurrent_edits.is_empty() {
             continue;

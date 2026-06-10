@@ -288,9 +288,12 @@ fn concurrent_split_and_edit_surface_structural_conflict_no_silent_loss() {
     let mut ops: Vec<Op> = session.log().to_vec();
 
     // Device B concurrently edits blk_a's body, based on the SAME original body
-    // the split was derived from — a plain (non-macro) edit by a different actor.
+    // the split was derived from — a plain (non-macro) edit by a different
+    // actor, whose hunk STRADDLES the split point (offsets 6..10 across at=8),
+    // so the deterministic intent-rebase must refuse it and the surface+pin
+    // floor must hold.
     let original = Body::plain("Morning note.");
-    let edited = Body::plain("Morning EDITED note.");
+    let edited = Body::plain("MorninG_NOte.");
     let b_edit = OpBuilder::new(
         "op_b_concurrent_edit",
         Hlc::new(2_000, 0, "device_b"),

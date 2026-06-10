@@ -130,12 +130,17 @@ Repo-local Apple addition 限于 verifier-only 工程；root workspace、lockfil
 | physical iPhone CloudDocuments container + file-coordinated segment write/read floor | `19` |
 | physical-device generated-async runtime + development-signed verifier app-bundle/device runtime integration（exit `0`） | `17` |
 | current-period hosted Android/WASM workflow removed（cost；historical execution evidence retained） | `20` |
-| core split/merge-backward dispatch lower bound + Swift structural-intent bridge | `72` |
-| core-sourced `EditorPatch` DTO lower bound + C ABI JSON/Swift decode + TextKit projection probe | `73` |
-| core-owned undo-group DTO lower bound + C ABI JSON/Swift decode + TextKit inverse projection | `74` |
-| core-only undo replay lower bound（insert/split/merge-backward groups lower to committed core ops + replay state） | `75` |
+| core split/merge-backward dispatch lower bound + Swift structural-intent bridge | `23` |
+| core-sourced `EditorPatch` DTO lower bound + C ABI JSON/Swift decode + TextKit projection probe | `23` |
+| core-owned undo-group DTO lower bound + C ABI JSON/Swift decode + TextKit inverse projection | `23` |
+| core-only undo replay lower bound（insert/split/merge-backward groups lower to committed core ops + replay state） | `23` |
+| op-segment round-trippable codec（strict canonical decode；op-log file format） | `25` |
+| Markdown importer + import/export parity + 330-file 本机语料浸泡 | `25` |
+| `Renormalize` producer + F26c all-or-nothing CAS 坍缩 | `25` |
+| 确定性 split/merge intent-rebase（保守单侧规则；floor 不变） | `25` |
+| editor intent surface 扩展（`DeleteText`/`ReplaceText`/`RemoveMark`/`CreateBlock`） | `25` |
 
-\* 上表每行的 evidence pointer 指向 consolidation 后的权威证据文档（`09`/`17`/`18`/`19`/`20`；core CP-2 迭代为 `72`–`75`）。原本分散的逐次 reruns（iOS-device locked rerun、device visibility-only、iOS-sim 复测、support reruns、Developer-ID signing availability 等负面/无新增证据项）不产生新的 closed gate，仅强化既有证据或记录负面 delivery 结论；其净结论已并入 §3 readiness matrix 与 §7 open gates，原始命令输出（含设备/账号细节）已在 consolidation 中按工作台规则脱敏移除。
+\* 上表每行的 evidence pointer 指向 consolidation 后的权威证据文档（`09`/`17`/`18`/`19`/`20`；core CP-2 迭代已并入 `23`，Stage-2 ground floor 为 `24`/`25`）。原本分散的逐次 reruns（iOS-device locked rerun、device visibility-only、iOS-sim 复测、support reruns、Developer-ID signing availability 等负面/无新增证据项）不产生新的 closed gate，仅强化既有证据或记录负面 delivery 结论；其净结论已并入 §3 readiness matrix 与 §7 open gates，原始命令输出（含设备/账号细节）已在 consolidation 中按工作台规则脱敏移除。
 
 ---
 

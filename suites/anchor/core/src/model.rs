@@ -291,6 +291,17 @@ fn node_canonical(n: &Node) -> CanonicalValue {
     ])
 }
 
+/// Content-address of a `location` register value (`{parent, order}`). This is
+/// the compare-and-swap base a `Renormalize` op carries (F26c): replay honors
+/// the renormalize only while the target's location is still exactly the one it
+/// was computed against.
+pub fn location_rev(loc: &Location) -> String {
+    rev(&CanonicalValue::object([
+        ("parent", CanonicalValue::opt_str(&loc.parent)),
+        ("order", CanonicalValue::str(loc.order.clone())),
+    ]))
+}
+
 /// `sub_rev` of a body cell value (conflict §3.4): `blake3(canonical(value))`.
 pub fn body_sub_rev(body: &Body) -> String {
     rev(&body_canonical(body))

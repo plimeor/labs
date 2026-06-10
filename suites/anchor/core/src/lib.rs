@@ -25,10 +25,12 @@ pub mod hash;
 
 // Stage 1 deterministic spikes.
 pub mod canonical;
+pub mod codec;
 pub mod diff3;
 pub mod dto;
 pub mod hlc;
 pub mod id;
+pub mod importer;
 pub mod ingest;
 pub mod lattice;
 pub mod marks;
