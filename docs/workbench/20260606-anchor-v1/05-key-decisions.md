@@ -1,7 +1,7 @@
-# Anchor Phase 0 — Key Decisions（CP-0 整合决策表）
+# Anchor — Key Decisions（决策表，D01–D39）
 
-日期：2026-06-07
-状态：**workbench artifact**（非公开接口契约）。本文件是 Phase 0 → CP-0 packet 的 Step 3 整合稿（Claude 整合 Codex 在 09-apple-verification.md 的 Apple 现实性证据），用于 CP-0 审批。
+日期：2026-06-07（CP-0 整合稿）；后续模型调整在既有 D 编号下回填，post-CP-0 批准续编于 §I
+状态：**workbench artifact —— 本工作台唯一决策权威（decision table）**（非公开接口契约）。本文件源自 Phase 0 → CP-0 packet 的 Step 3 整合稿（Claude 整合 Codex 在 09-apple-verification.md 的 Apple 现实性证据，CP-0 审批用），现为全工作台决策与批准的唯一 home：每个问题任一时刻恰有一行 active；状态变更只以带日期的 Status 戳记录；批准以用户原文逐字引用记录。
 
 > 范围声明：本文件仅记录待冻结的决策与其论证、状态、证据、风险与暂停条件。创建 workbench 目录**不授权**创建 `suites/anchor` / `apps/anchor-*` / `packages/anchor-*` / 顶层 `anchor-apple/` / Xcode project / Swift Package / Rust crate，**不授权**改动 `package.json` / `bun.lock` / 任何 `tsconfig` / workspace 配置，也**不授权**写 Rust / Swift 代码或落地 entitlement / bundle id / iCloud container（AGENTS：建工作台目录不授权 package/workspace/app/lockfile 变更）。
 
@@ -361,7 +361,7 @@
 ### D31 — ConflictRecord / resolve 公开 CLI schema 放二期（Phase 2）
 
 - **Decision**：**用户已于 2026-06-07 决定：`ConflictRecord` 与 `resolve` / `restore` / `restore_order` / `restore_subtree` 的公开 CLI/DTO 面放二期（Phase 2），Phase 0 / 首期不暴露。** Phase 0 只在 op-envelope 层预留所需字段（D24，含 `restore` op_kind、`op_id`、`sub_field_key`、`observed_adds`、`dominates_frontier`、`macro_op_id` 等）；冲突调和 / keep-both / lattice 等**核心机制**仍在 Phase 0/1 的 `anchor-core::dispatch` / merge 内（不受影响）。`ConflictRecord` 是**派生读模型**（replay 重算、绝非持久 op），故二期才暴露其 CLI/DTO **无 op-log 迁移成本**。首期 CLI 的冲突可见面仅为既有退出码 3（conflict）。
-- **Status**：Deferred to Phase 2（二期；用户已决定）
+- **Status**：Deferred to Phase 2（二期；用户已决定）；Phase-2 执行已由用户 2026-06-10 显式授权并落地（D39；`anchor` CLI 全 10 个 ConflictKind 由 replay 从冻结 D24 信封派生，stop condition 验证通过，见 `24` §2）
 - **Rationale**：CLI 公开 conflict/resolve schema 是超出阶段0 DTO 草图的新公开面，用户决定推迟到二期；因 `ConflictRecord` 派生而非持久，推迟无迁移代价——conflict §12/§13.1 #13「现在预留形状以免迁移」的前提（**持久**数据需提前定形）对派生读模型不成立，故可安全延后。
 - **Evidence**：**用户决定（2026-06-07）：CLI schema 放二期。** conflict §9（ConflictRecord 字段 + kind union：`body_overlap | scalar | tag | move_skipped | location_relocated | reorder_blend | life_tie | ancestor_life_vs_descendant_edit | split_merge_structural | journal_merge`）、§12、§13.1 #13；plan §13 暂停条件「CLI 契约需暴露阶段0 DTO 草图未覆盖的新公开 schema」。op-envelope 预留归 D24（Phase 0 非协商）。
 - **Risk**：二期暴露时须能从 D24 已预留的 op-envelope 干净派生全部 `ConflictRecord` kind——故 D24 字段集（`op_id` / `sub_field_key` / `observed_adds` / `dominates_frontier` / `macro_op_id` / `diff_algo_version` 等）必须在 Phase 0 完整冻结，否则二期暴露会反过来要求 op-log 迁移。
@@ -446,6 +446,17 @@
 - **Evidence**：**用户决定（2026-06-07，B15）。** Anchor 已有 `snapshot_revision`（D30）/ tombstone（D10）/ `op_envelope_version`（D24）三块；缺的「time-travel horizon 内 op payload 不得硬删、只能 archive」策略由本决策补齐。prior-art（Datomic as-of/excision、Git/Dolt reachability GC + archive、event-sourcing snapshot+upcasting）见 apple-verification §7.5（标 Inferred）；retention 四 horizon 边界见本决策上表。
 - **Risk**：time-travel retention horizon 是独立产品选择、可远超 conflict/replay-safety horizon，是硬删的真正约束；保留期过长放大 iCloud/object-store 文件数与配额压力（apple-verification §7.5）、放大「首期非 ZK」披露义务（D22）；archive 段在 iCloud 下可能被 placeholder-evict，深度重建需 force-download（成本 Not run）。
 - **Stop condition**：若实现把 time-travel-horizon **之内**的 op hard-delete（而非 archive），或把 restore 实现为倒带/重写 op-log，即破坏 time travel 与无丢失保证，须停止。time-travel 范围若从 per-note 升级为需保留 move 历史的结构重演，须复核是否触 plan §13（完整收敛 move）暂停条件。
+
+---
+
+## I. Post-CP-0 批准记录（续编 D39+）
+
+### D39 — 非 Apple whole-exit 授权（CP-1 / CP-2 / Stage-2，用户 2026-06-10）
+
+- **Decision**：用户于 2026-06-10 给出两条授权（原文逐字）：round 2「请继续完成推进进度，只要和 apple, icloud 无关的，我都授权你执行」；round 3「我给你授权以下内容：editor-core 完整意图面(partial)、CLI 包(D31 Phase-2)、CP-1/CP-2/Stage-2 whole-exit（除 apple 相关内容）」。据此：CP-1 human sign-off 的非 Apple 部分视为已签（assembly 见 `22` §5）；CP-2 op-shape formal freeze 签字视为已授（`23`，golden 自 CP-2 起 pin 住）；Stage-2 ground floor whole-exit 非 Apple 部分已签（`24` §6）；`anchor` CLI（D31 Phase-2）与 editor-core 完整意图面的执行被显式授权，含 `suites/anchor/Cargo.toml` `members = ["core"] → ["core", "cli"]` 这一处 workspace 改动。
+- **Status**：Approved（2026-06-10，原文如上）
+- **Scope 之外（本授权不覆盖，仍 open）**：Apple operator round（remote `.icloud` placeholder / account states / iOS CloudDocuments delivery / iCloud-语境 compaction）、Developer ID / App Store distribution identity 与渠道、product app 集成（binding/TextKit/undo/VoiceOver/conflict-resolution UX）、Swift/FFI undo-group input 契约。
+- **Evidence**：本行是该批准的权威 home（decision table）；`24` §6 为其原始证据记录，`22` §5 / `23` 为消费方。其余文档引用 D39，不再复述原文。执行终态（145 tests、契约 README、scope-fence check）见 `24` §2/§3/§4。
 
 ---
 
