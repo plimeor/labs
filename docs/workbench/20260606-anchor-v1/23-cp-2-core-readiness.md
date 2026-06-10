@@ -153,8 +153,8 @@ rg "CloudKit|CKRecord|CKAsset|CKContainer|CKSyncEngine|NSFileCoordinator|NSMetad
 | **renormalize 陈旧坍缩**（item 6 / F26c） | **closed（round 2，见 `25`）** | — | producer `dispatch_renormalize_children` + replay 端 per-op location-rev CAS、macro all-or-nothing 坍缩（并发 move 恒胜，部分重铺不致 sibling 乱序）；无 base 的 legacy 信封保持无条件应用。 |
 | Swift/FFI undo-group input 契约 | Not run | binding owner | core-only undo replay 已证；Swift 侧 JSON 入参契约未建。 |
 | 产品 `NSUndoManager` grouping / redo | Not run | Apple product owner | core undo 下限 only。 |
-| op-shape **formal freeze 签字** | Needs human approval | human | Claude 已出 golden + freeze 测试；正式冻结签字授权后续 cloud record schema。 |
-| **CP-2 whole-exit** | Open — gated on CP-1 whole-exit + human sign-off | human | driver §4：CP-1 whole-exit 先过；CP-1 whole-exit 需 Apple runtime + ADP + iCloud + human（见 `22-cp-1-exit-report.md`）。 |
+| op-shape **formal freeze 签字** | **signed（2026-06-10，用户授权，见 `26` §5）** | — | golden `18582d53…` 自 CP-2 起 pin 住；round 3 的 `supersedes_rev` 消费证明预留字段可被启用而信封零改动。其「授权后续 cloud record schema」的消费端仍属二期 CloudKit（Apple-gated）。 |
+| **CP-2 whole-exit** | Open — **human sign-off 非 Apple 部分已签（2026-06-10，`26` §5）**；剩余 gated on CP-1 的 Apple runtime 链 | Apple operator | driver §4：CP-1 whole-exit 先过；CP-1 剩余 = Apple operator round（见 `22` §5）。 |
 
 ---
 

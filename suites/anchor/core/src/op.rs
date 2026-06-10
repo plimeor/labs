@@ -254,6 +254,10 @@ impl OpBuilder {
         self.op.observed_adds = Some(a);
         self
     }
+    pub fn supersedes_rev(mut self, r: impl Into<String>) -> Self {
+        self.op.supersedes_rev = Some(r.into());
+        self
+    }
     pub fn macro_op_id(mut self, m: impl Into<String>) -> Self {
         self.op.macro_op_id = Some(m.into());
         self

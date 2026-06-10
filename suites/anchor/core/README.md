@@ -4,8 +4,8 @@ The platform-agnostic deterministic **truth layer** for Anchor — a local-first
 Apple-native-first knowledge *Note* workbench. `anchor-core` owns the model,
 validation, the append-only op-log, replay/materialization, every merge rule,
 content-addressed identity, and the DTO/schema vocabulary. Clients (Swift/TextKit,
-a future CLI, `OpSyncPort` transport adapters) are dispatch shells that own **zero
-business truth**.
+the `anchor` CLI in `../cli`, `OpSyncPort` transport adapters) are dispatch
+shells that own **zero business truth**.
 
 > **Status: v0.0.0, pre-release ground floor.** This README is the authoritative
 > API / schema / file-format contract for what is implemented today. Sections
@@ -96,7 +96,17 @@ Concurrency that cannot be auto-resolved is surfaced (not dropped) as a
 `model::ConflictRecord` with `pinned_op_ids` that compaction must not truncate
 (no silent loss). Kinds include `body_overlap`, `scalar`, `move_skipped`,
 `location_relocated`, `reorder_blend`, `life_tie`, `ancestor_life_vs_descendant_edit`,
-and `split_merge_structural`.
+and `split_merge_structural`. An edit whose base chain leads back to a rev a
+structural macro itself produced is causal history (e.g. an ordinary edit of an
+imported block), never flagged as concurrent with that macro.
+
+**Resolution** (`Session::dispatch_resolve_body`, the D31 Phase-2 producer):
+a body keep-both is closed by dispatching a resolution op set that bases on
+the winner (`base_sub_rev`) and explicitly supersedes every pinned loser via
+the D24-reserved `supersedes_rev` field — first consumed by replay here. The
+log is never rewritten; after replay the chosen body is a plain `Single` and
+the `body_overlap` record disappears. Two frontier ops holding byte-identical
+bodies share one rev and are never a conflict.
 
 ## Editor dispatch [evolving]
 
@@ -116,13 +126,24 @@ assert!(result.validation_error.is_none());
   (UTF-16 range edits; insert and delete are special cases of replace), content
   cells `SetType` / `SetProp` / `AddTag` / `RemoveTag`, inline formatting
   `ApplyMark` / `RemoveMark` (remove trims an overlapping mark to its parts
-  outside the range), tree `Move` / `SetLife`, and the structural macros
-  `SplitBlock` / `MergeBackward` / `CreateBlock`. Structural macros emit ops
-  sharing a `macro_op_id` and replay **all-or-nothing** (`macro_size`); a
-  partially delivered macro never materializes a half-applied edit.
+  outside the range), tree `Move` / `SetLife`, block-level gestures
+  `IndentBlock` / `OutdentBlock` / `ExitContainerOnEmpty` (outdent only when
+  the body is empty) / `TransformBlock`, and the structural macros
+  `SplitBlock` / `MergeBackward` / `CreateBlock` / `InsertCodeBlock` (the F21
+  embedded-editor payload: create + type + language + body, selection enters
+  the embedded editor) / `PasteFragment` (paste runs through the importer; one
+  atomic multi-block fragment, caret at the end) / the multi-block selection
+  edits `DeleteBlocks` / `MoveBlocks`. Structural macros emit ops sharing a
+  `macro_op_id` and replay **all-or-nothing** (`macro_size`); a partially
+  delivered macro never materializes a half-applied edit.
+- `editor::escalate` / `editor::demote` — the F21 selection ladder, owned by
+  the core (not platform adapters): repeated select-all escalates
+  `partial → full payload → block`; escape demotes `embedded/text → block →
+  None` (workspace focus, adapter-owned).
 - Maintenance/bulk producers (not editor intents, same chokepoint):
-  `Session::dispatch_import_markdown` (markdown → one atomic note import) and
-  `Session::dispatch_renormalize_children` (F26 order-key rebalance).
+  `Session::dispatch_import_markdown` (markdown → one atomic note import),
+  `Session::dispatch_renormalize_children` (F26 order-key rebalance), and
+  `Session::dispatch_resolve_body` (body keep-both resolution, D31 Phase-2).
 - `dto::TransactionResult` — `{ changed_ids, validation_error, new_revisions,
   selection_hint, editor_patches, undo_group, conflicts, projection_fresh,
   mirror_fresh }`. (`projection_fresh` / `mirror_fresh` are Stage-1 always-true
@@ -205,18 +226,23 @@ vectors).
 ## Build & test
 
 ```sh
-cargo test   --manifest-path suites/anchor/Cargo.toml
+cargo test   --manifest-path suites/anchor/Cargo.toml                  # workspace: core + cli
 cargo clippy --manifest-path suites/anchor/Cargo.toml --all-targets -- -D warnings
-cargo build  --manifest-path suites/anchor/Cargo.toml --target wasm32-unknown-unknown
-cargo build  --manifest-path suites/anchor/Cargo.toml --target aarch64-linux-android
+# The cross-target guarantee belongs to the core alone (the CLI is a std host
+# binary), so the cross builds are scoped:
+cargo build  --manifest-path suites/anchor/Cargo.toml -p anchor-core --target wasm32-unknown-unknown
+cargo build  --manifest-path suites/anchor/Cargo.toml -p anchor-core --target aarch64-linux-android
 ```
+
+The public CLI contract (commands, `apiVersion` envelope, exit codes, vault
+layout) lives in [`../cli/README.md`](../cli/README.md).
 
 ## Not yet ground-floor [planned]
 
-- The remainder of the `anchor-editor-core` intent surface beyond the dispatch
-  set above (embedded editors, rich inline structures, multi-block selection
-  edits).
 - Intent-rebase beyond the conservative rules: hunks straddling the split
   point, chained concurrent edits, and mark-only concurrent edits still take
-  the surface+pin floor by design.
-- The public CLI schema (`cli` crate) — gated to Phase 2 (D31).
+  the surface+pin floor by design (a product decision, not a gap).
+- Rich inline structures beyond typed range marks (links/embeds as first-class
+  inline runs).
+- Compaction execution (snapshot + truncate against the causal-stability
+  watermark); the retention model and segment budget are in place.

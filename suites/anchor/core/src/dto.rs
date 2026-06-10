@@ -167,6 +167,59 @@ pub enum EditorIntent {
         after_block_id: Option<String>,
         text: String,
     },
+    /// Reparent under the previous living sibling (it becomes that sibling's
+    /// last child). No previous sibling ⇒ structural-deferred.
+    IndentBlock {
+        target_id: String,
+    },
+    /// Reparent to the grandparent, ordered right after the current parent.
+    /// Only valid inside a container *block* (a block whose parent is itself a
+    /// block); a note-level block has nowhere to outdent to.
+    OutdentBlock {
+        target_id: String,
+    },
+    /// The "exit container on empty" editing gesture: outdent, but only when
+    /// the block body is empty; otherwise structural-deferred.
+    ExitContainerOnEmpty {
+        target_id: String,
+    },
+    /// Transform the block's primary type (paragraph → heading, etc.). Same op
+    /// shape as `SetType`; as an editing gesture it selects the whole block.
+    TransformBlock {
+        target_id: String,
+        type_id: Option<String>,
+    },
+    /// Insert a code block — the embedded-editor payload (F21). One atomic
+    /// macro: create + `type_id = "code"` + `language` prop + body. The
+    /// selection hint enters the embedded editor (`Selection::Embedded`).
+    InsertCodeBlock {
+        parent_id: String,
+        after_block_id: Option<String>,
+        language: String,
+        code: String,
+    },
+    /// Paste external markdown as a multi-block fragment after a block. The
+    /// block plan comes from `importer::plan_import` (paste runs through the
+    /// importer/normalizer); the whole fragment is one atomic macro and the
+    /// caret lands at the end of the last pasted block.
+    PasteFragment {
+        parent_id: String,
+        after_block_id: Option<String>,
+        markdown: String,
+    },
+    /// Multi-block selection edit: trash every selected block as one atomic
+    /// macro (a partially delivered batch never materializes).
+    DeleteBlocks {
+        block_ids: Vec<String>,
+    },
+    /// Multi-block selection edit: move the blocks (kept in the given order)
+    /// under `parent_id`, after `after_block_id` (appended when `None`), as
+    /// one atomic macro. Moving a block into its own subtree is rejected.
+    MoveBlocks {
+        block_ids: Vec<String>,
+        parent_id: Option<String>,
+        after_block_id: Option<String>,
+    },
 }
 
 /// The result handed back to the platform adapter after a dispatch.
@@ -217,6 +270,9 @@ impl ValidationError {
         }
     }
 }
+
+/// An insertion slot: `(anchor sibling id, lower order bound, upper order bound)`.
+type InsertionSlot = (Option<String>, Option<String>, Option<String>);
 
 /// Summary returned by `open_fixture_vault`.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -349,6 +405,21 @@ impl Session {
         }
     }
 
+    /// Open a session over an existing op set (e.g. segments decoded from a
+    /// vault on disk). The ops are routed through sync ingestion (`op_id`
+    /// dedup + per-actor high-water-marks) — the same validated acceptance
+    /// path remote ops take — and then materialized by replay.
+    pub fn open_from_ops(vault_id: impl Into<String>, ops: Vec<Op>) -> Session {
+        let mut ingest = crate::ingest::IngestState::new();
+        ingest.ingest_segment(&ops);
+        let vault = ingest.materialize();
+        Session {
+            log: ingest.log().to_vec(),
+            vault,
+            vault_id: vault_id.into(),
+        }
+    }
+
     pub fn summary(&self) -> FixtureSummary {
         let note_ids: Vec<String> = self
             .vault
@@ -401,6 +472,50 @@ impl Session {
         } = &intent
         {
             return self.dispatch_create_block(parent_id, after_block_id.as_deref(), text, stamp);
+        }
+        if let EditorIntent::InsertCodeBlock {
+            parent_id,
+            after_block_id,
+            language,
+            code,
+        } = &intent
+        {
+            return self.dispatch_insert_code_block(
+                parent_id,
+                after_block_id.as_deref(),
+                language,
+                code,
+                stamp,
+            );
+        }
+        if let EditorIntent::PasteFragment {
+            parent_id,
+            after_block_id,
+            markdown,
+        } = &intent
+        {
+            return self.dispatch_paste_fragment(
+                parent_id,
+                after_block_id.as_deref(),
+                markdown,
+                stamp,
+            );
+        }
+        if let EditorIntent::DeleteBlocks { block_ids } = &intent {
+            return self.dispatch_delete_blocks(block_ids, stamp);
+        }
+        if let EditorIntent::MoveBlocks {
+            block_ids,
+            parent_id,
+            after_block_id,
+        } = &intent
+        {
+            return self.dispatch_move_blocks(
+                block_ids,
+                parent_id.as_deref(),
+                after_block_id.as_deref(),
+                stamp,
+            );
         }
 
         let selection_hint = self.selection_hint(&intent);
@@ -576,6 +691,112 @@ impl Session {
             changed_ids.push(child_id.clone());
         }
         self.commit(ops, changed_ids, None, Vec::new(), None)
+    }
+
+    /// Resolve an open body keep-both (`BodyState::MultiValue`) by dispatching
+    /// a resolution op set that causally supersedes the winner (via
+    /// `base_sub_rev`) and every pinned loser (via `supersedes_rev` — the
+    /// D24-reserved hook, first consumed here). After replay the chosen body
+    /// materializes as a plain `Single` and the `body_overlap` ConflictRecord
+    /// disappears: its members became causal history instead of concurrency.
+    pub fn dispatch_resolve_body(
+        &mut self,
+        target_id: &str,
+        chosen: crate::model::Body,
+        stamp: OpStamp,
+    ) -> TransactionResult {
+        let record = self
+            .vault
+            .conflicts
+            .iter()
+            .find(|c| {
+                c.target_id == target_id && c.kind == crate::model::ConflictKind::BodyOverlap
+            })
+            .cloned();
+        let Some(record) = record else {
+            return self.error_result(ValidationError::StructuralDispatchDeferred);
+        };
+        // The revs other ops base on are computed from the *original* op
+        // payloads (materialized loser bodies are mark-clamped, which can
+        // change the rev), so recover them from the log via the record's ids.
+        let body_rev_of = |op_id: &str| -> Option<String> {
+            self.log
+                .iter()
+                .find(|op| op.op_id == op_id)
+                .and_then(|op| match &op.payload {
+                    OpPayload::SetBody { text, marks } => {
+                        Some(body_sub_rev(&crate::model::Body {
+                            text: text.clone(),
+                            marks: marks.clone(),
+                        }))
+                    }
+                    _ => None,
+                })
+        };
+        let Some(winner_rev) = record.live_op_id.as_deref().and_then(body_rev_of) else {
+            return self.error_result(ValidationError::StructuralDispatchDeferred);
+        };
+        let mut loser_revs = Vec::with_capacity(record.losing_op_ids.len());
+        for op_id in &record.losing_op_ids {
+            let Some(rev) = body_rev_of(op_id) else {
+                return self.error_result(ValidationError::StructuralDispatchDeferred);
+            };
+            loser_revs.push(rev);
+        }
+        let previous = self.current_body_or_empty(target_id);
+        let chosen_rev = body_sub_rev(&chosen);
+        let macro_id = (loser_revs.len() > 1).then(|| format!("macro_resolve_{}", stamp.op_id));
+        let mut ops = Vec::with_capacity(loser_revs.len());
+        for (index, loser_rev) in loser_revs.iter().enumerate() {
+            let mut builder = OpBuilder::new(
+                format!("{}_res_{index:04}", stamp.op_id),
+                stamp.hlc.clone(),
+                stamp.actor.clone(),
+                target_id.to_string(),
+                self.kind_of(target_id),
+                Register::Content,
+                OpKind::Set,
+                OpPayload::SetBody {
+                    text: chosen.text.clone(),
+                    marks: chosen.marks.clone(),
+                },
+            )
+            .seq(stamp.seq)
+            .sub_field(SubFieldKey::Body)
+            .base_sub_rev(winner_rev.clone())
+            .new_sub_rev(chosen_rev.clone())
+            .supersedes_rev(loser_rev.clone());
+            if let Some(macro_id) = &macro_id {
+                builder = builder.macro_op_id(macro_id.clone());
+            }
+            ops.push(builder.build());
+        }
+        let caret = chosen.text.encode_utf16().count() as u32;
+        self.commit(
+            ops,
+            alloc::vec![target_id.to_string()],
+            Some(Selection::Text {
+                block_id: target_id.to_string(),
+                start: caret,
+                end: caret,
+            }),
+            alloc::vec![EditorPatch::ReplaceBlockText {
+                block_id: target_id.to_string(),
+                text: chosen.text.clone(),
+                selection_start: caret,
+                selection_end: caret,
+            }],
+            Some(UndoGroup {
+                group_id: format!("undo_{}", stamp.op_id),
+                label: "resolve_body".to_string(),
+                inverse_patches: alloc::vec![EditorPatch::ReplaceBlockText {
+                    block_id: target_id.to_string(),
+                    text: previous.text,
+                    selection_start: 0,
+                    selection_end: 0,
+                }],
+            }),
+        )
     }
 
     /// The single validated-dispatch chokepoint (CP-2 invariant): the **only**
@@ -913,6 +1134,18 @@ impl Session {
                 start: *start,
                 end: *end,
             }),
+            // Block-level editing gestures select the whole block.
+            EditorIntent::TransformBlock { target_id, .. }
+            | EditorIntent::IndentBlock { target_id }
+            | EditorIntent::OutdentBlock { target_id } => Some(Selection::Block {
+                block_id: target_id.clone(),
+            }),
+            // The caret stays in the (empty) block that just exited its container.
+            EditorIntent::ExitContainerOnEmpty { target_id } => Some(Selection::Text {
+                block_id: target_id.clone(),
+                start: 0,
+                end: 0,
+            }),
             _ => None,
         }
     }
@@ -1127,34 +1360,9 @@ impl Session {
         if !self.vault.nodes.contains_key(parent_id) {
             return self.error_result(ValidationError::StructuralDispatchDeferred);
         }
-        // The anchor sibling (patch + ordering) and the order bounds.
-        let (anchor, lower, upper) = match after_block_id {
-            Some(after) => {
-                let Some(after_node) = self.vault.nodes.get(after) else {
-                    return self.error_result(ValidationError::StructuralDispatchDeferred);
-                };
-                if after_node.location.parent.as_deref() != Some(parent_id) {
-                    return self.error_result(ValidationError::StructuralDispatchDeferred);
-                }
-                (
-                    Some(after.to_string()),
-                    Some(after_node.location.order.clone()),
-                    self.next_sibling_order(after),
-                )
-            }
-            None => {
-                let last = self
-                    .vault
-                    .nodes
-                    .values()
-                    .filter(|n| n.location.parent.as_deref() == Some(parent_id))
-                    .max_by(|a, b| a.location.order.cmp(&b.location.order));
-                (
-                    last.map(|n| n.id.clone()),
-                    last.map(|n| n.location.order.clone()),
-                    None,
-                )
-            }
+        let (anchor, lower, upper) = match self.insertion_anchor(Some(parent_id), after_block_id) {
+            Ok(slot) => slot,
+            Err(error) => return self.error_result(error),
         };
         let Ok(order) = crate::order::key_between(lower.as_deref(), upper.as_deref()) else {
             return self.error_result(ValidationError::StructuralDispatchDeferred);
@@ -1230,6 +1438,479 @@ impl Session {
                 }],
             }),
         )
+    }
+
+    /// Resolve the insertion slot inside `parent_id`: the sibling to insert
+    /// after (`after_block_id` when given, else the current last child) plus
+    /// the order-key bounds `(anchor_id, lower, upper)` for the new slot.
+    fn insertion_anchor(
+        &self,
+        parent_id: Option<&str>,
+        after_block_id: Option<&str>,
+    ) -> Result<InsertionSlot, ValidationError> {
+        match after_block_id {
+            Some(after) => {
+                let after_node = self
+                    .vault
+                    .nodes
+                    .get(after)
+                    .ok_or(ValidationError::StructuralDispatchDeferred)?;
+                if after_node.location.parent.as_deref() != parent_id {
+                    return Err(ValidationError::StructuralDispatchDeferred);
+                }
+                Ok((
+                    Some(after.to_string()),
+                    Some(after_node.location.order.clone()),
+                    self.next_sibling_order(after),
+                ))
+            }
+            None => {
+                let last = self
+                    .vault
+                    .nodes
+                    .values()
+                    .filter(|n| n.location.parent.as_deref() == parent_id)
+                    .max_by(|a, b| a.location.order.cmp(&b.location.order));
+                Ok((
+                    last.map(|n| n.id.clone()),
+                    last.map(|n| n.location.order.clone()),
+                    None,
+                ))
+            }
+        }
+    }
+
+    /// `n` order keys strictly inside the slot `(lower, upper)`, ascending.
+    fn keys_in_slot(
+        &self,
+        lower: Option<String>,
+        upper: Option<&str>,
+        n: usize,
+    ) -> Result<Vec<String>, ValidationError> {
+        let mut keys = Vec::with_capacity(n);
+        let mut prev = lower;
+        for _ in 0..n {
+            let next = crate::order::key_between(prev.as_deref(), upper)
+                .map_err(|_| ValidationError::StructuralDispatchDeferred)?;
+            keys.push(next.clone());
+            prev = Some(next);
+        }
+        Ok(keys)
+    }
+
+    /// Insert a code block — the F21 embedded-editor payload. One atomic macro:
+    /// create + `type_id = "code"` + `language` prop + body. The selection hint
+    /// drops into the embedded editor (`Selection::Embedded`).
+    fn dispatch_insert_code_block(
+        &mut self,
+        parent_id: &str,
+        after_block_id: Option<&str>,
+        language: &str,
+        code: &str,
+        stamp: OpStamp,
+    ) -> TransactionResult {
+        if !self.vault.nodes.contains_key(parent_id) {
+            return self.error_result(ValidationError::StructuralDispatchDeferred);
+        }
+        let (anchor, lower, upper) = match self.insertion_anchor(Some(parent_id), after_block_id) {
+            Ok(slot) => slot,
+            Err(error) => return self.error_result(error),
+        };
+        let Ok(order) = crate::order::key_between(lower.as_deref(), upper.as_deref()) else {
+            return self.error_result(ValidationError::StructuralDispatchDeferred);
+        };
+        let block_id = format!("blk_{}", stamp.op_id);
+        let macro_id = format!("macro_{}", stamp.op_id);
+        let body = crate::model::Body::plain(code);
+        let ops = alloc::vec![
+            OpBuilder::new(
+                format!("{}_a_create", stamp.op_id),
+                stamp.hlc.clone(),
+                stamp.actor.clone(),
+                block_id.clone(),
+                TargetKind::Block,
+                Register::Location,
+                OpKind::Create,
+                OpPayload::Create {
+                    kind: TargetKind::Block,
+                    location: Location::new(Some(parent_id.to_string()), order),
+                },
+            )
+            .seq(stamp.seq)
+            .macro_op_id(macro_id.clone())
+            .build(),
+            OpBuilder::new(
+                format!("{}_b_type", stamp.op_id),
+                stamp.hlc.clone(),
+                stamp.actor.clone(),
+                block_id.clone(),
+                TargetKind::Block,
+                Register::Content,
+                OpKind::Set,
+                OpPayload::SetTypeId {
+                    value: Some("code".to_string()),
+                },
+            )
+            .seq(stamp.seq)
+            .sub_field(SubFieldKey::TypeId)
+            .base_sub_rev(scalar_sub_rev(None))
+            .new_sub_rev(scalar_sub_rev(Some("code")))
+            .macro_op_id(macro_id.clone())
+            .build(),
+            OpBuilder::new(
+                format!("{}_c_language", stamp.op_id),
+                stamp.hlc.clone(),
+                stamp.actor.clone(),
+                block_id.clone(),
+                TargetKind::Block,
+                Register::Content,
+                OpKind::Set,
+                OpPayload::SetProp {
+                    key: "language".to_string(),
+                    value: Some(language.to_string()),
+                },
+            )
+            .seq(stamp.seq)
+            .sub_field(SubFieldKey::Prop("language".to_string()))
+            .base_sub_rev(scalar_sub_rev(None))
+            .new_sub_rev(scalar_sub_rev(Some(language)))
+            .macro_op_id(macro_id.clone())
+            .build(),
+            OpBuilder::new(
+                format!("{}_d_body", stamp.op_id),
+                stamp.hlc.clone(),
+                stamp.actor.clone(),
+                block_id.clone(),
+                TargetKind::Block,
+                Register::Content,
+                OpKind::Set,
+                OpPayload::SetBody {
+                    text: body.text.clone(),
+                    marks: body.marks.clone(),
+                },
+            )
+            .seq(stamp.seq)
+            .sub_field(SubFieldKey::Body)
+            .new_sub_rev(body_sub_rev(&body))
+            .macro_op_id(macro_id)
+            .build(),
+        ];
+        let editor_patches = match &anchor {
+            Some(anchor_id) => alloc::vec![EditorPatch::InsertTextSurface {
+                after_block_id: anchor_id.clone(),
+                block_id: block_id.clone(),
+                text: code.to_string(),
+                selection_start: 0,
+                selection_end: 0,
+            }],
+            None => Vec::new(),
+        };
+        self.commit(
+            ops,
+            alloc::vec![block_id.clone()],
+            Some(Selection::Embedded {
+                block_id: block_id.clone(),
+                start: 0,
+                end: 0,
+            }),
+            editor_patches,
+            Some(UndoGroup {
+                group_id: format!("undo_{}", stamp.op_id),
+                label: "insert_code_block".to_string(),
+                inverse_patches: alloc::vec![EditorPatch::RemoveTextSurface { block_id }],
+            }),
+        )
+    }
+
+    /// Paste external markdown as a multi-block fragment: the block plan comes
+    /// from `importer::plan_import` (paste runs through the importer), the
+    /// whole fragment commits as one atomic macro, and the caret lands at the
+    /// end of the last pasted block.
+    fn dispatch_paste_fragment(
+        &mut self,
+        parent_id: &str,
+        after_block_id: Option<&str>,
+        markdown: &str,
+        stamp: OpStamp,
+    ) -> TransactionResult {
+        if !self.vault.nodes.contains_key(parent_id) {
+            return self.error_result(ValidationError::StructuralDispatchDeferred);
+        }
+        let blocks = crate::importer::plan_import(markdown);
+        if blocks.is_empty() {
+            // Nothing to paste: an empty commit, not an error.
+            return self.commit(Vec::new(), Vec::new(), None, Vec::new(), None);
+        }
+        let (anchor, lower, upper) = match self.insertion_anchor(Some(parent_id), after_block_id) {
+            Ok(slot) => slot,
+            Err(error) => return self.error_result(error),
+        };
+        let orders = match self.keys_in_slot(lower, upper.as_deref(), blocks.len()) {
+            Ok(orders) => orders,
+            Err(error) => return self.error_result(error),
+        };
+        let macro_id = format!("macro_paste_{}", stamp.op_id);
+        let mut ops = Vec::new();
+        let mut changed_ids = Vec::new();
+        for (index, text) in blocks.iter().enumerate() {
+            let block_id = format!("blk_{}_{index:04}", stamp.op_id);
+            let body = crate::model::Body::plain(text.clone());
+            ops.push(
+                OpBuilder::new(
+                    format!("{}_paste_{index:04}_create", stamp.op_id),
+                    stamp.hlc.clone(),
+                    stamp.actor.clone(),
+                    block_id.clone(),
+                    TargetKind::Block,
+                    Register::Location,
+                    OpKind::Create,
+                    OpPayload::Create {
+                        kind: TargetKind::Block,
+                        location: Location::new(Some(parent_id.to_string()), orders[index].clone()),
+                    },
+                )
+                .seq(stamp.seq)
+                .macro_op_id(macro_id.clone())
+                .build(),
+            );
+            ops.push(
+                OpBuilder::new(
+                    format!("{}_paste_{index:04}_body", stamp.op_id),
+                    stamp.hlc.clone(),
+                    stamp.actor.clone(),
+                    block_id.clone(),
+                    TargetKind::Block,
+                    Register::Content,
+                    OpKind::Set,
+                    OpPayload::SetBody {
+                        text: body.text.clone(),
+                        marks: Vec::new(),
+                    },
+                )
+                .seq(stamp.seq)
+                .sub_field(SubFieldKey::Body)
+                .new_sub_rev(body_sub_rev(&body))
+                .macro_op_id(macro_id.clone())
+                .build(),
+            );
+            changed_ids.push(block_id);
+        }
+        let last_id = changed_ids.last().cloned().unwrap_or_default();
+        let caret = blocks
+            .last()
+            .map(|text| text.encode_utf16().count() as u32)
+            .unwrap_or(0);
+        // Patches chain off the anchor sibling; a fragment pasted into an empty
+        // container has no anchor, so adapters refresh from `changed_ids`.
+        let editor_patches = match &anchor {
+            Some(anchor_id) => {
+                let mut patches = Vec::with_capacity(changed_ids.len());
+                let mut after = anchor_id.clone();
+                for (index, block_id) in changed_ids.iter().enumerate() {
+                    let is_last = index == changed_ids.len() - 1;
+                    patches.push(EditorPatch::InsertTextSurface {
+                        after_block_id: after.clone(),
+                        block_id: block_id.clone(),
+                        text: blocks[index].clone(),
+                        selection_start: if is_last { caret } else { 0 },
+                        selection_end: if is_last { caret } else { 0 },
+                    });
+                    after = block_id.clone();
+                }
+                patches
+            }
+            None => Vec::new(),
+        };
+        let inverse_patches = changed_ids
+            .iter()
+            .rev()
+            .map(|block_id| EditorPatch::RemoveTextSurface {
+                block_id: block_id.clone(),
+            })
+            .collect();
+        self.commit(
+            ops,
+            changed_ids,
+            Some(Selection::Text {
+                block_id: last_id,
+                start: caret,
+                end: caret,
+            }),
+            editor_patches,
+            Some(UndoGroup {
+                group_id: format!("undo_{}", stamp.op_id),
+                label: "paste_fragment".to_string(),
+                inverse_patches,
+            }),
+        )
+    }
+
+    /// Multi-block selection edit: trash every selected block as one atomic
+    /// macro. The selection hint falls back to the closest living sibling
+    /// before the first deleted block.
+    fn dispatch_delete_blocks(&mut self, block_ids: &[String], stamp: OpStamp) -> TransactionResult {
+        if block_ids.is_empty() {
+            return self.error_result(ValidationError::StructuralDispatchDeferred);
+        }
+        for id in block_ids {
+            match self.vault.nodes.get(id) {
+                Some(node) if node.life.is_living() => {}
+                _ => return self.error_result(ValidationError::StructuralDispatchDeferred),
+            }
+        }
+        let macro_id = format!("macro_delete_{}", stamp.op_id);
+        let mut ops = Vec::with_capacity(block_ids.len());
+        let mut editor_patches = Vec::with_capacity(block_ids.len());
+        let mut inverse_patches = Vec::with_capacity(block_ids.len());
+        let mut undo_complete = true;
+        for (index, id) in block_ids.iter().enumerate() {
+            ops.push(
+                OpBuilder::new(
+                    format!("{}_del_{index:04}", stamp.op_id),
+                    stamp.hlc.clone(),
+                    stamp.actor.clone(),
+                    id.clone(),
+                    self.kind_of(id),
+                    Register::Life,
+                    OpKind::LifeSet,
+                    OpPayload::LifeSet {
+                        life: Life::Trashed,
+                    },
+                )
+                .seq(stamp.seq)
+                .macro_op_id(macro_id.clone())
+                .build(),
+            );
+            editor_patches.push(EditorPatch::RemoveTextSurface {
+                block_id: id.clone(),
+            });
+            // The inverse surface restore needs a sibling anchor; a first child
+            // has none, so the undo group degrades to None (documented lower
+            // bound, same as create-block's anchorless patch).
+            match self.previous_sibling_id(id) {
+                Some(prev) => {
+                    let body = self.current_body_or_empty(id);
+                    let len = body.text.encode_utf16().count() as u32;
+                    inverse_patches.push(EditorPatch::InsertTextSurface {
+                        after_block_id: prev,
+                        block_id: id.clone(),
+                        text: body.text,
+                        selection_start: 0,
+                        selection_end: len,
+                    });
+                }
+                None => undo_complete = false,
+            }
+        }
+        // Land the selection on the closest living sibling before the first
+        // deleted block that is not itself being deleted.
+        let selection_hint = block_ids.first().and_then(|first| {
+            let first_node = self.vault.nodes.get(first)?;
+            self.vault
+                .nodes
+                .values()
+                .filter(|node| {
+                    node.location.parent == first_node.location.parent
+                        && node.location.order < first_node.location.order
+                        && node.life.is_living()
+                        && !block_ids.contains(&node.id)
+                })
+                .max_by(|a, b| a.location.order.cmp(&b.location.order))
+                .map(|node| Selection::Block {
+                    block_id: node.id.clone(),
+                })
+        });
+        let undo_group = undo_complete.then(|| UndoGroup {
+            group_id: format!("undo_{}", stamp.op_id),
+            label: "delete_blocks".to_string(),
+            inverse_patches,
+        });
+        self.commit(
+            ops,
+            block_ids.to_vec(),
+            selection_hint,
+            editor_patches,
+            undo_group,
+        )
+    }
+
+    /// Multi-block selection edit: move the blocks (kept in the given order)
+    /// under `parent_id` after `after_block_id`, as one atomic macro. The
+    /// destination must not sit inside any moved block's subtree — replay also
+    /// guards at apply time, but rejecting locally keeps the gesture honest
+    /// instead of silently skipping.
+    fn dispatch_move_blocks(
+        &mut self,
+        block_ids: &[String],
+        parent_id: Option<&str>,
+        after_block_id: Option<&str>,
+        stamp: OpStamp,
+    ) -> TransactionResult {
+        if block_ids.is_empty() {
+            return self.error_result(ValidationError::StructuralDispatchDeferred);
+        }
+        for id in block_ids {
+            if !self.vault.nodes.contains_key(id) {
+                return self.error_result(ValidationError::StructuralDispatchDeferred);
+            }
+        }
+        if let Some(parent) = parent_id {
+            if !self.vault.nodes.contains_key(parent) {
+                return self.error_result(ValidationError::StructuralDispatchDeferred);
+            }
+        }
+        if let Some(after) = after_block_id {
+            if block_ids.iter().any(|id| id == after) {
+                return self.error_result(ValidationError::StructuralDispatchDeferred);
+            }
+        }
+        let mut cursor = parent_id.map(String::from);
+        while let Some(current) = cursor {
+            if block_ids.contains(&current) {
+                return self.error_result(ValidationError::StructuralDispatchDeferred);
+            }
+            cursor = self
+                .vault
+                .nodes
+                .get(&current)
+                .and_then(|node| node.location.parent.clone());
+        }
+        let (_, lower, upper) = match self.insertion_anchor(parent_id, after_block_id) {
+            Ok(slot) => slot,
+            Err(error) => return self.error_result(error),
+        };
+        let orders = match self.keys_in_slot(lower, upper.as_deref(), block_ids.len()) {
+            Ok(orders) => orders,
+            Err(error) => return self.error_result(error),
+        };
+        let macro_id = format!("macro_move_{}", stamp.op_id);
+        let mut ops = Vec::with_capacity(block_ids.len());
+        for (index, id) in block_ids.iter().enumerate() {
+            ops.push(
+                OpBuilder::new(
+                    format!("{}_move_{index:04}", stamp.op_id),
+                    stamp.hlc.clone(),
+                    stamp.actor.clone(),
+                    id.clone(),
+                    self.kind_of(id),
+                    Register::Location,
+                    OpKind::Move,
+                    OpPayload::SetLocation {
+                        parent: parent_id.map(String::from),
+                        order: orders[index].clone(),
+                    },
+                )
+                .seq(stamp.seq)
+                .macro_op_id(macro_id.clone())
+                .build(),
+            );
+        }
+        let selection_hint = block_ids.first().map(|first| Selection::Block {
+            block_id: first.clone(),
+        });
+        // Location moves have no text-surface patch; adapters refresh the
+        // affected subtrees from `changed_ids`.
+        self.commit(ops, block_ids.to_vec(), selection_hint, Vec::new(), None)
     }
 
     fn dispatch_merge_backward(&mut self, target_id: &str, stamp: OpStamp) -> TransactionResult {
@@ -1498,29 +2179,9 @@ impl Session {
                 .new_sub_rev(body_sub_rev(&current))
                 .build())
             }
-            EditorIntent::SetType { target_id, type_id } => {
-                let current = self
-                    .vault
-                    .nodes
-                    .get(target_id)
-                    .and_then(|n| n.content.type_id.clone());
-                Ok(OpBuilder::new(
-                    stamp.op_id.clone(),
-                    stamp.hlc.clone(),
-                    stamp.actor.clone(),
-                    target_id.clone(),
-                    self.kind_of(target_id),
-                    Register::Content,
-                    OpKind::Set,
-                    OpPayload::SetTypeId {
-                        value: type_id.clone(),
-                    },
-                )
-                .seq(stamp.seq)
-                .sub_field(SubFieldKey::TypeId)
-                .base_sub_rev(scalar_sub_rev(current.as_deref()))
-                .new_sub_rev(scalar_sub_rev(type_id.as_deref()))
-                .build())
+            EditorIntent::SetType { target_id, type_id }
+            | EditorIntent::TransformBlock { target_id, type_id } => {
+                Ok(self.set_type_op(target_id, type_id.as_deref(), stamp))
             }
             EditorIntent::SetProp {
                 target_id,
@@ -1632,10 +2293,111 @@ impl Session {
                 .seq(stamp.seq)
                 .build())
             }
+            EditorIntent::IndentBlock { target_id } => {
+                // The previous living sibling becomes the new parent; the block
+                // is appended after that sibling's current last living child.
+                let Some(new_parent) = self.previous_sibling_id(target_id) else {
+                    return Err(ValidationError::StructuralDispatchDeferred);
+                };
+                let last_child_order = self
+                    .vault
+                    .nodes
+                    .values()
+                    .filter(|n| {
+                        n.location.parent.as_deref() == Some(new_parent.as_str())
+                            && n.life.is_living()
+                    })
+                    .map(|n| n.location.order.clone())
+                    .max();
+                let order = crate::order::key_between(last_child_order.as_deref(), None)
+                    .map_err(|_| ValidationError::StructuralDispatchDeferred)?;
+                Ok(self.move_op(target_id, Some(new_parent), order, stamp))
+            }
+            EditorIntent::OutdentBlock { target_id } => self.outdent_op(target_id, stamp),
+            EditorIntent::ExitContainerOnEmpty { target_id } => {
+                if !self.current_body_or_empty(target_id).text.is_empty() {
+                    return Err(ValidationError::StructuralDispatchDeferred);
+                }
+                self.outdent_op(target_id, stamp)
+            }
             EditorIntent::SplitBlock { .. }
             | EditorIntent::MergeBackward { .. }
-            | EditorIntent::CreateBlock { .. } => Err(ValidationError::StructuralDispatchDeferred),
+            | EditorIntent::CreateBlock { .. }
+            | EditorIntent::InsertCodeBlock { .. }
+            | EditorIntent::PasteFragment { .. }
+            | EditorIntent::DeleteBlocks { .. }
+            | EditorIntent::MoveBlocks { .. } => Err(ValidationError::StructuralDispatchDeferred),
         }
+    }
+
+    fn set_type_op(&self, target_id: &str, type_id: Option<&str>, stamp: &OpStamp) -> Op {
+        let current = self
+            .vault
+            .nodes
+            .get(target_id)
+            .and_then(|n| n.content.type_id.clone());
+        OpBuilder::new(
+            stamp.op_id.clone(),
+            stamp.hlc.clone(),
+            stamp.actor.clone(),
+            target_id.to_string(),
+            self.kind_of(target_id),
+            Register::Content,
+            OpKind::Set,
+            OpPayload::SetTypeId {
+                value: type_id.map(String::from),
+            },
+        )
+        .seq(stamp.seq)
+        .sub_field(SubFieldKey::TypeId)
+        .base_sub_rev(scalar_sub_rev(current.as_deref()))
+        .new_sub_rev(scalar_sub_rev(type_id))
+        .build()
+    }
+
+    fn move_op(
+        &self,
+        target_id: &str,
+        parent: Option<String>,
+        order: String,
+        stamp: &OpStamp,
+    ) -> Op {
+        OpBuilder::new(
+            stamp.op_id.clone(),
+            stamp.hlc.clone(),
+            stamp.actor.clone(),
+            target_id.to_string(),
+            self.kind_of(target_id),
+            Register::Location,
+            OpKind::Move,
+            OpPayload::SetLocation { parent, order },
+        )
+        .seq(stamp.seq)
+        .build()
+    }
+
+    /// Reparent to the grandparent, ordered right after the current parent.
+    /// Valid only inside a container block: the parent must itself be a block.
+    fn outdent_op(&self, target_id: &str, stamp: &OpStamp) -> Result<Op, ValidationError> {
+        let parent_id = self
+            .vault
+            .nodes
+            .get(target_id)
+            .and_then(|n| n.location.parent.clone())
+            .ok_or(ValidationError::StructuralDispatchDeferred)?;
+        let parent = self
+            .vault
+            .nodes
+            .get(&parent_id)
+            .ok_or(ValidationError::StructuralDispatchDeferred)?;
+        if parent.kind != TargetKind::Block {
+            return Err(ValidationError::StructuralDispatchDeferred);
+        }
+        let upper = self.next_sibling_order(&parent_id);
+        let order =
+            crate::order::key_between(Some(parent.location.order.as_str()), upper.as_deref())
+                .map_err(|_| ValidationError::StructuralDispatchDeferred)?;
+        Ok(self.move_op(target_id, parent.location.parent.clone(), order, stamp))
     }
 }
 

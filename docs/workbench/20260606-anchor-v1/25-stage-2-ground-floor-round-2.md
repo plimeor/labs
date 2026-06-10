@@ -12,7 +12,7 @@
 
 `24` §6 中 5 项 Claude/core remaining 工作全部落地并有测试守住：**op-segment 双向 codec、Markdown importer（含真实语料浸泡）、Renormalize producer + F26c 陈旧坍缩、确定性 split/merge intent-rebase（保守规则）、编辑器意图面扩展**。`anchor-core` README 契约同步更新。测试 85 → **120**（+35），全门控 green。
 
-剩余 open gates 只剩两类：**human/Apple 门**（CP-1/CP-2/Stage-2 whole-exit、Apple runtime、CLI 的 D31 Phase-2 user approval）与**设计保守面**（intent-rebase 的 straddle/链式/纯 mark 并发仍走 surface+pin floor，by design）。
+剩余 open gates 只剩两类：**human/Apple 门**（CP-1/CP-2/Stage-2 whole-exit、Apple runtime、CLI 的 D31 Phase-2 user approval）与**设计保守面**（intent-rebase 的 straddle/链式/纯 mark 并发仍走 surface+pin floor，by design）。（**后记：round 3（`26`）已收掉 human 门的非 Apple 部分**——editor-core 完整面与 CLI 落地、非 Apple whole-exit 签字给出；剩余只 Apple runtime 链。）
 
 ## 2. 本轮落地
 
@@ -59,8 +59,8 @@ ANCHOR_IMPORT_CORPUS=<本机语料副本> cargo test --test import_corpus -- --i
 | Open gate | 状态 | Owner |
 |---|---|---|
 | intent-rebase 保守面（straddle / 链式 / 纯 mark 并发 ⇒ surface+pin floor） | by design（floor 即安全语义；进一步 auto-resolve 属产品决策） | core + product |
-| editor-core 完整意图面（嵌入编辑器、富 inline、多块选区） | partial | Claude/core |
-| 公开 CLI schema（`cli` 包） | Needs user approval（D31 Phase-2，触 workspace 边界） | human |
-| CP-1 / CP-2 / Stage-2 **whole-exit** | gated（Apple runtime + human sign-off，见 `22`/`23`/`24`） | human |
+| editor-core 完整意图面（嵌入编辑器、富 inline、多块选区） | **closed（round 3，见 `26`）**——嵌入编辑器载体 + F21 选择阶梯 + 多块选区编辑落地；「富 inline 一等结构」转入 core README planned（产品扩展，非 ground-floor 缺口） | — |
+| 公开 CLI schema（`cli` 包） | **closed（round 3，user-approved 2026-06-10，见 `26`）** | — |
+| CP-1 / CP-2 / Stage-2 **whole-exit** | **human sign-off 非 Apple 部分已签（2026-06-10，`26` §5）**；剩余 = Apple runtime 链（见 `22` §5） | Apple operator |
 
 > 权威契约：`suites/anchor/core/README.md`。上一轮 ground floor：`24`。CP-1/CP-2 exit assembly：`22`/`23`。Cursor / ledger：`21`。

@@ -1,0 +1,19 @@
+# anchor-cli — the local structured command contract (D31 Phase-2).
+# A std host binary; it owns zero business truth (every write goes through
+# `anchor_core::dto::Session` dispatch, every read is materialized replay).
+# It is intentionally excluded from the cross-target (wasm32/android) builds —
+# that guarantee belongs to `anchor-core` alone.
+
+[package]
+name = "anchor-cli"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "anchor"
+path = "src/main.rs"
+
+[dependencies]
+anchor-core = { path = "../core" }

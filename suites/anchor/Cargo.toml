@@ -1,17 +1,18 @@
-# Anchor Rust workspace — Stage 1 spike (CP-1).
+# Anchor Rust workspace.
 #
-# Scope: only the platform-agnostic deterministic core lives here today. The
-# CP-0 approved Option A layout also reserves `cli` (Rust bin) and `apple`
-# (Xcode workspace); those are NOT created in this Stage 1 spike (Apple work is
-# owned by Codex, CLI public schema is gated). See
-# docs/workbench/20260606-anchor-v1/14-core-spike-report.md.
+# `core` is the platform-agnostic deterministic truth layer (no_std + alloc,
+# zero deps — it alone carries the cross-target wasm32/android guarantee).
+# `cli` is the local structured command contract (D31 Phase-2, user-approved
+# 2026-06-10): a std host binary that is a pure dispatch shell over `core`.
+# The CP-0 approved Option A layout also reserves `apple` (Xcode workspace,
+# owned by Codex).
 #
 # This file does not touch the Bun workspace: there is intentionally no
 # `package.json` under suites/anchor/** (D02 — never add a placeholder
 # package.json to satisfy the `suites/*/*` glob).
 
 [workspace]
-members = ["core"]
+members = ["core", "cli"]
 resolver = "2"
 
 [workspace.package]

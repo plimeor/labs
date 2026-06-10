@@ -139,8 +139,13 @@ Repo-local Apple addition 限于 verifier-only 工程；root workspace、lockfil
 | `Renormalize` producer + F26c all-or-nothing CAS 坍缩 | `25` |
 | 确定性 split/merge intent-rebase（保守单侧规则；floor 不变） | `25` |
 | editor intent surface 扩展（`DeleteText`/`ReplaceText`/`RemoveMark`/`CreateBlock`） | `25` |
+| editor-core 完整意图面（indent/outdent/exit-container/transform/insert-code-block/paste-fragment + 多块选区 `DeleteBlocks`/`MoveBlocks`） | `26` |
+| F21 选择提升/降级阶梯（core 拥有；`Selection::Block`/`Embedded` 首次发射） | `26` |
+| body keep-both resolution 产线（`dispatch_resolve_body`；D24 预留 `supersedes_rev` 首次消费） | `26` |
+| 结构冲突启发式因果收紧（macro 下游编辑 + superseded rev 不再误报并发） | `26` |
+| `anchor` CLI（D31 Phase-2，user-approved 2026-06-10）：vault segment I/O + 公开 ConflictRecord/resolve/restore 面 + 退出码契约 e2e | `26` |
 
-\* 上表每行的 evidence pointer 指向 consolidation 后的权威证据文档（`09`/`17`/`18`/`19`/`20`；core CP-2 迭代已并入 `23`，Stage-2 ground floor 为 `24`/`25`）。原本分散的逐次 reruns（iOS-device locked rerun、device visibility-only、iOS-sim 复测、support reruns、Developer-ID signing availability 等负面/无新增证据项）不产生新的 closed gate，仅强化既有证据或记录负面 delivery 结论；其净结论已并入 §3 readiness matrix 与 §7 open gates，原始命令输出（含设备/账号细节）已在 consolidation 中按工作台规则脱敏移除。
+\* 上表每行的 evidence pointer 指向 consolidation 后的权威证据文档（`09`/`17`/`18`/`19`/`20`；core CP-2 迭代已并入 `23`，Stage-2 ground floor 为 `24`/`25`/`26`）。原本分散的逐次 reruns（iOS-device locked rerun、device visibility-only、iOS-sim 复测、support reruns、Developer-ID signing availability 等负面/无新增证据项）不产生新的 closed gate，仅强化既有证据或记录负面 delivery 结论；其净结论已并入 §3 readiness matrix 与 §7 open gates，原始命令输出（含设备/账号细节）已在 consolidation 中按工作台规则脱敏移除。
 
 ---
 
@@ -161,9 +166,9 @@ CP-1 whole-exit gated on 以下未关闭项。所有 **closed** gate（§6）均
 | iCloud-context million-op replay/merge/compaction + steady-state segment budget | Not run in iCloud context — core-side linear + 1M-op floor observed only | core + Apple verifier | `19` |
 | non-macOS package-level metadata gather / large-scale delivery | Not run — macOS-only gate | Needs-Apple-runtime | `19` |
 | local-only path-in-ubiquity 边界（D21/D21a：external volume / security-scoped bookmark / signed-out） | Partially Blocked — classifier floor observed; signed-out/external-volume not run | Needs-Apple-runtime | `19` |
-| TextKit 产品 runtime（`NSUndoManager` grouping/redo、VoiceOver/UI runtime、moving-view replace replay、concurrent intent rebase、`split_merge_structural` conflict materialization、mark-preserving full inverse-op contract） | Not run — mechanism floors only | Apple product owner | `18`/`72`–`75` |
-| Swift/FFI undo-group input contract | Not run — core-only replay lower bound observed | binding owner | `75` |
+| TextKit 产品 runtime（`NSUndoManager` grouping/redo、VoiceOver/UI runtime、moving-view replace replay、mark-preserving full inverse-op contract；concurrent intent rebase 与 `split_merge_structural` materialization 的 core 侧已落地 `25`/`26`，product runtime 集成未跑） | Not run — mechanism floors only | Apple product owner | `18`/`23` |
+| Swift/FFI undo-group input contract | Not run — core-only replay lower bound observed | binding owner | `23` |
 | persistent repo-enforced cross-target CI wiring（incl. android in CI） | Not run — hosted workflow removed; historical execution retained; runner under `/tmp` | core / infra owner | `20` |
-| **CP-1 whole-exit** | **Open — human sign-off not reached** | Needs-human-approval | this doc §1 |
+| **CP-1 whole-exit** | **Open — 非 Apple human sign-off 已签（2026-06-10，`22` §5 / `26` §5）；剩余 = Apple operator round** | Needs-Apple-runtime | `22` §5 |
 
-> 此 doc 仍是 CP-1 cursor / ledger。下一动作应推进 product app-hosted dispatch 集成或 Apple release-distribution gate，或在恢复 hosted CI 时重建 persistent cross-target wiring（须不触 root workspace / lockfile / package-boundary）。
+> 此 doc 仍是 CP-1 cursor / ledger。Claude/core 与 human-approval 可达的工作已全部收口（Stage-2 ground floor 关闭、CLI D31 Phase-2 落地、非 Apple whole-exit 签字给出，见 `24`–`26`）。下一动作唯余 Apple operator round（signed device + ADP + 真实 iCloud + product app 集成 + distribution identity），或在恢复 hosted CI 时重建 persistent cross-target wiring（须不触 root workspace / lockfile / package-boundary）。

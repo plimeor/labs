@@ -12,9 +12,10 @@
 //! the single validated dispatch chokepoint (the only op-log append site, gated
 //! by `validate_batch`), all-or-nothing structural macros (`macro_size`), the
 //! frozen D24 op envelope (`op::op_envelope_canonical`), and the
-//! transport-agnostic `OpSyncPort` boundary with a reference adapter. It still
-//! does not implement persistent application writes. See `README.md` for the
-//! stable-vs-planned public contract surface.
+//! transport-agnostic `OpSyncPort` boundary with a reference adapter. This
+//! crate itself never performs I/O; persistence lives in clients (the `anchor`
+//! CLI in `../cli` persists op segments through `codec`). See `README.md` for
+//! the stable-vs-planned public contract surface.
 
 #![no_std]
 #![forbid(unsafe_code)]
@@ -28,6 +29,7 @@ pub mod canonical;
 pub mod codec;
 pub mod diff3;
 pub mod dto;
+pub mod editor;
 pub mod hlc;
 pub mod id;
 pub mod importer;

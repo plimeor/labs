@@ -3,5 +3,12 @@
 version = 4
 
 [[package]]
+name = "anchor-cli"
+version = "0.0.0"
+dependencies = [
+ "anchor-core",
+]
+
+[[package]]
 name = "anchor-core"
 version = "0.0.0"

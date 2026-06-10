@@ -636,6 +636,7 @@ fn resolve_body(
     let mut new_revs: Vec<String> = Vec::new();
     let mut bodies: Vec<(Body, String)> = Vec::new(); // (body, op_id) in T order
     let mut base_of: Vec<Option<String>> = Vec::new();
+    let mut superseded: BTreeSet<String> = BTreeSet::new();
     for op in body_ops {
         if let OpPayload::SetBody { text, marks } = &op.payload {
             let body = Body {
@@ -647,17 +648,33 @@ fn resolve_body(
             new_revs.push(nr);
             bodies.push((body, op.op_id.clone()));
             base_of.push(op.base_sub_rev.clone());
+            // A resolution op explicitly supersedes a pinned loser's rev
+            // (`supersedes_rev`, the D24-reserved hook): that rev leaves the
+            // frontier exactly like a rev someone based an edit on.
+            if let Some(rev) = &op.supersedes_rev {
+                superseded.insert(rev.clone());
+            }
         }
     }
 
-    // Superseded: op X is superseded if some op Y bases on X.new_sub_rev.
-    let bases: BTreeSet<String> = base_of.iter().flatten().cloned().collect();
+    // Superseded: op X is superseded if some op Y bases on X.new_sub_rev or
+    // explicitly supersedes it (conflict resolution).
+    let mut bases: BTreeSet<String> = base_of.iter().flatten().cloned().collect();
+    bases.append(&mut superseded);
     let mut frontier: Vec<usize> = Vec::new();
     for (i, nr) in new_revs.iter().enumerate() {
-        if !bases.contains(nr) {
+        if bases.contains(nr) {
+            continue;
+        }
+        // Two frontier ops with the same rev hold byte-identical bodies — not
+        // a conflict; keep the highest-T occurrence only.
+        if let Some(existing) = frontier.iter().position(|&j| new_revs[j] == *nr) {
+            frontier[existing] = i;
+        } else {
             frontier.push(i);
         }
     }
+    frontier.sort_unstable();
 
     if frontier.len() <= 1 {
         let idx = *frontier.last().unwrap_or(&(bodies.len() - 1));
@@ -1046,16 +1063,50 @@ fn derive_split_merge_structural(
         if macro_actors.is_empty() {
             continue;
         }
-        // Body revs some other op on this node bases on: a superseded op is
-        // causal history, not a concurrent edit.
+        // Body revs some other op on this node bases on — or that a resolution
+        // op explicitly supersedes: a superseded op is causal history, not a
+        // concurrent edit.
         let node_bases: BTreeSet<&str> = b
             .body_ops
             .iter()
-            .filter_map(|o| o.base_sub_rev.as_deref())
+            .flat_map(|o| {
+                o.base_sub_rev
+                    .as_deref()
+                    .into_iter()
+                    .chain(o.supersedes_rev.as_deref())
+            })
             .collect();
+        // Computed rev → producing body op, for causal-downstream walks.
+        let producer: BTreeMap<String, &Op> = b
+            .body_ops
+            .iter()
+            .filter_map(|o| payload_body(o).map(|body| (body_sub_rev(&body), o)))
+            .collect();
+        // An edit whose base chain leads back to a rev the macro itself
+        // produced *saw* the macro — it is downstream causal history (e.g. an
+        // ordinary edit of an imported block), never concurrent with it.
+        let causally_after_macro = |op: &Op| -> bool {
+            let mut rev = op.base_sub_rev.clone();
+            let mut hops = 0usize;
+            while let Some(r) = rev {
+                let Some(p) = producer.get(&r) else {
+                    return false;
+                };
+                if p.macro_op_id.is_some() {
+                    return true;
+                }
+                rev = p.base_sub_rev.clone();
+                hops += 1;
+                if hops > 10_000 {
+                    return false; // malformed chain; fail open (surface it)
+                }
+            }
+            false
+        };
         // A plain (non-macro) body edit by a different actor is concurrent with
         // the structural macro — unless the rebase pass integrated it, the
-        // macro causally consumed it (its pre-image), or it is superseded.
+        // macro causally consumed it (its pre-image), it is superseded, or it
+        // is causally downstream of the macro's own output.
         let concurrent_edits: Vec<&Op> = b
             .body_ops
             .iter()
@@ -1066,6 +1117,7 @@ fn derive_split_merge_structural(
                     && !observed.contains(&o.op_id)
                     && !payload_body(o)
                         .is_some_and(|body| node_bases.contains(body_sub_rev(&body).as_str()))
+                    && !causally_after_macro(o)
             })
             .collect();
         if concurrent_edits.is_empty() {

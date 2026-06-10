@@ -135,9 +135,10 @@ pub struct Node {
     pub has_body_conflict: bool,
 }
 
-/// Derived conflict read-model kinds (conflict §9). This is NOT a public CLI
-/// schema (D31 defers that to Phase 2); it is a replay-derived value used for
-/// surfacing and for the "no silent loss" pin against compaction.
+/// Derived conflict read-model kinds (conflict §9): replay-derived values used
+/// for surfacing and for the "no silent loss" pin against compaction. Since
+/// D31 Phase 2 (user-approved 2026-06-10) the `anchor` CLI exposes these
+/// records publicly (`anchor conflicts`); they remain derived, never persisted.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ConflictKind {
     BodyOverlap,
