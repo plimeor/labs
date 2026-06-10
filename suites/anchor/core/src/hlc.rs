@@ -41,13 +41,3 @@ impl Ord for Hlc {
             .then(self.device.cmp(&other.device))
     }
 }
-
-/// Deterministic join of two HLCs (component-wise max on the comparable key).
-/// Used when a merge op derives its clock from its inputs (conflict §5.1).
-pub fn join(a: &Hlc, b: &Hlc) -> Hlc {
-    if a >= b {
-        a.clone()
-    } else {
-        b.clone()
-    }
-}

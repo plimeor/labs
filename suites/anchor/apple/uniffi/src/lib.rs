@@ -74,6 +74,12 @@ fn fixture_summary(summary: CoreFixtureSummary) -> FixtureSummary {
     }
 }
 
+/// Flatten an optional core `Selection` into the UniFFI summary's scalar fields.
+///
+/// The `"none"` `selection_kind` is the canonical "no selection" sentinel for the
+/// UniFFI surface and mirrors the C-ABI path's `selection_hint: null` (both project
+/// the same core `Option<Selection>::None`). The `Block`/`Embedded` variants are
+/// owned by core and matched exhaustively here.
 fn selection_fields(selection: Option<anchor_core::dto::Selection>) -> (String, String, u32, u32) {
     match selection {
         Some(anchor_core::dto::Selection::Text {
@@ -154,9 +160,18 @@ fn to_core_intent(intent: EditorIntentDto) -> EditorIntent {
             target_id: intent.target_id,
             life: Life::Active,
         },
-        _ => EditorIntent::SplitBlock {
+        "split_block" => EditorIntent::SplitBlock {
             target_id: intent.target_id,
             at: intent.at,
+        },
+        // An unrecognized (or malformed) `kind` MUST NOT silently become a
+        // structural SplitBlock — that would be a silent-wrong-dispatch hazard.
+        // Map it to a non-destructive intent (restore-to-active) that core
+        // dispatches deterministically without performing a structural split.
+        // Only an explicit "split_block" reaches the SplitBlock arm above.
+        _ => EditorIntent::SetLife {
+            target_id: intent.target_id,
+            life: Life::Active,
         },
     }
 }

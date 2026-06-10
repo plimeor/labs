@@ -12,7 +12,7 @@ use crate::hash;
 use crate::hlc::Hlc;
 use crate::id::journal_note_id;
 use crate::marks::Mark;
-use crate::model::{body_sub_rev, scalar_sub_rev, BodyState, Life, Location, TargetKind, Vault};
+use crate::model::{body_sub_rev, scalar_sub_rev, Life, Location, TargetKind, Vault};
 use crate::op::{Op, OpBuilder, OpKind, OpPayload, Register, SubFieldKey};
 use crate::replay::replay;
 use crate::sync_port::SegmentId;
@@ -38,10 +38,14 @@ pub enum Selection {
         start: u32,
         end: u32,
     },
+    /// Reserved: core currently only emits `Text`, but the FFI matches every
+    /// variant exhaustively, so `Block` (whole-block selection) stays in the
+    /// generated binding surface for future use.
     Block {
         block_id: String,
     },
-    /// Selection local to an embedded editor (e.g. a code block payload).
+    /// Reserved: selection local to an embedded editor (e.g. a code block
+    /// payload). Not yet emitted by core; kept for binding-surface stability.
     Embedded {
         block_id: String,
         start: u32,
@@ -123,7 +127,9 @@ pub enum EditorIntent {
         target_id: String,
         life: Life,
     },
-    /// Structural intents whose dispatch is deferred to CP-2.
+    /// Structural editor intents, dispatched via dedicated macro builders: split
+    /// a block at a UTF-16 offset, or merge a block into its previous living
+    /// sibling. Their ops share a `macro_op_id` and replay all-or-nothing (D29).
     SplitBlock {
         target_id: String,
         at: u32,
@@ -143,6 +149,9 @@ pub struct TransactionResult {
     pub editor_patches: Vec<EditorPatch>,
     pub undo_group: Option<UndoGroup>,
     pub conflicts: Vec<crate::model::ConflictRecord>,
+    /// Stage-1 placeholders: always `true`. A future projection/mirror freshness
+    /// gate will compute these in `commit`; until then there is no `false` path,
+    /// so adapters must not branch on them yet.
     pub projection_fresh: bool,
     pub mirror_fresh: bool,
 }
@@ -335,16 +344,15 @@ impl Session {
     }
 
     /// Apply an editor intent. Mirrors the real dispatch shape: intent → op →
-    /// append → replay → result.
+    /// validate → append → replay → result. Structural intents are routed to
+    /// their macro builders (guard clauses); every path lands at the single
+    /// validated `commit` chokepoint.
     pub fn dispatch(&mut self, intent: EditorIntent, stamp: OpStamp) -> TransactionResult {
-        match &intent {
-            EditorIntent::SplitBlock { target_id, at } => {
-                return self.dispatch_split_block(target_id, *at, stamp);
-            }
-            EditorIntent::MergeBackward { target_id } => {
-                return self.dispatch_merge_backward(target_id, stamp);
-            }
-            _ => {}
+        if let EditorIntent::SplitBlock { target_id, at } = &intent {
+            return self.dispatch_split_block(target_id, *at, stamp);
+        }
+        if let EditorIntent::MergeBackward { target_id } = &intent {
+            return self.dispatch_merge_backward(target_id, stamp);
         }
 
         let selection_hint = self.selection_hint(&intent);
@@ -355,9 +363,9 @@ impl Session {
         let target = op.target_id.clone();
         let editor_patches = self.editor_patches_for_single_op(&op, &selection_hint);
         let undo_group = self.undo_group_for_single_op(&op, &intent, &stamp);
-        self.apply_ops(
+        self.commit(
             alloc::vec![op],
-            alloc::vec![target.clone()],
+            alloc::vec![target],
             selection_hint,
             editor_patches,
             undo_group,
@@ -375,17 +383,28 @@ impl Session {
             Err(e) => return self.error_result(e),
         };
         let changed_ids = changed_ids_for_patches(&editor_patches);
-        self.apply_ops(ops, changed_ids, selection_hint, editor_patches, None)
+        self.commit(ops, changed_ids, selection_hint, editor_patches, None)
     }
 
-    fn apply_ops(
+    /// The single validated-dispatch chokepoint (CP-2 invariant): the **only**
+    /// site in the crate that appends to the op-log. Every persistent write —
+    /// single-op, structural macro, or undo replay — funnels through here and is
+    /// gated by `validate_batch`; an invalid batch is rejected with the log left
+    /// untouched. A `rg "self\.log\.(extend|push)" src/` proof must return
+    /// exactly one match (this method).
+    fn commit(
         &mut self,
-        ops: Vec<Op>,
+        mut ops: Vec<Op>,
         changed_ids: Vec<String>,
         selection_hint: Option<Selection>,
         editor_patches: Vec<EditorPatch>,
         undo_group: Option<UndoGroup>,
     ) -> TransactionResult {
+        // Stamp each macro group's size so replay can apply it all-or-nothing.
+        stamp_macro_sizes(&mut ops);
+        if let Err(error) = self.validate_batch(&ops) {
+            return self.error_result(error);
+        }
         self.log.extend(ops);
         self.vault = replay(&self.log);
         let mut new_revisions = BTreeMap::new();
@@ -412,6 +431,31 @@ impl Session {
             projection_fresh: true,
             mirror_fresh: true,
         }
+    }
+
+    /// Append-front validation for the single dispatch chokepoint. Re-derives the
+    /// life-register terminal-reachability guard against the current vault plus
+    /// the in-flight batch, so no dispatch path — single op, structural macro, or
+    /// undo replay — can append a direct `active → deleted` (D10/D20). The guard
+    /// lives here (not in op construction) so it provably gates every append.
+    fn validate_batch(&self, ops: &[Op]) -> Result<(), ValidationError> {
+        let mut pending_life: BTreeMap<&str, Life> = BTreeMap::new();
+        for op in ops {
+            if let OpPayload::LifeSet { life } = &op.payload {
+                if *life == Life::Deleted {
+                    let current = pending_life
+                        .get(op.target_id.as_str())
+                        .copied()
+                        .or_else(|| self.vault.nodes.get(&op.target_id).map(|n| n.life))
+                        .unwrap_or(Life::Active);
+                    if current != Life::Trashed {
+                        return Err(ValidationError::DirectActiveToDeleted);
+                    }
+                }
+                pending_life.insert(op.target_id.as_str(), *life);
+            }
+        }
+        Ok(())
     }
 
     fn editor_patches_for_single_op(
@@ -537,9 +581,7 @@ impl Session {
                             .build(),
                         );
                     }
-                    let current = self
-                        .current_body(block_id)
-                        .unwrap_or(crate::model::Body::plain(""));
+                    let current = self.current_body_or_empty(block_id);
                     let next_body = crate::model::Body::plain(text);
                     ops.push(
                         OpBuilder::new(
@@ -740,20 +782,21 @@ impl Session {
         let Some(target) = self.vault.nodes.get(target_id) else {
             return self.error_result(ValidationError::StructuralDispatchDeferred);
         };
-        let current = self
-            .current_body(target_id)
-            .unwrap_or(crate::model::Body::plain(""));
+        let current = self.current_body_or_empty(target_id);
         let (left_body, right_body) = match self.split_body_at(&current, at) {
             Ok(split) => split,
             Err(error) => return self.error_result(error),
         };
         let next_order = self.next_sibling_order(target_id);
-        let new_order =
-            crate::order::key_between(Some(target.location.order.as_str()), next_order.as_deref())
-                .unwrap_or_else(|_| {
-                    crate::order::key_between(Some(target.location.order.as_str()), None)
-                        .unwrap_or_else(|_| format!("{}z", target.location.order))
-                });
+        // Keep every order key inside crate::order — surface a structural error
+        // rather than fabricating a `<order>z` key that bypasses the algorithm.
+        let new_order = match crate::order::key_between(
+            Some(target.location.order.as_str()),
+            next_order.as_deref(),
+        ) {
+            Ok(order) => order,
+            Err(_) => return self.error_result(ValidationError::StructuralDispatchDeferred),
+        };
         let new_block_id = format!("blk_{}", stamp.op_id);
         let macro_id = format!("macro_{}", stamp.op_id);
         let undo_group_id = format!("undo_{}", stamp.op_id);
@@ -810,7 +853,7 @@ impl Session {
         .new_sub_rev(body_sub_rev(&right_body))
         .macro_op_id(macro_id)
         .build();
-        self.apply_ops(
+        self.commit(
             alloc::vec![left_op, create_op, right_op],
             alloc::vec![target_id.to_string(), new_block_id.clone()],
             Some(Selection::Text {
@@ -855,12 +898,8 @@ impl Session {
         let Some(previous_id) = self.previous_sibling_id(target_id) else {
             return self.error_result(ValidationError::StructuralDispatchDeferred);
         };
-        let previous_body = self
-            .current_body(&previous_id)
-            .unwrap_or(crate::model::Body::plain(""));
-        let current_body = self
-            .current_body(target_id)
-            .unwrap_or(crate::model::Body::plain(""));
+        let previous_body = self.current_body_or_empty(&previous_id);
+        let current_body = self.current_body_or_empty(target_id);
         let previous_len = previous_body.text.encode_utf16().count() as u32;
         let current_len = current_body.text.encode_utf16().count() as u32;
         let mut merged_marks = previous_body.marks.clone();
@@ -911,7 +950,7 @@ impl Session {
         .seq(stamp.seq)
         .macro_op_id(macro_id)
         .build();
-        self.apply_ops(
+        self.commit(
             alloc::vec![body_op, life_op],
             alloc::vec![previous_id.clone(), target_id.to_string()],
             Some(Selection::Text {
@@ -967,12 +1006,17 @@ impl Session {
     }
 
     fn current_body(&self, target_id: &str) -> Option<crate::model::Body> {
-        self.vault.nodes.get(target_id).and_then(|n| {
-            n.content.body.as_ref().map(|b| match b {
-                BodyState::Single(body) => body.clone(),
-                BodyState::MultiValue { winner, .. } => winner.clone(),
-            })
-        })
+        self.vault
+            .nodes
+            .get(target_id)
+            .and_then(|n| n.content.body.as_ref())
+            .map(|b| b.winner().clone())
+    }
+
+    /// `current_body` or a fresh empty body, lazily (no allocation when present).
+    fn current_body_or_empty(&self, target_id: &str) -> crate::model::Body {
+        self.current_body(target_id)
+            .unwrap_or_else(|| crate::model::Body::plain(""))
     }
 
     fn build_op(&self, intent: &EditorIntent, stamp: &OpStamp) -> Result<Op, ValidationError> {
@@ -982,9 +1026,7 @@ impl Session {
                 at,
                 text,
             } => {
-                let current = self
-                    .current_body(target_id)
-                    .unwrap_or(crate::model::Body::plain(""));
+                let current = self.current_body_or_empty(target_id);
                 let mut units: Vec<u16> = current.text.encode_utf16().collect();
                 let at = (*at as usize).min(units.len());
                 let ins: Vec<u16> = text.encode_utf16().collect();
@@ -1027,9 +1069,7 @@ impl Session {
                 kind,
                 expand,
             } => {
-                let mut current = self
-                    .current_body(target_id)
-                    .unwrap_or(crate::model::Body::plain(""));
+                let mut current = self.current_body_or_empty(target_id);
                 let base = body_sub_rev(&current);
                 current
                     .marks
@@ -1166,14 +1206,9 @@ impl Session {
             .seq(stamp.seq)
             .build()),
             EditorIntent::SetLife { target_id, life } => {
-                // Dispatch rejects a direct active→deleted (D10/D20): terminal
-                // delete is only reachable from trashed.
-                if *life == Life::Deleted {
-                    let current = self.vault.nodes.get(target_id).map(|n| n.life);
-                    if current != Some(Life::Trashed) {
-                        return Err(ValidationError::DirectActiveToDeleted);
-                    }
-                }
+                // The terminal active→deleted guard (D10/D20) is enforced
+                // centrally in `validate_batch` at the dispatch chokepoint, so
+                // every path (not just this intent) is covered.
                 let op_kind = if *life == Life::Active {
                     OpKind::Restore
                 } else {
@@ -1204,30 +1239,14 @@ pub fn open_fixture_vault() -> FixtureSummary {
     Session::open_fixture().summary()
 }
 
-/// Canonical bytes for one op (representative segment encoding for the byte
-/// transfer surface; not required to round-trip in Stage 1).
-fn op_canonical(op: &Op) -> CanonicalValue {
-    CanonicalValue::object([
-        ("op_id", CanonicalValue::str(op.op_id.clone())),
-        ("v", CanonicalValue::UInt(op.op_envelope_version as u64)),
-        (
-            "hlc",
-            CanonicalValue::object([
-                ("wall", CanonicalValue::UInt(op.hlc.wall)),
-                ("logical", CanonicalValue::UInt(op.hlc.logical as u64)),
-                ("device", CanonicalValue::str(op.hlc.device.clone())),
-            ]),
-        ),
-        ("actor", CanonicalValue::str(op.actor.clone())),
-        ("seq", CanonicalValue::UInt(op.seq)),
-        ("target_id", CanonicalValue::str(op.target_id.clone())),
-        ("register", CanonicalValue::str(op.register.as_str())),
-    ])
-}
-
-/// Canonical bytes of an op segment.
+/// Canonical bytes of an op segment: the full D24 op envelope per op (the byte
+/// transfer surface the binding reads via `read_segment`). Encoding the complete
+/// frozen envelope keeps the segment surface honest about the on-disk op shape.
 pub fn segment_bytes(ops: &[Op]) -> Vec<u8> {
-    let items = ops.iter().map(op_canonical).collect::<Vec<_>>();
+    let items = ops
+        .iter()
+        .map(crate::op::op_envelope_canonical)
+        .collect::<Vec<_>>();
     canonical_bytes(&CanonicalValue::array(items))
 }
 
@@ -1245,6 +1264,23 @@ pub fn fixture_blob(size: usize) -> Vec<u8> {
 /// Blob content id.
 pub fn blob_id(bytes: &[u8]) -> String {
     format!("blob_{}", hash::hash_hex(bytes))
+}
+
+/// Set `macro_size` on every op carrying a `macro_op_id` to the number of ops in
+/// its group within this committed batch (one dispatch = one macro). Replay uses
+/// it to apply a structural macro all-or-nothing (D29).
+fn stamp_macro_sizes(ops: &mut [Op]) {
+    let mut counts: BTreeMap<String, u32> = BTreeMap::new();
+    for op in ops.iter() {
+        if let Some(macro_id) = &op.macro_op_id {
+            *counts.entry(macro_id.clone()).or_insert(0) += 1;
+        }
+    }
+    for op in ops.iter_mut() {
+        if let Some(macro_id) = op.macro_op_id.clone() {
+            op.macro_size = counts.get(&macro_id).copied();
+        }
+    }
 }
 
 fn changed_ids_for_patches(patches: &[EditorPatch]) -> Vec<String> {

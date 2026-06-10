@@ -37,7 +37,7 @@ rustup target add aarch64-apple-ios aarch64-apple-ios-sim
 ```
 
 - **Observed**：Xcode 26.5 (Build 17F42)、macOS SDK 26.5、iOS SDK 26.5、iOS Simulator SDK 26.5、iOS 26.2/26.4/26.5 模拟器设备可用（经一次性 `DEVELOPER_DIR` 前缀；默认 `xcode-select` 指向 CommandLineTools）。详见 09-apple-verification.md §2.2、§4.1。
-- **Observed**：Stage 1 本机已安装 `aarch64-apple-ios` / `aarch64-apple-ios-sim`，并完成 macOS / iOS / iOS-sim Rust builds 与 C ABI / UniFFI three-slice XCFramework creation（见 `./17-apple-binding-report.md`）。
+- **Observed**：Stage 1 本机已安装 `aarch64-apple-ios` / `aarch64-apple-ios-sim`，并完成 macOS / iOS / iOS-sim Rust builds 与 C ABI / UniFFI three-slice XCFramework creation（见 `./17-apple-binding-evidence.md`）。
 - **Observed / scoped**：`suites/anchor/core` 与 `suites/anchor/apple` 为 Stage 1 最小验证工程；repo-local product app target build 仍不在 scope。任何产品 app shell、持久应用写入、workspace/root lockfile 改动仍需单独授权。
 - **Needs user approval / 实现授权**：layout 已由用户批准 = Option A `suites/anchor`（2026-06-07，见 07-project-layout-options.md、05-key-decisions.md D02）；spike 实跑前仍须**目录 / 工程的实际创建动作**获实现授权。Apple 命令统一用 `-derivedDataPath` 避免 DerivedData 落进 repo；直接验证 Swift package 须在 package cwd 跑 `xcodebuild -list`（Codex Observed：本机 Xcode 26.5 不支持 `xcodebuild -list -packagePath`）。
 
@@ -97,7 +97,7 @@ cargo build -p anchor-core --target aarch64-linux-android
 
 **Owner：Codex / Apple**（被调用的 Anchor DTO / fixture / `TransactionResult` 真值由 Claude / core 提供）。Binding 决策面采用 **UniFFI DTO / ordinary dispatch + C ABI bytes fast path**（05-key-decisions.md D01）。
 
-**Codex status（09-apple-verification.md §4、§5；Stage 1 17-apple-binding-report.md）：**
+**Codex status（09-apple-verification.md §4、§5；Stage 1 17-apple-binding-evidence.md）：**
 
 - **Observed**：scratch host 路径已实跑——Rust staticlib + C ABI + SwiftPM executable link/run 成功；UniFFI 0.31.1 经 project-local `cargo run` 生成并运行 minimal record/bytes Swift binding（`Data` mapping 可运行）；one-slice macOS XCFramework creation 成功。
 - **Observed**：Stage 1 installed Rust iOS targets; `anchor-core` builds for macOS / iOS / iOS-sim; C ABI and UniFFI wrappers build three staticlib slices; both XCFrameworks are created; SwiftPM wrapper imports; generated Swift smoke calls fixture summary, `EditorIntentDto`, `TransactionResultSummary`, typed `ValidationError`, post-dispatch snapshot revision, `SegmentId`, segment bytes, and blob bytes.
@@ -181,7 +181,7 @@ xcodebuild -scheme AnchorCoreBindings -destination 'generic/platform=iOS Simulat
 
 **Owner：Codex / Apple。** **前置：付费 Apple Developer Program team + signed app + iCloud container +真实 account。** Stage 1 结论为 **approved default transport with compromise constraints**：iCloud Drive 已获用户批准作为首期 default transport（2026-06-07），但交付仍受 scale、placeholder、account-state 与 conflict-resolution policy gate 约束；core 永不出现云类型。覆盖 06-fixture-set.md F34（iCloud Drive re-delivery / duplicate segment 面）。
 
-**Codex status（09-apple-verification.md §2.6、§7；Stage 1 19-icloud-drive-report.md）：**
+**Codex status（09-apple-verification.md §2.6、§7；Stage 1 19-icloud-drive-evidence.md）：**
 
 - **Observed（编译面 + 付费 team iCloud entitlement）**：iCloud adapter Foundation API（`url(forUbiquityContainerIdentifier:)`、`NSMetadataQuery`、`NSFileCoordinator`）编译面 macOS/iOS sim 可行（`ICloudAdapterProbe` 编译通过）；**用户已开通付费 ADP（Individual）team（`isFreeProvisioningTeam=0`）**，demo project 经 automatic signing 生成含 iCloud Documents entitlement 的 profile + signed device artifact，并在真机返回 **non-nil ubiquity container URL**（§2.6）。
 - **Observed（signed runtime）**：physical iPhone probe passed explicit/implicit ubiquity container lookup, `.anchorvault` package type id, `NSFileCoordinator` read/write, current-item download call, 1024-file write subset, and online convergence. Real signed macOS app passed automatic signing/provisioning/build/runtime, package-level metadata discovery, direct package-internal enumeration, 10K/50K/100K package-internal scale direct enumeration, and offline `NSFileVersion` conflict materialization.
@@ -192,7 +192,7 @@ xcodebuild -scheme AnchorCoreBindings -destination 'generic/platform=iOS Simulat
 |---|---|---|
 | Anchor target iCloud-capability 签名 | Repo-external signed iPhone and macOS probes have CloudDocuments entitlements; repo-local product Anchor target entitlement remains separate | partial passed |
 | ubiquity container | `url(forUbiquityContainerIdentifier:)` 在真实 signed-in iCloud account 下返回 container URL | passed |
-| vault file package UTType | `.anchorvault` declares `dev.plimeor.anchor.vault` conforming to package semantics; package-level metadata discovery works | passed / compromise |
+| vault file package UTType | `.anchorvault` declares `<vendor>.anchor.vault` conforming to package semantics; package-level metadata discovery works | passed / compromise |
 | coordinated write 可见性 | Coordinated read/write succeeds; current online cross-device runs converge | passed |
 | NSMetadataQuery live notifications | Package-level metadata discovery works on macOS; package-internal `.seg` discovery via metadata does not | compromise |
 | placeholder download | current local item download call succeeds on iOS; remote placeholder case not observed | partial |

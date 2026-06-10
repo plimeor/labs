@@ -22,7 +22,7 @@ use alloc::vec::Vec;
 
 /// Replay an op set into a materialized vault.
 pub fn replay(ops: &[Op]) -> Vault {
-    let sorted = dedup_and_sort(ops);
+    let sorted = drop_incomplete_macros(dedup_and_sort(ops));
 
     // Bucket ops per node.
     let mut buckets: BTreeMap<String, NodeOps> = BTreeMap::new();
@@ -90,6 +90,7 @@ pub fn replay(ops: &[Op]) -> Vault {
     derive_ancestor_life_conflicts(&buckets, &nodes, &mut conflicts);
     derive_life_tie(&buckets, &mut conflicts);
     derive_reorder_blend(&buckets, &mut conflicts);
+    derive_split_merge_structural(&buckets, &mut conflicts);
 
     // Deterministic conflict ordering.
     conflicts.sort_by(|a, b| {
@@ -110,6 +111,26 @@ fn dedup_and_sort(ops: &[Op]) -> Vec<Op> {
     let mut v: Vec<Op> = by_id.into_values().collect();
     v.sort_by(|a, b| a.total_order_key().cmp(&b.total_order_key()));
     v
+}
+
+/// Apply editor macros (split / merge / undo) all-or-nothing (D29). An op that
+/// declares a `macro_size` is kept only when exactly that many ops of its
+/// `macro_op_id` group are present in the deduped set; a partially delivered
+/// macro is dropped whole, so a half-applied structural edit can never
+/// materialize. Ops with no macro (or no declared size) are always kept.
+fn drop_incomplete_macros(ops: Vec<Op>) -> Vec<Op> {
+    let mut present: BTreeMap<String, u32> = BTreeMap::new();
+    for op in &ops {
+        if let Some(macro_id) = &op.macro_op_id {
+            *present.entry(macro_id.clone()).or_insert(0) += 1;
+        }
+    }
+    ops.into_iter()
+        .filter(|op| match (&op.macro_op_id, op.macro_size) {
+            (Some(macro_id), Some(size)) => present.get(macro_id) == Some(&size),
+            _ => true,
+        })
+        .collect()
 }
 
 #[derive(Default)]
@@ -609,6 +630,59 @@ fn derive_life_tie(buckets: &BTreeMap<String, NodeOps>, conflicts: &mut Vec<Conf
                 pinned_op_ids: Vec::new(),
             });
         }
+    }
+}
+
+/// Surface a structural macro (split / merge, marked by `macro_op_id`) that ran
+/// concurrently with another actor's plain edit on the same node (D29, conflict
+/// §6.1). Stage-1/CP-2 does not yet auto-rebase the structural intent against the
+/// concurrent edit; the safety floor is to surface the collision and pin every
+/// involved op so compaction never drops a side (no silent loss). The eventual
+/// deterministic intent-rebase is a documented follow-up.
+fn derive_split_merge_structural(
+    buckets: &BTreeMap<String, NodeOps>,
+    conflicts: &mut Vec<ConflictRecord>,
+) {
+    for (id, b) in buckets {
+        let macro_actors: BTreeSet<&str> = b
+            .body_ops
+            .iter()
+            .chain(b.life_ops.iter())
+            .filter(|o| o.macro_op_id.is_some())
+            .map(|o| o.actor.as_str())
+            .collect();
+        if macro_actors.is_empty() {
+            continue;
+        }
+        // A plain (non-macro) body edit by a different actor is concurrent with
+        // the structural macro on this node.
+        let concurrent_edits: Vec<&Op> = b
+            .body_ops
+            .iter()
+            .filter(|o| o.macro_op_id.is_none() && !macro_actors.contains(o.actor.as_str()))
+            .collect();
+        if concurrent_edits.is_empty() {
+            continue;
+        }
+        let mut pinned: Vec<String> = Vec::new();
+        for op in b.body_ops.iter().chain(b.life_ops.iter()) {
+            if op.macro_op_id.is_some() {
+                pinned.push(op.op_id.clone());
+            }
+        }
+        for op in &concurrent_edits {
+            pinned.push(op.op_id.clone());
+        }
+        pinned.sort();
+        pinned.dedup();
+        conflicts.push(ConflictRecord {
+            target_id: id.clone(),
+            kind: ConflictKind::SplitMergeStructural,
+            sub_field_key: None,
+            live_op_id: None,
+            losing_op_ids: Vec::new(),
+            pinned_op_ids: pinned,
+        });
     }
 }
 

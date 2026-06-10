@@ -33,10 +33,11 @@ pub fn life_join(a: Life, b: Life) -> Life {
     Life::Archived
 }
 
-/// Whether a terminal `delete` op's `dominates_frontier` causally dominates a
-/// content edit stamped with `edit_hlc`. An edit on a device not present in the
-/// frontier is treated as concurrent (not dominated), which blocks the delete.
-pub fn frontier_dominates(frontier: &BTreeMap<String, Hlc>, edit_hlc: &Hlc) -> bool {
+/// Whether the delete op's `dominates_frontier` set (passed here as `frontier`)
+/// causally dominates a content edit stamped with `edit_hlc`. An edit on a device
+/// not present in the frontier is treated as concurrent (not dominated), which
+/// blocks the delete.
+fn frontier_dominates_edit(frontier: &BTreeMap<String, Hlc>, edit_hlc: &Hlc) -> bool {
     match frontier.get(&edit_hlc.device) {
         Some(seen) => edit_hlc <= seen,
         None => false,
@@ -55,7 +56,7 @@ where
         None => return Life::Trashed, // no domination evidence ⇒ never terminal
     };
     for hlc in content_edit_hlcs {
-        if !frontier_dominates(frontier, hlc) {
+        if !frontier_dominates_edit(frontier, hlc) {
             return Life::Trashed;
         }
     }

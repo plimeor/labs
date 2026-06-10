@@ -28,11 +28,15 @@ pub enum OrderError {
 }
 
 fn index_of(c: u8) -> Result<u8, OrderError> {
-    DIGITS
-        .iter()
-        .position(|&d| d == c)
-        .map(|p| p as u8)
-        .ok_or(OrderError::BadDigit)
+    // O(1) inverse of indexing into the contiguous `DIGITS` ASCII runs
+    // ('0'..'9' = 0..9, 'A'..'Z' = 10..35, 'a'..'z' = 36..61); byte-identical
+    // to the prior `DIGITS.iter().position(..)` scan.
+    match c {
+        b'0'..=b'9' => Ok(c - b'0'),
+        b'A'..=b'Z' => Ok(c - b'A' + 10),
+        b'a'..=b'z' => Ok(c - b'a' + 36),
+        _ => Err(OrderError::BadDigit),
+    }
 }
 
 fn parse(key: &str) -> Result<Vec<u8>, OrderError> {

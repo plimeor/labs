@@ -8,7 +8,7 @@
 use crate::canonical::{rev, CanonicalValue};
 use crate::marks::Mark;
 use alloc::collections::{BTreeMap, BTreeSet};
-use alloc::string::{String, ToString};
+use alloc::string::String;
 use alloc::vec::Vec;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -211,7 +211,7 @@ impl Vault {
     }
 }
 
-fn mark_canonical(m: &Mark) -> CanonicalValue {
+pub(crate) fn mark_canonical(m: &Mark) -> CanonicalValue {
     CanonicalValue::object([
         ("kind", CanonicalValue::str(m.kind.clone())),
         ("start", CanonicalValue::UInt(m.start as u64)),
@@ -330,20 +330,8 @@ pub fn conflicts_canonical(conflicts: &[ConflictRecord]) -> CanonicalValue {
             CanonicalValue::object([
                 ("target_id", CanonicalValue::str(c.target_id.clone())),
                 ("kind", CanonicalValue::str(c.kind.as_str())),
-                (
-                    "sub_field_key",
-                    match &c.sub_field_key {
-                        Some(s) => CanonicalValue::str(s.clone()),
-                        None => CanonicalValue::Null,
-                    },
-                ),
-                (
-                    "live_op_id",
-                    match &c.live_op_id {
-                        Some(s) => CanonicalValue::str(s.clone()),
-                        None => CanonicalValue::Null,
-                    },
-                ),
+                ("sub_field_key", CanonicalValue::opt_str(&c.sub_field_key)),
+                ("live_op_id", CanonicalValue::opt_str(&c.live_op_id)),
                 ("losing_op_ids", CanonicalValue::array(losing)),
                 ("pinned_op_ids", CanonicalValue::array(pinned)),
             ])
@@ -355,11 +343,3 @@ pub fn conflicts_canonical(conflicts: &[ConflictRecord]) -> CanonicalValue {
 /// The implicit top-level root sentinel (materialization-time reattach fallback,
 /// D07). Not a persistent parent value.
 pub const ROOT_SENTINEL: &str = "@root";
-
-/// Sub-field key string form, for op envelopes and conflict records.
-pub fn sub_field_string(prop_or_tag: &str, kind: &str) -> String {
-    let mut s = String::from(kind);
-    s.push(':');
-    s.push_str(prop_or_tag);
-    s.to_string()
-}

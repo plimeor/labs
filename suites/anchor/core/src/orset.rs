@@ -7,22 +7,10 @@
 //! is a pure, order-independent function of the op set.
 
 use alloc::collections::BTreeSet;
+use alloc::string::String;
 
 /// Membership of one tag, given the set of add identities (op_ids) and the union
 /// of all observed-add ids across that tag's removes.
-pub fn tag_present(add_ids: &BTreeSet<alloc::string::String>, removed_observed: &BTreeSet<alloc::string::String>) -> bool {
+pub fn tag_present(add_ids: &BTreeSet<String>, removed_observed: &BTreeSet<String>) -> bool {
     add_ids.iter().any(|id| !removed_observed.contains(id))
-}
-
-/// Surviving add identities (adds not yet observed-removed). These are the ones
-/// a watermark-bounded GC may eventually collapse once causally stable.
-pub fn live_add_ids(
-    add_ids: &BTreeSet<alloc::string::String>,
-    removed_observed: &BTreeSet<alloc::string::String>,
-) -> BTreeSet<alloc::string::String> {
-    add_ids
-        .iter()
-        .filter(|id| !removed_observed.contains(*id))
-        .cloned()
-        .collect()
 }

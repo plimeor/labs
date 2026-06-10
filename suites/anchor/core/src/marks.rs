@@ -77,46 +77,42 @@ fn map_offset(off: u32, sp: &Splice, is_end: bool, expand: bool) -> u32 {
     }
 }
 
+/// Rebuild a mark at the new `[start, end)` range, surviving only if the range is
+/// non-empty (`end > start`). Owns the shared survive/rebuild rule used by both
+/// re-clamp callers, so a future `Mark` field is updated in exactly one place.
+fn survive(m: &Mark, start: u32, end: u32) -> Option<Mark> {
+    (end > start).then(|| Mark {
+        kind: m.kind.clone(),
+        start,
+        end,
+        expand: m.expand,
+    })
+}
+
 /// Re-clamp a mark set against an ordered, non-overlapping list of splices
 /// (ascending `at`). Returns surviving marks; marks whose range collapses to
 /// empty are dropped. Output preserves input order then is deterministic.
 pub fn reclamp(marks: &[Mark], splices: &[Splice]) -> Vec<Mark> {
-    let mut out = Vec::new();
-    for m in marks {
-        let mut start = m.start;
-        let mut end = m.end;
-        // Apply splices from the right so earlier `at` values stay valid.
-        for sp in splices.iter().rev() {
-            start = map_offset(start, sp, false, m.expand);
-            end = map_offset(end, sp, true, m.expand);
-        }
-        if end > start {
-            out.push(Mark {
-                kind: m.kind.clone(),
-                start,
-                end,
-                expand: m.expand,
-            });
-        }
-    }
-    out
+    marks
+        .iter()
+        .filter_map(|m| {
+            let mut start = m.start;
+            let mut end = m.end;
+            // Apply splices from the right so earlier `at` values stay valid.
+            for sp in splices.iter().rev() {
+                start = map_offset(start, sp, false, m.expand);
+                end = map_offset(end, sp, true, m.expand);
+            }
+            survive(m, start, end)
+        })
+        .collect()
 }
 
 /// Clamp marks into `[0, len]`, dropping any that collapse. Used after keep-both
 /// when a body value is paired with a possibly-shorter text.
 pub fn clamp_to_len(marks: &[Mark], len: u32) -> Vec<Mark> {
-    let mut out = Vec::new();
-    for m in marks {
-        let start = m.start.min(len);
-        let end = m.end.min(len);
-        if end > start {
-            out.push(Mark {
-                kind: m.kind.clone(),
-                start,
-                end,
-                expand: m.expand,
-            });
-        }
-    }
-    out
+    marks
+        .iter()
+        .filter_map(|m| survive(m, m.start.min(len), m.end.min(len)))
+        .collect()
 }

@@ -8,9 +8,13 @@
 //! OS-specific merge logic; clients (Swift/TextKit, CLI, `OpSyncPort` adapters)
 //! are dispatch shells that own zero business truth (D37).
 //!
-//! Stage 1 status: this is a spike, not the CP-2 foundation. It demonstrates the
-//! deterministic invariants required for CP-1 evidence; it does not implement
-//! persistent application writes.
+//! Status: the deterministic core invariants required through CP-2 are in place —
+//! the single validated dispatch chokepoint (the only op-log append site, gated
+//! by `validate_batch`), all-or-nothing structural macros (`macro_size`), the
+//! frozen D24 op envelope (`op::op_envelope_canonical`), and the
+//! transport-agnostic `OpSyncPort` boundary with a reference adapter. It still
+//! does not implement persistent application writes. See `README.md` for the
+//! stable-vs-planned public contract surface.
 
 #![no_std]
 #![forbid(unsafe_code)]

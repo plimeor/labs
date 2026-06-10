@@ -2,7 +2,19 @@
 
 use anchor_core::dto::{EditorIntent, EditorPatch, OpStamp, Selection, Session, ValidationError};
 use anchor_core::hlc::Hlc;
-use anchor_core::model::{BodyState, Life};
+use anchor_core::model::{
+    body_sub_rev, conflicts_canonical, Body, BodyState, ConflictKind, Life, TargetKind, Vault,
+};
+use anchor_core::op::{Op, OpBuilder, OpKind, OpPayload, Register, SubFieldKey};
+use anchor_core::replay::replay;
+
+fn vault_body_text(vault: &Vault, block_id: &str) -> Option<String> {
+    vault
+        .nodes
+        .get(block_id)
+        .and_then(|n| n.content.body.as_ref())
+        .map(|b| b.winner().text.clone())
+}
 
 fn stamp(op_id: &str, wall: u64) -> OpStamp {
     OpStamp {
@@ -219,4 +231,114 @@ fn merge_backward_on_first_sibling_returns_structural_error() {
     assert!(result.editor_patches.is_empty());
     assert!(result.undo_group.is_none());
     assert_eq!(body_text(&session, "blk_a"), "Morning note.");
+}
+
+#[test]
+fn incomplete_structural_macro_is_not_partially_applied() {
+    let mut session = Session::open_fixture();
+    let before = session.log().len();
+    let result = session.dispatch(
+        EditorIntent::SplitBlock {
+            target_id: "blk_a".to_string(),
+            at: 8,
+        },
+        stamp("op_split_atomic", 2_000),
+    );
+    let new_id = result.changed_ids[1].clone();
+    let full: Vec<Op> = session.log().to_vec();
+    assert_eq!(full.len(), before + 3, "split appended a 3-op macro");
+
+    // Full macro: the split materializes.
+    let vault_full = replay(&full);
+    assert!(vault_full.nodes.contains_key(&new_id));
+    assert_eq!(
+        vault_body_text(&vault_full, "blk_a").as_deref(),
+        Some("Morning ")
+    );
+
+    // Dropping any single leg drops the whole macro — independent of arrival order.
+    for drop_idx in 0..3 {
+        let mut partial = full.clone();
+        partial.remove(before + drop_idx);
+        partial.reverse();
+        let vault = replay(&partial);
+        assert_eq!(
+            vault_body_text(&vault, "blk_a").as_deref(),
+            Some("Morning note."),
+            "incomplete macro must leave blk_a's original body (dropped leg {drop_idx})"
+        );
+        assert!(
+            !vault.nodes.contains_key(&new_id),
+            "incomplete macro must not create the split's right block (dropped leg {drop_idx})"
+        );
+    }
+}
+
+#[test]
+fn concurrent_split_and_edit_surface_structural_conflict_no_silent_loss() {
+    let mut session = Session::open_fixture();
+    // Device A splits blk_a (a 3-op macro).
+    session.dispatch(
+        EditorIntent::SplitBlock {
+            target_id: "blk_a".to_string(),
+            at: 8,
+        },
+        stamp("op_split_conc", 2_000),
+    );
+    let mut ops: Vec<Op> = session.log().to_vec();
+
+    // Device B concurrently edits blk_a's body, based on the SAME original body
+    // the split was derived from — a plain (non-macro) edit by a different actor.
+    let original = Body::plain("Morning note.");
+    let edited = Body::plain("Morning EDITED note.");
+    let b_edit = OpBuilder::new(
+        "op_b_concurrent_edit",
+        Hlc::new(2_000, 0, "device_b"),
+        "user_b",
+        "blk_a",
+        TargetKind::Block,
+        Register::Content,
+        OpKind::Set,
+        OpPayload::SetBody {
+            text: edited.text.clone(),
+            marks: edited.marks.clone(),
+        },
+    )
+    .seq(1)
+    .sub_field(SubFieldKey::Body)
+    .base_sub_rev(body_sub_rev(&original))
+    .new_sub_rev(body_sub_rev(&edited))
+    .build();
+    ops.push(b_edit);
+
+    let vault = replay(&ops);
+    let conflict = vault
+        .conflicts
+        .iter()
+        .find(|c| c.kind == ConflictKind::SplitMergeStructural && c.target_id == "blk_a")
+        .expect("concurrent split + edit must surface a split_merge_structural conflict");
+    // No silent loss: both the structural macro and the concurrent edit are pinned.
+    assert!(
+        conflict
+            .pinned_op_ids
+            .iter()
+            .any(|id| id.contains("op_split_conc")),
+        "the structural macro op must be pinned"
+    );
+    assert!(
+        conflict
+            .pinned_op_ids
+            .contains(&"op_b_concurrent_edit".to_string()),
+        "the concurrent edit op must be pinned"
+    );
+
+    // The conflict set is order-independent (replay folds over the op set).
+    let mut reversed = ops.clone();
+    reversed.reverse();
+    let vault_rev = replay(&reversed);
+    assert_eq!(
+        conflicts_canonical(&vault.conflicts),
+        conflicts_canonical(&vault_rev.conflicts),
+        "conflict materialization must be order-independent"
+    );
 }

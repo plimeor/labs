@@ -2,12 +2,19 @@ use anchor_core::dto::{blob_id, fixture_blob, open_fixture_vault, EditorIntent, 
 use anchor_core::hlc::Hlc;
 use anchor_core::model::Life;
 use std::collections::BTreeMap;
-use std::ffi::c_void;
 use std::ptr;
 use std::slice;
 use std::str;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+/// A heap buffer handed across the C-ABI boundary.
+///
+/// SAFETY INVARIANT: every `AnchorByteBuffer` MUST originate from
+/// [`into_buffer`]/[`empty_buffer`], i.e. its `ptr`/`len`/`cap` describe a
+/// `Vec<u8>` allocation (or the canonical empty buffer with `ptr == null`,
+/// `cap == 0`). It must be freed exactly once via [`anchor_buffer_free`], which
+/// reconstructs that `Vec`. Do NOT construct one from a slice, static, or
+/// foreign allocation, and never free it twice — either would corrupt the heap.
 #[repr(C)]
 pub struct AnchorByteBuffer {
     pub ptr: *mut u8,
@@ -238,9 +245,8 @@ fn validation_error_json(error: Option<&anchor_core::dto::ValidationError>) -> S
 
 fn transaction_error_json(code: &str, message: &str) -> String {
     format!(
-        "{{\"changed_ids\":[],\"validation_error\":{},\"new_revisions\":{},\"selection_hint\":null,\"editor_patches\":[],\"undo_group\":null,\"conflicts\":[],\"projection_fresh\":true,\"mirror_fresh\":true}}",
+        "{{\"changed_ids\":[],\"validation_error\":{},\"new_revisions\":{{}},\"selection_hint\":null,\"editor_patches\":[],\"undo_group\":null,\"conflicts\":[],\"projection_fresh\":true,\"mirror_fresh\":true}}",
         validation_error_object_json(code, message),
-        "{}"
     )
 }
 
@@ -272,6 +278,36 @@ unsafe fn read_utf8(ptr: *const u8, len: usize) -> Result<String, String> {
         .map_err(|_| "invalid utf8".to_string())
 }
 
+/// Resolve the shared dispatch preamble for the four `anchor_session_dispatch_*`
+/// entry points: reject a null session and parse the UTF-8 target id, returning
+/// the canonical error buffer (byte-identical to the previous inline guards) on
+/// failure. Centralizing this keeps the `adapter_null_session`/`adapter_parse_error`
+/// code strings in one place so the four paths cannot drift.
+///
+/// SAFETY: `ptr`/`len` must satisfy [`read_utf8`]'s contract.
+unsafe fn resolve<'a>(
+    session: *mut AnchorSession,
+    ptr: *const u8,
+    len: usize,
+) -> Result<(&'a mut AnchorSession, String), AnchorByteBuffer> {
+    if session.is_null() {
+        return Err(string_buffer(transaction_error_json(
+            "adapter_null_session",
+            "null session",
+        )));
+    }
+    let target_id = match read_utf8(ptr, len) {
+        Ok(value) => value,
+        Err(error) => {
+            return Err(string_buffer(transaction_error_json(
+                "adapter_parse_error",
+                &error,
+            )));
+        }
+    };
+    Ok((&mut *session, target_id))
+}
+
 fn next_stamp(session: &mut AnchorSession, op_name: &str) -> OpStamp {
     session.seq += 1;
     let n = OP_COUNTER.fetch_add(1, Ordering::Relaxed);
@@ -283,6 +319,12 @@ fn next_stamp(session: &mut AnchorSession, op_name: &str) -> OpStamp {
     }
 }
 
+/// Free a buffer previously produced by this crate.
+///
+/// SAFETY INVARIANT: `buffer` MUST have come from [`into_buffer`]/[`empty_buffer`]
+/// (see [`AnchorByteBuffer`]) and MUST be freed exactly once. The `Vec::from_raw_parts`
+/// reconstruction below is sound only because every buffer originates from a
+/// `Vec<u8>` whose `len`/`cap` are the real allocation metadata.
 #[no_mangle]
 pub extern "C" fn anchor_buffer_free(buffer: AnchorByteBuffer) {
     if buffer.ptr.is_null() || buffer.cap == 0 {
@@ -334,17 +376,9 @@ pub extern "C" fn anchor_session_dispatch_insert_text_json(
     text_ptr: *const u8,
     text_len: usize,
 ) -> AnchorByteBuffer {
-    if session.is_null() {
-        return string_buffer(transaction_error_json(
-            "adapter_null_session",
-            "null session",
-        ));
-    }
-    let target_id = match unsafe { read_utf8(target_ptr, target_len) } {
+    let (session, target_id) = match unsafe { resolve(session, target_ptr, target_len) } {
         Ok(value) => value,
-        Err(error) => {
-            return string_buffer(transaction_error_json("adapter_parse_error", &error));
-        }
+        Err(buffer) => return buffer,
     };
     let text = match unsafe { read_utf8(text_ptr, text_len) } {
         Ok(value) => value,
@@ -352,7 +386,6 @@ pub extern "C" fn anchor_session_dispatch_insert_text_json(
             return string_buffer(transaction_error_json("adapter_parse_error", &error));
         }
     };
-    let session = unsafe { &mut *session };
     let stamp = next_stamp(session, "insert_text");
     let result = session.inner.dispatch(
         EditorIntent::InsertText {
@@ -371,19 +404,10 @@ pub extern "C" fn anchor_session_dispatch_direct_delete_json(
     target_ptr: *const u8,
     target_len: usize,
 ) -> AnchorByteBuffer {
-    if session.is_null() {
-        return string_buffer(transaction_error_json(
-            "adapter_null_session",
-            "null session",
-        ));
-    }
-    let target_id = match unsafe { read_utf8(target_ptr, target_len) } {
+    let (session, target_id) = match unsafe { resolve(session, target_ptr, target_len) } {
         Ok(value) => value,
-        Err(error) => {
-            return string_buffer(transaction_error_json("adapter_parse_error", &error));
-        }
+        Err(buffer) => return buffer,
     };
-    let session = unsafe { &mut *session };
     let stamp = next_stamp(session, "direct_delete");
     let result = session.inner.dispatch(
         EditorIntent::SetLife {
@@ -402,19 +426,10 @@ pub extern "C" fn anchor_session_dispatch_split_block_json(
     target_len: usize,
     at: u32,
 ) -> AnchorByteBuffer {
-    if session.is_null() {
-        return string_buffer(transaction_error_json(
-            "adapter_null_session",
-            "null session",
-        ));
-    }
-    let target_id = match unsafe { read_utf8(target_ptr, target_len) } {
+    let (session, target_id) = match unsafe { resolve(session, target_ptr, target_len) } {
         Ok(value) => value,
-        Err(error) => {
-            return string_buffer(transaction_error_json("adapter_parse_error", &error));
-        }
+        Err(buffer) => return buffer,
     };
-    let session = unsafe { &mut *session };
     let stamp = next_stamp(session, "split_block");
     let result = session
         .inner
@@ -428,19 +443,10 @@ pub extern "C" fn anchor_session_dispatch_merge_backward_json(
     target_ptr: *const u8,
     target_len: usize,
 ) -> AnchorByteBuffer {
-    if session.is_null() {
-        return string_buffer(transaction_error_json(
-            "adapter_null_session",
-            "null session",
-        ));
-    }
-    let target_id = match unsafe { read_utf8(target_ptr, target_len) } {
+    let (session, target_id) = match unsafe { resolve(session, target_ptr, target_len) } {
         Ok(value) => value,
-        Err(error) => {
-            return string_buffer(transaction_error_json("adapter_parse_error", &error));
-        }
+        Err(buffer) => return buffer,
     };
-    let session = unsafe { &mut *session };
     let stamp = next_stamp(session, "merge_backward");
     let result = session
         .inner
@@ -463,14 +469,15 @@ pub extern "C" fn anchor_fixture_blob(size: usize) -> AnchorByteBuffer {
 
 #[no_mangle]
 pub extern "C" fn anchor_blob_id_json(bytes_ptr: *const u8, bytes_len: usize) -> AnchorByteBuffer {
-    if bytes_ptr.is_null() && bytes_len != 0 {
+    // Short-circuit the empty case BEFORE building a slice: `slice::from_raw_parts`
+    // requires a non-null, aligned pointer even for len 0, so a (null, 0) input
+    // would be UB. Mirrors `read_utf8`'s len==0-first ordering.
+    if bytes_len == 0 {
+        return string_buffer(format!("{{\"blob_id\":{}}}", json_string(&blob_id(&[]))));
+    }
+    if bytes_ptr.is_null() {
         return string_buffer("{\"error\":\"null_bytes\"}".to_string());
     }
     let bytes = unsafe { slice::from_raw_parts(bytes_ptr.cast::<u8>(), bytes_len) };
     string_buffer(format!("{{\"blob_id\":{}}}", json_string(&blob_id(bytes))))
-}
-
-#[no_mangle]
-pub extern "C" fn anchor_core_ffi_version() -> *const c_void {
-    ptr::null()
 }

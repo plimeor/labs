@@ -77,6 +77,14 @@ public struct UndoGroup: Decodable, Equatable, Sendable {
     }
 }
 
+/// Validation-error vocabulary for the C-ABI binding path.
+///
+/// AUTHORITY: the three core codes (`invalid_utf16_offset`, `direct_active_to_deleted`,
+/// `structural_dispatch_deferred`) are owned by Rust `anchor_core::dto::ValidationError::code()`.
+/// This is a hand-mirror of that source of truth (the C-ABI wrapper, not the
+/// UniFFI-generated DTO) — if core's vocabulary changes, update these raw values
+/// to match. `adapterNullSession`/`adapterParseError` are adapter-local codes
+/// emitted only by this FFI layer and have no core counterpart.
 public enum ValidationErrorCode: String, Decodable, Equatable, Sendable {
     case invalidUTF16Offset = "invalid_utf16_offset"
     case directActiveToDeleted = "direct_active_to_deleted"
@@ -149,14 +157,12 @@ public func fixtureBlob(size: Int) -> Data {
     data(from: anchor_fixture_blob(UInt(size)))
 }
 
-public func blobID(bytes: Data) -> String {
-    let json: String = bytes.withUnsafeBytes { rawBuffer in
-        let pointer = rawBuffer.bindMemory(to: UInt8.self).baseAddress
-        return string(from: anchor_blob_id_json(pointer, UInt(bytes.count)))
-    }
+public func blobID(bytes: Data) throws -> String {
     struct BlobID: Decodable { let blob_id: String }
-    let decoded = try? JSONDecoder().decode(BlobID.self, from: Data(json.utf8))
-    return decoded?.blob_id ?? ""
+    let buffer = bytes.withUnsafeBytes { rawBuffer in
+        anchor_blob_id_json(rawBuffer.bindMemory(to: UInt8.self).baseAddress, UInt(bytes.count))
+    }
+    return try decode(BlobID.self, from: buffer).blob_id
 }
 
 public final class AnchorSession {

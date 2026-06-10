@@ -18,6 +18,7 @@ use alloc::vec::Vec;
 pub enum CanonicalValue {
     Null,
     Bool(bool),
+    /// Reserved for future signed fields; currently exercised only by a determinism vector.
     Int(i64),
     UInt(u64),
     Str(String),
@@ -69,11 +70,10 @@ fn escape_into(s: &str, out: &mut Vec<u8>) {
             '\u{000C}' => out.extend_from_slice(b"\\f"),
             c if (c as u32) < 0x20 => {
                 // \u00XX for other control characters.
-                const HEX: &[u8; 16] = b"0123456789abcdef";
                 let code = c as u32;
                 out.extend_from_slice(b"\\u00");
-                out.push(HEX[((code >> 4) & 0xf) as usize]);
-                out.push(HEX[(code & 0xf) as usize]);
+                out.push(hash::HEX_LOWER[((code >> 4) & 0xf) as usize]);
+                out.push(hash::HEX_LOWER[(code & 0xf) as usize]);
             }
             c => {
                 let mut buf = [0u8; 4];
@@ -127,7 +127,12 @@ pub fn canonical_bytes(value: &CanonicalValue) -> Vec<u8> {
 
 /// Canonical string encoding (valid UTF-8 by construction).
 pub fn canonical_string(value: &CanonicalValue) -> String {
-    String::from_utf8(canonical_bytes(value)).expect("canonical output is valid UTF-8")
+    let bytes = canonical_bytes(value);
+    debug_assert!(
+        core::str::from_utf8(&bytes).is_ok(),
+        "canonical bytes must be UTF-8"
+    );
+    String::from_utf8(bytes).expect("canonical output is valid UTF-8")
 }
 
 /// Content-address revision of a value: lowercase hex BLAKE3 of its canonical

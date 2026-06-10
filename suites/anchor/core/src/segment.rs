@@ -46,7 +46,11 @@ pub fn budget(op_count: u64, params: BatchParams) -> SegmentBudget {
     }
 }
 
-/// The failure shape we must avoid: roughly one synced segment per logical op.
+/// Below this op count the ratio is noise, not a scaling signal.
+const MIN_OPS_FOR_SHAPE: u64 = 100;
+
+/// The failure shape we must avoid: roughly one synced segment per logical op,
+/// i.e. more than one synced segment per two ops.
 pub fn is_per_op_failure(op_count: u64, segment_count: u64) -> bool {
-    op_count >= 100 && segment_count * 2 > op_count
+    op_count >= MIN_OPS_FOR_SHAPE && segment_count * 2 > op_count
 }

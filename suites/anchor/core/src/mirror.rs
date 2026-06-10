@@ -102,10 +102,7 @@ pub fn structured_search(vault: &Vault, query: &str) -> Vec<String> {
             continue;
         }
         if let Some(body) = &node.content.body {
-            let text = match body {
-                BodyState::Single(b) => &b.text,
-                BodyState::MultiValue { winner, .. } => &winner.text,
-            };
+            let text = &body.winner().text;
             if !query.is_empty() && text.contains(query) {
                 hits.push(node.id.clone());
             }

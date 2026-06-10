@@ -43,7 +43,8 @@ pub fn merge_op_id(lower_op_id: &str, higher_op_id: &str, diff_algo_version: u32
 /// the alphabet. 16 bytes → a 21-ish char id. Deterministic for given entropy
 /// (so tests are reproducible), but the core itself never generates entropy.
 pub fn mint_nanoid(entropy: &[u8]) -> String {
-    let mut out = String::with_capacity(entropy.len() * 4 / 3 + 1);
+    // ceil(8*len / 6) output symbols, 6 bits each.
+    let mut out = String::with_capacity((entropy.len() * 8).div_ceil(6));
     // 6 bits per output symbol; pack the entropy bitstream.
     let mut acc: u32 = 0;
     let mut bits: u32 = 0;

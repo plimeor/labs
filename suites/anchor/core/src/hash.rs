@@ -347,13 +347,17 @@ pub fn hash(input: &[u8]) -> [u8; 32] {
     hasher.finalize()
 }
 
+/// Lowercase hex nibble table. Single source for every deterministic hex emission
+/// (digest hex here and `\u00XX` control-char escapes in `canonical::escape_into`),
+/// so the two golden-output sites can never drift to uppercase.
+pub(crate) const HEX_LOWER: &[u8; 16] = b"0123456789abcdef";
+
 /// Lowercase hex of a 32-byte digest.
 pub fn to_hex(bytes: &[u8; 32]) -> String {
-    const HEX: &[u8; 16] = b"0123456789abcdef";
     let mut s = String::with_capacity(64);
     for &b in bytes.iter() {
-        s.push(HEX[(b >> 4) as usize] as char);
-        s.push(HEX[(b & 0x0f) as usize] as char);
+        s.push(HEX_LOWER[(b >> 4) as usize] as char);
+        s.push(HEX_LOWER[(b & 0x0f) as usize] as char);
     }
     s
 }

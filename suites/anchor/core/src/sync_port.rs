@@ -7,6 +7,7 @@
 //! layer while transports stay swappable shells.
 
 use crate::hash;
+use alloc::collections::BTreeMap;
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -53,4 +54,81 @@ pub trait OpSyncPort {
 
     /// Push one blob's bytes.
     fn push_blob(&mut self, id: &BlobId, bytes: &[u8]) -> Result<(), Self::Error>;
+}
+
+/// Typed failures of the in-memory reference port. A real adapter surfaces its
+/// own transport errors via the `OpSyncPort::Error` associated type; these never
+/// leak into the core's `Op` / dispatch signatures.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum MemoryPortError {
+    MissingSegment(SegmentId),
+    MissingBlob(BlobId),
+    /// Segments are immutable + content-addressed: re-pushing the same id with
+    /// different bytes is a contract violation, not a silent overwrite.
+    SegmentMutated(SegmentId),
+}
+
+/// A reference in-memory `OpSyncPort`: the concrete shape a real cloud-file or
+/// object-store adapter mirrors, and the testing double for the
+/// dispatch → segment-bytes → transport → ingest loop. It is a pure byte store
+/// (no cloud / account / file-coordination type), proving the sync boundary is
+/// satisfiable without any of them. Re-delivering an immutable segment is
+/// idempotent; mutating one is rejected.
+#[derive(Default, Clone, Debug)]
+pub struct MemoryOpSyncPort {
+    segments: BTreeMap<SegmentId, Vec<u8>>,
+    blobs: BTreeMap<BlobId, Vec<u8>>,
+}
+
+impl MemoryOpSyncPort {
+    pub fn new() -> Self {
+        MemoryOpSyncPort::default()
+    }
+
+    /// Number of distinct segments held (the synced-object count a budget gate
+    /// would track — see `segment` module).
+    pub fn segment_count(&self) -> usize {
+        self.segments.len()
+    }
+}
+
+impl OpSyncPort for MemoryOpSyncPort {
+    type Error = MemoryPortError;
+
+    fn list_segments(&self) -> Result<Vec<SegmentId>, Self::Error> {
+        Ok(self.segments.keys().cloned().collect())
+    }
+
+    fn pull_segment(&self, id: &SegmentId) -> Result<Vec<u8>, Self::Error> {
+        self.segments
+            .get(id)
+            .cloned()
+            .ok_or_else(|| MemoryPortError::MissingSegment(id.clone()))
+    }
+
+    fn push_segment(&mut self, id: &SegmentId, bytes: &[u8]) -> Result<(), Self::Error> {
+        match self.segments.get(id) {
+            Some(existing) if existing.as_slice() != bytes => {
+                Err(MemoryPortError::SegmentMutated(id.clone()))
+            }
+            Some(_) => Ok(()), // idempotent re-delivery of an immutable segment
+            None => {
+                self.segments.insert(id.clone(), bytes.to_vec());
+                Ok(())
+            }
+        }
+    }
+
+    fn pull_blob(&self, id: &BlobId) -> Result<Vec<u8>, Self::Error> {
+        self.blobs
+            .get(id)
+            .cloned()
+            .ok_or_else(|| MemoryPortError::MissingBlob(id.clone()))
+    }
+
+    fn push_blob(&mut self, id: &BlobId, bytes: &[u8]) -> Result<(), Self::Error> {
+        // Blobs are content-addressed; first writer wins, re-push is a no-op.
+        self.blobs.entry(id.clone()).or_insert_with(|| bytes.to_vec());
+        Ok(())
+    }
 }
