@@ -84,6 +84,6 @@
 
 ## 5. 后记（2026-06-10）：非 Apple human sign-off 已给出
 
-用户 2026-06-10 授权「CP-1/CP-2/Stage-2 whole-exit（除 apple 相关内容）」（原文见 `26` §5）。据此，§4.2 所请求的 human CP-1 sign-off 的**非 Apple 部分视为已签**：确定性 core CI gate（条件 1 core side）、多目标编译 + 零真理红线（条件 2）、binding vocabulary / TextKit mechanism floors 的 core/机制面（条件 3 的 Claude-closeable 列）、模型回填（条件 5）、无持久写入（条件 6；Stage-2 round 3 起持久化由 `cli` 包按契约承担，core 仍零 I/O）。
+用户 2026-06-10 授权「CP-1/CP-2/Stage-2 whole-exit（除 apple 相关内容）」（原文见 `24` §6）。据此，§4.2 所请求的 human CP-1 sign-off 的**非 Apple 部分视为已签**：确定性 core CI gate（条件 1 core side）、多目标编译 + 零真理红线（条件 2）、binding vocabulary / TextKit mechanism floors 的 core/机制面（条件 3 的 Claude-closeable 列）、模型回填（条件 5）、无持久写入（条件 6；Stage-2 round 3 起持久化由 `cli` 包按契约承担，core 仍零 I/O）。
 
-**CP-1 形式 whole-exit 的剩余 open gate 自此只剩 §4.1 的 Apple operator round**（signed device + 付费 ADP + 真实 iCloud：remote `.icloud` placeholder、account states、iOS 大规模 delivery、distribution identity、product app 集成）。Stage-2 round 3 证据（editor-core 完整面、CLI D31 Phase-2、resolve 链路）见 `26`。
+**CP-1 形式 whole-exit 的剩余 open gate 自此只剩 §4.1 的 Apple operator round**（signed device + 付费 ADP + 真实 iCloud：remote `.icloud` placeholder、account states、iOS 大规模 delivery、distribution identity、product app 集成）。Stage-2 round 3 证据（editor-core 完整面、CLI D31 Phase-2、resolve 链路）见 `24`。
