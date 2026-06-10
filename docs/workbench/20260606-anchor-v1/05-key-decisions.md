@@ -343,9 +343,9 @@
 ### D29 — split/merge macro_op_id + intent-rebase
 
 - **Decision**：批准 split / merge 为**在 dispatch 分解为既有 primitive、作用于稳定 `target_id`** 的 macro-op（绝不 opaque delete+create），发出的每条 primitive 盖同一 `macro_op_id`；replay 把任一 leg 上的并发 body 冲突视为**整组冲突**；split 记录为单一 intent，merge 时对 merge 后的 `bX.body` 重放（offset 经同一 diff 重 clamp）；merge（Y→X）= append + 对 Y 设 `life=trashed`（可逆，绝不静默 delete）；派生块纳入无丢失检测。
-- **Status**：Recommended
+- **Status**：Recommended; Stage 1 lower bound observed for normal-path split / merge-backward dispatch
 - **Rationale**：leg-LWW 草案会致重复 tail 文本 / 静默降级；macro-op + intent-rebase 守住无丢失。
-- **Evidence**：conflict §6.8、§7.2、§13.1 #11。纯 core；依赖确定性 diff3（D19）（Codex 未触此项）。
+- **Evidence**：conflict §6.8、§7.2、§13.1 #11。Stage 1 72-core-structural-dispatch-report.md：**Observed** — `SplitBlock` normal path dispatches primitive ops with shared `macro_op_id`, creates a right sibling, and moves selection to the new block start; `MergeBackward` appends current body to the previous living sibling and sets current block `life=trashed`; Swift bridge smoke observes `textkit:core_dispatch_bridge=structural split=changed:blk_a,blk_op_split_block_10003 merge=changed:blk_a,blk_b`; `cargo test --manifest-path suites/anchor/Cargo.toml` passed 77/0 with 1 ignored. Concurrent intent rebase, `split_merge_structural` conflict materialization, and product editor integration remain open. The full rule still depends on deterministic diff3（D19）.
 - **Risk**：intent-rebase 依赖确定性 diff3（D19）；macro_op_id 是信封字段（随 D24 冻结）。
 - **Stop condition**：macro_op_id 随 D24 冻结；若实现退化为 opaque delete+create 或 leg-LWW，即破坏无丢失保证。
 

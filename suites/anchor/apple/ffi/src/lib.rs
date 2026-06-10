@@ -167,6 +167,61 @@ fn conflicts_json(conflicts: &[anchor_core::model::ConflictRecord]) -> String {
     out
 }
 
+fn editor_patches_json(patches: &[anchor_core::dto::EditorPatch]) -> String {
+    let mut out = String::from("[");
+    for (index, patch) in patches.iter().enumerate() {
+        if index != 0 {
+            out.push(',');
+        }
+        match patch {
+            anchor_core::dto::EditorPatch::ReplaceBlockText {
+                block_id,
+                text,
+                selection_start,
+                selection_end,
+            } => out.push_str(&format!(
+                "{{\"kind\":\"replace_block_text\",\"block_id\":{},\"text\":{},\"selection_start\":{},\"selection_end\":{}}}",
+                json_string(block_id),
+                json_string(text),
+                selection_start,
+                selection_end
+            )),
+            anchor_core::dto::EditorPatch::InsertTextSurface {
+                after_block_id,
+                block_id,
+                text,
+                selection_start,
+                selection_end,
+            } => out.push_str(&format!(
+                "{{\"kind\":\"insert_text_surface\",\"after_block_id\":{},\"block_id\":{},\"text\":{},\"selection_start\":{},\"selection_end\":{}}}",
+                json_string(after_block_id),
+                json_string(block_id),
+                json_string(text),
+                selection_start,
+                selection_end
+            )),
+            anchor_core::dto::EditorPatch::RemoveTextSurface { block_id } => out.push_str(&format!(
+                "{{\"kind\":\"remove_text_surface\",\"block_id\":{}}}",
+                json_string(block_id)
+            )),
+        }
+    }
+    out.push(']');
+    out
+}
+
+fn undo_group_json(group: Option<&anchor_core::dto::UndoGroup>) -> String {
+    match group {
+        Some(group) => format!(
+            "{{\"group_id\":{},\"label\":{},\"inverse_patches\":{}}}",
+            json_string(&group.group_id),
+            json_string(&group.label),
+            editor_patches_json(&group.inverse_patches)
+        ),
+        None => "null".to_string(),
+    }
+}
+
 fn validation_error_object_json(code: &str, message: &str) -> String {
     format!(
         "{{\"code\":{},\"message\":{}}}",
@@ -183,7 +238,7 @@ fn validation_error_json(error: Option<&anchor_core::dto::ValidationError>) -> S
 
 fn transaction_error_json(code: &str, message: &str) -> String {
     format!(
-        "{{\"changed_ids\":[],\"validation_error\":{},\"new_revisions\":{},\"selection_hint\":null,\"conflicts\":[],\"projection_fresh\":true,\"mirror_fresh\":true}}",
+        "{{\"changed_ids\":[],\"validation_error\":{},\"new_revisions\":{},\"selection_hint\":null,\"editor_patches\":[],\"undo_group\":null,\"conflicts\":[],\"projection_fresh\":true,\"mirror_fresh\":true}}",
         validation_error_object_json(code, message),
         "{}"
     )
@@ -191,11 +246,13 @@ fn transaction_error_json(code: &str, message: &str) -> String {
 
 fn transaction_result_json(result: anchor_core::dto::TransactionResult) -> String {
     format!(
-        "{{\"changed_ids\":{},\"validation_error\":{},\"new_revisions\":{},\"selection_hint\":{},\"conflicts\":{},\"projection_fresh\":{},\"mirror_fresh\":{}}}",
+        "{{\"changed_ids\":{},\"validation_error\":{},\"new_revisions\":{},\"selection_hint\":{},\"editor_patches\":{},\"undo_group\":{},\"conflicts\":{},\"projection_fresh\":{},\"mirror_fresh\":{}}}",
         json_string_list(&result.changed_ids),
         validation_error_json(result.validation_error.as_ref()),
         json_string_map(&result.new_revisions),
         selection_json(result.selection_hint),
+        editor_patches_json(&result.editor_patches),
+        undo_group_json(result.undo_group.as_ref()),
         conflicts_json(&result.conflicts),
         result.projection_fresh,
         result.mirror_fresh

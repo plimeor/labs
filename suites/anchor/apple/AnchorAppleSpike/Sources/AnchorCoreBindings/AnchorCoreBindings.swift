@@ -47,6 +47,36 @@ public struct ConflictRecord: Decodable, Equatable, Sendable {
     }
 }
 
+public struct EditorPatch: Decodable, Equatable, Sendable {
+    public let kind: String
+    public let afterBlockID: String?
+    public let blockID: String?
+    public let text: String?
+    public let selectionStart: UInt32?
+    public let selectionEnd: UInt32?
+
+    enum CodingKeys: String, CodingKey {
+        case kind
+        case afterBlockID = "after_block_id"
+        case blockID = "block_id"
+        case text
+        case selectionStart = "selection_start"
+        case selectionEnd = "selection_end"
+    }
+}
+
+public struct UndoGroup: Decodable, Equatable, Sendable {
+    public let groupID: String
+    public let label: String
+    public let inversePatches: [EditorPatch]
+
+    enum CodingKeys: String, CodingKey {
+        case groupID = "group_id"
+        case label
+        case inversePatches = "inverse_patches"
+    }
+}
+
 public enum ValidationErrorCode: String, Decodable, Equatable, Sendable {
     case invalidUTF16Offset = "invalid_utf16_offset"
     case directActiveToDeleted = "direct_active_to_deleted"
@@ -65,6 +95,8 @@ public struct TransactionResult: Decodable, Equatable, Sendable {
     public let validationError: ValidationError?
     public let newRevisions: [String: String]
     public let selectionHint: SelectionHint?
+    public let editorPatches: [EditorPatch]
+    public let undoGroup: UndoGroup?
     public let conflicts: [ConflictRecord]
     public let projectionFresh: Bool
     public let mirrorFresh: Bool
@@ -74,6 +106,8 @@ public struct TransactionResult: Decodable, Equatable, Sendable {
         case validationError = "validation_error"
         case newRevisions = "new_revisions"
         case selectionHint = "selection_hint"
+        case editorPatches = "editor_patches"
+        case undoGroup = "undo_group"
         case conflicts
         case projectionFresh = "projection_fresh"
         case mirrorFresh = "mirror_fresh"

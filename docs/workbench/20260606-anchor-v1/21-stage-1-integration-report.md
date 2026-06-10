@@ -3390,3 +3390,229 @@ B4 binding approval and B14 default transport approval are recorded in the curre
 - **Axis matrix delta:** cross-target execution CI moves from `closed as hosted machine gate` to `historical evidence retained / hosted workflow removed` for the current head.
 - **Gate evaluation:** CONTINUE with Apple-first local iOS/macOS verification and remaining product/iCloud/distribution gates. Do not wait for a deleted workflow on this head.
 - **New doc:** `docs/workbench/20260606-anchor-v1/71-github-workflow-removal-report.md`
+
+## 62. Progress ledger update — 2026-06-10 — core structural dispatch lower bound
+
+本节追加 `72-core-structural-dispatch-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 未退出；本轮优先推进 Anchor 产品开发进度，未继续消耗 iCloud 边界 gate。
+
+### 62.1 Axis matrix after doc 72
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go / structural dispatch lower bound added** — Rust suite passes 77/0 with 1 ignored; clippy clean |
+| multi-target compile | **go / current hosted gate paused** — wasm32 and aarch64-linux-android local compile passed after doc 72 |
+| zero-cloud-symbol boundary | **go** — live audit returned 0 matches / exit 1 after core-adjacent change |
+| binding（B4） | **approved boundary / release-distribution-gated** — Swift smoke consumes successful structural core dispatch; distribution gates remain open |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — structural split / merge-backward now bridge to successful core dispatch lower bound; product app-hosted integration remains open |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — unchanged; intentionally not advanced this iteration |
+| layout / retention | **compromise** — unchanged after doc 72 |
+| cross-target execution CI | **historical evidence retained / hosted workflow removed** — unchanged after doc 72 |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 62.2 Open-gate checklist after doc 72
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| normal-path core `SplitBlock` dispatch | **closed / observed** | `72 §3.1`, `72 §4.1` |
+| normal-path core `MergeBackward` dispatch | **closed / observed** | `72 §3.1`, `72 §4.1` |
+| Swift/TextKit structural intent bridge to successful core dispatch | **closed / observed** | `72 §4.2` |
+| core cloud / Apple-type audit after structural dispatch change | **closed / 0 matches, exit 1** | `72 §4.3` |
+| concurrent split/merge intent rebase | open / not implemented | `72 §5` |
+| `split_merge_structural` conflict materialization | open / not implemented | `72 §5` |
+| product app-hosted keyboard/menu/undo/focus dispatch integration | open / not implemented | `72 §5` |
+| inverse-op undo grouping | open / not implemented | `72 §5` |
+| core-sourced `EditorPatch` application | open / not implemented | `72 §5` |
+| product app binding integration | open / not implemented | `70 §4` |
+| Developer ID / App Store distribution | open / no distribution identity or upload artifact | `68 §4` |
+| iCloud remote/account/product-context gates | open / deferred by current priority | `69 §4`, `64 §4`, `65 §4` |
+| CP-1 whole-exit | open / human sign-off not reached | this section |
+
+### Ledger entry — 2026-06-10 — iteration 51 — doc 72-core-structural-dispatch-report.md
+
+- **Checkpoint / cursor:** CP-1 current-period product development, TextKit/core dispatch bridge.
+- **Action selected:** implement the core lower bound for structural split / merge-backward dispatch and update the Swift smoke to consume real core results.
+- **Owner classification:** core-deterministic + Apple bridge smoke → executed here; no product app shell or iCloud runtime gate touched.
+- **Scope-fence check:** passed — no root workspace / package / lockfile changes; no public CLI schema; no Swift-side deterministic semantics; no Apple/iCloud symbols in core.
+- **Evidence (Observed = command + output):**
+  - `cargo test --manifest-path suites/anchor/Cargo.toml` → `77 passed; 0 failed; 1 ignored`, including 3 new `structural_dispatch` tests.
+  - `swift run --package-path suites/anchor/apple/AnchorAppleSpike --scratch-path /tmp/anchor-apple-spike-swift-build AnchorAppleSmoke` → `textkit:core_dispatch_bridge=structural split=changed:blk_a,blk_op_split_block_10003 merge=changed:blk_a,blk_b`.
+  - `cargo clippy --manifest-path suites/anchor/Cargo.toml --all-targets -- -D warnings` → `Finished`.
+  - `cargo build --manifest-path suites/anchor/Cargo.toml --target wasm32-unknown-unknown` and `--target aarch64-linux-android` → both `Finished`.
+  - core cloud-symbol audit → 0 matches, exit 1.
+  - `git diff --check` → no output.
+- **Gates closed this iteration:** core split / merge-backward dispatch lower bound; Swift structural intent bridge to successful core split / merge results.
+- **Gates still open:** concurrent split/merge intent rebase, split/merge conflict materialization, product app-hosted dispatch integration, inverse-op undo grouping, core-sourced `EditorPatch` application, product TextKit/UI integration, Developer ID/App Store distribution, iCloud remote/account/product-context gates, CP-1 whole-exit.
+- **Backfill to 04/05/06/21:** TextKit dispatch bridge and D29 / F30 wording updated to reflect doc 72 as core lower bound while preserving product/concurrency gates.
+- **Axis matrix delta:** TextKit/core bridge moves from `structural typed-deferral bridge closed; real split/merge semantics open` to `core structural dispatch lower bound closed; product/concurrency split/merge gates open`.
+- **Gate evaluation:** CONTINUE — next action should target product app-hosted dispatch integration or core-sourced `EditorPatch` projection before returning to iCloud edge gates.
+- **New doc:** `docs/workbench/20260606-anchor-v1/72-core-structural-dispatch-report.md`
+
+## 63. Progress ledger update — 2026-06-10 — core-sourced EditorPatch projection
+
+本节追加 `73-core-editor-patch-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 未退出；本轮继续优先推进 Anchor 产品开发进度，未继续消耗 iCloud 边界 gate。
+
+### 63.1 Axis matrix after doc 73
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go / editor patch DTO lower bound added** — Rust suite passes 77/0 with 1 ignored; clippy clean |
+| multi-target compile | **go / current hosted gate paused** — wasm32 and aarch64-linux-android local compile passed after doc 73 |
+| zero-cloud-symbol boundary | **go** — live audit returned 0 matches / exit 1 after core-adjacent change |
+| binding（B4） | **approved boundary / release-distribution-gated** — Swift binding decodes `editor_patches`; distribution gates remain open |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — core-sourced projection patch lower bound observed through Swift/TextKit probe; product app-hosted integration remains open |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — unchanged; intentionally not advanced this iteration |
+| layout / retention | **compromise** — unchanged after doc 73 |
+| cross-target execution CI | **historical evidence retained / hosted workflow removed** — unchanged after doc 73 |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 63.2 Open-gate checklist after doc 73
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| `TransactionResult.editor_patches` DTO lower bound | **closed / observed** | `73 §3.1`, `73 §4.1` |
+| C ABI JSON serialization of editor patches | **closed / observed** | `73 §3.2`, `73 §4.2` |
+| Swift binding decode of editor patches | **closed / observed** | `73 §3.2`, `73 §4.2` |
+| TextKit-side projection application from core patches | **closed / observed as probe lower bound** | `73 §4.2` |
+| product app-hosted AppKit/UIKit view hierarchy integration | open / not implemented | `73 §5` |
+| product app-hosted keyboard/menu/undo/focus dispatch integration | open / not implemented | `73 §5` |
+| inverse-op undo grouping | open / not implemented | `73 §5` |
+| product accessibility / VoiceOver runtime | open / not implemented | `73 §5` |
+| concurrent split/merge intent rebase | open / not implemented | `73 §5` |
+| `split_merge_structural` conflict materialization | open / not implemented | `73 §5` |
+| Developer ID / App Store distribution | open / no distribution identity or upload artifact | `68 §4` |
+| iCloud remote/account/product-context gates | open / deferred by current priority | `69 §4`, `64 §4`, `65 §4` |
+| CP-1 whole-exit | open / human sign-off not reached | this section |
+
+### Ledger entry — 2026-06-10 — iteration 52 — doc 73-core-editor-patch-report.md
+
+- **Checkpoint / cursor:** CP-1 current-period product development, core-sourced editor projection.
+- **Action selected:** add core-owned `EditorPatch` DTOs to `TransactionResult`, bridge them through C ABI JSON / Swift decoding, and apply them in the TextKit projection probe.
+- **Owner classification:** core-deterministic + Apple bridge smoke → executed here; no product app shell or iCloud runtime gate touched.
+- **Scope-fence check:** passed — no root workspace / package / lockfile changes; no public CLI schema; no Swift-side deterministic semantics; no Apple/iCloud symbols in core.
+- **Evidence (Observed = command + output):**
+  - `cargo test --manifest-path suites/anchor/Cargo.toml` → `77 passed; 0 failed; 1 ignored`, including editor patch assertions in `dto_surface` and `structural_dispatch`.
+  - `swift run --package-path suites/anchor/apple/AnchorAppleSpike --scratch-path /tmp/anchor-apple-spike-swift-build AnchorAppleSmoke` → `dispatch:insert ... patches=1` and `textkit:core_dispatch_bridge=structural ... patches=split:2,merge:2`.
+  - `cargo clippy --manifest-path suites/anchor/Cargo.toml --all-targets -- -D warnings` → `Finished`.
+  - `cargo build --manifest-path suites/anchor/Cargo.toml --target wasm32-unknown-unknown` and `--target aarch64-linux-android` → both `Finished`.
+  - core cloud-symbol audit → 0 matches, exit 1.
+  - `git diff --check` → no output.
+- **Gates closed this iteration:** core-sourced `EditorPatch` DTO lower bound; C ABI JSON / Swift decode; TextKit-side projection probe application from core patches.
+- **Gates still open:** product app-hosted AppKit/UIKit view hierarchy integration, product app-hosted keyboard/menu/undo/focus dispatch integration, inverse-op undo grouping, product accessibility/VoiceOver runtime, concurrent split/merge intent rebase, `split_merge_structural` conflict materialization, Developer ID/App Store distribution, iCloud remote/account/product-context gates, CP-1 whole-exit.
+- **Backfill to 04/06/21:** TextKit dispatch bridge and fixture wording updated to reflect doc 73 as core-sourced projection lower bound while preserving product integration gates.
+- **Axis matrix delta:** TextKit/core bridge moves from `core structural dispatch lower bound closed; core-sourced EditorPatch open` to `core structural dispatch + core-sourced EditorPatch projection lower bounds closed; product integration gates open`.
+- **Gate evaluation:** CONTINUE — next action should target product app-hosted dispatch integration or inverse-op undo grouping before returning to iCloud edge gates.
+- **New doc:** `docs/workbench/20260606-anchor-v1/73-core-editor-patch-report.md`
+
+## 64. Progress ledger update — 2026-06-10 — core-owned undo group lower bound
+
+本节追加 `74-core-undo-group-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 未退出；本轮继续优先推进 Anchor 产品开发进度，未继续消耗 iCloud 边界 gate。
+
+### 64.1 Axis matrix after doc 74
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go / undo-group DTO lower bound added** — Rust suite passes 77/0 with 1 ignored; clippy clean |
+| multi-target compile | **go / current hosted gate paused** — wasm32 and aarch64-linux-android local compile passed after doc 74 |
+| zero-cloud-symbol boundary | **go** — live audit returned 0 matches / exit 1 after core-adjacent change |
+| binding（B4） | **approved boundary / release-distribution-gated** — Swift binding decodes `undo_group`; distribution gates remain open |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — core-owned undo projection group lower bound observed through Swift/TextKit probe; full inverse-op/product undo remains open |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — unchanged; intentionally not advanced this iteration |
+| layout / retention | **compromise** — unchanged after doc 74 |
+| cross-target execution CI | **historical evidence retained / hosted workflow removed** — unchanged after doc 74 |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 64.2 Open-gate checklist after doc 74
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| `TransactionResult.undo_group` DTO lower bound | **closed / observed** | `74 §3.1`, `74 §4.1` |
+| grouped inverse projection patches for insert / split / merge-backward | **closed / observed** | `74 §4.1` |
+| C ABI JSON serialization of undo group | **closed / observed** | `74 §3.2`, `74 §4.2` |
+| Swift binding decode of undo group | **closed / observed** | `74 §3.2`, `74 §4.2` |
+| TextKit-side inverse projection application from core undo group | **closed / observed as probe lower bound** | `74 §4.2` |
+| full inverse-op dispatch through core | open / not implemented | `74 §5` |
+| product `NSUndoManager` grouping / redo | open / not implemented | `74 §5` |
+| product app-hosted AppKit/UIKit view hierarchy integration | open / not implemented | `74 §5` |
+| product app-hosted keyboard/menu/focus dispatch integration | open / not implemented | `74 §5` |
+| product accessibility / VoiceOver runtime | open / not implemented | `74 §5` |
+| concurrent split/merge intent rebase | open / not implemented | `74 §5` |
+| `split_merge_structural` conflict materialization | open / not implemented | `74 §5` |
+| Developer ID / App Store distribution | open / no distribution identity or upload artifact | `68 §4` |
+| iCloud remote/account/product-context gates | open / deferred by current priority | `69 §4`, `64 §4`, `65 §4` |
+| CP-1 whole-exit | open / human sign-off not reached | this section |
+
+### Ledger entry — 2026-06-10 — iteration 53 — doc 74-core-undo-group-report.md
+
+- **Checkpoint / cursor:** CP-1 current-period product development, core-owned undo grouping.
+- **Action selected:** add core-owned `UndoGroup` DTO to `TransactionResult`, bridge it through C ABI JSON / Swift decoding, and apply inverse patches in the TextKit projection probe.
+- **Owner classification:** core-deterministic + Apple bridge smoke → executed here; no product app shell or iCloud runtime gate touched.
+- **Scope-fence check:** passed — no root workspace / package / lockfile changes; no public CLI schema; no Swift-side deterministic semantics; no Apple/iCloud symbols in core.
+- **Evidence (Observed = command + output):**
+  - `cargo test --manifest-path suites/anchor/Cargo.toml` → `77 passed; 0 failed; 1 ignored`, including undo-group assertions in `dto_surface` and `structural_dispatch`.
+  - `swift run --package-path suites/anchor/apple/AnchorAppleSpike --scratch-path /tmp/anchor-apple-spike-swift-build AnchorAppleSmoke` → `dispatch:insert ... undo=replace_block_text` and `textkit:core_dispatch_bridge=structural ... undo=split:2,merge:2`.
+  - `cargo clippy --manifest-path suites/anchor/Cargo.toml --all-targets -- -D warnings` → `Finished`.
+  - `cargo build --manifest-path suites/anchor/Cargo.toml --target wasm32-unknown-unknown` and `--target aarch64-linux-android` → both `Finished`.
+  - core cloud-symbol audit → 0 matches, exit 1.
+  - `git diff --check` → no output.
+- **Gates closed this iteration:** core-owned undo-group DTO lower bound; C ABI JSON / Swift decode; TextKit-side inverse projection probe application from core undo group.
+- **Gates still open:** full inverse-op dispatch through core, product `NSUndoManager` grouping/redo, product app-hosted AppKit/UIKit view hierarchy integration, product app-hosted keyboard/menu/focus dispatch integration, product accessibility/VoiceOver runtime, concurrent split/merge intent rebase, `split_merge_structural` conflict materialization, Developer ID/App Store distribution, iCloud remote/account/product-context gates, CP-1 whole-exit.
+- **Backfill to 04/06/21:** TextKit dispatch bridge and fixture wording updated to reflect doc 74 as undo projection grouping lower bound while preserving full inverse-op/product undo gates.
+- **Axis matrix delta:** TextKit/core bridge moves from `core structural dispatch + core-sourced EditorPatch projection lower bounds closed; inverse-op undo grouping open` to `core structural dispatch + projection patch + undo projection grouping lower bounds closed; full inverse-op/product undo gates open`.
+- **Gate evaluation:** CONTINUE — next action should target product app-hosted dispatch integration or full inverse-op dispatch before returning to iCloud edge gates.
+- **New doc:** `docs/workbench/20260606-anchor-v1/74-core-undo-group-report.md`
+
+## 65. Progress ledger update — 2026-06-10 — core-only undo replay lower bound
+
+本节追加 `75-core-undo-replay-report.md` 的 ledger 状态。`21` 的原始 CP-1 synthesis 结论仍成立：CP-1 未退出；本轮继续优先推进 Anchor 产品开发进度，未继续消耗 iCloud 边界 gate。
+
+### 65.1 Axis matrix after doc 75
+
+| Axis | Verdict |
+|---|---|
+| core deterministic（groups 1+5） | **go / undo replay lower bound added** — Rust suite passes 77/0 with 1 ignored; clippy clean |
+| multi-target compile | **go / current hosted gate paused** — wasm32 and aarch64-linux-android local compile passed after doc 75 |
+| zero-cloud-symbol boundary | **go** — live audit returned 0 matches / exit 1 after core-adjacent change |
+| binding（B4） | **approved boundary / release-distribution-gated** — unchanged; Swift/FFI undo-group input remains open |
+| TextKit（group 3 runtime） | **partial mechanism floor closed** — core-only undo replay lower bound observed; product/FFI undo gates remain open |
+| iCloud Drive（B14） | **approved default transport WITH compromise constraints** — unchanged; intentionally not advanced this iteration |
+| layout / retention | **compromise** — unchanged after doc 75 |
+| cross-target execution CI | **historical evidence retained / hosted workflow removed** — unchanged after doc 75 |
+| **CP-1 whole-exit** | **未退出 (NOT exited)** |
+
+### 65.2 Open-gate checklist after doc 75
+
+| Gate | Status | Evidence pointer |
+|---|---|---|
+| core-only `dispatch_undo_group` replay lower bound | **closed / observed** | `75 §3.1`, `75 §4.1` |
+| insert undo replay into op-log | **closed / observed** | `75 §3.2`, `75 §4.1` |
+| split undo replay into op-log | **closed / observed** | `75 §3.2`, `75 §4.1` |
+| merge-backward undo replay into op-log | **closed / observed** | `75 §3.2`, `75 §4.1` |
+| Swift/FFI undo-group input contract | open / not implemented | `75 §5` |
+| product `NSUndoManager` grouping / redo | open / not implemented | `75 §5` |
+| product keyboard/menu/focus undo routing to core replay | open / not implemented | `75 §5` |
+| product app-hosted AppKit/UIKit view hierarchy integration | open / not implemented | `75 §5` |
+| mark-preserving full inverse-op contract beyond patch lower bound | open / not implemented | `75 §5` |
+| product accessibility / VoiceOver runtime | open / not implemented | `75 §5` |
+| concurrent split/merge intent rebase | open / not implemented | `75 §5` |
+| `split_merge_structural` conflict materialization | open / not implemented | `75 §5` |
+| Developer ID / App Store distribution | open / no distribution identity or upload artifact | `68 §4` |
+| iCloud remote/account/product-context gates | open / deferred by current priority | `69 §4`, `64 §4`, `65 §4` |
+| CP-1 whole-exit | open / human sign-off not reached | this section |
+
+### Ledger entry — 2026-06-10 — iteration 54 — doc 75-core-undo-replay-report.md
+
+- **Checkpoint / cursor:** CP-1 current-period product development, core-only undo replay.
+- **Action selected:** add `Session::dispatch_undo_group` so core-issued undo groups can replay through core op-log append + replay instead of existing only as Swift-applied inverse projection patches.
+- **Owner classification:** core-deterministic → executed here; no product app shell, Swift FFI input parser, or iCloud runtime gate touched.
+- **Scope-fence check:** passed — no root workspace / package / lockfile changes; no public CLI schema; no Swift-side deterministic semantics; no Apple/iCloud symbols in core.
+- **Evidence (Observed = command + output):**
+  - `cargo test --manifest-path suites/anchor/Cargo.toml` → `77 passed; 0 failed; 1 ignored`, including insert/split/merge undo replay assertions.
+  - `cargo clippy --manifest-path suites/anchor/Cargo.toml --all-targets -- -D warnings` → `Finished`.
+  - `cargo build --manifest-path suites/anchor/Cargo.toml --target wasm32-unknown-unknown` and `--target aarch64-linux-android` → both `Finished`.
+  - core cloud-symbol audit → 0 matches, exit 1.
+- **Gates closed this iteration:** core-only undo replay lower bound; insert / split / merge-backward undo groups lower to committed core ops and materialized replay state.
+- **Gates still open:** Swift/FFI undo-group input contract, product `NSUndoManager` grouping/redo, product app-hosted AppKit/UIKit view hierarchy integration, product keyboard/menu/focus undo routing to core replay, mark-preserving full inverse-op contract beyond patch lower bound, concurrent split/merge intent rebase, `split_merge_structural` conflict materialization, Developer ID/App Store distribution, iCloud remote/account/product-context gates, CP-1 whole-exit.
+- **Backfill to 04/06/21:** TextKit/core undo wording updated to reflect doc 75 as core-only undo replay lower bound while preserving product undo / FFI / redo gates.
+- **Axis matrix delta:** TextKit/core bridge moves from `core structural dispatch + projection patch + undo projection grouping lower bounds closed; full inverse-op/product undo gates open` to `core structural dispatch + projection patch + undo projection grouping + core-only undo replay lower bounds closed; product/FFI undo gates open`.
+- **Gate evaluation:** CONTINUE — next action should target product app-hosted dispatch integration or Swift/FFI undo replay input before returning to iCloud edge gates.
+- **New doc:** `docs/workbench/20260606-anchor-v1/75-core-undo-replay-report.md`

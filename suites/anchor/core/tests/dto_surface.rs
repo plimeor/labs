@@ -1,7 +1,8 @@
 //! The Apple-binding call surface (owned by Codex): open → dispatch → read.
 
 use anchor_core::dto::{
-    blob_id, fixture_blob, open_fixture_vault, EditorIntent, OpStamp, Session, ValidationError,
+    blob_id, fixture_blob, open_fixture_vault, EditorIntent, EditorPatch, OpStamp, Session,
+    ValidationError,
 };
 use anchor_core::hlc::Hlc;
 use anchor_core::model::Life;
@@ -65,12 +66,56 @@ fn dispatch_insert_text_updates_body() {
             end: 7,
         })
     );
+    assert_eq!(
+        result.editor_patches,
+        vec![EditorPatch::ReplaceBlockText {
+            block_id: "blk_a".to_string(),
+            text: "PREFIX Morning note.".to_string(),
+            selection_start: 7,
+            selection_end: 7,
+        }]
+    );
+    let undo = result
+        .undo_group
+        .clone()
+        .expect("insert should return undo group");
+    assert_eq!(undo.group_id, "undo_op_ins");
+    assert_eq!(undo.label, "replace_block_text");
+    assert_eq!(
+        undo.inverse_patches,
+        vec![EditorPatch::ReplaceBlockText {
+            block_id: "blk_a".to_string(),
+            text: "Morning note.".to_string(),
+            selection_start: 0,
+            selection_end: 0,
+        }]
+    );
     let body = session.vault().nodes["blk_a"].content.body.clone().unwrap();
     let text = match body {
         anchor_core::model::BodyState::Single(b) => b.text,
         _ => panic!("unexpected conflict"),
     };
     assert_eq!(text, "PREFIX Morning note.");
+
+    let undo_result = session.dispatch_undo_group(undo, stamp("op_undo_ins", 2_001));
+    assert!(undo_result.validation_error.is_none());
+    assert_eq!(undo_result.changed_ids, vec!["blk_a"]);
+    assert_eq!(undo_result.editor_patches.len(), 1);
+    assert!(undo_result.undo_group.is_none());
+    assert_eq!(
+        undo_result.selection_hint,
+        Some(anchor_core::dto::Selection::Text {
+            block_id: "blk_a".to_string(),
+            start: 0,
+            end: 0,
+        })
+    );
+    let body = session.vault().nodes["blk_a"].content.body.clone().unwrap();
+    let text = match body {
+        anchor_core::model::BodyState::Single(b) => b.text,
+        _ => panic!("unexpected conflict"),
+    };
+    assert_eq!(text, "Morning note.");
 }
 
 #[test]

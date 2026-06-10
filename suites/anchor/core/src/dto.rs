@@ -49,6 +49,39 @@ pub enum Selection {
     },
 }
 
+/// Core-sourced editor projection patch. This is the Stage-1 lower-bound DTO
+/// consumed by native adapters; it is derived from committed core state and is
+/// never a source of truth.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum EditorPatch {
+    ReplaceBlockText {
+        block_id: String,
+        text: String,
+        selection_start: u32,
+        selection_end: u32,
+    },
+    InsertTextSurface {
+        after_block_id: String,
+        block_id: String,
+        text: String,
+        selection_start: u32,
+        selection_end: u32,
+    },
+    RemoveTextSurface {
+        block_id: String,
+    },
+}
+
+/// Core-owned undo group lower bound. It groups the inverse projection patches
+/// for a committed transaction; future CP-2 work can upgrade this to inverse
+/// dispatch intents without moving grouping ownership to the client.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UndoGroup {
+    pub group_id: String,
+    pub label: String,
+    pub inverse_patches: Vec<EditorPatch>,
+}
+
 /// Editor intent (the Stage-1 subset of the `anchor-editor-core` surface).
 #[derive(Clone, Debug)]
 pub enum EditorIntent {
@@ -107,6 +140,8 @@ pub struct TransactionResult {
     pub validation_error: Option<ValidationError>,
     pub new_revisions: BTreeMap<String, String>,
     pub selection_hint: Option<Selection>,
+    pub editor_patches: Vec<EditorPatch>,
+    pub undo_group: Option<UndoGroup>,
     pub conflicts: Vec<crate::model::ConflictRecord>,
     pub projection_fresh: bool,
     pub mirror_fresh: bool,
@@ -302,34 +337,292 @@ impl Session {
     /// Apply an editor intent. Mirrors the real dispatch shape: intent → op →
     /// append → replay → result.
     pub fn dispatch(&mut self, intent: EditorIntent, stamp: OpStamp) -> TransactionResult {
+        match &intent {
+            EditorIntent::SplitBlock { target_id, at } => {
+                return self.dispatch_split_block(target_id, *at, stamp);
+            }
+            EditorIntent::MergeBackward { target_id } => {
+                return self.dispatch_merge_backward(target_id, stamp);
+            }
+            _ => {}
+        }
+
         let selection_hint = self.selection_hint(&intent);
         let op = match self.build_op(&intent, &stamp) {
             Ok(op) => op,
             Err(e) => return self.error_result(e),
         };
         let target = op.target_id.clone();
-        self.log.push(op);
+        let editor_patches = self.editor_patches_for_single_op(&op, &selection_hint);
+        let undo_group = self.undo_group_for_single_op(&op, &intent, &stamp);
+        self.apply_ops(
+            alloc::vec![op],
+            alloc::vec![target.clone()],
+            selection_hint,
+            editor_patches,
+            undo_group,
+        )
+    }
+
+    /// Apply a core-issued undo group back through the op-log. This is still a
+    /// lower bound: it proves inverse projection patches can become committed
+    /// core ops, but it does not claim redo or product NSUndoManager semantics.
+    pub fn dispatch_undo_group(&mut self, group: UndoGroup, stamp: OpStamp) -> TransactionResult {
+        let editor_patches = group.inverse_patches.clone();
+        let selection_hint = selection_hint_for_patches(&editor_patches);
+        let ops = match self.ops_for_undo_group(&group, &stamp) {
+            Ok(ops) => ops,
+            Err(e) => return self.error_result(e),
+        };
+        let changed_ids = changed_ids_for_patches(&editor_patches);
+        self.apply_ops(ops, changed_ids, selection_hint, editor_patches, None)
+    }
+
+    fn apply_ops(
+        &mut self,
+        ops: Vec<Op>,
+        changed_ids: Vec<String>,
+        selection_hint: Option<Selection>,
+        editor_patches: Vec<EditorPatch>,
+        undo_group: Option<UndoGroup>,
+    ) -> TransactionResult {
+        self.log.extend(ops);
         self.vault = replay(&self.log);
         let mut new_revisions = BTreeMap::new();
-        if let Some(rev) = self.vault.node_snapshot_revision(&target) {
-            new_revisions.insert(target.clone(), rev);
+        for id in &changed_ids {
+            if let Some(rev) = self.vault.node_snapshot_revision(id) {
+                new_revisions.insert(id.clone(), rev);
+            }
         }
         let conflicts = self
             .vault
             .conflicts
             .iter()
-            .filter(|c| c.target_id == target)
+            .filter(|c| changed_ids.iter().any(|id| id == &c.target_id))
             .cloned()
             .collect();
         TransactionResult {
-            changed_ids: alloc::vec![target],
+            changed_ids,
             validation_error: None,
             new_revisions,
             selection_hint,
+            editor_patches,
+            undo_group,
             conflicts,
             projection_fresh: true,
             mirror_fresh: true,
         }
+    }
+
+    fn editor_patches_for_single_op(
+        &self,
+        op: &Op,
+        selection_hint: &Option<Selection>,
+    ) -> Vec<EditorPatch> {
+        let OpPayload::SetBody { text, .. } = &op.payload else {
+            return Vec::new();
+        };
+        let (selection_start, selection_end) = match selection_hint {
+            Some(Selection::Text { start, end, .. }) => (*start, *end),
+            _ => {
+                let len = text.encode_utf16().count() as u32;
+                (len, len)
+            }
+        };
+        alloc::vec![EditorPatch::ReplaceBlockText {
+            block_id: op.target_id.clone(),
+            text: text.clone(),
+            selection_start,
+            selection_end,
+        }]
+    }
+
+    fn undo_group_for_single_op(
+        &self,
+        op: &Op,
+        intent: &EditorIntent,
+        stamp: &OpStamp,
+    ) -> Option<UndoGroup> {
+        let OpPayload::SetBody { .. } = &op.payload else {
+            return None;
+        };
+        let previous = self.current_body(&op.target_id)?;
+        let selection = match intent {
+            EditorIntent::InsertText { at, .. } => (*at, *at),
+            EditorIntent::ApplyMark { start, end, .. } => (*start, *end),
+            _ => {
+                let len = previous.text.encode_utf16().count() as u32;
+                (len, len)
+            }
+        };
+        Some(UndoGroup {
+            group_id: format!("undo_{}", stamp.op_id),
+            label: "replace_block_text".to_string(),
+            inverse_patches: alloc::vec![EditorPatch::ReplaceBlockText {
+                block_id: op.target_id.clone(),
+                text: previous.text,
+                selection_start: selection.0,
+                selection_end: selection.1,
+            }],
+        })
+    }
+
+    fn ops_for_undo_group(
+        &self,
+        group: &UndoGroup,
+        stamp: &OpStamp,
+    ) -> Result<Vec<Op>, ValidationError> {
+        let mut ops = Vec::new();
+        let macro_id = format!("macro_undo_{}", stamp.op_id);
+        for (index, patch) in group.inverse_patches.iter().enumerate() {
+            match patch {
+                EditorPatch::ReplaceBlockText { block_id, text, .. } => {
+                    let current = self
+                        .current_body(block_id)
+                        .ok_or(ValidationError::StructuralDispatchDeferred)?;
+                    let next_body = crate::model::Body::plain(text);
+                    ops.push(
+                        OpBuilder::new(
+                            format!("{}_undo_{}_replace_body", stamp.op_id, index),
+                            stamp.hlc.clone(),
+                            stamp.actor.clone(),
+                            block_id.clone(),
+                            self.kind_of(block_id),
+                            Register::Content,
+                            OpKind::Set,
+                            OpPayload::SetBody {
+                                text: next_body.text.clone(),
+                                marks: next_body.marks.clone(),
+                            },
+                        )
+                        .seq(stamp.seq)
+                        .sub_field(SubFieldKey::Body)
+                        .base_sub_rev(body_sub_rev(&current))
+                        .new_sub_rev(body_sub_rev(&next_body))
+                        .macro_op_id(macro_id.clone())
+                        .build(),
+                    );
+                }
+                EditorPatch::InsertTextSurface {
+                    after_block_id,
+                    block_id,
+                    text,
+                    ..
+                } => {
+                    if !self.vault.nodes.contains_key(after_block_id) {
+                        return Err(ValidationError::StructuralDispatchDeferred);
+                    }
+                    if !self.vault.nodes.contains_key(block_id) {
+                        ops.push(self.create_undo_surface_op(
+                            stamp,
+                            index,
+                            &macro_id,
+                            after_block_id,
+                            block_id,
+                        )?);
+                    } else {
+                        ops.push(
+                            OpBuilder::new(
+                                format!("{}_undo_{}_restore_surface", stamp.op_id, index),
+                                stamp.hlc.clone(),
+                                stamp.actor.clone(),
+                                block_id.clone(),
+                                self.kind_of(block_id),
+                                Register::Life,
+                                OpKind::Restore,
+                                OpPayload::LifeSet { life: Life::Active },
+                            )
+                            .seq(stamp.seq)
+                            .macro_op_id(macro_id.clone())
+                            .build(),
+                        );
+                    }
+                    let current = self
+                        .current_body(block_id)
+                        .unwrap_or(crate::model::Body::plain(""));
+                    let next_body = crate::model::Body::plain(text);
+                    ops.push(
+                        OpBuilder::new(
+                            format!("{}_undo_{}_insert_surface_body", stamp.op_id, index),
+                            stamp.hlc.clone(),
+                            stamp.actor.clone(),
+                            block_id.clone(),
+                            self.kind_of(block_id),
+                            Register::Content,
+                            OpKind::Set,
+                            OpPayload::SetBody {
+                                text: next_body.text.clone(),
+                                marks: next_body.marks.clone(),
+                            },
+                        )
+                        .seq(stamp.seq)
+                        .sub_field(SubFieldKey::Body)
+                        .base_sub_rev(body_sub_rev(&current))
+                        .new_sub_rev(body_sub_rev(&next_body))
+                        .macro_op_id(macro_id.clone())
+                        .build(),
+                    );
+                }
+                EditorPatch::RemoveTextSurface { block_id } => {
+                    if !self.vault.nodes.contains_key(block_id) {
+                        return Err(ValidationError::StructuralDispatchDeferred);
+                    }
+                    ops.push(
+                        OpBuilder::new(
+                            format!("{}_undo_{}_remove_surface", stamp.op_id, index),
+                            stamp.hlc.clone(),
+                            stamp.actor.clone(),
+                            block_id.clone(),
+                            self.kind_of(block_id),
+                            Register::Life,
+                            OpKind::LifeSet,
+                            OpPayload::LifeSet {
+                                life: Life::Trashed,
+                            },
+                        )
+                        .seq(stamp.seq)
+                        .macro_op_id(macro_id.clone())
+                        .build(),
+                    );
+                }
+            }
+        }
+        Ok(ops)
+    }
+
+    fn create_undo_surface_op(
+        &self,
+        stamp: &OpStamp,
+        index: usize,
+        macro_id: &str,
+        after_block_id: &str,
+        block_id: &str,
+    ) -> Result<Op, ValidationError> {
+        let after = self
+            .vault
+            .nodes
+            .get(after_block_id)
+            .ok_or(ValidationError::StructuralDispatchDeferred)?;
+        let next_order = self.next_sibling_order(after_block_id);
+        let order =
+            crate::order::key_between(Some(after.location.order.as_str()), next_order.as_deref())
+                .map_err(|_| ValidationError::StructuralDispatchDeferred)?;
+        Ok(OpBuilder::new(
+            format!("{}_undo_{}_create_surface", stamp.op_id, index),
+            stamp.hlc.clone(),
+            stamp.actor.clone(),
+            block_id.to_string(),
+            TargetKind::Block,
+            Register::Location,
+            OpKind::Create,
+            OpPayload::Create {
+                kind: TargetKind::Block,
+                location: Location::new(after.location.parent.clone(), order),
+            },
+        )
+        .seq(stamp.seq)
+        .macro_op_id(macro_id.to_string())
+        .build())
     }
 
     /// Derive a transient post-dispatch selection hint from the intent. For a
@@ -362,12 +655,311 @@ impl Session {
         }
     }
 
+    fn split_body_at(
+        &self,
+        body: &crate::model::Body,
+        at: u32,
+    ) -> Result<(crate::model::Body, crate::model::Body), ValidationError> {
+        let units: Vec<u16> = body.text.encode_utf16().collect();
+        let at = (at as usize).min(units.len());
+        let left_text =
+            String::from_utf16(&units[..at]).map_err(|_| ValidationError::InvalidUtf16Offset)?;
+        let right_text =
+            String::from_utf16(&units[at..]).map_err(|_| ValidationError::InvalidUtf16Offset)?;
+        let at = at as u32;
+        let mut left_marks = Vec::new();
+        let mut right_marks = Vec::new();
+        for mark in &body.marks {
+            if mark.end <= at {
+                left_marks.push(mark.clone());
+            } else if mark.start >= at {
+                right_marks.push(Mark::new(
+                    mark.kind.clone(),
+                    mark.start - at,
+                    mark.end - at,
+                    mark.expand,
+                ));
+            } else {
+                if mark.start < at {
+                    left_marks.push(Mark::new(mark.kind.clone(), mark.start, at, mark.expand));
+                }
+                if mark.end > at {
+                    right_marks.push(Mark::new(mark.kind.clone(), 0, mark.end - at, mark.expand));
+                }
+            }
+        }
+        Ok((
+            crate::model::Body::new(left_text, left_marks),
+            crate::model::Body::new(right_text, right_marks),
+        ))
+    }
+
+    fn next_sibling_order(&self, target_id: &str) -> Option<String> {
+        let target = self.vault.nodes.get(target_id)?;
+        self.vault
+            .nodes
+            .values()
+            .filter(|node| {
+                node.id != target_id
+                    && node.location.parent == target.location.parent
+                    && node.location.order > target.location.order
+            })
+            .map(|node| node.location.order.clone())
+            .min()
+    }
+
+    fn previous_sibling_id(&self, target_id: &str) -> Option<String> {
+        let target = self.vault.nodes.get(target_id)?;
+        self.vault
+            .nodes
+            .values()
+            .filter(|node| {
+                node.id != target_id
+                    && node.location.parent == target.location.parent
+                    && node.location.order < target.location.order
+                    && node.life.is_living()
+            })
+            .max_by(|a, b| a.location.order.cmp(&b.location.order))
+            .map(|node| node.id.clone())
+    }
+
+    fn kind_of(&self, target_id: &str) -> TargetKind {
+        self.vault
+            .nodes
+            .get(target_id)
+            .map(|node| node.kind)
+            .unwrap_or(TargetKind::Block)
+    }
+
+    fn dispatch_split_block(
+        &mut self,
+        target_id: &str,
+        at: u32,
+        stamp: OpStamp,
+    ) -> TransactionResult {
+        let Some(target) = self.vault.nodes.get(target_id) else {
+            return self.error_result(ValidationError::StructuralDispatchDeferred);
+        };
+        let current = self
+            .current_body(target_id)
+            .unwrap_or(crate::model::Body::plain(""));
+        let (left_body, right_body) = match self.split_body_at(&current, at) {
+            Ok(split) => split,
+            Err(error) => return self.error_result(error),
+        };
+        let next_order = self.next_sibling_order(target_id);
+        let new_order =
+            crate::order::key_between(Some(target.location.order.as_str()), next_order.as_deref())
+                .unwrap_or_else(|_| {
+                    crate::order::key_between(Some(target.location.order.as_str()), None)
+                        .unwrap_or_else(|_| format!("{}z", target.location.order))
+                });
+        let new_block_id = format!("blk_{}", stamp.op_id);
+        let macro_id = format!("macro_{}", stamp.op_id);
+        let undo_group_id = format!("undo_{}", stamp.op_id);
+        let left_op = OpBuilder::new(
+            format!("{}_a_left_body", stamp.op_id),
+            stamp.hlc.clone(),
+            stamp.actor.clone(),
+            target_id.to_string(),
+            TargetKind::Block,
+            Register::Content,
+            OpKind::Set,
+            OpPayload::SetBody {
+                text: left_body.text.clone(),
+                marks: left_body.marks.clone(),
+            },
+        )
+        .seq(stamp.seq)
+        .sub_field(SubFieldKey::Body)
+        .base_sub_rev(body_sub_rev(&current))
+        .new_sub_rev(body_sub_rev(&left_body))
+        .macro_op_id(macro_id.clone())
+        .build();
+        let create_op = OpBuilder::new(
+            format!("{}_b_create_right", stamp.op_id),
+            stamp.hlc.clone(),
+            stamp.actor.clone(),
+            new_block_id.clone(),
+            TargetKind::Block,
+            Register::Location,
+            OpKind::Create,
+            OpPayload::Create {
+                kind: TargetKind::Block,
+                location: Location::new(target.location.parent.clone(), new_order),
+            },
+        )
+        .seq(stamp.seq)
+        .macro_op_id(macro_id.clone())
+        .build();
+        let right_op = OpBuilder::new(
+            format!("{}_c_right_body", stamp.op_id),
+            stamp.hlc,
+            stamp.actor,
+            new_block_id.clone(),
+            TargetKind::Block,
+            Register::Content,
+            OpKind::Set,
+            OpPayload::SetBody {
+                text: right_body.text.clone(),
+                marks: right_body.marks.clone(),
+            },
+        )
+        .seq(stamp.seq)
+        .sub_field(SubFieldKey::Body)
+        .new_sub_rev(body_sub_rev(&right_body))
+        .macro_op_id(macro_id)
+        .build();
+        self.apply_ops(
+            alloc::vec![left_op, create_op, right_op],
+            alloc::vec![target_id.to_string(), new_block_id.clone()],
+            Some(Selection::Text {
+                block_id: new_block_id.clone(),
+                start: 0,
+                end: 0,
+            }),
+            alloc::vec![
+                EditorPatch::ReplaceBlockText {
+                    block_id: target_id.to_string(),
+                    text: left_body.text,
+                    selection_start: at,
+                    selection_end: at,
+                },
+                EditorPatch::InsertTextSurface {
+                    after_block_id: target_id.to_string(),
+                    block_id: new_block_id.clone(),
+                    text: right_body.text,
+                    selection_start: 0,
+                    selection_end: 0,
+                },
+            ],
+            Some(UndoGroup {
+                group_id: undo_group_id,
+                label: "split_block".to_string(),
+                inverse_patches: alloc::vec![
+                    EditorPatch::ReplaceBlockText {
+                        block_id: target_id.to_string(),
+                        text: current.text,
+                        selection_start: at,
+                        selection_end: at,
+                    },
+                    EditorPatch::RemoveTextSurface {
+                        block_id: new_block_id,
+                    },
+                ],
+            }),
+        )
+    }
+
+    fn dispatch_merge_backward(&mut self, target_id: &str, stamp: OpStamp) -> TransactionResult {
+        let Some(previous_id) = self.previous_sibling_id(target_id) else {
+            return self.error_result(ValidationError::StructuralDispatchDeferred);
+        };
+        let previous_body = self
+            .current_body(&previous_id)
+            .unwrap_or(crate::model::Body::plain(""));
+        let current_body = self
+            .current_body(target_id)
+            .unwrap_or(crate::model::Body::plain(""));
+        let previous_len = previous_body.text.encode_utf16().count() as u32;
+        let current_len = current_body.text.encode_utf16().count() as u32;
+        let mut merged_marks = previous_body.marks.clone();
+        merged_marks.extend(current_body.marks.iter().map(|mark| {
+            Mark::new(
+                mark.kind.clone(),
+                previous_len + mark.start,
+                previous_len + mark.end,
+                mark.expand,
+            )
+        }));
+        let mut merged_text = previous_body.text.clone();
+        merged_text.push_str(&current_body.text);
+        let merged_body = crate::model::Body::new(merged_text, merged_marks);
+        let macro_id = format!("macro_{}", stamp.op_id);
+        let undo_group_id = format!("undo_{}", stamp.op_id);
+        let body_op = OpBuilder::new(
+            format!("{}_a_previous_body", stamp.op_id),
+            stamp.hlc.clone(),
+            stamp.actor.clone(),
+            previous_id.clone(),
+            TargetKind::Block,
+            Register::Content,
+            OpKind::Set,
+            OpPayload::SetBody {
+                text: merged_body.text.clone(),
+                marks: merged_body.marks.clone(),
+            },
+        )
+        .seq(stamp.seq)
+        .sub_field(SubFieldKey::Body)
+        .base_sub_rev(body_sub_rev(&previous_body))
+        .new_sub_rev(body_sub_rev(&merged_body))
+        .macro_op_id(macro_id.clone())
+        .build();
+        let life_op = OpBuilder::new(
+            format!("{}_b_trash_current", stamp.op_id),
+            stamp.hlc,
+            stamp.actor,
+            target_id.to_string(),
+            TargetKind::Block,
+            Register::Life,
+            OpKind::LifeSet,
+            OpPayload::LifeSet {
+                life: Life::Trashed,
+            },
+        )
+        .seq(stamp.seq)
+        .macro_op_id(macro_id)
+        .build();
+        self.apply_ops(
+            alloc::vec![body_op, life_op],
+            alloc::vec![previous_id.clone(), target_id.to_string()],
+            Some(Selection::Text {
+                block_id: previous_id.clone(),
+                start: previous_len,
+                end: previous_len,
+            }),
+            alloc::vec![
+                EditorPatch::ReplaceBlockText {
+                    block_id: previous_id.clone(),
+                    text: merged_body.text,
+                    selection_start: previous_len,
+                    selection_end: previous_len,
+                },
+                EditorPatch::RemoveTextSurface {
+                    block_id: target_id.to_string(),
+                },
+            ],
+            Some(UndoGroup {
+                group_id: undo_group_id,
+                label: "merge_backward".to_string(),
+                inverse_patches: alloc::vec![
+                    EditorPatch::ReplaceBlockText {
+                        block_id: previous_id.clone(),
+                        text: previous_body.text,
+                        selection_start: previous_len,
+                        selection_end: previous_len,
+                    },
+                    EditorPatch::InsertTextSurface {
+                        after_block_id: previous_id,
+                        block_id: target_id.to_string(),
+                        text: current_body.text,
+                        selection_start: 0,
+                        selection_end: current_len,
+                    },
+                ],
+            }),
+        )
+    }
+
     fn error_result(&self, error: ValidationError) -> TransactionResult {
         TransactionResult {
             changed_ids: Vec::new(),
             validation_error: Some(error),
             new_revisions: BTreeMap::new(),
             selection_hint: None,
+            editor_patches: Vec::new(),
+            undo_group: None,
             conflicts: Vec::new(),
             projection_fresh: true,
             mirror_fresh: true,
@@ -384,13 +976,6 @@ impl Session {
     }
 
     fn build_op(&self, intent: &EditorIntent, stamp: &OpStamp) -> Result<Op, ValidationError> {
-        let kind_of = |id: &str| {
-            self.vault
-                .nodes
-                .get(id)
-                .map(|n| n.kind)
-                .unwrap_or(TargetKind::Block)
-        };
         match intent {
             EditorIntent::InsertText {
                 target_id,
@@ -421,7 +1006,7 @@ impl Session {
                     stamp.hlc.clone(),
                     stamp.actor.clone(),
                     target_id.clone(),
-                    kind_of(target_id),
+                    self.kind_of(target_id),
                     Register::Content,
                     OpKind::Set,
                     OpPayload::SetBody {
@@ -454,7 +1039,7 @@ impl Session {
                     stamp.hlc.clone(),
                     stamp.actor.clone(),
                     target_id.clone(),
-                    kind_of(target_id),
+                    self.kind_of(target_id),
                     Register::Content,
                     OpKind::Set,
                     OpPayload::SetBody {
@@ -479,7 +1064,7 @@ impl Session {
                     stamp.hlc.clone(),
                     stamp.actor.clone(),
                     target_id.clone(),
-                    kind_of(target_id),
+                    self.kind_of(target_id),
                     Register::Content,
                     OpKind::Set,
                     OpPayload::SetTypeId {
@@ -507,7 +1092,7 @@ impl Session {
                     stamp.hlc.clone(),
                     stamp.actor.clone(),
                     target_id.clone(),
-                    kind_of(target_id),
+                    self.kind_of(target_id),
                     Register::Content,
                     OpKind::Set,
                     OpPayload::SetProp {
@@ -526,7 +1111,7 @@ impl Session {
                 stamp.hlc.clone(),
                 stamp.actor.clone(),
                 target_id.clone(),
-                kind_of(target_id),
+                self.kind_of(target_id),
                 Register::Content,
                 OpKind::TagAdd,
                 OpPayload::TagAdd { tag: tag.clone() },
@@ -551,7 +1136,7 @@ impl Session {
                     stamp.hlc.clone(),
                     stamp.actor.clone(),
                     target_id.clone(),
-                    kind_of(target_id),
+                    self.kind_of(target_id),
                     Register::Content,
                     OpKind::TagRemove,
                     OpPayload::TagRemove { tag: tag.clone() },
@@ -570,7 +1155,7 @@ impl Session {
                 stamp.hlc.clone(),
                 stamp.actor.clone(),
                 target_id.clone(),
-                kind_of(target_id),
+                self.kind_of(target_id),
                 Register::Location,
                 OpKind::Move,
                 OpPayload::SetLocation {
@@ -599,7 +1184,7 @@ impl Session {
                     stamp.hlc.clone(),
                     stamp.actor.clone(),
                     target_id.clone(),
-                    kind_of(target_id),
+                    self.kind_of(target_id),
                     Register::Life,
                     op_kind,
                     OpPayload::LifeSet { life: *life },
@@ -660,4 +1245,47 @@ pub fn fixture_blob(size: usize) -> Vec<u8> {
 /// Blob content id.
 pub fn blob_id(bytes: &[u8]) -> String {
     format!("blob_{}", hash::hash_hex(bytes))
+}
+
+fn changed_ids_for_patches(patches: &[EditorPatch]) -> Vec<String> {
+    let mut changed = Vec::new();
+    for patch in patches {
+        let id = match patch {
+            EditorPatch::ReplaceBlockText { block_id, .. }
+            | EditorPatch::InsertTextSurface { block_id, .. }
+            | EditorPatch::RemoveTextSurface { block_id } => block_id,
+        };
+        if !changed.iter().any(|existing| existing == id) {
+            changed.push(id.clone());
+        }
+    }
+    changed
+}
+
+fn selection_hint_for_patches(patches: &[EditorPatch]) -> Option<Selection> {
+    let mut selection = None;
+    for patch in patches {
+        match patch {
+            EditorPatch::ReplaceBlockText {
+                block_id,
+                selection_start,
+                selection_end,
+                ..
+            }
+            | EditorPatch::InsertTextSurface {
+                block_id,
+                selection_start,
+                selection_end,
+                ..
+            } => {
+                selection = Some(Selection::Text {
+                    block_id: block_id.clone(),
+                    start: *selection_start,
+                    end: *selection_end,
+                });
+            }
+            EditorPatch::RemoveTextSurface { .. } => {}
+        }
+    }
+    selection
 }
