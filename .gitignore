@@ -142,6 +142,17 @@ vite.config.ts.timestamp-*
 .DS_Store
 .DS_STORE
 
+# Xcode / SwiftPM local state
+**/xcuserdata/
+*.xcuserstate
+**/.build/
+
+# XcodeGen-generated project; source of truth is suites/anchor/apple/Anchor/project.yml
+suites/anchor/apple/Anchor/Anchor.xcodeproj/
+
+# Local-only signing identity (Apple Team ID is account PII; never commit it)
+**/Signing.local.xcconfig
+
 # Rust
 target
 debug
@@ -149,6 +160,10 @@ debug
 *.pdb
 **/mutants.out*/
 **/src-tauri/target
+
+# Anchor Apple wrapper crates are built explicitly and should not persist locks
+suites/anchor/apple/ffi/Cargo.lock
+suites/anchor/apple/uniffi/Cargo.lock
 
 # Anchor demo vault runtime state (also covered by the vault-local .gitignore)
 suites/anchor/desktop/demo/vault/.anchor/

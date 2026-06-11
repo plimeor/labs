@@ -1,4 +1,4 @@
-# Anchor — Key Decisions（决策表，D01–D39）
+# Anchor — Key Decisions（决策表，D01–D44）
 
 日期：2026-06-07（CP-0 整合稿）；后续模型调整在既有 D 编号下回填，post-CP-0 批准续编于 §I
 状态：**workbench artifact —— 本工作台唯一决策权威（decision table）**（非公开接口契约）。本文件源自 Phase 0 → CP-0 packet 的 Step 3 整合稿（Claude 整合 Codex 在 09-apple-verification.md 的 Apple 现实性证据，CP-0 审批用），现为全工作台决策与批准的唯一 home：每个问题任一时刻恰有一行 active；状态变更只以带日期的 Status 戳记录；批准以用户原文逐字引用记录。
@@ -457,6 +457,44 @@
 - **Status**：Approved（2026-06-10，原文如上）
 - **Scope 之外（本授权不覆盖，仍 open）**：Apple operator round（remote `.icloud` placeholder / account states / iOS CloudDocuments delivery / iCloud-语境 compaction）、Developer ID / App Store distribution identity 与渠道、product app 集成（binding/TextKit/undo/VoiceOver/conflict-resolution UX）、Swift/FFI undo-group input 契约。
 - **Evidence**：本行是该批准的权威 home（decision table）；`24` §6 为其原始证据记录，`22` §5 / `23` 为消费方。其余文档引用 D39，不再复述原文。执行终态（145 tests、契约 README、scope-fence check）见 `24` §2/§3/§4。
+
+### D40 — 正式 Apple product app 项目授权与 macOS-first 开发方向（用户 2026-06-11）
+
+- **Decision**：用户于 2026-06-11 给出两条授权（原文逐字）：`/goal 反复执行 [00-agent-loop.md](docs/workbench/20260606-anchor-v1/00-agent-loop.md) ，先使用 @Xcode 建立正式的 macos/ios app 项目，然后专注于 macos app 的开发工作。`；随后补充 `用 xcode app 创建项目`。据此：正式 Apple product app shell 可在已批准 Option A 位置 `suites/anchor/apple/` 下创建；创建动作必须通过 Xcode.app UI 执行；后续开发优先 macOS app，iOS 保持同一 Xcode-created multiplatform target 的 compile gate。
+- **Status**：Approved（2026-06-11，原文如上）
+- **Scope 边界**：本授权覆盖 Xcode.app 新建 `suites/anchor/apple/Anchor/Anchor.xcodeproj`、基础 SwiftUI product shell、macOS debug runtime、iOS Simulator compile-only gate；不覆盖 Developer ID / App Store distribution、notarization、CloudKit、iCloud container 创建、entitlement 新增、持久应用写入、Swift-side deterministic core semantics、或绕过 `anchor-core::dispatch` 的产品编辑路径。
+- **Evidence**：`26-xcode-product-app-scaffold.md` 记录 Xcode.app 创建过程、`xcodebuild -list`、macOS build、iOS Simulator build、Apple client zero-truth grep、core/cli cloud-symbol audit、macOS runtime UI snapshot；`27-stage-3-macos-binding-projection.md` 记录 D40 后首个 macOS product binding read-only projection lower bound。`21` §3 / §7 / §8 消费本行。
+
+### D41 — XcodeGen 作为 product app project config 源头（用户 2026-06-11）
+
+- **Decision**：用户于 2026-06-11 修改 D40 后续配置边界（原文逐字）：`修改边界：引入 XcodeGen 作为配置生成器，避免每次改个配置操作 xcode 经常失败，把配置都迁移到 XcodeGen 配置中`；随后确认 `.xcodeproj` 生成物处理并下达执行：`既然 .xcodeproj 是生成的， 是否有必要先从 git 中移除（删掉），然后再添加到 gitignore 里，然后再重新生成？` / `做`。据此：`suites/anchor/apple/Anchor/project.yml` 是正式 product app Xcode project 配置源头；`suites/anchor/apple/Anchor/Anchor.xcodeproj/` 是 XcodeGen 生成物，本地可重新生成，加入 `.gitignore`，不作为 git-tracked 配置契约。后续 package dependency、target settings、build scripts、deployment target 等 project config 变更走 XcodeGen spec + regeneration；Xcode.app 仍用于打开、运行、调试和人工 UI 操作，不再作为配置源头。
+- **Status**：Approved（2026-06-11，原文如上）
+- **Scope 边界**：本授权覆盖安装/使用 XcodeGen、创建 `project.yml`、由 `project.yml` 生成 `Anchor.xcodeproj`、忽略生成物、通过生成项目验证 macOS/iOS build；不覆盖 root workspace / package / generated lockfile 变更，不覆盖 Developer ID / App Store distribution、notarization、CloudKit、iCloud container 创建、entitlement 新增、持久应用写入、Swift-side deterministic core semantics、或绕过 `anchor-core::dispatch` 的产品编辑路径。D41 覆盖的是 D40 之后的配置维护路线，不否定 D40 已完成的 Xcode.app project creation 事实。
+- **Evidence**：`28-stage-3-xcodegen-product-config.md` 记录 `xcodegen --version`、`project.yml` parsed spec、`xcodegen generate`、`.xcodeproj` ignore/re-generate、`AnchorCoreBindings` local package dependency、`Build anchor-core FFI` pre-build script、macOS/iOS Simulator build、client/core redline audits、Bun dry-run 与 diff check。`21` §3 / §7 / §8 和 `00` cursor 消费本行。
+
+### D42 — Apple 侧 code-review 硬化 + 冗余 spike/smoke 清理（用户 2026-06-11）
+
+- **Decision**：用户于 2026-06-11 给出两条指令（原文逐字）：`进行 /code-review，找到优化点，并直接优化，别问我，特别要注意敏感信息哦`；`移除多余的，不再使用的 spike、smoke 代码`。据此本轮在 Apple 侧执行 code-review 优化与冗余清理：(1) 把硬编码的 Apple Developer Team ID 从 tracked `project.yml` 外置到 gitignored `Signing.local.xcconfig`（经 committed `Signing.xcconfig` 的 `#include?` 可选引入；构建用 `CODE_SIGNING_ALLOWED=NO`，CI 不需 team）；(2) Swift 优化：删除 dead `AnchorCoreClient` actor、`ContentView.init` 内阻塞投影加载移到 `.task`、投影失败改为 `Logger` 上报而非 `try?` 静默吞掉、`ValidationErrorCode` 前向兼容 `.unknown(raw)`、`TextKitNoteBodyView` 去冗余 Coordinator、`blobID` DTO 规范化；(3) 删除已被正式 `AnchorCoreBindings` 包 + product app 取代的 `AnchorAppleSpike/` SwiftPM spike（含 AnchorAppleSmoke/AnchorTextKitSmoke smoke 与 probe 库）及零引用的重复 `macos-icloud-probe/` scratch；`build-binding-release-artifacts.sh` 的 binding 源由 spike 改指向正式包。
+- **Status**：Approved（2026-06-11，原文如上）
+- **Settled（不得重开/回退）**：不得把 Team ID 等账号 PII 写回 tracked 配置；不得重新引入 `AnchorAppleSpike/` 或 `macos-icloud-probe/`（git 历史保留旧码，其机制证据已在 `17`/`18`/`19` 归档，binding smoke 角色由 Swift 测试 target 取代）。**保留项**：`ffi`/`uniffi` binding crate、`uniffi/SwiftSmoke/smoke.swift`（release 脚本 live 输入）。本行原保留的 `AnchorMacICloudProbe/` 已于 **D44** 因账号 PII + D43 测试 pivot 移除。
+- **Scope 边界**：不覆盖 Developer ID / App Store distribution、notarization、CloudKit、iCloud container、entitlement、持久写入、Swift-side deterministic core semantics。
+- **Evidence**：`29-stage-3-test-driven-pivot.md` 记录 ultracode 多维 review（secrets / swift-quality / deletion-safety / test-strategy + 对抗验证）、Team-ID 外置 + 生成项目无 Team ID、redline audits（Swift 零确定性 exit 1、core/cli 零云符号 exit 1）、删除后无非-doc 引用、macOS/iOS build clean。`21` §3/§6/§7/§8 消费本行。
+
+### D43 — 验证方式从 computer-use 截图转向 Swift 测试体系（用户 2026-06-11）
+
+- **Decision**：用户于 2026-06-11 调整后续方向（原文逐字）：`调整后续方向：目前是依赖 codex 通过 computer-user 去反复截图，来验证 macos/ios app 的正确性，并基于这类形式进行迭代开发。 需要改成，基于测试用例进行迭代开发，我相信 swift 是支持完整的测试体系的，这样更高效，能避免功能回退。 通过大量的测试脚本（单元测试、集成测试、UI 测试）来保证 app 功能正常`。据此：macOS/iOS app 的迭代验证主路径由 Codex computer-use 反复截图改为 Swift 自动化测试体系——单元/集成测试（Swift Testing：`AnchorCoreBindingsTests` 包测含 macOS FFI round-trip + `AnchorUnitTests` app 投影映射测）、UI 测试（XCUITest `AnchorUITests`，以 accessibility identifier 取代截图断言，`-uiTestUseSampleStore` 注入确定性样本数据）。computer-use 截图降级为可选人工抽查，不再是回归门。
+- **Status**：Approved（2026-06-11，原文如上）
+- **Gate-class 变更**：新增 machine gate —— `swift test`（AnchorCoreBindings 包）+ `xcodebuild test -only-testing:AnchorUnitTests`（macOS host, `CODE_SIGNING_ALLOWED=NO`）须 green 方可推进 Stage-3 product 动作；UI 测试 `AnchorUITests` 以「编译通过」为门，运行需 signed machine/CI（与 CP-1 Apple delivery 同链）。每个 Stage-3 product 迭代须新增/更新覆盖该改动的测试并附 test 命令 + 计数证据。
+- **Scope 边界**：测试只断言 Swift 端对 core 输出的解码/映射/UI 投影与 intent 转发，**不得**在 Swift 中重算 merge/diff3/order-key/normalization/op-shape/BLAKE3（D24 golden 仍由 Rust core 测试拥有）。不覆盖 signing/distribution/iCloud delivery。
+- **Evidence**：`29-stage-3-test-driven-pivot.md` 记录三测试 target 落地与三层全绿（10 + 4 + 3 = 17 tests，UI 本机签名解决后运行通过）。`00` §0/§5/§6、`21` §3/§7/§8 消费本行。
+
+### D44 — 账号 PII 清理：移除 iCloud 探针 + git 历史 scrub（用户 2026-06-11）
+
+- **Decision**：用户发现签名诊断过程中真实 Apple Team ID 被写入 workbench 文档后要求彻底清理账号 PII（原文逐字）：`你居然把账号写到文档里？`；在三个补救选项中选 `3`（git 历史全量 scrub），并在探针处置上选 `a`（移除 `AnchorMacICloudProbe`，而非外置其签名）。据此：(1) 工作区所有真实账号标识改为占位符——Team ID → `<TEAM_ID>` / `<TEAM_ID_ALT>`、developer name → `<DEVELOPER_NAME>`、签名证书 SHA-1 → `<SIGNING_HASH>`、iCloud container → `<ICLOUD_CONTAINER>`；(2) 移除仍硬编码上述标识的 `AnchorMacICloudProbe/` 探针（反转 D42 原"保留"判断——iCloud 将经 product-app 测试重建，非独立探针；机制证据仍存 `19`，探针码在 git 历史并将被 scrub）；(3) 准备 `git filter-repo --replace-text`（替换表 6 项→占位符，文件在 repo 外 `/tmp`），由用户执行。
+- **Status**：Approved（2026-06-11，原文如上）。工作区侧已完成（0 account PII，见 `29`）；**git 历史 scrub = prepared，pending 用户执行**（`git-filter-repo` 未安装 → `brew install git-filter-repo`；先提交工作区；破坏性、改写全部 commit hash、需 force-push、协作者须重新 clone）。
+- **Settled**：真实账号标识不得再写入任何 tracked 内容（含 workbench 文档与诊断输出）——一律占位符；`AnchorMacICloudProbe/` 与 `macos-icloud-probe/` 不得重新引入。
+- **Scope 边界**：不覆盖 `dev.plimeor.*` bundle 命名空间（用户既定 handle，未要求 scrub）；签名私钥从未入库（存 keychain），故非凭证泄露而是隐私 scrub。
+- **Evidence**：`29` §1/§3/§4 记录账号 PII 外置 + 探针删除 + 工作区 0-PII 校验；历史改写命令与替换表见会话交付。`21` §3/§6/§7/§8 消费本行。
 
 ---
 

@@ -1,0 +1,15 @@
+// Anchor product app signing configuration.
+//
+// DEVELOPMENT_TEAM is intentionally NOT committed: a personal Apple Developer
+// Team ID is account-identifying PII (the workbench scrubs it to <TEAM_ID>).
+// CI and the documented build/test path use CODE_SIGNING_ALLOWED=NO, so no team
+// is required there.
+//
+// For LOCAL signed builds (Xcode "Run", archive, signed UI tests), create a
+// git-ignored Signing.local.xcconfig next to this file:
+//
+//     DEVELOPMENT_TEAM = YOUR_TEAM_ID
+//
+// The optional include below pulls it in when present and is silently skipped
+// when absent, so project generation never depends on it.
+#include? "Signing.local.xcconfig"

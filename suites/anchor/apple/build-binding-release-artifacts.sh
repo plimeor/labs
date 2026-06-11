@@ -72,7 +72,7 @@ xcodebuild -create-xcframework \
 echo "== build Swift wrapper consumer =="
 CONSUMER_DIR="$OUT_DIR/wrapper-binary-consumer"
 mkdir -p "$CONSUMER_DIR/Sources/AnchorCoreBindings" "$CONSUMER_DIR/Sources/WrapperConsumer"
-cp "$SCRIPT_DIR/AnchorAppleSpike/Sources/AnchorCoreBindings/AnchorCoreBindings.swift" \
+cp "$SCRIPT_DIR/AnchorCoreBindings/Sources/AnchorCoreBindings/AnchorCoreBindings.swift" \
   "$CONSUMER_DIR/Sources/AnchorCoreBindings/AnchorCoreBindings.swift"
 cat > "$CONSUMER_DIR/Package.swift" <<'EOF'
 // swift-tools-version: 6.0
@@ -105,7 +105,7 @@ import Foundation
 
 @main
 struct WrapperConsumerMain {
-    static func main() async throws {
+    static func main() throws {
         let expectedSnapshot = "3ef88671e9a22cb9de21e22b0c4e635b6ecc569142197675700285dd2a877b63"
 
         let summary = try openFixtureVault()
@@ -128,13 +128,6 @@ struct WrapperConsumerMain {
         let segment = try session.readSegment()
         precondition(segment.count > 0)
         print("wrapper:segment bytes=\(segment.count)")
-
-        let client = try AnchorCoreClient()
-        let actorSummary = try await client.summary()
-        precondition(actorSummary.snapshotRevision == expectedSnapshot)
-        let actorSegment = try await client.readSegment()
-        precondition(actorSegment.count > 0)
-        print("wrapper:actor snapshot=\(actorSummary.snapshotRevision) segment=\(actorSegment.count)")
     }
 }
 EOF

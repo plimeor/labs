@@ -1,0 +1,4 @@
+module AnchorCoreC {
+    header "AnchorCoreFFI.h"
+    export *
+}
