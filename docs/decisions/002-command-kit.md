@@ -1,4 +1,13 @@
+---
+date: 2026-05-01
+status: active
+---
+
 # 采用 command-kit 作为仓库内 CLI 和 agent tools 的命令层
+
+## 权威边界
+
+`packages/command-kit/README.md` 拥有 `@plimeor/command-kit` 的当前公开 API、schema、help metadata 和稳定行为说明；本文拥有当时命令层方向和取舍理由。
 
 创建日期：2026-05-01
 状态：已接受

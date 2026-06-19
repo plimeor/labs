@@ -80,16 +80,24 @@ package directory.
 apps/            Standalone apps with no suite affiliation
 packages/        Cross-suite reusable local tools and libraries
 suites/<suite>/  Theme-scoped groups of related workspace packages
-docs/ideas/      Date-prefixed idea snapshots and decision records
+docs/index.md    Routing index for collaboration documents
+docs/agent/      Agent cursor and tasking records
+docs/requirements/
+                 Date-prefixed requirement records
 docs/plans/      Date-prefixed implementation plans
+docs/decisions/  Sequential durable decision records
+docs/archive/    Archived evidence and historical records
 ```
 
 ## Conventions
 
 - Package README files own public CLI, API, schema, file format, and stable
   behavior docs.
-- Use `docs/ideas/` and `docs/plans/` for date-prefixed historical records,
-  not current interface contracts.
+- Use `docs/index.md` as the routing entry for agentic collaboration docs, then
+  follow `docs/agent/current.md` to the active execution pointer.
+- Agentic workflow docs own collaboration records, requirements, plans, tasking,
+  decisions, and archives; they do not replace package READMEs as public
+  interface contracts.
 - Every workspace package extends the root `tsconfig.json`: `apps/*` and
   `packages/*` use `../../tsconfig.json`, while `suites/<suite>/*` uses
   `../../../tsconfig.json`.

@@ -1,4 +1,13 @@
+---
+date: 2026-04-25
+status: active
+---
+
 # 采用原生 skills manifest 安装器
+
+## 权威边界
+
+`packages/skills/README.md` 拥有 `@plimeor/skills` 的当前公开 CLI、schema、文件格式和稳定行为说明；本文拥有当时架构方向和取舍理由。
 
 ## 状态
 

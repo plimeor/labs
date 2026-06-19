@@ -14,8 +14,7 @@
 - Concrete file paths keep real suffixes, including docs, package metadata, and
   scripts such as `src/cli.ts` or `scripts/link-package.ts`.
 - Package READMEs own public CLI, API, schema, file format, and stable behavior
-  docs. `docs/ideas/` and `docs/plans/` are historical records, not current
-  interface contracts.
+  docs.
 
 ## Packages
 

@@ -1,3 +1,8 @@
+---
+date: 2026-05-22
+status: archived
+---
+
 # 计划：skills CLI agent targets
 
 创建日期：2026-05-22
@@ -104,7 +109,7 @@ Canonical skill store 仍由现有 manifest/lock 工作流拥有；agent-specifi
 - `packages/skills/src/commands/migrate.ts`
 - `packages/skills/src/sync-plan.ts`
 - `packages/command-kit/src/define.ts`
-- `docs/ideas/2026-04-25-native-skills-manifest-installer.md`
+- `docs/decisions/001-native-skills-manifest-installer.md`
 - `packages/skills/README.md`
 
 ## 规划迭代
