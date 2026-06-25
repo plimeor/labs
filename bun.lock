@@ -50,6 +50,13 @@
       "name": "@plimeor/git-kit",
       "version": "0.1.2",
     },
+    "packages/harness": {
+      "name": "@plimeor/harness",
+      "version": "0.1.0",
+      "dependencies": {
+        "@standard-schema/spec": "^1.1.0",
+      },
+    },
     "packages/skills": {
       "name": "@plimeor/skills",
       "version": "0.2.2",
@@ -107,6 +114,8 @@
     "@plimeor/command-kit": ["@plimeor/command-kit@workspace:packages/command-kit"],
 
     "@plimeor/git-kit": ["@plimeor/git-kit@workspace:packages/git-kit"],
+
+    "@plimeor/harness": ["@plimeor/harness@workspace:packages/harness"],
 
     "@plimeor/skills": ["@plimeor/skills@workspace:packages/skills"],
 

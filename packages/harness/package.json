@@ -1,0 +1,39 @@
+{
+  "description": "Unified infrastructure contract for CLI coding-agent harnesses",
+  "homepage": "https://github.com/plimeor/labs/tree/main/packages/harness",
+  "name": "@plimeor/harness",
+  "type": "module",
+  "types": "./src/index.ts",
+  "version": "0.1.0",
+  "bugs": {
+    "url": "https://github.com/plimeor/labs/issues"
+  },
+  "dependencies": {
+    "@standard-schema/spec": "^1.1.0"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./adapters": "./src/adapters/index.ts",
+    "./adapters/claude": "./src/adapters/claude.ts",
+    "./adapters/codex": "./src/adapters/codex.ts",
+    "./adapters/kiro": "./src/adapters/kiro.ts",
+    "./adapters/pi": "./src/adapters/pi.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "directory": "packages/harness",
+    "type": "git",
+    "url": "git+https://github.com/plimeor/labs.git"
+  },
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json",
+    "lint": "biome check src test",
+    "prepack": "bun src/index.ts",
+    "test": "bun test test"
+  }
+}
