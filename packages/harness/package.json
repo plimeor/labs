@@ -4,7 +4,7 @@
   "name": "@plimeor/harness",
   "type": "module",
   "types": "./src/index.ts",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "bugs": {
     "url": "https://github.com/plimeor/labs/issues"
   },

@@ -39,8 +39,6 @@
 
 - Do not change package boundaries, workspace structure, or generated lockfiles
   unless the task explicitly requires it.
-- Do not add test cases or run test commands unless the user explicitly asks
-  for them.
 
 ## Skills
 

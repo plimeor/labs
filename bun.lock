@@ -52,7 +52,7 @@
     },
     "packages/harness": {
       "name": "@plimeor/harness",
-      "version": "0.1.0",
+      "version": "0.1.2",
       "dependencies": {
         "@standard-schema/spec": "^1.1.0",
       },

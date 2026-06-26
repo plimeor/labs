@@ -8,7 +8,7 @@ import type {
   StructuredOutputRequest,
   TextOutputRequest
 } from '../types'
-import { configDirectory, createExtensionFacet } from './extensions'
+import { configDirectory, createExtensionFacet, createJsonHooksDriver, createJsonMcpDriver } from './extensions'
 import { createBuiltInAdapter, planCommand, planTextCommand, unsupportedOutputMode } from './shared'
 
 const HARNESS_ID = 'claude'
@@ -25,44 +25,40 @@ export const claudeAdapter = createBuiltInAdapter({
       configDirectory: directory,
       context,
       harnessId: HARNESS_ID,
-      mcp: { configFile: `${directory}/mcp.json`, kind: 'claude-json' },
-      skillsDirectory: `${directory}/skills`,
-      hooks: {
-        kind: 'json-hooks',
-        settingsFile: `${directory}/settings.json`,
-        events: [
-          'SessionStart',
-          'Setup',
-          'UserPromptSubmit',
-          'UserPromptExpansion',
-          'PreToolUse',
-          'PermissionRequest',
-          'PermissionDenied',
-          'PostToolUse',
-          'PostToolUseFailure',
-          'PostToolBatch',
-          'Notification',
-          'MessageDisplay',
-          'SubagentStart',
-          'SubagentStop',
-          'TaskCreated',
-          'TaskCompleted',
-          'Stop',
-          'StopFailure',
-          'TeammateIdle',
-          'InstructionsLoaded',
-          'ConfigChange',
-          'CwdChanged',
-          'FileChanged',
-          'WorktreeCreate',
-          'WorktreeRemove',
-          'PreCompact',
-          'PostCompact',
-          'Elicitation',
-          'ElicitationResult',
-          'SessionEnd'
-        ]
-      }
+      hooks: createJsonHooksDriver(`${directory}/settings.json`, [
+        'SessionStart',
+        'Setup',
+        'UserPromptSubmit',
+        'UserPromptExpansion',
+        'PreToolUse',
+        'PermissionRequest',
+        'PermissionDenied',
+        'PostToolUse',
+        'PostToolUseFailure',
+        'PostToolBatch',
+        'Notification',
+        'MessageDisplay',
+        'SubagentStart',
+        'SubagentStop',
+        'TaskCreated',
+        'TaskCompleted',
+        'Stop',
+        'StopFailure',
+        'TeammateIdle',
+        'InstructionsLoaded',
+        'ConfigChange',
+        'CwdChanged',
+        'FileChanged',
+        'WorktreeCreate',
+        'WorktreeRemove',
+        'PreCompact',
+        'PostCompact',
+        'Elicitation',
+        'ElicitationResult',
+        'SessionEnd'
+      ]),
+      mcp: createJsonMcpDriver(`${directory}/mcp.json`),
+      skillsDirectory: `${directory}/skills`
     })
   },
   plan(request: RunRequest<RunOutputRequest>, command: string, cwd: string) {

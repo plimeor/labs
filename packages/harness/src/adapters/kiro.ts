@@ -1,6 +1,7 @@
 import { harness } from '../registry'
 import type { HarnessContext, RunOutputRequest, RunRequest, TextOutputRequest } from '../types'
 import { configDirectory, createExtensionFacet } from './extensions'
+import { createKiroHookDriver, createKiroMcpDriver } from './kiro-extensions'
 import { createBuiltInAdapter, planTextCommand, unsupportedOutputMode } from './shared'
 
 const HARNESS_ID = 'kiro'
@@ -16,25 +17,25 @@ export const kiroAdapter = createBuiltInAdapter({
       configDirectory: directory,
       context,
       harnessId: HARNESS_ID,
-      mcp: { configFile: `${directory}/settings/mcp.json`, kind: 'kiro-cli' },
-      skillsDirectory: `${directory}/skills`,
-      hooks: {
-        hooksDirectory: `${directory}/hooks`,
-        kind: 'kiro-hook-files',
-        events: [
-          'Manual',
-          'PostFileCreate',
-          'PostFileDelete',
-          'PostFileSave',
-          'PostTaskExec',
-          'PostToolUse',
-          'PreTaskExec',
-          'PreToolUse',
-          'SessionStart',
-          'Stop',
-          'UserPromptSubmit'
-        ]
-      }
+      hooks: createKiroHookDriver(`${directory}/hooks`, [
+        'Manual',
+        'PostFileCreate',
+        'PostFileDelete',
+        'PostFileSave',
+        'PostTaskExec',
+        'PostToolUse',
+        'PreTaskExec',
+        'PreToolUse',
+        'SessionStart',
+        'Stop',
+        'UserPromptSubmit'
+      ]),
+      mcp: createKiroMcpDriver({
+        configDirectory: directory,
+        configFile: `${directory}/settings/mcp.json`,
+        context
+      }),
+      skillsDirectory: `${directory}/skills`
     })
   },
   plan(request: RunRequest<RunOutputRequest>, command: string, cwd: string) {

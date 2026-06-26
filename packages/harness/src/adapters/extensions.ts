@@ -21,35 +21,25 @@ type ExtensionFacetConfig = {
   context?: HarnessContext
   configDirectory: string
   skillsDirectory?: string
-  mcp?: CodexMcpConfig | ClaudeMcpConfig | KiroMcpConfig
-  hooks?: JsonHooksConfig | KiroHookFilesConfig
+  mcp?: McpExtensionDriver
+  hooks?: HookExtensionDriver
 }
 
-type CodexMcpConfig = {
-  kind: 'codex-toml'
+export type McpExtensionDriver = {
   configFile: string
+  canReclaimOnInstall?(input: { extension: HarnessExtension; name: string }): boolean | Promise<boolean>
+  currentFingerprint(name: string): Promise<string | undefined>
+  install(input: { extensionId: string; name: string; server: McpServerResource }): Promise<InstalledMcpServer>
+  remove(name: string): Promise<void>
 }
 
-type ClaudeMcpConfig = {
-  kind: 'claude-json'
-  configFile: string
-}
-
-type KiroMcpConfig = {
-  configFile: string
-  kind: 'kiro-cli'
-}
-
-type JsonHooksConfig = {
-  kind: 'json-hooks'
-  settingsFile: string
+export type HookExtensionDriver = {
   events: readonly string[]
-}
-
-type KiroHookFilesConfig = {
-  kind: 'kiro-hook-files'
-  hooksDirectory: string
-  events: readonly string[]
+  conflicts(input: { extensionId: string; hooks: HookResource[] }): Promise<ExtensionIssue[]>
+  currentFingerprint(hook: InstalledHook): Promise<string | undefined>
+  install(input: { extensionId: string; hooks: HookResource[] }): Promise<InstalledHook[]>
+  restore(hooks: InstalledHook[]): Promise<void>
+  uninstall(hooks: InstalledHook[]): Promise<void>
 }
 
 type ExtensionState = {
@@ -68,13 +58,13 @@ type InstalledSkill = {
   targetPath: string
 }
 
-type InstalledMcpServer = {
+export type InstalledMcpServer = {
   fingerprint: string
   name: string
   server?: McpServerResource
 }
 
-type InstalledHook = {
+export type InstalledHook = {
   command: string
   event: string
   fingerprint: string
@@ -82,7 +72,7 @@ type InstalledHook = {
   targetPath?: string
 }
 
-type JsonObject = Record<string, unknown>
+export type JsonObject = Record<string, unknown>
 
 const STATE_FILE = 'harness-extensions.json'
 
@@ -170,7 +160,7 @@ async function preflight(
 ): Promise<ExtensionIssue[]> {
   const issues: ExtensionIssue[] = []
 
-  issues.push(...(await ownershipConflicts(config, owned)))
+  issues.push(...(await ownershipConflicts(config, owned, extension)))
   issues.push(...unsupportedIssues(config, extension))
   issues.push(...unsupportedHookEvents(config, extension))
   issues.push(...(await skillConflicts(config, extension, owned)))
@@ -182,7 +172,8 @@ async function preflight(
 
 async function ownershipConflicts(
   config: ExtensionFacetConfig,
-  owned: InstalledExtension | undefined
+  owned: InstalledExtension | undefined,
+  extension?: HarnessExtension
 ): Promise<ExtensionIssue[]> {
   if (!owned) {
     return []
@@ -190,7 +181,7 @@ async function ownershipConflicts(
 
   return [
     ...(await ownedSkillConflicts(owned)),
-    ...(await ownedMcpConflicts(config, owned)),
+    ...(await ownedMcpConflicts(config, owned, extension)),
     ...(await ownedHookConflicts(config, owned))
   ]
 }
@@ -365,15 +356,7 @@ async function mcpConflicts(
       continue
     }
 
-    if (config.mcp.kind === 'kiro-cli' && (await jsonMcpServerExists(config.mcp.configFile, name))) {
-      issues.push(mcpConflict(name, config.mcp.configFile))
-    }
-
-    if (config.mcp.kind === 'claude-json' && (await claudeMcpServerExists(config.mcp.configFile, name))) {
-      issues.push(mcpConflict(name, config.mcp.configFile))
-    }
-
-    if (config.mcp.kind === 'codex-toml' && (await codexMcpServerExists(config.mcp.configFile, name))) {
+    if (await config.mcp.currentFingerprint(name)) {
       issues.push(mcpConflict(name, config.mcp.configFile))
     }
   }
@@ -381,7 +364,11 @@ async function mcpConflicts(
   return issues
 }
 
-async function ownedMcpConflicts(config: ExtensionFacetConfig, owned: InstalledExtension): Promise<ExtensionIssue[]> {
+async function ownedMcpConflicts(
+  config: ExtensionFacetConfig,
+  owned: InstalledExtension,
+  extension?: HarnessExtension
+): Promise<ExtensionIssue[]> {
   if (!config.mcp) {
     return []
   }
@@ -389,8 +376,18 @@ async function ownedMcpConflicts(config: ExtensionFacetConfig, owned: InstalledE
   const issues: ExtensionIssue[] = []
 
   for (const server of owned.mcpServers) {
-    const current = await currentMcpFingerprint(config, server.name)
+    const current = await config.mcp.currentFingerprint(server.name)
     if (!current || current === server.fingerprint) {
+      continue
+    }
+
+    if (
+      extension &&
+      (await config.mcp.canReclaimOnInstall?.({
+        extension,
+        name: server.name
+      }))
+    ) {
       continue
     }
 
@@ -424,38 +421,11 @@ async function hookConflicts(
   }
 
   const ownedKeys = new Set((owned?.hooks ?? []).map(hook => hookKey(hook)))
-  const issues: ExtensionIssue[] = []
+  const hooks = (extension.resources.hooks ?? []).filter(hook => {
+    return config.hooks?.events.includes(hook.event) && !ownedKeys.has(hookKey(hook))
+  })
 
-  for (const hook of extension.resources.hooks ?? []) {
-    if (!config.hooks.events.includes(hook.event) || ownedKeys.has(hookKey(hook))) {
-      continue
-    }
-
-    if (config.hooks.kind === 'kiro-hook-files') {
-      const targetPath = kiroHookTargetPath(config.hooks.hooksDirectory, extension.id, hook)
-      if (await pathExists(targetPath)) {
-        issues.push({
-          kind: 'conflict',
-          reason: `Hook install target already exists: ${targetPath}.`,
-          resourceKind: 'hooks',
-          resourceName: hook.name
-        })
-      }
-      continue
-    }
-
-    const settings = await readJsonFile(config.hooks.settingsFile)
-    if (jsonHookCommandExists(settings, hook)) {
-      issues.push({
-        kind: 'conflict',
-        reason: `Hook command already exists for ${hook.event} in ${config.hooks.settingsFile}.`,
-        resourceKind: 'hooks',
-        resourceName: hook.name
-      })
-    }
-  }
-
-  return issues
+  return config.hooks.conflicts({ extensionId: extension.id, hooks })
 }
 
 async function ownedHookConflicts(config: ExtensionFacetConfig, owned: InstalledExtension): Promise<ExtensionIssue[]> {
@@ -466,7 +436,7 @@ async function ownedHookConflicts(config: ExtensionFacetConfig, owned: Installed
   const issues: ExtensionIssue[] = []
 
   for (const hook of owned.hooks) {
-    const current = await currentHookFingerprint(config, hook)
+    const current = await config.hooks.currentFingerprint(hook)
     if (!current || current === hook.fingerprint) {
       continue
     }
@@ -518,13 +488,7 @@ async function installMcpServers(
   }
 
   for (const [name, server] of Object.entries(extension.resources.mcpServers ?? {})) {
-    if (config.mcp.kind === 'kiro-cli') {
-      installed.mcpServers.push(await installKiroMcpServer(config, name, server))
-    } else if (config.mcp.kind === 'claude-json') {
-      installed.mcpServers.push(await installClaudeMcpServer(config.mcp.configFile, name, server))
-    } else {
-      installed.mcpServers.push(await installCodexMcpServer(config.mcp.configFile, extension.id, name, server))
-    }
+    installed.mcpServers.push(await config.mcp.install({ extensionId: extension.id, name, server }))
   }
 }
 
@@ -537,33 +501,12 @@ async function installHooks(
     return
   }
 
-  if (config.hooks.kind === 'kiro-hook-files') {
-    await installKiroHooks(config, extension, installed)
+  const hooks = (extension.resources.hooks ?? []).filter(hook => config.hooks?.events.includes(hook.event))
+  if (hooks.length === 0) {
     return
   }
 
-  const settings = await readJsonFile(config.hooks.settingsFile)
-  const hooks = ensureObject(settings, 'hooks')
-
-  for (const hook of extension.resources.hooks ?? []) {
-    if (!config.hooks.events.includes(hook.event)) {
-      continue
-    }
-
-    const eventHooks = ensureArray(hooks, hook.event)
-    const entry = {
-      hooks: [{ command: hook.command, type: 'command' }]
-    }
-    eventHooks.push(entry)
-    installed.hooks.push({
-      command: hook.command,
-      event: hook.event,
-      fingerprint: jsonFingerprint(entry),
-      name: hook.name
-    })
-  }
-
-  await writeJsonFile(config.hooks.settingsFile, settings)
+  installed.hooks.push(...(await config.hooks.install({ extensionId: extension.id, hooks })))
 }
 
 async function uninstallOwned(config: ExtensionFacetConfig, owned: InstalledExtension | undefined): Promise<void> {
@@ -621,53 +564,20 @@ async function restoreMcpServers(
   }
 
   for (const server of owned.mcpServers) {
-    if (!server.server || (await currentMcpFingerprint(config, server.name))) {
+    if (!server.server || (await config.mcp.currentFingerprint(server.name))) {
       continue
     }
 
-    if (config.mcp.kind === 'kiro-cli') {
-      await installKiroMcpServer(config, server.name, server.server)
-    } else if (config.mcp.kind === 'claude-json') {
-      await installClaudeMcpServer(config.mcp.configFile, server.name, server.server)
-    } else {
-      await installCodexMcpServer(config.mcp.configFile, extensionId, server.name, server.server)
-    }
+    await config.mcp.install({ extensionId, name: server.name, server: server.server })
   }
 }
 
 async function restoreHooks(config: ExtensionFacetConfig, owned: InstalledExtension): Promise<void> {
-  if (!config.hooks) {
+  if (!config.hooks || owned.hooks.length === 0) {
     return
   }
 
-  if (config.hooks.kind === 'kiro-hook-files') {
-    for (const hook of owned.hooks) {
-      if (!hook.targetPath || !hook.name || (await pathExists(hook.targetPath))) {
-        continue
-      }
-
-      await writeJsonFile(
-        hook.targetPath,
-        kiroHookConfig({ command: hook.command, event: hook.event, name: hook.name })
-      )
-    }
-    return
-  }
-
-  const settings = await readJsonFile(config.hooks.settingsFile)
-  const hooks = ensureObject(settings, 'hooks')
-
-  for (const hook of owned.hooks) {
-    if (await currentHookFingerprint(config, hook)) {
-      continue
-    }
-
-    ensureArray(hooks, hook.event).push({
-      hooks: [{ command: hook.command, type: 'command' }]
-    })
-  }
-
-  await writeJsonFile(config.hooks.settingsFile, settings)
+  await config.hooks.restore(owned.hooks)
 }
 
 async function uninstallSkills(owned: InstalledExtension): Promise<void> {
@@ -699,18 +609,12 @@ async function uninstallMcpServers(config: ExtensionFacetConfig, owned: Installe
   }
 
   for (const server of owned.mcpServers) {
-    const current = await currentMcpFingerprint(config, server.name)
+    const current = await config.mcp.currentFingerprint(server.name)
     if (!current) {
       continue
     }
 
-    if (config.mcp.kind === 'kiro-cli') {
-      await removeKiroMcpServer(config, server.name)
-    } else if (config.mcp.kind === 'claude-json') {
-      await removeClaudeMcpServer(config.mcp.configFile, server.name)
-    } else {
-      await removeCodexMcpServer(config.mcp.configFile, server.name)
-    }
+    await config.mcp.remove(server.name)
   }
 }
 
@@ -719,276 +623,158 @@ async function uninstallHooks(config: ExtensionFacetConfig, owned: InstalledExte
     return
   }
 
-  if (config.hooks.kind === 'kiro-hook-files') {
-    await uninstallKiroHooks(owned)
-    return
-  }
-
-  const settings = await readJsonFile(config.hooks.settingsFile)
-  const hooks = objectValue(settings.hooks)
-  if (!hooks) {
-    return
-  }
-
-  for (const hook of owned.hooks) {
-    const entries = arrayValue(hooks[hook.event])
-    if (!entries) {
-      continue
-    }
-
-    hooks[hook.event] = entries.filter(entry => jsonFingerprint(entry) !== hook.fingerprint)
-  }
-
-  await writeJsonFile(config.hooks.settingsFile, settings)
+  await config.hooks.uninstall(owned.hooks)
 }
 
-async function installKiroHooks(
-  config: ExtensionFacetConfig,
-  extension: HarnessExtension,
-  installed: InstalledExtension
-): Promise<void> {
-  if (config.hooks?.kind !== 'kiro-hook-files') {
-    return
-  }
-
-  for (const hook of extension.resources.hooks ?? []) {
-    if (!config.hooks.events.includes(hook.event)) {
-      continue
-    }
-
-    const targetPath = kiroHookTargetPath(config.hooks.hooksDirectory, extension.id, hook)
-    const hookConfig = kiroHookConfig(hook)
-    await writeJsonFile(targetPath, hookConfig)
-    installed.hooks.push({
-      command: hook.command,
-      event: hook.event,
-      fingerprint: jsonFingerprint(hookConfig),
-      name: hook.name,
-      targetPath
-    })
-  }
-}
-
-function kiroHookConfig(hook: HookResource): JsonObject {
+export function createJsonMcpDriver(configFile: string): McpExtensionDriver {
   return {
-    version: 'v1',
-    hooks: [
-      {
-        action: { command: hook.command, type: 'command' },
-        enabled: true,
-        name: hook.name,
-        trigger: hook.event
+    configFile,
+    async currentFingerprint(name: string) {
+      const mcpConfig = await readJsonFile(configFile)
+      const server = objectValue(mcpConfig.mcpServers)?.[name]
+      if (server === undefined) {
+        return undefined
       }
-    ]
-  }
-}
 
-async function uninstallKiroHooks(owned: InstalledExtension): Promise<void> {
-  for (const hook of owned.hooks) {
-    if (hook.targetPath) {
-      const current = await readJsonFileFingerprint(hook.targetPath)
-      if (current !== hook.fingerprint) {
-        continue
+      return jsonFingerprint(server)
+    },
+    async install({ name, server }) {
+      const config = await readJsonFile(configFile)
+      const mcpServers = ensureObject(config, 'mcpServers')
+      const record = mcpServerRecord(server)
+      mcpServers[name] = record
+      await writeJsonFile(configFile, config)
+      return { fingerprint: jsonFingerprint(record), name, server: record }
+    },
+    async remove(name: string) {
+      const config = await readJsonFile(configFile)
+      const mcpServers = objectValue(config.mcpServers)
+      if (mcpServers) {
+        delete mcpServers[name]
       }
-      await rm(hook.targetPath, { force: true })
+      await writeJsonFile(configFile, config)
     }
   }
 }
 
-async function installClaudeMcpServer(
-  configFile: string,
-  name: string,
-  server: McpServerResource
-): Promise<InstalledMcpServer> {
-  const config = await readJsonFile(configFile)
-  const mcpServers = ensureObject(config, 'mcpServers')
-  mcpServers[name] = {
-    args: server.args ?? [],
-    command: server.command,
-    ...(server.env ? { env: server.env } : {})
-  }
-  await writeJsonFile(configFile, config)
-  return { fingerprint: jsonFingerprint(mcpServers[name]), name, server: mcpServerRecord(server) }
-}
+export function createJsonHooksDriver(settingsFile: string, events: readonly string[]): HookExtensionDriver {
+  async function currentFingerprint(hook: InstalledHook): Promise<string | undefined> {
+    const settings = await readJsonFile(settingsFile)
+    const hooks = objectValue(settings.hooks)
+    const entries = arrayValue(hooks?.[hook.event]) ?? []
+    const exactMatches = entries.filter(entry => jsonFingerprint(entry) === hook.fingerprint)
 
-function mcpServerRecord(server: McpServerResource): McpServerResource {
-  return {
-    args: server.args ?? [],
-    command: server.command,
-    ...(server.env ? { env: server.env } : {})
-  }
-}
+    if (exactMatches.length === 1) {
+      return hook.fingerprint
+    }
 
-async function removeClaudeMcpServer(configFile: string, name: string): Promise<void> {
-  const config = await readJsonFile(configFile)
-  const mcpServers = objectValue(config.mcpServers)
-  if (mcpServers) {
-    delete mcpServers[name]
-  }
-  await writeJsonFile(configFile, config)
-}
+    if (exactMatches.length > 1 || entries.some(entry => jsonHookCommands(entry).includes(hook.command))) {
+      return `${hook.fingerprint}:mismatch`
+    }
 
-async function claudeMcpServerExists(configFile: string, name: string): Promise<boolean> {
-  return jsonMcpServerExists(configFile, name)
-}
-
-async function jsonMcpServerExists(configFile: string, name: string): Promise<boolean> {
-  const config = await readJsonFile(configFile)
-  return objectValue(config.mcpServers)?.[name] !== undefined
-}
-
-async function currentMcpFingerprint(config: ExtensionFacetConfig, name: string): Promise<string | undefined> {
-  if (!config.mcp) {
     return undefined
   }
 
-  if (config.mcp.kind === 'codex-toml') {
-    const block = codexMcpServerBlock(await readTextFile(config.mcp.configFile), name)
-    return block ? textFingerprint(block) : undefined
-  }
+  return {
+    events,
+    async conflicts({ hooks }) {
+      const settings = await readJsonFile(settingsFile)
+      const issues: ExtensionIssue[] = []
 
-  const mcpConfig = await readJsonFile(config.mcp.configFile)
-  const server = objectValue(mcpConfig.mcpServers)?.[name]
-  return server === undefined ? undefined : jsonFingerprint(server)
-}
+      for (const hook of hooks) {
+        if (jsonHookCommandExists(settings, hook)) {
+          issues.push({
+            kind: 'conflict',
+            reason: `Hook command already exists for ${hook.event} in ${settingsFile}.`,
+            resourceKind: 'hooks',
+            resourceName: hook.name
+          })
+        }
+      }
 
-async function installKiroMcpServer(
-  config: ExtensionFacetConfig,
-  name: string,
-  server: McpServerResource
-): Promise<InstalledMcpServer> {
-  const args = ['mcp', 'add', '--scope', 'global', '--name', name, '--command', server.command]
+      return issues
+    },
+    currentFingerprint,
+    async install({ hooks }) {
+      const settings = await readJsonFile(settingsFile)
+      const nativeHooks = ensureObject(settings, 'hooks')
+      const installed: InstalledHook[] = []
 
-  if (server.args && server.args.length > 0) {
-    args.push('--args', JSON.stringify(server.args))
-  }
+      for (const hook of hooks) {
+        const eventHooks = ensureArray(nativeHooks, hook.event)
+        const entry = {
+          hooks: [{ command: hook.command, type: 'command' }]
+        }
+        eventHooks.push(entry)
+        installed.push({
+          command: hook.command,
+          event: hook.event,
+          fingerprint: jsonFingerprint(entry),
+          name: hook.name
+        })
+      }
 
-  for (const [key, value] of Object.entries(server.env ?? {})) {
-    args.push('--env', `${key}=${value}`)
-  }
+      await writeJsonFile(settingsFile, settings)
+      return installed
+    },
+    async restore(hooks: InstalledHook[]) {
+      const settings = await readJsonFile(settingsFile)
+      const nativeHooks = ensureObject(settings, 'hooks')
 
-  await runKiroCommand(config, args)
+      for (const hook of hooks) {
+        if (await currentFingerprint(hook)) {
+          continue
+        }
 
-  const fingerprint = await currentMcpFingerprint(config, name)
-  if (!fingerprint) {
-    await removeKiroMcpServer(config, name)
-    throw new Error(`Kiro MCP server ${name} was not written to ${config.mcp?.configFile}.`)
-  }
+        ensureArray(nativeHooks, hook.event).push({
+          hooks: [{ command: hook.command, type: 'command' }]
+        })
+      }
 
-  return { fingerprint, name, server: mcpServerRecord(server) }
-}
+      await writeJsonFile(settingsFile, settings)
+    },
+    async uninstall(hooks: InstalledHook[]) {
+      const settings = await readJsonFile(settingsFile)
+      const nativeHooks = objectValue(settings.hooks)
+      if (!nativeHooks) {
+        return
+      }
 
-async function removeKiroMcpServer(config: ExtensionFacetConfig, name: string): Promise<void> {
-  await runKiroCommand(config, ['mcp', 'remove', '--scope', 'global', '--name', name])
-}
+      for (const hook of hooks) {
+        const entries = arrayValue(nativeHooks[hook.event])
+        if (!entries) {
+          continue
+        }
 
-async function installCodexMcpServer(
-  configFile: string,
-  extensionId: string,
-  name: string,
-  server: McpServerResource
-): Promise<InstalledMcpServer> {
-  const current = await readTextFile(configFile)
-  const block = codexMcpBlock(extensionId, name, server)
-  const next = `${removeCodexMcpServerBlock(current, name).trimEnd()}\n\n${block}\n`
-  await writeTextFile(configFile, next)
-  return { fingerprint: textFingerprint(block), name, server: mcpServerRecord(server) }
-}
+        nativeHooks[hook.event] = entries.filter(entry => jsonFingerprint(entry) !== hook.fingerprint)
+      }
 
-async function removeCodexMcpServer(configFile: string, name: string): Promise<void> {
-  const current = await readTextFile(configFile)
-  await writeTextFile(configFile, `${removeCodexMcpServerBlock(current, name).trimEnd()}\n`)
-}
-
-async function codexMcpServerExists(configFile: string, name: string): Promise<boolean> {
-  const config = await readTextFile(configFile)
-  return codexMcpHeaderPattern(name).test(config)
-}
-
-function codexMcpBlock(extensionId: string, name: string, server: McpServerResource): string {
-  const lines = [
-    codexBeginMarker(name),
-    `[mcp_servers.${tomlKey(name)}]`,
-    `command = ${tomlString(server.command)}`,
-    `args = ${tomlArray(server.args ?? [])}`
-  ]
-
-  const env = server.env ?? {}
-  if (Object.keys(env).length > 0) {
-    lines.push('', `[mcp_servers.${tomlKey(name)}.env]`)
-    for (const [key, value] of Object.entries(env)) {
-      lines.push(`${tomlKey(key)} = ${tomlString(value)}`)
+      await writeJsonFile(settingsFile, settings)
     }
   }
-
-  lines.push(`# @plimeor/harness extension = ${extensionId}`, codexEndMarker(name))
-  return lines.join('\n')
 }
 
-function removeCodexMcpServerBlock(config: string, name: string): string {
-  const begin = escapeRegExp(codexBeginMarker(name))
-  const end = escapeRegExp(codexEndMarker(name))
-  return config.replace(new RegExp(`\\n?${begin}[\\s\\S]*?${end}\\n?`, 'g'), '\n')
-}
-
-function codexMcpServerBlock(config: string, name: string): string | undefined {
-  const begin = escapeRegExp(codexBeginMarker(name))
-  const end = escapeRegExp(codexEndMarker(name))
-  return config.match(new RegExp(`${begin}[\\s\\S]*?${end}`))?.[0]
-}
-
-function codexMcpHeaderPattern(name: string): RegExp {
-  const unquoted = escapeRegExp(`[mcp_servers.${name}]`)
-  const quoted = escapeRegExp(`[mcp_servers.${tomlKey(name)}]`)
-  return new RegExp(`(^|\\n)(${unquoted}|${quoted})(\\n|$)`)
-}
-
-function codexBeginMarker(name: string): string {
-  return `# @plimeor/harness begin mcpServers ${name}`
-}
-
-function codexEndMarker(name: string): string {
-  return `# @plimeor/harness end mcpServers ${name}`
+export function mcpServerRecord(server: McpServerResource): McpServerResource {
+  return {
+    args: server.args ?? [],
+    command: server.command,
+    ...(server.env ? { env: server.env } : {})
+  }
 }
 
 function jsonHookCommandExists(settings: JsonObject, hook: HookResource): boolean {
   const hooks = objectValue(settings.hooks)
   const eventHooks = arrayValue(hooks?.[hook.event])
-  return eventHooks?.some(entry => claudeHookCommands(entry).includes(hook.command)) ?? false
+  return eventHooks?.some(entry => jsonHookCommands(entry).includes(hook.command)) ?? false
 }
 
-function claudeHookCommands(entry: unknown): string[] {
+function jsonHookCommands(entry: unknown): string[] {
   const group = objectValue(entry)
   const commands = arrayValue(group?.hooks) ?? []
   return commands.flatMap(candidate => {
     const hook = objectValue(candidate)
     return hook?.type === 'command' && typeof hook.command === 'string' ? [hook.command] : []
   })
-}
-
-async function currentHookFingerprint(config: ExtensionFacetConfig, hook: InstalledHook): Promise<string | undefined> {
-  if (config.hooks?.kind === 'kiro-hook-files') {
-    return hook.targetPath ? readJsonFileFingerprint(hook.targetPath) : undefined
-  }
-
-  if (!config.hooks) {
-    return undefined
-  }
-
-  const settings = await readJsonFile(config.hooks.settingsFile)
-  const hooks = objectValue(settings.hooks)
-  const entries = arrayValue(hooks?.[hook.event]) ?? []
-  const exactMatches = entries.filter(entry => jsonFingerprint(entry) === hook.fingerprint)
-
-  if (exactMatches.length === 1) {
-    return hook.fingerprint
-  }
-
-  if (exactMatches.length > 1 || entries.some(entry => claudeHookCommands(entry).includes(hook.command))) {
-    return `${hook.fingerprint}:mismatch`
-  }
-
-  return undefined
 }
 
 async function readState(config: ExtensionFacetConfig): Promise<ExtensionState> {
@@ -1008,17 +794,13 @@ function skillTargetPath(skillsDirectory: string, extensionId: string, skillPath
   return join(skillsDirectory, `${safeName(extensionId)}__${index}_${safeName(skillBaseName(skillPath))}`)
 }
 
-function kiroHookTargetPath(hooksDirectory: string, extensionId: string, hook: HookResource): string {
-  return join(hooksDirectory, `${safeName(extensionId)}__${safeName(hook.name)}.json`)
-}
-
 function skillBaseName(path: string): string {
   const base = basename(path)
   const extension = extname(base)
   return extension ? base.slice(0, -extension.length) : base
 }
 
-function safeName(value: string): string {
+export function safeName(value: string): string {
   return value.replaceAll(/[^A-Za-z0-9._-]/g, '_')
 }
 
@@ -1026,7 +808,7 @@ function hookKey(hook: Pick<InstalledHook, 'command' | 'event'>): string {
   return `${hook.event}\u0000${hook.command}`
 }
 
-async function pathExists(path: string): Promise<boolean> {
+export async function pathExists(path: string): Promise<boolean> {
   try {
     await lstat(path)
     return true
@@ -1048,25 +830,9 @@ async function readJsonFile(path: string): Promise<JsonObject> {
   }
 }
 
-async function writeJsonFile(path: string, value: unknown): Promise<void> {
+export async function writeJsonFile(path: string, value: unknown): Promise<void> {
   await mkdir(dirname(path), { recursive: true })
   await writeFileAtomically(path, `${JSON.stringify(value, null, 2)}\n`)
-}
-
-async function readTextFile(path: string): Promise<string> {
-  try {
-    return await readFile(path, 'utf8')
-  } catch (error) {
-    if (isNotFound(error)) {
-      return ''
-    }
-    throw error
-  }
-}
-
-async function writeTextFile(path: string, text: string): Promise<void> {
-  await mkdir(dirname(path), { recursive: true })
-  await writeFileAtomically(path, text)
 }
 
 async function writeFileAtomically(path: string, text: string): Promise<void> {
@@ -1110,38 +876,6 @@ async function acquireLock(path: string): Promise<Awaited<ReturnType<typeof open
   throw new Error(`Timed out waiting for extension config lock: ${path}`)
 }
 
-async function runKiroCommand(
-  config: ExtensionFacetConfig,
-  args: string[]
-): Promise<{ exitCode: number; stderr: string; stdout: string }> {
-  const subprocess = Bun.spawn({
-    cmd: ['kiro-cli', ...args],
-    cwd: config.context?.cwd ?? process.cwd(),
-    env: Object.fromEntries(
-      Object.entries({
-        ...process.env,
-        ...(config.context?.home ? { KIRO_HOME: config.configDirectory } : {}),
-        ...(config.context?.env ?? {})
-      }).filter((entry): entry is [string, string] => {
-        return typeof entry[1] === 'string'
-      })
-    ),
-    stderr: 'pipe',
-    stdout: 'pipe'
-  })
-  const [exitCode, stdout, stderr] = await Promise.all([
-    subprocess.exited,
-    new Response(subprocess.stdout).text(),
-    new Response(subprocess.stderr).text()
-  ])
-
-  if (exitCode !== 0) {
-    throw new Error(`kiro-cli ${args.join(' ')} failed: ${stderr || stdout}`)
-  }
-
-  return { exitCode, stderr, stdout }
-}
-
 function ensureObject(parent: JsonObject, key: string): JsonObject {
   const current = objectValue(parent[key])
   if (current) {
@@ -1172,19 +906,7 @@ function arrayValue(value: unknown): unknown[] | undefined {
   return Array.isArray(value) ? value : undefined
 }
 
-function tomlKey(value: string): string {
-  return /^[A-Za-z0-9_-]+$/.test(value) ? value : tomlString(value)
-}
-
-function tomlArray(values: string[]): string {
-  return `[${values.map(tomlString).join(', ')}]`
-}
-
-function tomlString(value: string): string {
-  return JSON.stringify(value)
-}
-
-function jsonFingerprint(value: unknown): string {
+export function jsonFingerprint(value: unknown): string {
   return textFingerprint(stableJson(value))
 }
 
@@ -1192,7 +914,7 @@ function textFingerprint(value: string): string {
   return createHash('sha256').update(value).digest('hex')
 }
 
-async function readJsonFileFingerprint(path: string): Promise<string | undefined> {
+export async function readJsonFileFingerprint(path: string): Promise<string | undefined> {
   try {
     return jsonFingerprint(await readJsonFile(path))
   } catch (error) {
@@ -1216,10 +938,6 @@ function stableJson(value: unknown): string {
   }
 
   return JSON.stringify(value)
-}
-
-function escapeRegExp(value: string): string {
-  return value.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 function isAlreadyExists(error: unknown): boolean {

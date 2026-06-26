@@ -8,7 +8,8 @@ import type {
   StructuredOutputRequest,
   TextOutputRequest
 } from '../types'
-import { configDirectory, createExtensionFacet } from './extensions'
+import { createCodexMcpDriver } from './codex-extensions'
+import { configDirectory, createExtensionFacet, createJsonHooksDriver } from './extensions'
 import { createBuiltInAdapter, planCommand, planTextCommand, shellQuote, unsupportedOutputMode } from './shared'
 
 const HARNESS_ID = 'codex'
@@ -25,24 +26,20 @@ export const codexAdapter = createBuiltInAdapter({
       configDirectory: directory,
       context,
       harnessId: HARNESS_ID,
-      mcp: { configFile: `${directory}/config.toml`, kind: 'codex-toml' },
-      skillsDirectory: `${directory}/skills`,
-      hooks: {
-        kind: 'json-hooks',
-        settingsFile: `${directory}/hooks.json`,
-        events: [
-          'PermissionRequest',
-          'PostCompact',
-          'PostToolUse',
-          'PreCompact',
-          'PreToolUse',
-          'SessionStart',
-          'Stop',
-          'SubagentStart',
-          'SubagentStop',
-          'UserPromptSubmit'
-        ]
-      }
+      hooks: createJsonHooksDriver(`${directory}/hooks.json`, [
+        'PermissionRequest',
+        'PostCompact',
+        'PostToolUse',
+        'PreCompact',
+        'PreToolUse',
+        'SessionStart',
+        'Stop',
+        'SubagentStart',
+        'SubagentStop',
+        'UserPromptSubmit'
+      ]),
+      mcp: createCodexMcpDriver(`${directory}/config.toml`),
+      skillsDirectory: `${directory}/skills`
     })
   },
   plan(request: RunRequest<RunOutputRequest>, command: string, cwd: string) {
