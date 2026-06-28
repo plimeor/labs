@@ -57,6 +57,19 @@
         "@standard-schema/spec": "^1.1.0",
       },
     },
+    "packages/pulse": {
+      "name": "@plimeor/pulse",
+      "version": "0.1.0",
+      "bin": {
+        "pulse": "./src/cli.ts",
+      },
+      "dependencies": {
+        "@clack/prompts": "catalog:",
+        "@plimeor/command-kit": "workspace:*",
+        "@plimeor/harness": "workspace:*",
+        "valibot": "catalog:",
+      },
+    },
     "packages/skills": {
       "name": "@plimeor/skills",
       "version": "0.2.2",
@@ -116,6 +129,8 @@
     "@plimeor/git-kit": ["@plimeor/git-kit@workspace:packages/git-kit"],
 
     "@plimeor/harness": ["@plimeor/harness@workspace:packages/harness"],
+
+    "@plimeor/pulse": ["@plimeor/pulse@workspace:packages/pulse"],
 
     "@plimeor/skills": ["@plimeor/skills@workspace:packages/skills"],
 

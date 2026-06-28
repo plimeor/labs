@@ -1,0 +1,35 @@
+{
+  "description": "Manage local PULSE jobs with Bun",
+  "homepage": "https://github.com/plimeor/labs/tree/main/packages/pulse",
+  "name": "@plimeor/pulse",
+  "type": "module",
+  "version": "0.1.0",
+  "bin": {
+    "pulse": "./src/cli.ts"
+  },
+  "bugs": {
+    "url": "https://github.com/plimeor/labs/issues"
+  },
+  "dependencies": {
+    "@clack/prompts": "catalog:",
+    "@plimeor/command-kit": "workspace:*",
+    "@plimeor/harness": "workspace:*",
+    "valibot": "catalog:"
+  },
+  "files": [
+    "src"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "directory": "packages/pulse",
+    "type": "git",
+    "url": "git+https://github.com/plimeor/labs.git"
+  },
+  "scripts": {
+    "lint": "biome check src test",
+    "prepack": "bun src/cli.ts --help >/dev/null",
+    "test": "bun test test"
+  }
+}
