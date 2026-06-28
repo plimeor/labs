@@ -53,22 +53,8 @@ export function createKiroMcpDriver(input: {
 export function createKiroHookDriver(hooksDirectory: string, events: readonly string[]): HookExtensionDriver {
   return {
     events,
-    async conflicts({ extensionId, hooks }) {
-      const issues: Awaited<ReturnType<HookExtensionDriver['conflicts']>> = []
-
-      for (const hook of hooks) {
-        const targetPath = kiroHookTargetPath(hooksDirectory, extensionId, hook)
-        if (await pathExists(targetPath)) {
-          issues.push({
-            kind: 'conflict',
-            reason: `Hook install target already exists: ${targetPath}.`,
-            resourceKind: 'hooks',
-            resourceName: hook.name
-          })
-        }
-      }
-
-      return issues
+    async conflicts() {
+      return []
     },
     async currentFingerprint(hook: InstalledHook) {
       if (!hook.targetPath) {
@@ -83,6 +69,7 @@ export function createKiroHookDriver(hooksDirectory: string, events: readonly st
       for (const hook of hooks) {
         const targetPath = kiroHookTargetPath(hooksDirectory, extensionId, hook)
         const hookConfig = kiroHookConfig(hook)
+        await rm(targetPath, { force: true, recursive: true })
         await writeJsonFile(targetPath, hookConfig)
         installed.push({
           command: hook.command,

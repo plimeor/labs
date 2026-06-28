@@ -23,6 +23,7 @@ type ExtensionFacetConfig = {
   skillsDirectory?: string
   mcp?: McpExtensionDriver
   hooks?: HookExtensionDriver
+  replaceExistingTargets?: { skills?: boolean }
 }
 
 export type McpExtensionDriver = {
@@ -286,6 +287,10 @@ async function skillConflicts(
       continue
     }
 
+    if (config.replaceExistingTargets?.skills) {
+      continue
+    }
+
     if (await pathExists(targetPath)) {
       issues.push({
         kind: 'conflict',
@@ -465,15 +470,18 @@ async function installSkills(
     const sourcePath = resolveExtensionPath(config, skillPath)
     const sourceStat = await stat(sourcePath)
     const targetPath = skillTargetPath(config.skillsDirectory, extension.id, skillPath, index)
+    const expectedSkill = installedSkill(sourcePath, targetPath, sourceStat.isDirectory())
 
     await mkdir(dirname(targetPath), { recursive: true })
     if (sourceStat.isDirectory()) {
+      await removeSkillTargetForInstall(config, expectedSkill)
       await symlink(sourcePath, targetPath)
-      installed.skills.push({ kind: 'directory-symlink', sourcePath, targetPath })
+      installed.skills.push(expectedSkill)
     } else {
+      await removeSkillTargetForInstall(config, expectedSkill)
       await mkdir(targetPath, { recursive: true })
       await symlink(sourcePath, join(targetPath, 'SKILL.md'))
-      installed.skills.push({ kind: 'file-symlink-directory', sourcePath, targetPath })
+      installed.skills.push(expectedSkill)
     }
   }
 }
@@ -601,6 +609,15 @@ async function uninstallSkills(owned: InstalledExtension): Promise<void> {
       }
     }
   }
+}
+
+async function removeSkillTargetForInstall(config: ExtensionFacetConfig, skill: InstalledSkill): Promise<void> {
+  if (config.replaceExistingTargets?.skills) {
+    await rm(skill.targetPath, { force: true, recursive: true })
+    return
+  }
+
+  await uninstallSkills({ hooks: [], mcpServers: [], skills: [skill] })
 }
 
 async function uninstallMcpServers(config: ExtensionFacetConfig, owned: InstalledExtension): Promise<void> {
@@ -798,6 +815,14 @@ function skillBaseName(path: string): string {
   const base = basename(path)
   const extension = extname(base)
   return extension ? base.slice(0, -extension.length) : base
+}
+
+function installedSkill(sourcePath: string, targetPath: string, sourceIsDirectory: boolean): InstalledSkill {
+  return {
+    kind: sourceIsDirectory ? 'directory-symlink' : 'file-symlink-directory',
+    sourcePath,
+    targetPath
+  }
 }
 
 export function safeName(value: string): string {

@@ -35,6 +35,7 @@ export const kiroAdapter = createBuiltInAdapter({
         configFile: `${directory}/settings/mcp.json`,
         context
       }),
+      replaceExistingTargets: { skills: true },
       skillsDirectory: `${directory}/skills`
     })
   },

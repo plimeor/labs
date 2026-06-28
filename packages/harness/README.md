@@ -191,8 +191,11 @@ MCP servers are stdio process configs. Hooks use the target agent's native event
 names.
 
 Install is all-or-nothing: unsupported resources or conflicts prevent native
-writes. Uninstall only removes resources that the adapter can still prove belong
-to the extension.
+writes. By default, existing targets are replaceable only when the adapter can
+prove they already match the requested extension resource. Kiro skill and hook
+targets use extension-generated names and are replaced when a requested resource
+resolves to the same target name. Uninstall only removes resources that the
+adapter can still prove belong to the extension.
 
 ## Built-In Adapters
 
