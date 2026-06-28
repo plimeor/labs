@@ -1,8 +1,10 @@
 import { describe, expect, test } from 'bun:test'
+import { createHash } from 'node:crypto'
 import { lstat, mkdir, mkdtemp, readFile, readlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+import { createCodexMcpDriver } from '../src/adapters/codex-extensions'
 import { createExtensionFacet, writeJsonFile } from '../src/adapters/extensions'
 import { createKiroHookDriver } from '../src/adapters/kiro-extensions'
 
@@ -127,6 +129,64 @@ describe('extension reinstall behavior', () => {
     const hookConfig = JSON.parse(await readFile(join(hooksDirectory, 'tools__session-start.json'), 'utf8'))
     expect(hookConfig.hooks[0].action.command).toBe('echo new')
   })
+
+  test('reinstalls a Codex MCP server and removes old ownership markers', async () => {
+    const { configDirectory } = await testWorkspace()
+    const configFile = join(configDirectory, 'config.toml')
+    const extensions = createExtensionFacet({
+      configDirectory,
+      harnessId: 'codex',
+      mcp: createCodexMcpDriver(configFile)
+    })
+    const extension = {
+      id: 'tools',
+      resources: {
+        mcpServers: {
+          docs: { args: ['server.ts'], command: 'bun' }
+        }
+      }
+    }
+    const marker = '# @plimeor/harness extension = tools'
+
+    await mkdir(configDirectory, { recursive: true })
+    await writeFile(
+      configFile,
+      [
+        '[mcp_servers.docs]',
+        'command = "bun"',
+        'args = ["server.ts"]',
+        '',
+        '[hooks.state]',
+        'trusted_hash = "sha256:abc"',
+        marker,
+        ''
+      ].join('\n')
+    )
+    await writeJsonFile(join(configDirectory, 'harness-extensions.json'), {
+      extensions: {
+        tools: {
+          hooks: [],
+          skills: [],
+          mcpServers: [
+            {
+              fingerprint: textFingerprint(
+                ['[mcp_servers.docs]', 'command = "bun"', 'args = ["server.ts"]', marker].join('\n')
+              ),
+              name: 'docs',
+              server: { args: ['server.ts'], command: 'bun' }
+            }
+          ]
+        }
+      }
+    })
+
+    await expect(extensions.install(extension)).resolves.toEqual({ issues: [], success: true })
+
+    const reinstalledConfig = await readFile(configFile, 'utf8')
+    expect(countOccurrences(reinstalledConfig, '[mcp_servers.docs]')).toBe(1)
+    expect(countOccurrences(reinstalledConfig, marker)).toBe(0)
+    expect(reinstalledConfig).toContain('[hooks.state]\ntrusted_hash = "sha256:abc"')
+  })
 })
 
 function kiroHookConfig(hook: { command: string; event: string; name: string }): Record<string, unknown> {
@@ -151,4 +211,12 @@ async function testWorkspace(): Promise<{ configDirectory: string; cwd: string; 
   await mkdir(cwd, { recursive: true })
   await mkdir(home, { recursive: true })
   return { configDirectory, cwd, home }
+}
+
+function countOccurrences(value: string, search: string): number {
+  return value.split(search).length - 1
+}
+
+function textFingerprint(value: string): string {
+  return createHash('sha256').update(value).digest('hex')
 }

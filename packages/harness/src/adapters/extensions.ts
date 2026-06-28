@@ -28,7 +28,11 @@ type ExtensionFacetConfig = {
 
 export type McpExtensionDriver = {
   configFile: string
-  canReclaimOnInstall?(input: { extension: HarnessExtension; name: string }): boolean | Promise<boolean>
+  canReclaimOnInstall?(input: {
+    extension: HarnessExtension
+    name: string
+    installed: InstalledMcpServer
+  }): boolean | Promise<boolean>
   currentFingerprint(name: string): Promise<string | undefined>
   install(input: { extensionId: string; name: string; server: McpServerResource }): Promise<InstalledMcpServer>
   remove(name: string): Promise<void>
@@ -390,6 +394,7 @@ async function ownedMcpConflicts(
       extension &&
       (await config.mcp.canReclaimOnInstall?.({
         extension,
+        installed: server,
         name: server.name
       }))
     ) {

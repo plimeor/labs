@@ -3,7 +3,7 @@
   "homepage": "https://github.com/plimeor/labs/tree/main/packages/pulse",
   "name": "@plimeor/pulse",
   "type": "module",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "bin": {
     "pulse": "./src/cli.ts"
   },

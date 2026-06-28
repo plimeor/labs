@@ -7,25 +7,29 @@ import type { McpExtensionDriver } from './extensions'
 import { mcpServerRecord } from './extensions'
 
 type CodexMcpProof = {
-  extensionId?: string
   fingerprint: string
 }
 
 export function createCodexMcpDriver(configFile: string): McpExtensionDriver {
   return {
     configFile,
-    async canReclaimOnInstall({ extension, name }) {
+    async canReclaimOnInstall({ extension, installed, name }) {
       const entry = codexMcpServerEntry(await readTextFile(configFile), name)
       const proof = entry ? codexMcpServerProof(entry, name) : undefined
-      return extension.resources.mcpServers?.[name] !== undefined && proof?.extensionId === extension.id
+      if (!extension.resources.mcpServers?.[name] || !proof) {
+        return false
+      }
+
+      // code-lean: marker migration relies on recorded server state, upgrade when pre-server state must migrate.
+      return installed.server !== undefined && proof.fingerprint === codexMcpServerFingerprint(name, installed.server)
     },
     async currentFingerprint(name: string) {
       const entry = codexMcpServerEntry(await readTextFile(configFile), name)
       return entry ? codexMcpServerProof(entry, name)?.fingerprint : undefined
     },
-    async install({ extensionId, name, server }) {
+    async install({ name, server }) {
       const current = await readTextFile(configFile)
-      const entry = codexMcpEntry(extensionId, name, server)
+      const entry = codexMcpEntry(name, server)
       const next = `${removeCodexMcpServerEntry(current, name).trimEnd()}\n\n${entry}\n`
       await writeTextFile(configFile, next)
       const proof = codexMcpServerProof(entry, name)
@@ -41,7 +45,7 @@ export function createCodexMcpDriver(configFile: string): McpExtensionDriver {
   }
 }
 
-function codexMcpEntry(extensionId: string, name: string, server: McpServerResource): string {
+function codexMcpEntry(name: string, server: McpServerResource): string {
   const lines = [
     `[mcp_servers.${tomlKey(name)}]`,
     `command = ${tomlString(server.command)}`,
@@ -56,7 +60,6 @@ function codexMcpEntry(extensionId: string, name: string, server: McpServerResou
     }
   }
 
-  lines.push(`# @plimeor/harness extension = ${extensionId}`)
   return lines.join('\n')
 }
 
@@ -64,6 +67,7 @@ function removeCodexMcpServerEntry(config: string, name: string): string {
   const kept: string[] = []
   let inOwnedTable = false
   let inLegacyBlock = false
+  let lookingForDisplacedMarker = false
 
   for (const line of config.split('\n')) {
     if (line === codexLegacyBeginMarker(name)) {
@@ -78,14 +82,23 @@ function removeCodexMcpServerEntry(config: string, name: string): string {
       continue
     }
 
-    if (codexExtensionId(line) !== undefined && (inOwnedTable || inLegacyBlock)) {
+    if (codexExtensionId(line) !== undefined && (inOwnedTable || inLegacyBlock || lookingForDisplacedMarker)) {
       inOwnedTable = false
+      lookingForDisplacedMarker = false
       continue
     }
 
     const tableName = tomlTableName(line)
     if (tableName !== undefined) {
+      const wasInOwnedTable = inOwnedTable
       inOwnedTable = isCodexMcpServerTableName(tableName, name)
+      if (inOwnedTable) {
+        lookingForDisplacedMarker = true
+      } else if (lookingForDisplacedMarker && wasInOwnedTable) {
+        lookingForDisplacedMarker = !isCodexMcpServerNamespace(tableName)
+      } else if (lookingForDisplacedMarker && isCodexMcpServerNamespace(tableName)) {
+        lookingForDisplacedMarker = false
+      }
     }
 
     if (inOwnedTable) {
@@ -150,7 +163,6 @@ function codexMcpServerEntry(config: string, name: string): string | undefined {
 
 function codexMcpServerProof(entry: string, name: string): CodexMcpProof | undefined {
   const proofLines: string[] = []
-  let extensionId: string | undefined
   let inOwnedTable = false
   let sawOwnedTable = false
 
@@ -162,8 +174,6 @@ function codexMcpServerProof(entry: string, name: string): CodexMcpProof | undef
 
     const markerExtensionId = codexExtensionId(line)
     if (markerExtensionId !== undefined) {
-      extensionId = markerExtensionId
-      proofLines.push(line)
       inOwnedTable = false
       continue
     }
@@ -175,7 +185,9 @@ function codexMcpServerProof(entry: string, name: string): CodexMcpProof | undef
     }
 
     if (inOwnedTable) {
-      proofLines.push(line)
+      if (lineContributesToCodexMcpFingerprint(line)) {
+        proofLines.push(line)
+      }
     }
   }
 
@@ -184,9 +196,12 @@ function codexMcpServerProof(entry: string, name: string): CodexMcpProof | undef
   }
 
   return {
-    extensionId,
     fingerprint: textFingerprint(proofLines.join('\n'))
   }
+}
+
+function codexMcpServerFingerprint(name: string, server: McpServerResource): string {
+  return codexMcpServerProof(codexMcpEntry(name, server), name)?.fingerprint ?? ''
 }
 
 function codexLegacyBeginMarker(name: string): string {
@@ -206,6 +221,11 @@ function tomlTableName(line: string): string | undefined {
   return line.match(/^\s*\[(.*)]\s*(?:#.*)?$/)?.[1]
 }
 
+function lineContributesToCodexMcpFingerprint(line: string): boolean {
+  const trimmed = line.trim()
+  return trimmed !== '' && !trimmed.startsWith('#')
+}
+
 function isCodexMcpServerTableName(tableName: string, serverName: string): boolean {
   const tableNames = new Set([`mcp_servers.${serverName}`, `mcp_servers.${tomlKey(serverName)}`])
 
@@ -216,6 +236,10 @@ function isCodexMcpServerTableName(tableName: string, serverName: string): boole
   }
 
   return false
+}
+
+function isCodexMcpServerNamespace(tableName: string): boolean {
+  return tableName === 'mcp_servers' || tableName.startsWith('mcp_servers.')
 }
 
 function tomlKey(value: string): string {
