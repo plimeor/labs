@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { unlink, writeFile } from 'node:fs/promises'
+import { link, readFile, rm, unlink, writeFile } from 'node:fs/promises'
 import { createConnection, createServer, type Server, type Socket } from 'node:net'
 
 import type { CatalogPulse } from '../pulses/catalog'
@@ -15,6 +15,7 @@ import {
   updateState,
   writeRuntime
 } from '../store/state'
+import { isDaemonAutostartInstalled, startDaemonAutostart } from './autostart'
 import { appendEvent, type ManagedRun, type PulseRunResult, startManagedRun } from './logs'
 
 type DaemonRequest =
@@ -73,22 +74,32 @@ export class PulseDaemon {
   async start(): Promise<void> {
     const paths = resolvePulsePaths(this.home)
     await ensurePulseHome(paths)
-    await removeSocket(paths.daemonSocketPath)
-    await this.reconcileAll()
+    await acquireDaemonLock(paths.daemonLockPath)
+    try {
+      if (await isDaemonRunning(this.home)) {
+        throw new Error(`Pulse daemon already running for home: ${this.home}`)
+      }
 
-    this.server = createServer({ allowHalfOpen: true }, socket => {
-      void this.handleSocket(socket)
-    })
-    await new Promise<void>((resolve, reject) => {
-      this.server?.once('error', reject)
-      this.server?.listen(paths.daemonSocketPath, () => {
-        this.server?.off('error', reject)
-        resolve()
+      await removeSocket(paths.daemonSocketPath)
+      await this.reconcileAll()
+
+      this.server = createServer({ allowHalfOpen: true }, socket => {
+        void this.handleSocket(socket)
       })
-    })
+      await new Promise<void>((resolve, reject) => {
+        this.server?.once('error', reject)
+        this.server?.listen(paths.daemonSocketPath, () => {
+          this.server?.off('error', reject)
+          resolve()
+        })
+      })
 
-    await writeFile(paths.daemonPidPath, String(process.pid))
-    await this.writeRuntime()
+      await writeFile(paths.daemonPidPath, String(process.pid))
+      await this.writeRuntime()
+    } catch (error) {
+      await releaseDaemonLock(paths.daemonLockPath)
+      throw error
+    }
   }
 
   async stop(): Promise<void> {
@@ -111,7 +122,8 @@ export class PulseDaemon {
     await Promise.all([
       removeSocket(paths.daemonSocketPath),
       removeSocket(paths.daemonPidPath),
-      removeRuntime(paths.runtimePath)
+      removeRuntime(paths.runtimePath),
+      releaseDaemonLock(paths.daemonLockPath)
     ])
   }
 
@@ -513,6 +525,12 @@ export async function ensureDaemon(home: string): Promise<void> {
     return
   }
 
+  if (await isDaemonAutostartInstalled(home)) {
+    await startDaemonAutostart()
+    await waitForDaemonRunning(home)
+    return
+  }
+
   const paths = resolvePulsePaths(home)
   await ensurePulseHome(paths)
   const subprocess = Bun.spawn({
@@ -524,21 +542,52 @@ export async function ensureDaemon(home: string): Promise<void> {
   })
   subprocess.unref()
 
+  await waitForDaemonRunning(home)
+}
+
+export async function waitForDaemonRunning(home: string, timeoutMs = 5_000): Promise<void> {
+  await waitForDaemonState(home, true, timeoutMs)
+}
+
+export async function waitForDaemonStopped(home: string, timeoutMs = 5_000): Promise<void> {
+  await waitForDaemonState(home, false, timeoutMs)
+}
+
+async function waitForDaemonState(home: string, running: boolean, timeoutMs: number): Promise<void> {
   const startedAt = Date.now()
-  while (Date.now() - startedAt < 5_000) {
-    if (await isDaemonRunning(home)) {
+  while (Date.now() - startedAt < timeoutMs) {
+    if ((await isDaemonRunning(home)) === running) {
       return
     }
     await Bun.sleep(100)
   }
 
-  throw new Error('Timed out starting pulse daemon')
+  // Re-check once past the deadline so a transition during the final sleep is not reported as a timeout.
+  if ((await isDaemonRunning(home)) === running) {
+    return
+  }
+
+  throw new Error(running ? 'Timed out starting pulse daemon' : 'Timed out stopping pulse daemon')
 }
 
 if (import.meta.main) {
   const homeFlagIndex = process.argv.indexOf('--home')
   const home = homeFlagIndex >= 0 ? process.argv[homeFlagIndex + 1] : resolvePulseHome()
   const daemon = new PulseDaemon(home)
+  let stopping = false
+  const stopAndExit = (code: number) => {
+    if (stopping) {
+      return
+    }
+
+    stopping = true
+    void daemon.stop().finally(() => {
+      process.exit(code)
+    })
+  }
+
+  process.on('SIGTERM', () => stopAndExit(0))
+  process.on('SIGINT', () => stopAndExit(0))
   await daemon.start()
 }
 
@@ -557,6 +606,58 @@ async function removeSocket(path: string): Promise<void> {
     if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
       throw error
     }
+  }
+}
+
+async function acquireDaemonLock(lockPath: string): Promise<void> {
+  // code-lean: local daemon lock only, upgrade when PULSE_HOME is shared across hosts or filesystems.
+  // Stage the PID in a temp file then link() it into place: the lock file appears atomically already
+  // holding the PID, so a concurrent starter never observes an empty lock and cannot mistake an
+  // in-progress acquire for a stale one.
+  const tempPath = `${lockPath}.${process.pid}`
+  await writeFile(tempPath, String(process.pid))
+  try {
+    while (true) {
+      try {
+        await link(tempPath, lockPath)
+        return
+      } catch (error) {
+        if (!(error instanceof Error && 'code' in error && error.code === 'EEXIST')) {
+          throw error
+        }
+
+        if (await isLockOwnerAlive(lockPath)) {
+          throw new Error(`Pulse daemon already starting or running: ${lockPath}`)
+        }
+
+        await releaseDaemonLock(lockPath)
+      }
+    }
+  } finally {
+    await rm(tempPath, { force: true })
+  }
+}
+
+async function releaseDaemonLock(lockPath: string): Promise<void> {
+  // recursive also clears a leftover directory-style lock written by an older pulse build.
+  await rm(lockPath, { force: true, recursive: true })
+}
+
+async function isLockOwnerAlive(lockPath: string): Promise<boolean> {
+  try {
+    const pid = Number((await readFile(lockPath, 'utf8')).trim())
+    return Number.isInteger(pid) && pid > 0 && isProcessAlive(pid)
+  } catch {
+    return false
+  }
+}
+
+function isProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (error) {
+    return error instanceof Error && 'code' in error && error.code === 'EPERM'
   }
 }
 

@@ -25,10 +25,9 @@ sessions:
 
 ```sh
 pulse daemon install
-pulse daemon start
 ```
 
-`pulse daemon install` currently creates a user LaunchAgent on macOS. Other
+`pulse daemon install` creates and activates a user LaunchAgent on macOS. Other
 platforms report unsupported.
 
 ## Mental Model
@@ -177,9 +176,16 @@ Use `reload` when the PULSE definition should be re-read and daemon scheduling
 should be reconciled. It does not run the PULSE immediately. Use `run` for an
 immediate one-shot execution.
 
-Use `daemon restart` after relinking or upgrading the `pulse` package itself so
-the daemon process runs from the new package path. PULSE-level commands do not
-have a `restart`; `restart` only applies to the daemon.
+Use `daemon install` again after relinking or upgrading the `pulse` package
+itself so the LaunchAgent records the current Bun executable, package path,
+`PULSE_HOME`, and `PATH`. Use `daemon restart` when the installed LaunchAgent or
+manual daemon should restart without rewriting its configuration. PULSE-level
+commands do not have a `restart`; `restart` only applies to the daemon.
+
+On macOS, `pulse daemon status` reports both the daemon socket state and the
+LaunchAgent state. `pulse daemon stop` unloads an installed LaunchAgent for the
+current `PULSE_HOME`; `pulse daemon start` loads it again. If autostart is not
+installed, these commands fall back to the local detached daemon process.
 
 When a schedule fires, the daemon starts a managed child process, captures its
 stdout and stderr, records a runtime event, and skips overlapping runs for the

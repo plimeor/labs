@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { createConnection } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -376,6 +376,34 @@ export async function run() {
     try {
       const response = await requestDaemonInChunks(home, { command: 'ping' })
       expect(response).toMatchObject({ ok: true })
+    } finally {
+      await daemon.stop()
+    }
+  })
+
+  test('daemon rejects a second instance for the same home', async () => {
+    const dir = await tempDir()
+    const home = join(dir, 'home')
+    const daemon = new PulseDaemon(home)
+    await daemon.start()
+    try {
+      await expect(new PulseDaemon(home).start()).rejects.toThrow('already')
+      await expect(requestDaemon(home, { command: 'ping' })).resolves.toMatchObject({ pid: process.pid })
+    } finally {
+      await daemon.stop()
+    }
+  })
+
+  test('daemon reclaims a stale lock that no live process owns', async () => {
+    const dir = await tempDir()
+    const home = join(dir, 'home')
+    await mkdir(home, { recursive: true })
+    // A lock without a live owning PID must be reclaimed, not mistaken for a running daemon.
+    await writeFile(resolvePulsePaths(home).daemonLockPath, 'not-a-pid')
+    const daemon = new PulseDaemon(home)
+    await daemon.start()
+    try {
+      await expect(requestDaemon(home, { command: 'ping' })).resolves.toMatchObject({ pid: process.pid })
     } finally {
       await daemon.stop()
     }

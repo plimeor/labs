@@ -4,6 +4,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 export type PulsePaths = {
+  daemonLockPath: string
   daemonPidPath: string
   daemonSocketPath: string
   home: string
@@ -19,6 +20,7 @@ export function resolvePulseHome(env: NodeJS.ProcessEnv = process.env): string {
 
 export function resolvePulsePaths(home = resolvePulseHome()): PulsePaths {
   return {
+    daemonLockPath: join(home, '.daemon.lock'),
     daemonPidPath: join(home, 'daemon.pid'),
     daemonSocketPath: join(home, 'daemon.sock'),
     home,
