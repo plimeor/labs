@@ -1,0 +1,15 @@
+<decisions>
+  <decision id="001" status="active" date="2026-06-29">
+    <title>Use pulse as a daemon-managed local PULSE runtime</title>
+    <chosen>@plimeor/pulse is a CLI-only local PULSE manager. The daemon owns built-in and custom PULSE catalogs, enabled state, in-process Bun schedules, managed child runs, reload, status, and captured stdout and stderr logs. Custom PULSEs are local Bun modules with name, run, and optional schedule exports. The built-in usage-window-warmup PULSE checks Claude and Codex through @plimeor/harness on the UTC schedule 0 4,9,14,23 * * *.</chosen>
+    <rationale>list, status, logs, reload, and overlapping-run control need one runtime owner. In-process Bun.cron keeps scheduling inside the daemon, while managed child runs give the CLI a real stdout and stderr log source similar to PM2 without adopting PM2's broader process-management surface.</rationale>
+    <rejected>
+      <option name="Per-PULSE OS-level cron">This would make each worker independent of pulse, fragmenting runtime state, reload behavior, active-run control, and logs.</option>
+      <option name="PM2 ecosystem files">That configuration model is heavier than the local Bun-module contract needed for small PULSE jobs.</option>
+      <option name="Expose a public library API">The product boundary is the pulse CLI and daemon runtime, not an importable API.</option>
+      <option name="Run custom jobs in the daemon process">Managed child processes isolate job execution from daemon scheduling and provide captured stdout and stderr logs.</option>
+    </rejected>
+    <non-goals>Pulse does not provide PM2 cluster, watch, deploy, metrics, logrotate, cross-machine management, remote custom PULSE installs, npm or Git custom PULSE installs, Windows autostart support in the first version, or real Claude and Codex prompt verification in automated tests.</non-goals>
+    <revisit>Revisit if users need local-time schedule semantics, stronger custom source hashing across transitive imports, broader platform autostart, or PM2-like process management features.</revisit>
+  </decision>
+</decisions>

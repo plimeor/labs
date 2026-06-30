@@ -1,0 +1,15 @@
+<decisions>
+  <decision id="001" status="active" date="2026-05-01">
+    <title>Use command-kit as the Bun-first command layer</title>
+    <chosen>@plimeor/command-kit is the repository's Bun-first command declaration package for CLI and agent-facing tools. It owns command declarations, argv parsing, positional binding, Standard Schema validation for args and options, help rendering through optional Standard JSON Schema metadata, and command result envelopes. Its first proof path was replacing incur in @plimeor/skills.</chosen>
+    <rationale>The repository needed first-class positional binding, including a first positional argument followed by a rest positional array, while keeping typed command context and stable agent-facing JSON envelopes. A small local command layer matched that need better than patching the limitation into each CLI.</rationale>
+    <rejected>
+      <option name="Continue using incur">incur handled basic routing but did not cover the required positional binding shape for skills add.</option>
+      <option name="Wrap incur">The missing behavior lived below a wrapper boundary, so a wrapper would either inherit the limitation or bypass much of the runtime.</option>
+      <option name="Start with a general external framework">External framework stability, compatibility, packaging, and documentation work would front-load costs before the repo-local model had been proven.</option>
+      <option name="Build only an agent tool layer">The repository still needs real CLI behavior, not only structured agent tool declarations.</option>
+    </rejected>
+    <non-goals>command-kit does not own command output schema validation, nested command groups, shell completion, OpenAPI mounting, plugin systems, MCP server generation, schema-library-specific public APIs, or a global JSON mode.</non-goals>
+    <revisit>Revisit if command-kit becomes a public framework with Node compatibility or if command output validation becomes a proven cross-package requirement.</revisit>
+  </decision>
+</decisions>

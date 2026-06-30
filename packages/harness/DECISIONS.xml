@@ -1,0 +1,16 @@
+<decisions>
+  <decision id="001" status="active" date="2026-06-24">
+    <title>Build harness as a library-only SDK with adapter-owned native integration</title>
+    <chosen>@plimeor/harness is a library-only SDK. Core owns the adapter registry, detection orchestration, health surface, command planning, exact command-plan execution, output decoding, typed output errors, and extension dispatch. Concrete adapters own CLI binary details, identity checks, native flags, config paths, permission semantics, smoke prompts, extension install and uninstall, ownership proof, and native writes.</chosen>
+    <rationale>The stable cross-harness invariant is the SDK contract, not native CLI configuration layout. Keeping native details inside adapters lets core expose one reviewable run and extension surface without pretending permissions, hooks, event streams, or plugin systems are portable.</rationale>
+    <rejected>
+      <option name="Expose a public CLI">The package is intended as reusable infrastructure for applications and other packages, not a command-line product.</option>
+      <option name="Put extension file writes in core">Core cannot safely own native config semantics, conflict checks, or uninstall proof across different harnesses.</option>
+      <option name="Normalize permissions and sandbox flags in core">Those settings do not have a stable cross-CLI invariant in the first version.</option>
+      <option name="Let adapters parse structured output independently">Output decoding and typed output errors are a shared SDK contract and belong in core.</option>
+      <option name="Treat plugins as the core abstraction">Plugin terminology conflicts with native CLI plugin concepts; extension resources are the portable integration intent.</option>
+    </rejected>
+    <non-goals>The SDK does not include a bin, project-scope extension writes, a broad capability negotiation DSL, native plugin abstraction, cross-harness permission enum, or generic preview and change-record API.</non-goals>
+    <revisit>Revisit if multiple adapters prove the same native resource type or permission model has a stable cross-harness invariant.</revisit>
+  </decision>
+</decisions>

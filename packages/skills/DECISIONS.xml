@@ -1,0 +1,27 @@
+<decisions>
+  <decision id="001" status="active" date="2026-04-25">
+    <title>Use a native skills manifest installer</title>
+    <chosen>@plimeor/skills is a native TypeScript CLI rather than a wrapper around the upstream skills package. It owns add, remove, list, sync, update, and migrate behavior directly. skills.json is the human-maintained desired state, skills.lock.json is the resolved install state, and installed skills are copied into the current scope .agents/skills directory.</chosen>
+    <rationale>The package needs a stable manifest and lock contract that can be reviewed, reproduced, and restored across global and project scopes. Wrapping another CLI would leave that contract dependent on external command behavior and state shape.</rationale>
+    <rejected>
+      <option name="Wrap the upstream CLI">This would reduce initial installer code but would keep manifest, sync, migration, and recovery behavior coupled to an external command.</option>
+      <option name="Support multi-agent fan-out in the first model">That would pollute the manifest and lock core before the canonical scope model was stable.</option>
+    </rejected>
+    <non-goals>The native installer does not make agent fan-out, discovery, or authoring commands implicit parts of the initial manifest contract.</non-goals>
+    <revisit>Revisit only through a new decision if @plimeor/skills stops owning the manifest and lock lifecycle directly.</revisit>
+  </decision>
+  <decision id="002" status="active" date="2026-05-22" builds-on="001">
+    <title>Use canonical skill stores with explicit directory-level agent target links</title>
+    <chosen>The canonical skill store remains the current scope .agents/skills directory. Native agents, including Codex, read that canonical store directly in both project and global scope. Non-native agent target directories are derived from the registry and current machine detection, then linked explicitly as directory-level symlinks through skills agents add or a confirmed post-sync, post-update, or post-migrate prompt. The manifest and lock do not store enabled agents or per-agent target state.</chosen>
+    <rationale>Agent target links are local derived state, while skills.json and skills.lock.json describe the portable desired and resolved skill set. Directory-level links let already-linked agent directories follow canonical store changes without per-skill reconciliation or manifest expansion.</rationale>
+    <rejected>
+      <option name="Store enabled agents in skills.json">This would make machine-local agent availability part of portable desired state and complicate sync behavior.</option>
+      <option name="Store per-agent links in skills.lock.json">This would mix local target wiring with resolved skill install metadata.</option>
+      <option name="Create per-skill symlinks">Per-skill links would duplicate canonical store reconciliation and require pruning semantics for every agent target.</option>
+      <option name="Auto-create targets for undetected agents">Undetected agents provide no current-scope evidence that the target directory should exist.</option>
+      <option name="Add skills agents remove">The current model has no enabled-agent state to remove; cleanup requires a separate prune design.</option>
+    </rejected>
+    <non-goals>This decision does not add open-ended skill discovery, skill authoring scaffolds, automatic cleanup for undetected agents, or Vercel-style agent selection flags.</non-goals>
+    <revisit>Revisit if users need managed cleanup of historical agent targets or a portable enabled-agent concept.</revisit>
+  </decision>
+</decisions>

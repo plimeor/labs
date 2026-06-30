@@ -8,11 +8,11 @@ three tiers: cross-suite shared tools live under `packages/`, theme-scoped
 groups of related packages live under `suites/<suite>/`, and standalone apps
 with no suite affiliation live under `apps/`.
 
-Several packages are already more than prototypes. `@plimeor/skills` is the
-clearest example: it owns a manifest and lock workflow for agent skills, supports
-global and project scopes, provides dry-run and JSON output where those matter,
-and has migration support for earlier lock files. The surrounding packages are
-forming the same toolchain: command routing and Git operations.
+Several packages are already more than prototypes. `@plimeor/skills` owns the
+manifest and lock workflow for agent skills, `@plimeor/harness` provides the
+agent SDK layer, and `@plimeor/pulse` runs local automation jobs. The surrounding
+packages fill in command routing, Git operations, browser data inspection, and
+Claude-compatible project file generation.
 
 ## Packages
 
@@ -20,8 +20,12 @@ All current packages are TypeScript and Bun-first.
 
 | Package | Purpose | Stack |
 | ------- | ------- | ----- |
+| [`@plimeor/browser-peek`](packages/browser-peek) | CLI and library for reading cookies and local storage from local browser profiles. | TypeScript, Bun |
+| [`@plimeor/claudify`](packages/claudify) | CLI for creating Claude-compatible project files from existing agent project conventions. | TypeScript, Bun |
 | [`@plimeor/command-kit`](packages/command-kit) | Bun-first command declaration package for repo-local CLI and agent tools. It handles command groups, positional binding, Standard Schema validation, help metadata, and JSON result envelopes. | TypeScript, Bun |
 | [`@plimeor/git-kit`](packages/git-kit) | Git source and checkout primitives for repo-local CLIs. It models remote sources, local worktrees, ref resolution, checkout lifecycle, worktree file listing, and Git ignore paths. | TypeScript, Bun |
+| [`@plimeor/harness`](packages/harness) | Library-only SDK for detecting, health-checking, running, and integrating CLI coding-agent harnesses. | TypeScript, Bun |
+| [`@plimeor/pulse`](packages/pulse) | CLI and daemon for managing local PULSE jobs, schedules, runtime state, and captured logs. | TypeScript, Bun |
 | [`@plimeor/skills`](packages/skills) | Manifest-based CLI for installing and syncing agent skills. It keeps `skills.json` as desired state, `skills.lock.json` as resolved state, and installs skills into global or project-local `.agents/skills` directories. | TypeScript, Bun |
 
 ## Package Highlights
@@ -35,6 +39,11 @@ All current packages are TypeScript and Bun-first.
   groups, and provides consistent help, parsing, and result envelopes.
 - `@plimeor/git-kit` keeps local Git operations behind an explicit package
   boundary instead of embedding those operations in each CLI.
+- `@plimeor/harness` provides the shared agent SDK contract used by packages
+  that need detection, health checks, process execution, or user-scope
+  integrations.
+- `@plimeor/pulse` owns the local automation runtime for scheduled and manual
+  PULSE jobs.
 
 ## Quick Start
 
@@ -56,7 +65,7 @@ bun run lint
 Package-specific commands are run with Bun filters:
 
 ```bash
-bun run --filter @plimeor/skills build
+bun run --filter @plimeor/skills prepack
 bun run --filter @plimeor/skills lint
 ```
 
@@ -80,24 +89,22 @@ package directory.
 apps/            Standalone apps with no suite affiliation
 packages/        Cross-suite reusable local tools and libraries
 suites/<suite>/  Theme-scoped groups of related workspace packages
-docs/index.md    Routing index for collaboration documents
-docs/agent/      Agent cursor and tasking records
-docs/requirements/
-                 Date-prefixed requirement records
-docs/plans/      Date-prefixed implementation plans
-docs/decisions/  Sequential durable decision records
-docs/archive/    Archived evidence and historical records
+agentdocs/       Current collaboration cursor, living requirements, active
+                 plans, and active tasking records
+DECISIONS.xml    Repo-wide durable decision ledger
+packages/*/DECISIONS.xml
+                 Package-owned durable decision ledgers
 ```
 
 ## Conventions
 
 - Package README files own public CLI, API, schema, file format, and stable
   behavior docs.
-- Use `docs/index.md` as the routing entry for agentic collaboration docs, then
-  follow `docs/agent/current.md` to the active execution pointer.
-- Agentic workflow docs own collaboration records, requirements, plans, tasking,
-  decisions, and archives; they do not replace package READMEs as public
-  interface contracts.
+- Use `agentdocs/cursor.md` as the routing entry for agentic collaboration docs.
+  Living requirements stay in `agentdocs/requirements/`; plans and tasking stay
+  only while active.
+- Durable decisions live in `DECISIONS.xml` at the narrowest owning scope.
+  Package-owned decisions live beside the package that owns the behavior.
 - Every workspace package extends the root `tsconfig.json`: `apps/*` and
   `packages/*` use `../../tsconfig.json`, while `suites/<suite>/*` uses
   `../../../tsconfig.json`.

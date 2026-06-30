@@ -1,0 +1,14 @@
+<decisions>
+  <decision id="001" status="active" date="2026-06-30">
+    <title>Use agentdocs and scope-local decision ledgers for agentic collaboration docs</title>
+    <chosen>Agentic collaboration docs use agentdocs/cursor.md as the entrypoint, agentdocs/requirements for living capability requirements, dated files under agentdocs/plans only for active implementation episodes, and agentdocs/tasking only for cursor-linked execution graphs. Durable decisions live in DECISIONS.xml at the narrowest owning scope: the repo root for repo-wide choices and package roots for package-owned choices.</chosen>
+    <rationale>This keeps the active working tree small while preserving durable rationale in body-immutable ledgers. Package-local ledgers avoid a central decision pile in this monorepo, and package README files remain the public behavior authority.</rationale>
+    <rejected>
+      <option name="Central Markdown index">A central docs index mixed active routing, historical plans, decisions, and archive records. It made completed plans appear current and required manual index maintenance.</option>
+      <option name="Archive directory">An archive directory keeps obsolete working records discoverable but also keeps them in the active collaboration surface. Durable rationale belongs in DECISIONS.xml; completed plan and tasking records are disposable after promotion.</option>
+      <option name="Single root ledger for every package">A single root ledger hides package ownership. Package-owned decisions are easier to discover and maintain beside the package that owns the behavior.</option>
+    </rejected>
+    <non-goals>This decision does not define package public APIs, replace package README files, or require documentation for one-shot work that has no durable collaboration value.</non-goals>
+    <revisit>Revisit only if the monorepo gains a different package boundary model or a tool enforces another agentic documentation layout.</revisit>
+  </decision>
+</decisions>

@@ -40,6 +40,18 @@
 - Do not change package boundaries, workspace structure, or generated lockfiles
   unless the task explicitly requires it.
 
+## Agentic Docs
+
+- Current workflow cursor: `agentdocs/cursor.md`.
+- Living collaboration requirements: `agentdocs/requirements/`.
+- Episode plans live in `agentdocs/plans/` only while active.
+- Cursor-linked execution tasking lives in `agentdocs/tasking/` only while
+  active.
+- Repo-wide durable decisions live in `DECISIONS.xml`.
+- Package-owned durable decisions live beside the owning package in
+  `packages/<package>/DECISIONS.xml` and are surfaced by that package's
+  `AGENTS.md` and `CLAUDE.md`.
+
 ## Skills
 
 ## Patterns
