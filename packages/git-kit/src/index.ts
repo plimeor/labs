@@ -25,6 +25,11 @@ export type ResolvedRef = {
   ref: string
 }
 
+export type RemoteRefRequest = {
+  ref?: string
+  source: string
+}
+
 export type SwitchRequest = {
   detach?: boolean
   ref: string
@@ -67,6 +72,10 @@ export class Repository {
       }
       throw error
     }
+  }
+
+  async resolveRemoteRef(ref = 'HEAD'): Promise<ResolvedRef> {
+    return await resolveRemoteRefSource(this.source, ref)
   }
 }
 
@@ -204,6 +213,10 @@ export async function checkout(request: CheckoutRequest): Promise<Checkout> {
   })
 }
 
+export async function resolveRemoteRef(request: RemoteRefRequest): Promise<ResolvedRef> {
+  return await repository(request.source).resolveRemoteRef(request.ref)
+}
+
 export async function withCheckout<T>(
   request: CheckoutRequest,
   callback: (checkout: Checkout) => Promise<T>
@@ -328,8 +341,62 @@ async function fetchRemoteTag(directory: string, ref: string): Promise<string | 
   return resolveCommit(directory, `refs/tags/${ref}^{commit}`)
 }
 
+async function resolveRemoteRefSource(source: string, ref: string): Promise<ResolvedRef> {
+  if (ref === 'HEAD') {
+    return await resolveRemoteHead(source)
+  }
+
+  for (const pattern of remoteRefPatterns(ref)) {
+    const headSha = await lsRemoteSha(source, pattern)
+    if (headSha) {
+      return { headSha, ref }
+    }
+  }
+
+  throw new Error(`Unable to resolve remote ref: ${ref}`)
+}
+
+async function resolveRemoteHead(source: string): Promise<ResolvedRef> {
+  const output = await $`git ls-remote --symref ${source} HEAD`.quiet().text()
+  const headSha = parseLsRemoteSha(output, 'HEAD')
+  const ref = output.match(/^ref:\s+refs\/heads\/(.+)\s+HEAD$/m)?.[1]
+  if (!headSha || !ref) {
+    throw new Error('Unable to resolve remote HEAD')
+  }
+
+  return { headSha, ref }
+}
+
+function remoteRefPatterns(ref: string): string[] {
+  return [`refs/heads/${ref}`, `refs/tags/${ref}^{}`, `refs/tags/${ref}`, ref].filter(
+    (pattern, index, patterns) => patterns.indexOf(pattern) === index
+  )
+}
+
+async function lsRemoteSha(source: string, pattern: string): Promise<string | undefined> {
+  const output = await $`git ls-remote ${source} ${pattern}`.quiet().text()
+  return parseLsRemoteSha(output, pattern)
+}
+
+function parseLsRemoteSha(output: string, pattern: string): string | undefined {
+  for (const line of output.split(/\r?\n/)) {
+    const [sha, name] = line.split(/\s+/)
+    if (sha && name && isFullCommitSha(sha) && remoteRefNameMatches(name, pattern)) {
+      return sha
+    }
+  }
+}
+
+function remoteRefNameMatches(name: string, pattern: string): boolean {
+  return name === pattern || name === `refs/${pattern}`
+}
+
 async function resolveCommit(directory: string, ref: string): Promise<string> {
   return $`git rev-parse --verify ${ref}`.cwd(directory).quiet().text().then(trimText)
+}
+
+function isFullCommitSha(value: string): boolean {
+  return /^[0-9a-f]{40}$/i.test(value)
 }
 
 function parseOriginRemote(output: string): string | undefined {

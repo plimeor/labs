@@ -227,8 +227,8 @@ skills remove code-scope-gate,writing-blog -g
 
 - **Manifest-first state**: `skills.json` is stable, deterministic, and
   suitable for dotfiles or project repos.
-- **Separate lock state**: exact commits, install paths, timestamps, and other
-  generated metadata live in `skills.lock.json`.
+- **Separate lock state**: exact commits, installed content hashes, install
+  paths, timestamps, and other generated metadata live in `skills.lock.json`.
 - **Source grouping**: manifest entries are grouped by source so the file stays
   readable when many skills come from the same repository.
 - **Prompted source install**: `skills add <source>` lists skills from the
@@ -372,11 +372,18 @@ Rules:
 - `commit` pins desired state to an exact Git commit.
 
 `skills.lock.json` is resolved install state. It records actual commits,
-install paths, timestamps, and copy metadata produced by installation.
+installed content hashes, install paths, timestamps, and copy metadata produced
+by installation.
 
 Rules:
 
 - `commit` is the resolved commit that was installed.
+- `contentHash` is the `sha256:` hash of the installed skill directory content
+  after a successful copy.
+- `contentHash` is content-only; file modes and other filesystem metadata drift
+  are not protected by this field.
+- Lock entries without `contentHash` are treated as stale by `sync` and
+  refreshed before they can be skipped.
 - `installedAt` is generated install metadata and only belongs in the lock file.
 - Normal `sync` refreshes refs and writes newly resolved commits.
 - `sync --locked` reuses exact lock commits.
@@ -404,13 +411,22 @@ Project scope uses:
 
 1. Read and validate `skills.json`.
 2. Read `skills.lock.json`; if it is missing, use an empty lock in memory.
-3. Expand `skills: "all"` from the requested source target, or from matching
-   lock entries when running `sync --locked`.
+3. Expand `skills: "all"` from the requested source target. When the target
+   commit already matches lock entries, expand from the lock; `sync --locked`
+   always expands from matching lock entries.
 4. Remove lock entries and installed directories for skills no longer declared.
 5. Batch requested skills by `{ source, commit || ref || default ref }`.
-6. Clone or reuse each source target.
-7. Copy each skill directory to the current scope install directory.
-8. Write `skills.lock.json` after successful convergence.
+6. Resolve source target commits before checkout when a pinned full commit or
+   `git ls-remote` can determine the target.
+7. Skip a source target before checkout when every requested skill has a
+   matching lock entry, the resolved target commit matches the locked commit,
+   the lock install path is the canonical skill path, and the installed
+   directory's computed `contentHash` still matches the locked `contentHash`.
+8. After checkout, compare each remaining source skill content hash with the
+   installed skill content hash; skip unchanged skills, install new skills, and
+   update changed skills.
+9. Report skipped, installed, and updated skills in normal `sync` output.
+10. Write `skills.lock.json` after successful convergence.
 
 If clone or installation fails, the command exits non-zero and does not write a
 new successful lock.

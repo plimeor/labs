@@ -8,6 +8,7 @@ import { writeTextFilePreservingFile } from './state-file'
 export namespace Lock {
   export type Entry = {
     commit: string
+    contentHash?: string
     installedAt: string
     installPath: string
     method: 'copy'
@@ -119,11 +120,13 @@ export namespace Lock {
   export function createEntry(
     skill: Manifest.Skill,
     checkout: { headSha: string },
+    contentHash: string,
     installPath: string,
     installedAt: string
   ): Entry {
     return {
       commit: checkout.headSha,
+      contentHash,
       installedAt,
       installPath,
       method: 'copy',
@@ -142,6 +145,7 @@ export namespace Lock {
   function normalizeSkill(input: Record<string, unknown>, name: string): Entry {
     const source = requireText(input.source, `Lock skill ${name} source`)
     const commit = requireText(input.commit, `Lock skill ${name} commit`)
+    const contentHash = optionalText(input.contentHash, 'Optional lock field contentHash')
     const installedAt = requireText(input.installedAt, `Lock skill ${name} installedAt`)
     const installPath = requireText(input.installPath, `Lock skill ${name} installPath`)
     const method = input.method ?? 'copy'
@@ -154,6 +158,7 @@ export namespace Lock {
 
     return omitUndefined({
       commit,
+      contentHash,
       installedAt,
       installPath,
       method,

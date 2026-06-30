@@ -139,6 +139,21 @@ describe('git-kit', () => {
     }
   })
 
+  test('resolveRemoteRef resolves branches tags direct refs and remote HEAD', async () => {
+    const { commit, pullRef, releaseCommit, source, tag } = sharedSource
+
+    expect(await Git.resolveRemoteRef({ ref: 'release', source: `file://${source}` })).toEqual({
+      headSha: releaseCommit,
+      ref: 'release'
+    })
+    expect(await Git.repository(`file://${source}`).resolveRemoteRef(tag)).toEqual({ headSha: commit, ref: tag })
+    expect(await Git.resolveRemoteRef({ ref: pullRef, source: `file://${source}` })).toEqual({
+      headSha: commit,
+      ref: pullRef
+    })
+    expect(await Git.resolveRemoteRef({ source: `file://${source}` })).toEqual({ headSha: commit, ref: 'main' })
+  })
+
   test('collectIgnorePaths returns collected ignore paths', async () => {
     const source = await createEmptyGitWorktree()
     await mkdir(join(source, 'docs'), { recursive: true })

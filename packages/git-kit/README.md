@@ -95,6 +95,27 @@ console.log(checkout.snapshot())
 
 ## Ref Operations
 
+Use `Repository#resolveRemoteRef()` or `resolveRemoteRef()` when a caller only
+needs to know what a remote ref points to and does not need a checkout.
+
+```ts
+const main = await Git.resolveRemoteRef({
+  source: 'plimeor/agent-skills',
+  ref: 'main',
+})
+
+const defaultBranch = await Git.repository('plimeor/agent-skills').resolveRemoteRef()
+console.log(defaultBranch.ref)
+```
+
+Remote ref resolution shells out to `git ls-remote` and does not clone. The
+resolution order is:
+
+- omitted ref or `HEAD` resolves the remote default branch.
+- Branch names resolve against `refs/heads/<name>`.
+- Tag names resolve against `refs/tags/<name>`, preferring peeled tag commits.
+- Other refs resolve against the remote ref namespace.
+
 `Checkout#fetch()` resolves a remote ref without switching the worktree.
 
 ```ts
@@ -170,6 +191,24 @@ type CheckoutRequest = {
 }
 ```
 
+### `resolveRemoteRef(request)`
+
+Resolves a remote ref without cloning and returns a `ResolvedRef`.
+
+```ts
+type RemoteRefRequest = {
+  ref?: string
+  source: string
+}
+
+type ResolvedRef = {
+  headSha: string
+  ref: string
+}
+```
+
+`ref` defaults to remote `HEAD`. Resolution failures reject with an error.
+
 ### `withCheckout(request, callback)`
 
 Creates a checkout, passes it to `callback`, then disposes it in `finally`.
@@ -177,6 +216,18 @@ Creates a checkout, passes it to `callback`, then disposes it in `finally`.
 ### `openWorktree(directory)`
 
 Opens an existing Git worktree and returns a `Checkout`.
+
+### `Repository`
+
+Properties:
+
+- `identity`
+- `source`
+
+Methods:
+
+- `checkout(options?)`
+- `resolveRemoteRef(ref?)`
 
 ### `Checkout`
 

@@ -67,7 +67,7 @@ export async function addCommand(context: AddCommandContext) {
       lock = Lock.setSkill(
         lock,
         skill.name,
-        Lock.createEntry(skill, checkout, result.installPath, new Date().toISOString())
+        Lock.createEntry(skill, checkout, result.contentHash, result.installPath, new Date().toISOString())
       )
     }
 

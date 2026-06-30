@@ -74,6 +74,7 @@ describe('add command', () => {
       skills: {
         demo: {
           commit,
+          contentHash: expect.stringMatching(/^sha256:[a-f0-9]{64}$/),
           installedAt: expect.any(String),
           installPath: join(home, '.agents', 'skills', 'demo'),
           method: 'copy',

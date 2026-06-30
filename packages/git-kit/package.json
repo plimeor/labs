@@ -4,7 +4,7 @@
   "name": "@plimeor/git-kit",
   "type": "module",
   "types": "./src/index.ts",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "bugs": {
     "url": "https://github.com/plimeor/labs/issues"
   },
