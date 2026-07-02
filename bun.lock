@@ -52,14 +52,14 @@
     },
     "packages/harness": {
       "name": "@plimeor/harness",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "dependencies": {
         "@standard-schema/spec": "^1.1.0",
       },
     },
     "packages/pulse": {
       "name": "@plimeor/pulse",
-      "version": "0.2.1",
+      "version": "0.2.2",
       "bin": {
         "pulse": "./src/cli.ts",
       },

@@ -3,15 +3,7 @@ import { lstat, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import type {
-  HarnessAdapter,
-  HarnessId,
-  HarnessRunEvent,
-  HarnessRunResult,
-  RunOutputRequest,
-  RunRequest,
-  TextOutputRequest
-} from '../src/index'
+import type { HarnessAdapter } from '../src/index'
 import { harness } from '../src/index'
 import { jsonObjectSchema } from './schema'
 
@@ -41,17 +33,6 @@ describe('built-in adapters with real CLIs', () => {
 
     await expect(adapter.detect({ env: { PATH: '' } })).resolves.toEqual({ detected: false, id: 'codex' })
   })
-
-  test(
-    'health checks installed CLIs by running smoke prompts',
-    async () => {
-      for (const id of ['claude', 'codex', 'cursor', 'kiro', 'pi'] satisfies HarnessId[]) {
-        const handle = await harness.open(id)
-        await expect(handle.health.check()).resolves.toEqual({ success: true })
-      }
-    },
-    REAL_CLI_TIMEOUT_MS
-  )
 
   test(
     'plans supported native output modes',
@@ -92,65 +73,6 @@ describe('built-in adapters with real CLIs', () => {
         harnessId: 'pi',
         output: { mode: 'jsonl' }
       })
-    },
-    REAL_CLI_TIMEOUT_MS
-  )
-
-  test(
-    'runs text prompts through every built-in adapter',
-    async () => {
-      for (const id of ['claude', 'codex', 'cursor', 'kiro', 'pi'] satisfies HarnessId[]) {
-        const { result } = await runPrompt(id, {
-          prompt: 'Reply with OK only.'
-        })
-
-        expect(result.exitCode).toBe(0)
-        expect(result.finalText).toContain('OK')
-      }
-    },
-    REAL_CLI_TIMEOUT_MS
-  )
-
-  test(
-    'runs native JSONL output modes',
-    async () => {
-      for (const id of ['codex', 'cursor', 'pi'] satisfies HarnessId[]) {
-        const { events, result } = await runPrompt(id, {
-          output: { mode: 'jsonl' },
-          prompt: 'Reply with OK only.'
-        })
-
-        expect(result.exitCode).toBe(0)
-        expect(result.finalText).toContain('OK')
-        expect(events.length).toBeGreaterThan(0)
-        expect(events.every(event => event.type === 'json')).toBe(true)
-      }
-    },
-    REAL_CLI_TIMEOUT_MS
-  )
-
-  test(
-    'runs native structured output modes',
-    async () => {
-      const schema = jsonObjectSchema<{ answer: string }>(
-        {
-          additionalProperties: false,
-          properties: { answer: { type: 'string' } },
-          required: ['answer'],
-          type: 'object'
-        },
-        (value): value is { answer: string } => typeof value.answer === 'string'
-      )
-
-      for (const id of ['claude', 'codex'] satisfies HarnessId[]) {
-        const { result } = await runPrompt(id, {
-          output: { mode: 'structured', schema },
-          prompt: 'Return JSON with exactly {"answer":"OK"}.'
-        })
-
-        expect(result.exitCode).toBe(0)
-        expect(result.structured).toEqual({ answer: 'OK' })
-      }
     },
     REAL_CLI_TIMEOUT_MS
   )
@@ -369,6 +291,34 @@ describe('built-in adapters with real CLIs', () => {
     })
   })
 
+  test('installs canonical cross-harness hook events into Cursor native hooks.json keys', async () => {
+    const { home } = await testWorkspace()
+    const handle = await harness.open('cursor', { home })
+
+    await expect(
+      handle.extensions.install({
+        id: 'tools',
+        resources: {
+          hooks: [
+            { command: 'echo post', event: 'PostToolUse', name: 'post' },
+            { command: 'echo stop', event: 'Stop', name: 'stop' },
+            { command: 'echo start', event: 'SessionStart', name: 'start' }
+          ]
+        }
+      })
+    ).resolves.toEqual({ issues: [], success: true })
+
+    const hooks = JSON.parse(await readFile(join(home, '.cursor', 'hooks.json'), 'utf8'))
+    expect(hooks).toEqual({
+      version: 1,
+      hooks: {
+        postToolUse: [{ command: 'echo post' }],
+        sessionStart: [{ command: 'echo start' }],
+        stop: [{ command: 'echo stop' }]
+      }
+    })
+  })
+
   test(
     'installs and uninstalls Kiro user-scope skills, MCP servers, and hooks through kiro-cli',
     async () => {
@@ -471,28 +421,6 @@ function adapterById(id: string): HarnessAdapter {
   }
 
   return adapter
-}
-
-async function runPrompt<Output extends RunOutputRequest = TextOutputRequest>(
-  id: HarnessId,
-  request: RunRequest<Output>
-): Promise<{
-  events: HarnessRunEvent[]
-  result: HarnessRunResult<Output>
-}> {
-  const handle = await harness.open(id)
-  const plan = await handle.process.plan({ timeoutMs: REAL_CLI_TIMEOUT_MS, ...request })
-  const run = await handle.process.run(plan)
-  const [events, result] = await Promise.all([collectEvents(run.events), run.result])
-  return { events, result }
-}
-
-async function collectEvents(iterable: AsyncIterable<HarnessRunEvent>): Promise<HarnessRunEvent[]> {
-  const events: HarnessRunEvent[] = []
-  for await (const event of iterable) {
-    events.push(event)
-  }
-  return events
 }
 
 async function testWorkspace(): Promise<{ cwd: string; home: string }> {

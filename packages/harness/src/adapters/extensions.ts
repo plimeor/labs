@@ -709,8 +709,85 @@ const cursorHookFormat: JsonHookFormat = {
   }
 }
 
-export function createCursorHooksDriver(settingsFile: string, events: readonly string[]): HookExtensionDriver {
-  return createJsonHooksDriver(settingsFile, events, cursorHookFormat)
+/** Cross-harness canonical hook events mapped to Cursor's native hooks.json keys. */
+const CURSOR_HOOK_CANONICAL_ALIASES = {
+  PostToolUse: 'postToolUse',
+  PostToolUseFailure: 'postToolUseFailure',
+  PreCompact: 'preCompact',
+  PreToolUse: 'preToolUse',
+  SessionEnd: 'sessionEnd',
+  SessionStart: 'sessionStart',
+  Stop: 'stop',
+  SubagentStart: 'subagentStart',
+  SubagentStop: 'subagentStop',
+  UserPromptSubmit: 'beforeSubmitPrompt'
+} as const satisfies Record<string, string>
+
+/** Cursor-only hook events with no shared canonical alias across other harnesses. */
+const CURSOR_NATIVE_ONLY_HOOK_EVENTS = [
+  'afterAgentResponse',
+  'afterAgentThought',
+  'afterFileEdit',
+  'afterMCPExecution',
+  'afterShellExecution',
+  'afterTabFileEdit',
+  'beforeMCPExecution',
+  'beforeReadFile',
+  'beforeShellExecution',
+  'beforeTabFileRead'
+] as const
+
+const CURSOR_NATIVE_HOOK_EVENTS = [
+  ...Object.values(CURSOR_HOOK_CANONICAL_ALIASES),
+  ...CURSOR_NATIVE_ONLY_HOOK_EVENTS
+] as const
+
+const CURSOR_EXTENSION_HOOK_EVENTS = [
+  ...Object.keys(CURSOR_HOOK_CANONICAL_ALIASES),
+  ...CURSOR_NATIVE_ONLY_HOOK_EVENTS,
+  ...Object.values(CURSOR_HOOK_CANONICAL_ALIASES)
+] as const
+
+function resolveCursorHookEvent(event: string): string | undefined {
+  if (event in CURSOR_HOOK_CANONICAL_ALIASES) {
+    return CURSOR_HOOK_CANONICAL_ALIASES[event as keyof typeof CURSOR_HOOK_CANONICAL_ALIASES]
+  }
+
+  if ((CURSOR_NATIVE_HOOK_EVENTS as readonly string[]).includes(event)) {
+    return event
+  }
+
+  return undefined
+}
+
+function translateCursorHooks(hooks: HookResource[]): HookResource[] {
+  return hooks.flatMap(hook => {
+    const nativeEvent = resolveCursorHookEvent(hook.event)
+    return nativeEvent ? [{ ...hook, event: nativeEvent }] : []
+  })
+}
+
+export function createCursorHooksDriver(settingsFile: string): HookExtensionDriver {
+  const inner = createJsonHooksDriver(settingsFile, CURSOR_NATIVE_HOOK_EVENTS, cursorHookFormat)
+
+  return {
+    events: CURSOR_EXTENSION_HOOK_EVENTS,
+    async conflicts(input) {
+      return inner.conflicts({ ...input, hooks: translateCursorHooks(input.hooks) })
+    },
+    currentFingerprint(hook) {
+      return inner.currentFingerprint(hook)
+    },
+    async install(input) {
+      return inner.install({ ...input, hooks: translateCursorHooks(input.hooks) })
+    },
+    async restore(hooks) {
+      return inner.restore(hooks)
+    },
+    async uninstall(hooks) {
+      return inner.uninstall(hooks)
+    }
+  }
 }
 
 export function createJsonHooksDriver(
