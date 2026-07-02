@@ -203,8 +203,13 @@ adapter can still prove belong to the extension.
 | --- | --- | --- | --- |
 | `codex` | `codex` | `text`, `jsonl`, `structured` | skills, MCP servers, hooks |
 | `claude` | `claude` | `text`, `jsonl`, `structured` | skills, MCP servers, hooks |
+| `cursor` | `agent` | `text`, `jsonl` | skills, MCP servers, hooks |
 | `kiro` | `kiro-cli` | `text` | skills, MCP servers, hooks |
 | `pi` | `pi` | `text`, `jsonl` | skills |
+
+The `cursor` adapter runs the Cursor CLI headlessly with `--force`, so runs
+execute all tool calls without prompting. Its `jsonl` mode maps to the CLI
+`stream-json` output format.
 
 ## Context
 

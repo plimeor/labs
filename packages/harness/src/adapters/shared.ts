@@ -22,7 +22,7 @@ import type {
 } from '../types'
 
 type BuiltInAdapterConfig = {
-  id: Extract<HarnessId, 'claude' | 'codex' | 'kiro' | 'pi'>
+  id: Extract<HarnessId, 'claude' | 'codex' | 'cursor' | 'kiro' | 'pi'>
   commands: string[]
   identity: RegExp
   identityArgs?: string[]

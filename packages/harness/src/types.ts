@@ -1,6 +1,6 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 
-export type HarnessId = 'claude' | 'codex' | 'kiro' | 'pi' | (string & {})
+export type HarnessId = 'claude' | 'codex' | 'cursor' | 'kiro' | 'pi' | (string & {})
 
 export type HarnessContext = {
   /** Default working directory for adapter operations; relative extension paths resolve from here. */

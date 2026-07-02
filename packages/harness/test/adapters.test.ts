@@ -19,7 +19,7 @@ const REAL_CLI_TIMEOUT_MS = 90_000
 
 describe('built-in adapters with real CLIs', () => {
   test('self-register on package import', () => {
-    expect(harness.list().map(adapter => adapter.id)).toEqual(['claude', 'codex', 'kiro', 'pi'])
+    expect(harness.list().map(adapter => adapter.id)).toEqual(['claude', 'codex', 'cursor', 'kiro', 'pi'])
   })
 
   test(
@@ -28,6 +28,7 @@ describe('built-in adapters with real CLIs', () => {
       await expect(harness.detectAll()).resolves.toEqual([
         expect.objectContaining({ detected: true, id: 'claude' }),
         expect.objectContaining({ detected: true, id: 'codex' }),
+        expect.objectContaining({ detected: true, id: 'cursor' }),
         expect.objectContaining({ detected: true, id: 'kiro' }),
         expect.objectContaining({ detected: true, id: 'pi' })
       ])
@@ -44,7 +45,7 @@ describe('built-in adapters with real CLIs', () => {
   test(
     'health checks installed CLIs by running smoke prompts',
     async () => {
-      for (const id of ['claude', 'codex', 'kiro', 'pi'] satisfies HarnessId[]) {
+      for (const id of ['claude', 'codex', 'cursor', 'kiro', 'pi'] satisfies HarnessId[]) {
         const handle = await harness.open(id)
         await expect(handle.health.check()).resolves.toEqual({ success: true })
       }
@@ -67,6 +68,18 @@ describe('built-in adapters with real CLIs', () => {
         output: { mode: 'jsonl' }
       })
 
+      const cursor = await harness.open('cursor', { cwd: '/tmp' })
+      await expect(
+        cursor.process.plan({
+          output: { mode: 'jsonl' },
+          prompt: 'summarize'
+        })
+      ).resolves.toMatchObject({
+        args: ['-p', '--force', '--output-format', 'stream-json', 'summarize'],
+        harnessId: 'cursor',
+        output: { mode: 'jsonl' }
+      })
+
       const pi = await harness.open('pi')
       await expect(
         pi.process.plan({
@@ -86,7 +99,7 @@ describe('built-in adapters with real CLIs', () => {
   test(
     'runs text prompts through every built-in adapter',
     async () => {
-      for (const id of ['claude', 'codex', 'kiro', 'pi'] satisfies HarnessId[]) {
+      for (const id of ['claude', 'codex', 'cursor', 'kiro', 'pi'] satisfies HarnessId[]) {
         const { result } = await runPrompt(id, {
           prompt: 'Reply with OK only.'
         })
@@ -101,7 +114,7 @@ describe('built-in adapters with real CLIs', () => {
   test(
     'runs native JSONL output modes',
     async () => {
-      for (const id of ['codex', 'pi'] satisfies HarnessId[]) {
+      for (const id of ['codex', 'cursor', 'pi'] satisfies HarnessId[]) {
         const { events, result } = await runPrompt(id, {
           output: { mode: 'jsonl' },
           prompt: 'Reply with OK only.'
@@ -177,6 +190,17 @@ describe('built-in adapters with real CLIs', () => {
         message: expect.stringContaining(
           'put the required JSON shape, field names, constraints, and validation rules directly in the prompt'
         )
+      })
+
+      const cursor = await harness.open('cursor')
+      await expect(
+        cursor.process.plan({
+          output: { mode: 'structured', schema },
+          prompt: 'summarize'
+        })
+      ).rejects.toMatchObject({
+        harnessId: 'cursor',
+        kind: 'unsupported_output_mode'
       })
     },
     REAL_CLI_TIMEOUT_MS
@@ -288,6 +312,61 @@ describe('built-in adapters with real CLIs', () => {
     const settingsAfterUninstall = JSON.parse(await readFile(join(home, '.claude', 'settings.json'), 'utf8'))
     expect(mcpAfterUninstall.mcpServers.docs).toBeUndefined()
     expect(settingsAfterUninstall.hooks.ConfigChange).toEqual([])
+  })
+
+  test('installs and uninstalls Cursor user-scope skills, MCP servers, and hooks', async () => {
+    const { cwd, home } = await testWorkspace()
+    await writeFile(join(cwd, 'review.md'), '# Review\n')
+    const handle = await harness.open('cursor', { cwd, home })
+
+    await expect(
+      handle.extensions.install({
+        id: 'tools',
+        resources: {
+          hooks: [{ command: 'echo hook', event: 'beforeShellExecution', name: 'shell' }],
+          mcpServers: { docs: { args: ['server.ts'], command: 'bun', env: { DOCS_ROOT: '/tmp/docs' } } },
+          skills: ['./review.md']
+        }
+      })
+    ).resolves.toEqual({ issues: [], success: true })
+
+    await expect(lstat(join(home, '.cursor', 'skills', 'tools__0_review', 'SKILL.md'))).resolves.toMatchObject({
+      isSymbolicLink: expect.any(Function)
+    })
+    const mcpConfig = JSON.parse(await readFile(join(home, '.cursor', 'mcp.json'), 'utf8'))
+    expect(mcpConfig.mcpServers.docs).toEqual({
+      args: ['server.ts'],
+      command: 'bun',
+      env: { DOCS_ROOT: '/tmp/docs' }
+    })
+    const hooks = JSON.parse(await readFile(join(home, '.cursor', 'hooks.json'), 'utf8'))
+    expect(hooks).toEqual({
+      hooks: { beforeShellExecution: [{ command: 'echo hook' }] },
+      version: 1
+    })
+
+    await expect(handle.extensions.uninstall('tools')).resolves.toEqual({ issues: [], success: true })
+    await expect(lstat(join(home, '.cursor', 'skills', 'tools__0_review'))).rejects.toThrow()
+    const mcpAfterUninstall = JSON.parse(await readFile(join(home, '.cursor', 'mcp.json'), 'utf8'))
+    const hooksAfterUninstall = JSON.parse(await readFile(join(home, '.cursor', 'hooks.json'), 'utf8'))
+    expect(mcpAfterUninstall.mcpServers.docs).toBeUndefined()
+    expect(hooksAfterUninstall.hooks.beforeShellExecution).toEqual([])
+  })
+
+  test('rejects unsupported Cursor hook events during extension checks', async () => {
+    const cursor = await harness.open('cursor')
+
+    await expect(
+      cursor.extensions.check({
+        id: 'tools',
+        resources: {
+          hooks: [{ command: 'echo hook', event: 'NotACursorEvent', name: 'bad' }]
+        }
+      })
+    ).resolves.toMatchObject({
+      compatible: false,
+      issues: [expect.objectContaining({ resourceKind: 'hooks', resourceName: 'bad' })]
+    })
   })
 
   test(

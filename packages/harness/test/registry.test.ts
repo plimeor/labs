@@ -8,10 +8,11 @@ describe('registry', () => {
   test(
     'registers, lists, detects, and opens adapters deterministically',
     async () => {
-      expect(harness.list().map(adapter => adapter.id)).toEqual(['claude', 'codex', 'kiro', 'pi'])
+      expect(harness.list().map(adapter => adapter.id)).toEqual(['claude', 'codex', 'cursor', 'kiro', 'pi'])
       await expect(harness.detectAll()).resolves.toEqual([
         expect.objectContaining({ detected: true, id: 'claude' }),
         expect.objectContaining({ detected: true, id: 'codex' }),
+        expect.objectContaining({ detected: true, id: 'cursor' }),
         expect.objectContaining({ detected: true, id: 'kiro' }),
         expect.objectContaining({ detected: true, id: 'pi' })
       ])

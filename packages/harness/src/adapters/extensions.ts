@@ -154,7 +154,10 @@ function extensionResult(issues: ExtensionIssue[]): ExtensionResult {
   }
 }
 
-export function configDirectory(home: string | undefined, name: '.claude' | '.codex' | '.kiro' | '.pi/agent'): string {
+export function configDirectory(
+  home: string | undefined,
+  name: '.claude' | '.codex' | '.cursor' | '.kiro' | '.pi/agent'
+): string {
   return join(home ?? process.env.HOME ?? process.cwd(), name)
 }
 
@@ -679,7 +682,42 @@ export function createJsonMcpDriver(configFile: string): McpExtensionDriver {
   }
 }
 
-export function createJsonHooksDriver(settingsFile: string, events: readonly string[]): HookExtensionDriver {
+type JsonHookFormat = {
+  /** Builds the native hook entry stored in the event array for a command. */
+  makeEntry(command: string): JsonObject
+  /** Extracts command strings from a stored native hook entry. */
+  entryCommands(entry: unknown): string[]
+  /** Applies format-specific top-level settings scaffolding before writes. */
+  prepareSettings?(settings: JsonObject): void
+}
+
+const commandTypeHookFormat: JsonHookFormat = {
+  entryCommands: entry => jsonHookCommands(entry),
+  makeEntry: command => ({ hooks: [{ command, type: 'command' }] })
+}
+
+const cursorHookFormat: JsonHookFormat = {
+  entryCommands(entry) {
+    const record = objectValue(entry)
+    return typeof record?.command === 'string' ? [record.command] : []
+  },
+  makeEntry: command => ({ command }),
+  prepareSettings(settings) {
+    if (settings.version === undefined) {
+      settings.version = 1
+    }
+  }
+}
+
+export function createCursorHooksDriver(settingsFile: string, events: readonly string[]): HookExtensionDriver {
+  return createJsonHooksDriver(settingsFile, events, cursorHookFormat)
+}
+
+export function createJsonHooksDriver(
+  settingsFile: string,
+  events: readonly string[],
+  format: JsonHookFormat = commandTypeHookFormat
+): HookExtensionDriver {
   async function currentFingerprint(hook: InstalledHook): Promise<string | undefined> {
     const settings = await readJsonFile(settingsFile)
     const hooks = objectValue(settings.hooks)
@@ -690,7 +728,7 @@ export function createJsonHooksDriver(settingsFile: string, events: readonly str
       return hook.fingerprint
     }
 
-    if (exactMatches.length > 1 || entries.some(entry => jsonHookCommands(entry).includes(hook.command))) {
+    if (exactMatches.length > 1 || entries.some(entry => format.entryCommands(entry).includes(hook.command))) {
       return `${hook.fingerprint}:mismatch`
     }
 
@@ -704,7 +742,7 @@ export function createJsonHooksDriver(settingsFile: string, events: readonly str
       const issues: ExtensionIssue[] = []
 
       for (const hook of hooks) {
-        if (jsonHookCommandExists(settings, hook)) {
+        if (eventEntries(settings, hook.event).some(entry => format.entryCommands(entry).includes(hook.command))) {
           issues.push({
             kind: 'conflict',
             reason: `Hook command already exists for ${hook.event} in ${settingsFile}.`,
@@ -719,14 +757,13 @@ export function createJsonHooksDriver(settingsFile: string, events: readonly str
     currentFingerprint,
     async install({ hooks }) {
       const settings = await readJsonFile(settingsFile)
+      format.prepareSettings?.(settings)
       const nativeHooks = ensureObject(settings, 'hooks')
       const installed: InstalledHook[] = []
 
       for (const hook of hooks) {
         const eventHooks = ensureArray(nativeHooks, hook.event)
-        const entry = {
-          hooks: [{ command: hook.command, type: 'command' }]
-        }
+        const entry = format.makeEntry(hook.command)
         eventHooks.push(entry)
         installed.push({
           command: hook.command,
@@ -741,6 +778,7 @@ export function createJsonHooksDriver(settingsFile: string, events: readonly str
     },
     async restore(hooks: InstalledHook[]) {
       const settings = await readJsonFile(settingsFile)
+      format.prepareSettings?.(settings)
       const nativeHooks = ensureObject(settings, 'hooks')
 
       for (const hook of hooks) {
@@ -748,9 +786,7 @@ export function createJsonHooksDriver(settingsFile: string, events: readonly str
           continue
         }
 
-        ensureArray(nativeHooks, hook.event).push({
-          hooks: [{ command: hook.command, type: 'command' }]
-        })
+        ensureArray(nativeHooks, hook.event).push(format.makeEntry(hook.command))
       }
 
       await writeJsonFile(settingsFile, settings)
@@ -776,18 +812,17 @@ export function createJsonHooksDriver(settingsFile: string, events: readonly str
   }
 }
 
+function eventEntries(settings: JsonObject, event: string): unknown[] {
+  const hooks = objectValue(settings.hooks)
+  return arrayValue(hooks?.[event]) ?? []
+}
+
 export function mcpServerRecord(server: McpServerResource): McpServerResource {
   return {
     args: server.args ?? [],
     command: server.command,
     ...(server.env ? { env: server.env } : {})
   }
-}
-
-function jsonHookCommandExists(settings: JsonObject, hook: HookResource): boolean {
-  const hooks = objectValue(settings.hooks)
-  const eventHooks = arrayValue(hooks?.[hook.event])
-  return eventHooks?.some(entry => jsonHookCommands(entry).includes(hook.command)) ?? false
 }
 
 function jsonHookCommands(entry: unknown): string[] {

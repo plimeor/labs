@@ -4,7 +4,7 @@
   "name": "@plimeor/harness",
   "type": "module",
   "types": "./src/index.ts",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "bugs": {
     "url": "https://github.com/plimeor/labs/issues"
   },
@@ -16,6 +16,7 @@
     "./adapters": "./src/adapters/index.ts",
     "./adapters/claude": "./src/adapters/claude.ts",
     "./adapters/codex": "./src/adapters/codex.ts",
+    "./adapters/cursor": "./src/adapters/cursor.ts",
     "./adapters/kiro": "./src/adapters/kiro.ts",
     "./adapters/pi": "./src/adapters/pi.ts"
   },

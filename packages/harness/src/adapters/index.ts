@@ -1,9 +1,11 @@
 import './claude'
 import './codex'
+import './cursor'
 import './kiro'
 import './pi'
 
 export { claudeAdapter } from './claude'
 export { codexAdapter } from './codex'
+export { cursorAdapter } from './cursor'
 export { kiroAdapter } from './kiro'
 export { piAdapter } from './pi'
