@@ -89,22 +89,17 @@ package directory.
 apps/            Standalone apps with no suite affiliation
 packages/        Cross-suite reusable local tools and libraries
 suites/<suite>/  Theme-scoped groups of related workspace packages
-agentdocs/       Current collaboration cursor, living requirements, active
-                 plans, and active tasking records
-DECISIONS.xml    Repo-wide durable decision ledger
-packages/*/DECISIONS.xml
-                 Package-owned durable decision ledgers
+AGENTS.md        Durable agent rules; per-package AGENTS.md hold local rules
+.agentdocs/      Ephemeral agent working docs (cursor, plans, tasking) while active
 ```
 
 ## Conventions
 
 - Package README files own public CLI, API, schema, file format, and stable
   behavior docs.
-- Use `agentdocs/cursor.md` as the routing entry for agentic collaboration docs.
-  Living requirements stay in `agentdocs/requirements/`; plans and tasking stay
-  only while active.
-- Durable decisions live in `DECISIONS.xml` at the narrowest owning scope.
-  Package-owned decisions live beside the package that owns the behavior.
+- Durable agent rules live in `AGENTS.md` at the narrowest owning scope;
+  `CLAUDE.md` is a symlink to it. Ephemeral agent working docs live in
+  `.agentdocs/` while active and are deleted once the work ships.
 - Every workspace package extends the root `tsconfig.json`: `apps/*` and
   `packages/*` use `../../tsconfig.json`, while `suites/<suite>/*` uses
   `../../../tsconfig.json`.
